@@ -182,7 +182,7 @@ be tested ahead of time. A version you set by hand always matches.
 
 ## What's on screen
 
-Two tabs at the top.
+Two sections at the top, **Springs** and **Manuals**. Springs has two tabs.
 
 **Match old spring.** Wire by 20-coil length, caliper, or picked from the
 list (with the color code); inside diameter; relaxed length; wind; one spring
@@ -213,14 +213,30 @@ take decimals instead of fractions.
 (AsyncStorage), so closing the app mid-job loses nothing. "Clear all inputs"
 resets a tab.
 
+**Manuals.** A search box (brand, model or series; case, spaces and dashes
+don't matter) and a row of brand buttons. Each row opens the maker's own page
+in the phone's browser: install instructions, owner's manuals, manual search
+pages and troubleshooting. Nothing is copied into the app. Before opening, the
+app checks for a signal; with none it says so and offers Try again or Open
+anyway. Each row shows the day its link was last checked.
+
+The links live in `src/data/manuals.ts`. To add one, open the page in a
+browser to be sure it loads, then add an entry with today's date in
+`checked`. A new maker also goes in `BRANDS` with its own website hosts; the
+tests fail on any link whose host isn't one of its maker's, so a mirror or a
+manual-sharing site can't slip in. A change there is plain JavaScript and
+reaches phones over the air.
+
 **Look.** Near-black on white, bold type at 18 px and up, every button at
 least 56 px tall for gloves. The app is portrait and light mode only.
 
 ## Code
 
-- `App.tsx`: header and the two tabs. Both tabs stay mounted, so switching
-  keeps each one's inputs.
-- `src/screens/`: `MatchScreen.tsx`, `DoorScreen.tsx`.
+- `App.tsx`: header, the Springs/Manuals sections and the two spring tabs.
+  Every screen stays mounted, so switching keeps its inputs.
+- `src/screens/`: `MatchScreen.tsx`, `DoorScreen.tsx`, `ManualsScreen.tsx`.
+- `src/data/manuals.ts`: the makers and their manual links.
+- `src/lib/manualSearch.ts`: search, ranking and the signal check.
 - `src/components/`: `Keypad.tsx` (fraction keypad), `controls.tsx` (choice
   buttons, measurement fields), `results.tsx` (safety banner, warnings,
   spring cards).
