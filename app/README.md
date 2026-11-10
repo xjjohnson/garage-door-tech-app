@@ -41,6 +41,11 @@ the repo's Actions tab.
 3. The first time, Android asks to allow installs from your browser or the
    GitHub app. Allow it, go back, and tap **Install**.
 
+On a Samsung phone, **Auto Blocker** may stop the install with "Unknown app
+blocked". Turn it off in Settings > Security and privacy > Auto Blocker,
+install the APK, then turn it back on. Updates over the air don't need it
+off; only installing an APK file does.
+
 A newer APK installs over the old one and keeps the saved inputs, because
 each build has a higher version code and the same signing key. That key is
 the app's own private key (see "Signing key" below), so nobody else can build

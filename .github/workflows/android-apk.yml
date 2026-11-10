@@ -225,6 +225,8 @@ jobs:
             --title "Latest APK (build ${{ github.run_number }})" \
             --notes "Built from ${{ github.sha }}. Install on Android: open spring-calc.apk on the phone and allow installs from this source when asked.
 
+          Samsung phones: if Auto Blocker says \"Unknown app blocked\", turn it off in Settings > Security and privacy > Auto Blocker, install, then turn it back on.
+
           Signing certificate SHA-256: ${CERT_SHA256}
 
           From version 0.2.0 on, the APK is signed with the app's own key. A phone that still has the 0.1.0 APK must uninstall it once first; Android won't install this one over it (\"App not installed\"). Inputs saved in the old app are lost with it."
