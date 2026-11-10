@@ -2,7 +2,7 @@
   "expo": {
     "name": "Spring Calc",
     "slug": "tech-app",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -38,6 +38,9 @@
       "eas": {
         "projectId": "2b70a853-c332-49ea-8fde-4678952d9d87"
       }
-    }
+    },
+    "plugins": [
+      "./plugins/withReleaseSigning"
+    ]
   }
 }
