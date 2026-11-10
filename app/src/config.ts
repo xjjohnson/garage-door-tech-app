@@ -4,7 +4,8 @@
  *
  *   { "version": "0.2.0", "apkUrl": "https://.../spring-calc.apk" }
  *
- * Leave this empty to turn the check off. It can be changed later with an
- * over-the-air update, since it's plain JavaScript.
+ * This is the public Latest APK release, which the workflow replaces on every
+ * push to main. Set it to '' to turn the check off. It can be changed later
+ * with an over-the-air update, since it's plain JavaScript.
  */
-export const APK_MANIFEST_URL = '';
+export const APK_MANIFEST_URL = 'https://github.com/xjjohnson/garage-door-tech-app/releases/download/latest-apk/version.json';
