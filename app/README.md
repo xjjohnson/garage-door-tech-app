@@ -43,14 +43,87 @@ the repo's Actions tab.
 
 A newer APK installs over the old one and keeps the saved inputs, because
 each build has a higher version code and the same signing key. That key is
-Expo's standard debug key: fine for your own phones, not for the Play Store,
-which needs a private key of your own.
+the app's own private key (see "Signing key" below), so nobody else can build
+an APK that installs over this one.
 
 Every run (pull requests too) also keeps the APK for 30 days under the run's
 **Artifacts** on the Actions tab, as a zip.
 
 Android only. An iPhone install outside Expo Go needs an Apple developer
 account and a build through Xcode or EAS.
+
+## Signing key
+
+Android only lets a new APK install over an installed app when both are
+signed with the same key. Until version 0.2.0 the APK was signed with Expo's
+public debug key, which anyone can download, so anyone could have built an
+APK that installs over this app. From 0.2.0 on, release APKs are signed with
+a private key that lives only in this repo's GitHub secrets and in your own
+offline backup.
+
+**How it's wired.** `plugins/withReleaseSigning.js` is an Expo config plugin.
+On every build, `expo prebuild` regenerates `android/`, and the plugin makes
+the release build type use a key read from environment variables
+(`ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+optional `ANDROID_KEY_PASSWORD`). The workflow unpacks the keystore from the
+secrets into the runner's temp folder, builds, checks with `apksigner` that
+the APK has one signer and that it isn't the debug key, then deletes the
+keystore. The certificate's SHA-256 is printed on the run's summary page and
+in the Latest APK release notes. Without the secrets the Build APK job stops
+with an error; it never falls back to the debug key.
+
+**The secrets.**
+
+| Name | Kind | What |
+|---|---|---|
+| `ANDROID_KEYSTORE_BASE64` | secret | the keystore file, base64 on one line |
+| `ANDROID_KEYSTORE_PASSWORD` | secret | the keystore's password |
+| `ANDROID_KEY_PASSWORD` | secret, optional | only for a JKS keystore with a separate key password |
+| `ANDROID_KEY_ALIAS` | variable, optional | the key's alias, if not `garagedoortech` |
+| `ANDROID_SIGNING_CERT_SHA256` | variable, optional | pins the certificate; a build with any other key fails |
+
+**Making the keystore.** Do this on your own computer, never on a shared one.
+It needs `keytool`, which comes with any Java JDK, or Docker:
+
+```bash
+keytool -genkeypair -v -storetype PKCS12 \
+  -keystore garagedoortech-release.p12 -alias garagedoortech \
+  -keyalg RSA -keysize 4096 -validity 10000 \
+  -dname "CN=Garage Door Tech App"
+```
+
+With Docker instead of a local JDK:
+
+```bash
+docker run --rm -it -v "$PWD":/work -w /work eclipse-temurin:17-jdk \
+  keytool -genkeypair -v -storetype PKCS12 \
+  -keystore garagedoortech-release.p12 -alias garagedoortech \
+  -keyalg RSA -keysize 4096 -validity 10000 \
+  -dname "CN=Garage Door Tech App"
+```
+
+keytool asks for the password twice. Anything in `-dname` is readable by
+anyone who has the APK, so keep it to the app's name. Then turn the file into
+one line of text for the secret:
+
+```bash
+base64 -w0 garagedoortech-release.p12 > garagedoortech-release.p12.b64
+```
+
+(On a Mac: `base64 -i garagedoortech-release.p12 -o garagedoortech-release.p12.b64`.)
+
+**Keep a backup.** If the keystore or its password is lost, no APK can ever
+be installed over the current one again; every phone would have to uninstall
+and reinstall, losing its saved inputs. Keep the `.p12` file and the password
+in two places you control (a password manager plus an offline copy), not in
+this repo and not in a chat.
+
+**Changing keys means one reinstall.** Android refuses to install an APK
+signed with a different key over an installed app ("App not installed"). So
+going from the 0.1.0 APK (debug key) to 0.2.0 (own key) needs an uninstall of
+the old app first, once per phone, and the inputs saved in it are lost. The
+in-app banner on 0.1.0 still offers 0.2.0; its Install step fails until the
+old app is uninstalled. Later APKs install over 0.2.0 as usual.
 
 ## Over-the-air updates (EAS Update)
 

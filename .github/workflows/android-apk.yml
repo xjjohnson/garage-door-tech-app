@@ -10,9 +10,13 @@
 # The APK itself is built without EAS: the native Android project is generated
 # on the runner with `expo prebuild` and built with Gradle. Pushes to main also
 # publish an over-the-air update with EAS Update (job "ota"), which reaches
-# phones that already have an APK with the same runtime version. The APK is signed
-# with the standard debug key from Expo's template, which is fine for
-# installing on your own phones but not for the Play Store.
+# phones that already have an APK with the same runtime version.
+#
+# The APK is signed with the app's own private key, never Expo's public debug
+# key. The key comes from two repo secrets, ANDROID_KEYSTORE_BASE64 and
+# ANDROID_KEYSTORE_PASSWORD (see app/README.md, "Signing key"). Without them
+# the Build APK job stops with an error. Pull requests from forks never get
+# secrets, so they stop there too; the Tests job still runs for them.
 name: Android APK
 
 on:
@@ -77,7 +81,24 @@ jobs:
       CI: 1
       # Each run gets a higher version code, so a new APK installs over the old one.
       ANDROID_VERSION_CODE: ${{ github.run_number }}
+      # The key's name inside the keystore. Not a secret. Override it with a
+      # repo variable of the same name if your keystore uses another alias.
+      ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS || 'garagedoortech' }}
     steps:
+      # Checked first, so a missing key fails in seconds, not after the build.
+      - name: Check the signing key secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$KEYSTORE_BASE64" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -n "$KEYSTORE_PASSWORD" ] || missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error title=Signing key missing::Repo secret(s)$missing not set, so the APK can't be signed with the app's own key. The build stops instead of using the public debug key. Add them under Settings > Secrets and variables > Actions (app/README.md, 'Signing key'), then re-run this job."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -102,11 +123,67 @@ jobs:
         working-directory: app
         run: npx expo prebuild --platform android --no-install --clean
 
+      # The keystore is written outside the repo, readable only by the runner
+      # user, and deleted at the end of the job. keytool opens it once here so
+      # a wrong password or alias fails with a clear message, not deep in Gradle.
+      - name: Unpack the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          umask 077
+          keystore="$RUNNER_TEMP/release-key.p12"
+          if ! printf '%s' "$KEYSTORE_BASE64" | base64 --decode --ignore-garbage > "$keystore" || [ ! -s "$keystore" ]; then
+            echo "::error title=Signing key unreadable::ANDROID_KEYSTORE_BASE64 isn't valid base64 of the keystore file. Re-encode it with: base64 -w0 garagedoortech-release.p12"
+            exit 1
+          fi
+          if ! keytool -list -keystore "$keystore" -storepass:env ANDROID_KEYSTORE_PASSWORD -alias "$ANDROID_KEY_ALIAS" > /dev/null; then
+            echo "::error title=Signing key rejected::keytool couldn't open the key '$ANDROID_KEY_ALIAS' with ANDROID_KEYSTORE_PASSWORD. Check the password secret, and that the alias matches the one used with keytool -genkeypair."
+            exit 1
+          fi
+          echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+
       # Real phones only (ARM), which roughly halves the build time compared
-      # with also building the x86 emulator code.
+      # with also building the x86 emulator code. Signing is set up by
+      # app/plugins/withReleaseSigning.js, which reads these variables.
       - name: Build the release APK
         working-directory: app/android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+
+      # Proof the APK carries the app's key: one signer, and not the debug key.
+      # If the repo variable ANDROID_SIGNING_CERT_SHA256 is set, the key must
+      # also match it, which catches a replaced keystore before phones do.
+      - name: Check the APK's signature
+        id: signature
+        env:
+          EXPECTED_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+        run: |
+          apk=app/android/app/build/outputs/apk/release/app-release.apk
+          tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
+          "${tools}apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
+          cat "$RUNNER_TEMP/certs.txt"
+          norm() { tr -d ': ' | tr 'A-F' 'a-f'; }
+          signers=$(grep -c 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" || true)
+          signed=$(grep -m1 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | norm || true)
+          debug=$(keytool -list -v -keystore app/android/app/debug.keystore -storepass android -alias androiddebugkey | grep 'SHA256:' | awk '{print $NF}' | norm || true)
+          if [ "$signers" != "1" ] || [ -z "$signed" ]; then
+            echo "::error title=APK signature::Expected exactly one signer, found $signers."; exit 1
+          fi
+          if [ "$signed" = "$debug" ]; then
+            echo "::error title=APK signature::The APK is signed with the public debug key. Refusing to publish it."; exit 1
+          fi
+          if [ -n "$EXPECTED_SHA256" ] && [ "$signed" != "$(printf '%s' "$EXPECTED_SHA256" | norm)" ]; then
+            echo "::error title=APK signature::The APK's key ($signed) isn't the one in ANDROID_SIGNING_CERT_SHA256. Phones with the app couldn't install this APK over it."; exit 1
+          fi
+          echo "sha256=$signed" >> "$GITHUB_OUTPUT"
+          echo "Signed with the app's own key. Certificate SHA-256: \`$signed\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete the signing key from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release-key.p12"
 
       - name: Name the APK
         run: cp app/android/app/build/outputs/apk/release/app-release.apk "spring-calc-${{ github.run_number }}.apk"
@@ -139,13 +216,18 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          CERT_SHA256: ${{ steps.signature.outputs.sha256 }}
         run: |
           gh release delete latest-apk --yes --cleanup-tag || true
           gh release create latest-apk "spring-calc-${{ github.run_number }}.apk" spring-calc.apk version.json \
             --target "${{ github.sha }}" \
             --prerelease \
             --title "Latest APK (build ${{ github.run_number }})" \
-            --notes "Built from ${{ github.sha }}. Install on Android: open spring-calc.apk on the phone and allow installs from this source when asked."
+            --notes "Built from ${{ github.sha }}. Install on Android: open spring-calc.apk on the phone and allow installs from this source when asked.
+
+          Signing certificate SHA-256: ${CERT_SHA256}
+
+          From version 0.2.0 on, the APK is signed with the app's own key. A phone that still has the 0.1.0 APK must uninstall it once first; Android won't install this one over it (\"App not installed\"). Inputs saved in the old app are lost with it."
 
   ota:
     name: Publish OTA update
