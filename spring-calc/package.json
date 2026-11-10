@@ -1,0 +1,15 @@
+{
+  "name": "spring-calc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Torsion spring math for the garage door tech app",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
