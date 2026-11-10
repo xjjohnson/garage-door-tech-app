@@ -26,9 +26,70 @@ that blocks devices from seeing each other), stop it with Ctrl+C and run
 tunnel helper; say yes.
 
 Offline: in Expo Go the app's code is loaded from your computer when it opens.
-Once it's open, every calculation runs on the phone with no signal. An
-install that works with no computer at all needs a real build (EAS Build,
-which needs a free Expo account); that hasn't been set up.
+Once it's open, every calculation runs on the phone with no signal. For an
+install that needs no computer at all, use the APK below.
+
+## Install the APK (Android, no computer needed)
+
+GitHub builds an APK every time a change lands on main (workflow
+`.github/workflows/android-apk.yml`). A build takes a while; the run shows on
+the repo's Actions tab.
+
+1. On the phone, open the repo on GitHub (signed in, since the repo is
+   private), go to **Releases** and open **Latest APK**.
+2. Tap the `spring-calc-<build>.apk` file to download it, then open it.
+3. The first time, Android asks to allow installs from your browser or the
+   GitHub app. Allow it, go back, and tap **Install**.
+
+A newer APK installs over the old one and keeps the saved inputs, because
+each build has a higher version code and the same signing key. That key is
+Expo's standard debug key: fine for your own phones, not for the Play Store,
+which needs a private key of your own.
+
+Every run (pull requests too) also keeps the APK for 30 days under the run's
+**Artifacts** on the Actions tab, as a zip.
+
+Android only. An iPhone install outside Expo Go needs an Apple developer
+account and a build through Xcode or EAS.
+
+## Over-the-air updates (plan, not set up yet)
+
+Over-the-air (OTA) updates let a phone that already has the app pick up new
+screens and math without installing a new APK. The app checks for an update
+when it opens, downloads it in the background, and switches to it the next
+time it opens. If the update server can't be reached, nothing breaks: the
+app keeps running the version it has, offline.
+
+**What OTA can and can't carry.** It replaces the JavaScript and assets, which
+is everything in this app so far: the screens, the spring math and the wire
+and drum tables. Anything native still needs a new APK: a new library with
+native code, an Expo SDK upgrade, or a change to native settings in
+`app.json` (icon, package name, permissions). The update system tracks this
+with a "runtime version": each update only goes to APKs with the same native
+code, so a phone never gets an update it can't run.
+
+**Why it isn't in this APK.** The address the app checks for updates is
+built into the APK. Until the update host is chosen there's no address to
+build in, so phones need one more APK install after OTA is set up. Every
+change after that can go over the air.
+
+**Two ways to host the updates.**
+
+1. **EAS Update (Expo's hosted service).** It works with APKs built this way,
+   without EAS Build. It needs a free Expo account (yours to create), an
+   access token stored as a GitHub secret, and one workflow step that runs
+   `eas update` on each push to main. The free plan includes updates up to
+   a monthly limit; check current limits at expo.dev/pricing. Least upkeep.
+2. **Self-hosted on your Proxmox box behind the Cloudflare tunnel.** Expo
+   publishes the protocol (Expo Updates v1) and an example server. No third
+   party, but you'd run and update that server, and the updates should be
+   code-signed so a phone only accepts ones you published.
+
+**Steps once the host is picked:** add the `expo-updates` library, set
+`runtimeVersion` to the `fingerprint` policy (it changes whenever native code
+changes, so incompatible updates can't reach a phone), set the update address
+and channel in `app.json`, add the publish step to the workflow, then build
+and install one new APK on each phone.
 
 ## What's on screen
 
