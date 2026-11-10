@@ -38,6 +38,9 @@
       "eas": {
         "projectId": "2b70a853-c332-49ea-8fde-4678952d9d87"
       }
-    }
+    },
+    "plugins": [
+      "./plugins/withReleaseSigning"
+    ]
   }
 }
