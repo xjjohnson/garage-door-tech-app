@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Spring Calc",
-    "slug": "garage-door-tech-app",
+    "slug": "tech-app",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
