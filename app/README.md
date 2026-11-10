@@ -52,7 +52,7 @@ Every run (pull requests too) also keeps the APK for 30 days under the run's
 Android only. An iPhone install outside Expo Go needs an Apple developer
 account and a build through Xcode or EAS.
 
-## Over-the-air updates (plan, not set up yet)
+## Over-the-air updates (EAS Update)
 
 Over-the-air (OTA) updates let a phone that already has the app pick up new
 screens and math without installing a new APK. The app checks for an update
@@ -60,36 +60,42 @@ when it opens, downloads it in the background, and switches to it the next
 time it opens. If the update server can't be reached, nothing breaks: the
 app keeps running the version it has, offline.
 
+**How it's wired.** `app.json` points the app at Expo's update server for
+this project (`updates.url`) and asks for the `production` channel. On every
+push to main, the workflow's "Publish OTA update" job runs
+`eas update --branch production`, which uploads the new JavaScript. The APK
+job still runs too, so a fresh APK is always on the Releases page.
+
+**One-time setup (yours).**
+
+1. In your Expo account, create an access token (expo.dev, Account settings,
+   Access tokens).
+2. In this GitHub repo, go to Settings, Secrets and variables, Actions, and
+   add it as a repository secret named `EXPO_TOKEN`. It lives only there.
+3. Install the first APK built after this change on each phone. APKs built
+   before it don't know where to look for updates.
+
+Until the secret exists, the OTA job just prints a warning and the rest of
+the workflow carries on.
+
 **What OTA can and can't carry.** It replaces the JavaScript and assets, which
 is everything in this app so far: the screens, the spring math and the wire
 and drum tables. Anything native still needs a new APK: a new library with
 native code, an Expo SDK upgrade, or a change to native settings in
-`app.json` (icon, package name, permissions). The update system tracks this
-with a "runtime version": each update only goes to APKs with the same native
-code, so a phone never gets an update it can't run.
+`app.json` (icon, package name, permissions).
 
-**Why it isn't in this APK.** The address the app checks for updates is
-built into the APK. Until the update host is chosen there's no address to
-build in, so phones need one more APK install after OTA is set up. Every
-change after that can go over the air.
+**The one rule: bump the version for native changes.** Each update only goes
+to APKs with the same "runtime version", and here the runtime version is the
+app's `version` in `app.json` (the `appVersion` policy). So when a change
+touches native code, raise `version` (for example 0.1.0 to 0.2.0) in the same
+change. The new APK then gets updates for 0.2.0, and phones still on the
+0.1.0 APK keep the last update that works for them instead of getting one
+they can't run. JavaScript-only changes keep the same version.
 
-**Two ways to host the updates.**
-
-1. **EAS Update (Expo's hosted service).** It works with APKs built this way,
-   without EAS Build. It needs a free Expo account (yours to create), an
-   access token stored as a GitHub secret, and one workflow step that runs
-   `eas update` on each push to main. The free plan includes updates up to
-   a monthly limit; check current limits at expo.dev/pricing. Least upkeep.
-2. **Self-hosted on your Proxmox box behind the Cloudflare tunnel.** Expo
-   publishes the protocol (Expo Updates v1) and an example server. No third
-   party, but you'd run and update that server, and the updates should be
-   code-signed so a phone only accepts ones you published.
-
-**Steps once the host is picked:** add the `expo-updates` library, set
-`runtimeVersion` to the `fingerprint` policy (it changes whenever native code
-changes, so incompatible updates can't reach a phone), set the update address
-and channel in `app.json`, add the publish step to the workflow, then build
-and install one new APK on each phone.
+This policy was picked over Expo's automatic `fingerprint` policy because
+the APK is built with Gradle here, not EAS Build, and a fingerprint computed
+on the build runner and on the update runner could differ in ways that can't
+be tested ahead of time. A version you set by hand always matches.
 
 ## What's on screen
 

@@ -7,8 +7,10 @@
 # replace the APK on the "Latest APK" release (tag latest-apk), which is the
 # easy place to download it from a phone.
 #
-# No Expo account or EAS is used: the native Android project is generated on
-# the runner with `expo prebuild` and built with Gradle. The APK is signed
+# The APK itself is built without EAS: the native Android project is generated
+# on the runner with `expo prebuild` and built with Gradle. Pushes to main also
+# publish an over-the-air update with EAS Update (job "ota"), which reaches
+# phones that already have an APK with the same runtime version. The APK is signed
 # with the standard debug key from Expo's template, which is fine for
 # installing on your own phones but not for the Play Store.
 name: Android APK
@@ -127,3 +129,52 @@ jobs:
             --prerelease \
             --title "Latest APK (build ${{ github.run_number }})" \
             --notes "Built from ${{ github.sha }}. Install on Android: open this file on the phone and allow installs from this source when asked."
+
+  ota:
+    name: Publish OTA update
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+    steps:
+      - name: Skip when the EXPO_TOKEN secret isn't set
+        if: env.EXPO_TOKEN == ''
+        run: echo "::warning::EXPO_TOKEN secret is not set, so no OTA update was published."
+
+      - uses: actions/checkout@v4
+        if: env.EXPO_TOKEN != ''
+
+      - uses: actions/setup-node@v4
+        if: env.EXPO_TOKEN != ''
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        if: env.EXPO_TOKEN != ''
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install app dependencies
+        if: env.EXPO_TOKEN != ''
+        working-directory: app
+        run: npm ci
+
+      # The app asks the "production" channel for updates (app.json). The
+      # channel is created once; after that this step just reports it exists.
+      - name: Make sure the production channel exists
+        if: env.EXPO_TOKEN != ''
+        working-directory: app
+        run: eas channel:create production --non-interactive || echo "Channel already exists."
+
+      - name: Publish the update
+        if: env.EXPO_TOKEN != ''
+        working-directory: app
+        run: |
+          MESSAGE="$(printf '%s' "${COMMIT_MESSAGE:-Manual run}" | head -n 1)"
+          eas update --branch production --platform android --message "$MESSAGE" --non-interactive
