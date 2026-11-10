@@ -166,11 +166,11 @@ jobs:
           "${tools}apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
           cat "$RUNNER_TEMP/certs.txt"
           norm() { tr -d ': ' | tr 'A-F' 'a-f'; }
-          signers=$(grep -c 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" || true)
+          signers=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | sort -u | wc -l || true)
           signed=$(grep -m1 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | norm || true)
           debug=$(keytool -list -v -keystore app/android/app/debug.keystore -storepass android -alias androiddebugkey | grep 'SHA256:' | awk '{print $NF}' | norm || true)
           if [ "$signers" != "1" ] || [ -z "$signed" ]; then
-            echo "::error title=APK signature::Expected exactly one signer, found $signers."; exit 1
+            echo "::error title=APK signature::Expected exactly one signing key, found $signers."; exit 1
           fi
           if [ "$signed" = "$debug" ]; then
             echo "::error title=APK signature::The APK is signed with the public debug key. Refusing to publish it."; exit 1
