@@ -85,11 +85,23 @@ jobs:
       # repo variable of the same name if your keystore uses another alias.
       ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS || 'garagedoortech' }}
     steps:
+      # TEMPORARY, reverted in the next commit: a throwaway key made on the
+      # runner, only to prove the signing steps work before the real secrets exist.
+      - name: TEMP make a throwaway key
+        run: |
+          pass="$(openssl rand -hex 16)"
+          echo "::add-mask::$pass"
+          keytool -genkeypair -storetype PKCS12 -keystore "$RUNNER_TEMP/throwaway.p12" -alias "$ANDROID_KEY_ALIAS" \
+            -keyalg RSA -keysize 4096 -validity 2 -dname "CN=Throwaway CI test" -storepass "$pass" -noprompt
+          echo "TEMP_KS_PASS=$pass" >> "$GITHUB_ENV"
+          echo "TEMP_KS_B64=$(base64 -w0 "$RUNNER_TEMP/throwaway.p12")" >> "$GITHUB_ENV"
+          rm "$RUNNER_TEMP/throwaway.p12"
+
       # Checked first, so a missing key fails in seconds, not after the build.
       - name: Check the signing key secrets
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEYSTORE_BASE64: ${{ env.TEMP_KS_B64 }}
+          KEYSTORE_PASSWORD: ${{ env.TEMP_KS_PASS }}
         run: |
           missing=""
           [ -n "$KEYSTORE_BASE64" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
@@ -128,8 +140,8 @@ jobs:
       # a wrong password or alias fails with a clear message, not deep in Gradle.
       - name: Unpack the signing key
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEYSTORE_BASE64: ${{ env.TEMP_KS_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ env.TEMP_KS_PASS }}
         run: |
           umask 077
           keystore="$RUNNER_TEMP/release-key.p12"
@@ -149,7 +161,7 @@ jobs:
       - name: Build the release APK
         working-directory: app/android
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ env.TEMP_KS_PASS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
 
