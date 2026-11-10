@@ -5,11 +5,21 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Updates from 'expo-updates';
 import { ApkUpdateBanner } from './src/components/ApkUpdateBanner';
 import { APK_MANIFEST_URL } from './src/config';
+import { formatBuildInfo } from './src/lib/buildInfo';
 import { DoorScreen } from './src/screens/DoorScreen';
 import { MatchScreen } from './src/screens/MatchScreen';
 import { colors, touch, type } from './src/theme';
 
 type Tab = 'match' | 'door';
+
+// Read once: what's running doesn't change until the app restarts.
+const BUILD_INFO = formatBuildInfo({
+  runtimeVersion: Updates.runtimeVersion,
+  updateId: Updates.updateId,
+  createdAt: Updates.createdAt,
+  isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+  manifest: Updates.manifest,
+});
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'match', label: 'Match old spring' },
@@ -25,6 +35,9 @@ export default function App() {
         <View style={styles.header}>
           <Text style={styles.title}>Spring calculator</Text>
           <Text style={styles.subtitle}>Torsion, standard lift</Text>
+          <Text style={styles.build} testID="build-info" selectable>
+            {BUILD_INFO}
+          </Text>
         </View>
         {/* The runtime version is the installed APK's app.json version (appVersion policy). */}
         <ApkUpdateBanner manifestUrl={APK_MANIFEST_URL} currentVersion={Updates.runtimeVersion} />
@@ -64,6 +77,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   title: { fontSize: type.big, fontWeight: '900', color: colors.text },
   subtitle: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  build: { fontSize: 14, fontWeight: '500', color: colors.muted, marginTop: 2 },
   tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 3, borderBottomColor: colors.border },
   tab: {
     flex: 1,
