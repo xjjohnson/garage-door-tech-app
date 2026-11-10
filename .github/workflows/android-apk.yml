@@ -118,17 +118,34 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+      # version.json tells installed apps which native version the newest APK
+      # is and where to get it. The app offers the download when this version
+      # is newer than its own (app/src/lib/apkUpdate.ts). The APK is also
+      # attached under a fixed name so that link never changes.
+      - name: Write version.json
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          cp "spring-calc-${{ github.run_number }}.apk" spring-calc.apk
+          node -e '
+            const version = require("./app/app.json").expo.version;
+            const apkUrl = `https://github.com/${process.env.REPO}/releases/download/latest-apk/spring-calc.apk`;
+            require("fs").writeFileSync("version.json", JSON.stringify({ version, apkUrl }, null, 2) + "\n");
+          '
+          cat version.json
+        env:
+          REPO: ${{ github.repository }}
+
       - name: Replace the APK on the Latest APK release
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest-apk --yes --cleanup-tag || true
-          gh release create latest-apk "spring-calc-${{ github.run_number }}.apk" \
+          gh release create latest-apk "spring-calc-${{ github.run_number }}.apk" spring-calc.apk version.json \
             --target "${{ github.sha }}" \
             --prerelease \
             --title "Latest APK (build ${{ github.run_number }})" \
-            --notes "Built from ${{ github.sha }}. Install on Android: open this file on the phone and allow installs from this source when asked."
+            --notes "Built from ${{ github.sha }}. Install on Android: open spring-calc.apk on the phone and allow installs from this source when asked."
 
   ota:
     name: Publish OTA update

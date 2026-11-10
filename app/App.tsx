@@ -2,6 +2,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import * as Updates from 'expo-updates';
+import { ApkUpdateBanner } from './src/components/ApkUpdateBanner';
+import { APK_MANIFEST_URL } from './src/config';
 import { DoorScreen } from './src/screens/DoorScreen';
 import { MatchScreen } from './src/screens/MatchScreen';
 import { colors, touch, type } from './src/theme';
@@ -23,6 +26,8 @@ export default function App() {
           <Text style={styles.title}>Spring calculator</Text>
           <Text style={styles.subtitle}>Torsion, standard lift</Text>
         </View>
+        {/* The runtime version is the installed APK's app.json version (appVersion policy). */}
+        <ApkUpdateBanner manifestUrl={APK_MANIFEST_URL} currentVersion={Updates.runtimeVersion} />
         <View style={styles.tabs} accessibilityRole="tablist">
           {TABS.map((t) => {
             const on = tab === t.id;

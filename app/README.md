@@ -35,9 +35,9 @@ GitHub builds an APK every time a change lands on main (workflow
 `.github/workflows/android-apk.yml`). A build takes a while; the run shows on
 the repo's Actions tab.
 
-1. On the phone, open the repo on GitHub (signed in, since the repo is
-   private), go to **Releases** and open **Latest APK**.
-2. Tap the `spring-calc-<build>.apk` file to download it, then open it.
+1. On the phone, open the repo on GitHub, go to **Releases** and open
+   **Latest APK**. No GitHub account is needed, since the repo is public.
+2. Tap `spring-calc.apk` to download it, then open it.
 3. The first time, Android asks to allow installs from your browser or the
    GitHub app. Allow it, go back, and tap **Install**.
 
@@ -83,6 +83,16 @@ is everything in this app so far: the screens, the spring math and the wire
 and drum tables. Anything native still needs a new APK: a new library with
 native code, an Expo SDK upgrade, or a change to native settings in
 `app.json` (icon, package name, permissions).
+
+**When a new APK is needed, the app says so.** Each build also puts a small
+`version.json` on the Latest APK release, holding the `version` from
+`app.json` and the APK's link. When the app opens, it reads that file
+(`src/lib/apkUpdate.ts`, address in `src/config.ts`). If the version there is
+newer than the installed APK's, a banner under the header offers
+**Download**, which opens the APK so Android can show its Install screen,
+or **Later**, which hides it until the app is opened again. With no signal,
+or if the file can't be read, nothing shows and the app carries on. Inputs
+saved on the phone survive the reinstall.
 
 **The one rule: bump the version for native changes.** Each update only goes
 to APKs with the same "runtime version", and here the runtime version is the
