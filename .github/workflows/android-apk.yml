@@ -1,0 +1,180 @@
+# Builds an installable Android APK of the spring calculator app.
+#
+# Runs on every push to main that touches the app or the math, on pull
+# requests that do (so a broken build shows before merging), and by hand from
+# the Actions tab ("Run workflow"). The APK is attached to the run as an
+# artifact named spring-calc-apk-<run number> (a zip). Builds from main also
+# replace the APK on the "Latest APK" release (tag latest-apk), which is the
+# easy place to download it from a phone.
+#
+# The APK itself is built without EAS: the native Android project is generated
+# on the runner with `expo prebuild` and built with Gradle. Pushes to main also
+# publish an over-the-air update with EAS Update (job "ota"), which reaches
+# phones that already have an APK with the same runtime version. The APK is signed
+# with the standard debug key from Expo's template, which is fine for
+# installing on your own phones but not for the Play Store.
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'spring-calc/**'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'spring-calc/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            spring-calc/package-lock.json
+
+      - name: Spring math tests (Vitest)
+        working-directory: spring-calc
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+
+      - name: App tests (Jest) and typecheck
+        working-directory: app
+        run: |
+          npm ci
+          npm test -- --ci
+          npm run typecheck
+
+  apk:
+    name: Build APK
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only used to update the Latest APK release from main
+    timeout-minutes: 60
+    env:
+      CI: 1
+      # Each run gets a higher version code, so a new APK installs over the old one.
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # React Native 0.88 builds with JDK 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Generate the Android project
+        working-directory: app
+        run: npx expo prebuild --platform android --no-install --clean
+
+      # Real phones only (ARM), which roughly halves the build time compared
+      # with also building the x86 emulator code.
+      - name: Build the release APK
+        working-directory: app/android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+
+      - name: Name the APK
+        run: cp app/android/app/build/outputs/apk/release/app-release.apk "spring-calc-${{ github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spring-calc-apk-${{ github.run_number }}
+          path: spring-calc-${{ github.run_number }}.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Replace the APK on the Latest APK release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-apk --yes --cleanup-tag || true
+          gh release create latest-apk "spring-calc-${{ github.run_number }}.apk" \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            --title "Latest APK (build ${{ github.run_number }})" \
+            --notes "Built from ${{ github.sha }}. Install on Android: open this file on the phone and allow installs from this source when asked."
+
+  ota:
+    name: Publish OTA update
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+    steps:
+      - name: Skip when the EXPO_TOKEN secret isn't set
+        if: env.EXPO_TOKEN == ''
+        run: echo "::warning::EXPO_TOKEN secret is not set, so no OTA update was published."
+
+      - uses: actions/checkout@v4
+        if: env.EXPO_TOKEN != ''
+
+      - uses: actions/setup-node@v4
+        if: env.EXPO_TOKEN != ''
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        if: env.EXPO_TOKEN != ''
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install app dependencies
+        if: env.EXPO_TOKEN != ''
+        working-directory: app
+        run: npm ci
+
+      # The app asks the "production" channel for updates (app.json). The
+      # channel is created once; after that this step just reports it exists.
+      - name: Make sure the production channel exists
+        if: env.EXPO_TOKEN != ''
+        working-directory: app
+        run: eas channel:create production --non-interactive || echo "Channel already exists."
+
+      - name: Publish the update
+        if: env.EXPO_TOKEN != ''
+        working-directory: app
+        run: |
+          MESSAGE="$(printf '%s' "${COMMIT_MESSAGE:-Manual run}" | head -n 1)"
+          eas update --branch production --platform android --message "$MESSAGE" --non-interactive
