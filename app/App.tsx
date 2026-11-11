@@ -41,9 +41,12 @@ export default function App() {
   const { isUpdatePending } = Updates.useUpdates();
   const [section, setSection] = useState<Section>('springs');
   const [tab, setTab] = useState<Tab>('match');
-  // Diagnose is drawn the first time it's opened, not at startup, so it adds
-  // nothing to launch time. After that it stays mounted and keeps its picks.
+  // Manuals and Diagnose are drawn the first time they're opened, not at
+  // startup, so they add nothing to launch time (Manuals has hundreds of
+  // entries). After that they stay mounted and keep their search and picks.
+  const [manualsOpened, setManualsOpened] = useState(false);
   const [diagnoseOpened, setDiagnoseOpened] = useState(false);
+  if (section === 'manuals' && !manualsOpened) setManualsOpened(true);
   if (section === 'diagnose' && !diagnoseOpened) setDiagnoseOpened(true);
   const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
   return (
@@ -88,9 +91,11 @@ export default function App() {
         <View style={[styles.flex, (section !== 'springs' || tab !== 'door') && styles.hidden]}>
           <DoorScreen />
         </View>
-        <ScrollView style={[styles.flex, styles.manuals, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ManualsScreen />
-        </ScrollView>
+        {manualsOpened ? (
+          <ScrollView style={[styles.flex, styles.manuals, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <ManualsScreen />
+          </ScrollView>
+        ) : null}
         {diagnoseOpened ? (
           <ScrollView style={[styles.flex, styles.manuals, section !== 'diagnose' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <DiagnoseScreen />
