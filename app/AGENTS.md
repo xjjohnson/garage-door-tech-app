@@ -30,7 +30,7 @@ Run lint and typecheck before declaring any task done.
 
 ## Spring math
 
-- The math lives in `../spring-calc/src` and is imported only through `src/springCalc.ts`. `metro.config.js` adds that folder to `watchFolders`. Keep the math free of React and of any dependency so it stays testable with Vitest on its own.
+- The math lives in `../spring-calc/src` and is imported only through `src/springCalc.ts`. `metro.config.js` adds that folder to `watchFolders`. Keep the math free of React and of any dependency so it stays testable with Vitest on its own. Avoid syntax that makes Babel import `@babel/runtime` helpers (tuple destructuring such as `const [a, b] = f()`): that folder has no node_modules for the app bundle to resolve them from. `src/__tests__/mathBundle.test.ts` checks this.
 
 ## Building with EAS
 

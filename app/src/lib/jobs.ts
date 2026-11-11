@@ -6,7 +6,7 @@
  * math again (and shows any warnings a newer version adds). The one-line
  * summary is stored too, so the list can show it without running the math.
  */
-import { DEFAULT_DOOR_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, ExtensionForm, MatchForm, restoreForm } from './forms';
+import { DEFAULT_DOOR_FORM, DEFAULT_DRUMS_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, DrumsForm, ExtensionForm, MatchForm, restoreForm } from './forms';
 import { Tier, TIERS } from './prices';
 
 export const JOBS_STORAGE_KEY = 'jobs/v1';
@@ -45,7 +45,8 @@ export interface AcceptedQuote {
   at: number;
 }
 
-export type JobInputs = { mode: 'match'; form: MatchForm } | { mode: 'door'; form: DoorForm } | { mode: 'extension'; form: ExtensionForm };
+export type JobInputs = { mode: 'match'; form: MatchForm } | { mode: 'door'; form: DoorForm } | { mode: 'extension'; form: ExtensionForm }
+  | { mode: 'drums'; form: DrumsForm };
 
 export type Job = JobBase & JobInputs;
 
@@ -59,6 +60,15 @@ export const MODE_LABEL: Record<Job['mode'], string> = {
   match: 'Match old spring',
   door: 'Size from door',
   extension: 'Extension springs',
+  drums: 'Drums and high lift',
+};
+
+/** Each mode's blank form, which fills in fields an older saved form lacks. */
+const MODE_DEFAULTS: { [M in Job['mode']]: Extract<JobInputs, { mode: M }>['form'] } = {
+  match: DEFAULT_MATCH_FORM,
+  door: DEFAULT_DOOR_FORM,
+  extension: DEFAULT_EXTENSION_FORM,
+  drums: DEFAULT_DRUMS_FORM,
 };
 
 export function newJobId(now: number, random: () => number = Math.random): string {
@@ -149,7 +159,8 @@ export function parseJobs(raw: string | null): Job[] {
     if (!item || typeof item !== 'object') continue;
     const j = item as Record<string, unknown>;
     if (typeof j.id !== 'string' || typeof j.savedAt !== 'number') continue;
-    if (j.mode !== 'match' && j.mode !== 'door' && j.mode !== 'extension') continue;
+    if (typeof j.mode !== 'string' || !Object.prototype.hasOwnProperty.call(MODE_DEFAULTS, j.mode)) continue;
+    const mode = j.mode as Job['mode'];
     const base: JobBase = {
       id: j.id,
       savedAt: j.savedAt,
@@ -164,13 +175,7 @@ export function parseJobs(raw: string | null): Job[] {
       ...(parseAccepted(j.accepted) ? { accepted: parseAccepted(j.accepted) } : {}),
       ...(typeof j.customerId === 'string' && j.customerId ? { customerId: j.customerId } : {}),
     };
-    out.push(
-      j.mode === 'match'
-        ? { ...base, mode: 'match', form: restoreForm(DEFAULT_MATCH_FORM, j.form) }
-        : j.mode === 'door'
-          ? { ...base, mode: 'door', form: restoreForm(DEFAULT_DOOR_FORM, j.form) }
-          : { ...base, mode: 'extension', form: restoreForm(DEFAULT_EXTENSION_FORM, j.form) },
-    );
+    out.push({ ...base, mode, form: restoreForm<object>(MODE_DEFAULTS[mode], j.form) } as Job);
   }
   return out;
 }

@@ -5,7 +5,7 @@
  * can be tested directly.
  */
 import { formatLife, springName } from './springNames';
-import { runDoor, runExtension, runMatch } from './forms';
+import { runDoor, runDrums, runExtension, runMatch } from './forms';
 import { JobInputs } from './jobs';
 import { formatNumber } from './measure';
 import { AddOn, cents, formatMoney, PriceSheet, Tier, TIER_CYCLES, TIER_LABEL, TIERS } from './prices';
@@ -60,6 +60,20 @@ function tierSprings(inputs: Exclude<JobInputs, { mode: 'extension' }>): { block
     return { springs: { good: pick('good'), better: pick('better'), best: pick('best') } };
   }
   const springs = { ...none } as Record<Tier, SpringSpec | string>;
+  if (inputs.mode === 'drums') {
+    for (const t of TIERS) {
+      const out = runDrums({ ...inputs.form, targetCycles: TIER_CYCLES[t] });
+      if (out.status === 'incomplete') return { blocked: `Missing: ${out.missing.join(', ')}`, springs: none };
+      if (out.status === 'error') return { blocked: out.message, springs: none };
+      const hl = out.result.highLift;
+      if (!hl) return { blocked: out.result.noTurns ?? 'No turns for this door', springs: none };
+      // A tier with no spring is shown as unavailable; any other STOP blocks the quote.
+      const stop = hl.warnings.find((w) => w.level === 'stop' && !/fits/.test(w.message));
+      if (stop) return { blocked: stop.message, springs: none };
+      springs[t] = hl.options[0] ?? `No ${formatNumber(TIER_CYCLES[t])}-cycle spring fits`;
+    }
+    return { springs };
+  }
   for (const t of TIERS) {
     const out = runDoor({ ...inputs.form, targetCycles: TIER_CYCLES[t] });
     if (out.status === 'incomplete') return { blocked: `Missing: ${out.missing.join(', ')}`, springs: none };

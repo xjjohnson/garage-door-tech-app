@@ -193,7 +193,7 @@ be tested ahead of time. A version you set by hand always matches.
 
 ## What's on screen
 
-Sections in the bar at the bottom: **Springs**, **Jobs**, **Manuals** and **Diagnose**. Springs has three tabs: two for torsion springs and one for extension springs.
+Sections in the bar at the bottom: **Springs**, **Jobs**, **Manuals** and **Diagnose**. Springs has four tabs: **Match old** and **From door** for torsion springs, **Extension**, and **High lift** for drums and cables.
 
 **Match old spring.** Wire by 20-coil length, caliper, or picked from the
 list (with the color code); inside diameter; relaxed length; wind; one spring
@@ -216,6 +216,16 @@ DASMA TDS-171, which repeat every 100 lb, so a color alone is a STOP until the
 door is weighed or the tag is read. Stock sizes: 25" × 42" for 7', 27" × 48"
 (or 29") for 8', 39" × 54" for 9'; other heights order by a stretch of half
 the door height. The math is in `spring-calc/src/extension.ts`.
+
+**High lift.** Pick standard, high or vertical lift, then the door height,
+the high lift (how far the track runs straight up past the opening), the
+door weight and, optionally, floor to shaft center. It lists which Canimex
+drums hold the door (cable capacity and load per drum) with each one's cable
+length. On high lift with D400-54 drums it also gives the turns, the rate per
+spring and spring options, from Canimex's D400-54 multiplier chart (15"
+track, 6' to 10' doors, to 42" of high lift, 45" to 7'6"). Other high-lift
+drums and vertical lift list the drums only: their turns come from the drum
+maker's chart. The math is in `spring-calc/src/drums.ts`.
 
 Results update as you type; there is no Calculate button.
 
@@ -364,7 +374,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 |---|---|---|
 | `_layout.tsx` | | Saved data for every screen (jobs, customers, prices), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
-| `(tabs)/index.tsx` | `/` | Springs: Match old spring, Size from door and Extension |
+| `(tabs)/index.tsx` | `/` | Springs: Match old, From door, Extension and High lift |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
 | `(tabs)/manuals.tsx` | `/manuals` | Manuals |
 | `(tabs)/diagnose.tsx` | `/diagnose` | Diagnose |
