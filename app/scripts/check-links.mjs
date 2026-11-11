@@ -4,11 +4,11 @@
 // Run from app/:  npm run check-links
 // (Node 22 or newer; it reads src/data/manuals.ts directly.)
 //
-// A link fails when the maker's site says it's gone (404 or 410), the site
-// can't be reached at all, or a .pdf address now opens a web page instead of
+// A link fails when the maker's site says it's gone (404 or 410), the site's
+// address no longer exists, or a .pdf address now opens a web page instead of
 // a PDF (a maker sending missing files to its home page). Some sites turn
-// away automated checks (403, 429) or are briefly down (5xx); those are
-// listed as warnings to look at by hand, not failures.
+// away automated checks (403, 429, or by refusing the connection) or are
+// briefly down (5xx); those are listed to check by hand, not as broken.
 
 import { appendFileSync } from 'node:fs';
 import { MANUAL_LINKS } from '../src/data/manuals.ts';
@@ -53,6 +53,17 @@ function looksLikePdf(url) {
   return new URL(url).pathname.toLowerCase().endsWith('.pdf');
 }
 
+/**
+ * A site that no longer exists (its name doesn't resolve) is broken. Any other
+ * connection trouble (timed out, connection reset, refused) is usually the
+ * site turning away GitHub's machines, so it's listed to check by hand.
+ */
+function unreachable(err) {
+  const code = err?.cause?.code ?? (err?.name === 'AbortError' ? 'timed out' : err?.message ?? 'unknown error');
+  if (code === 'ENOTFOUND') return { result: 'fail', reason: "the site's address no longer exists (ENOTFOUND)" };
+  return { result: 'warn', reason: `couldn't connect from the check (${code}); open it by hand` };
+}
+
 /** 'ok', 'warn' or 'fail', with a short reason. */
 async function check(url) {
   let res;
@@ -60,11 +71,11 @@ async function check(url) {
     res = await request(url, 'HEAD');
     // Some sites don't answer HEAD properly; ask for the first bytes instead.
     if (res.status >= 400 || res.status === 0) res = await request(url, 'GET');
-  } catch (err) {
+  } catch {
     try {
       res = await request(url, 'GET');
-    } catch (err2) {
-      return { result: 'fail', reason: `couldn't reach the site (${err2.name === 'AbortError' ? 'timed out' : err2.message})` };
+    } catch (err) {
+      return unreachable(err);
     }
   }
   const status = res.status;

@@ -983,14 +983,15 @@ export const MANUAL_LINKS: ManualLink[] = [
   {
     id: 'guardian-928',
     brand: 'guardian',
-    title: '928 and 928V opener manuals and service bulletin',
-    kind: 'owner',
+    title: '928 and 928V: service bulletin, quick reference and instruction sheet',
+    kind: 'bulletin',
     category: 'opener',
     models: ['928', '928V', 'B5A928'],
+    // Guardian's own links to the full 928 and 928V manuals answered "not
+    // found" on Nov 11, 2026, so they're left out until Guardian fixes them.
+    note: "Guardian's links to the full 928 and 928V manuals are broken on its site right now. More documents opens the page in case they're back.",
     url: GUARDIAN_MANUALS,
     docs: [
-      { label: '928 manual', url: guardianPdf('2024/10/928_manual_13JUN2022.pdf') },
-      { label: '928V manual', url: guardianPdf('2024/10/928V-Manual-.pdf') },
       { label: '928V service bulletin', url: guardianPdf('2025/02/928V-Service-Bulletin.pdf') },
       { label: 'Quick reference guide, 928 and 928V', url: guardianPdf('2024/10/Quick_reference_Guide_928.pdf') },
       { label: 'B5A928 instruction sheet', url: guardianPdf('2024/10/B5A928_Instruction-Sheet-211129.pdf') },
