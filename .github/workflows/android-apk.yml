@@ -1,11 +1,11 @@
 # Builds an installable Android APK of the spring calculator app.
 #
-# Runs on every push to main that touches the app or the math, on pull
-# requests that do (so a broken build shows before merging), and by hand from
-# the Actions tab ("Run workflow"). The APK is attached to the run as an
-# artifact named spring-calc-apk-<run number> (a zip). Builds from main also
-# replace the APK on the "Latest APK" release (tag latest-apk), which is the
-# easy place to download it from a phone.
+# Runs on every push to main that touches the app or the math, and by hand
+# from the Actions tab ("Run workflow"). Pull requests that touch them run only
+# the Tests job; the slow APK build waits until the change is merged. The APK
+# is attached to the run as an artifact named spring-calc-apk-<run number>
+# (a zip). Builds from main also replace the APK on the "Latest APK" release
+# (tag latest-apk), which is the easy place to download it from a phone.
 #
 # The APK itself is built without EAS: the native Android project is generated
 # on the runner with `expo prebuild` and built with Gradle. Pushes to main also
@@ -15,8 +15,7 @@
 # The APK is signed with the app's own private key, never Expo's public debug
 # key. The key comes from two repo secrets, ANDROID_KEYSTORE_BASE64 and
 # ANDROID_KEYSTORE_PASSWORD (see app/README.md, "Signing key"). Without them
-# the Build APK job stops with an error. Pull requests from forks never get
-# secrets, so they stop there too; the Tests job still runs for them.
+# the Build APK job stops with an error.
 name: Android APK
 
 on:
@@ -73,6 +72,9 @@ jobs:
   apk:
     name: Build APK
     needs: test
+    # Pull requests only run the tests. The APK builds after the merge, on the
+    # push to main (or from "Run workflow").
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write # only used to update the Latest APK release from main
