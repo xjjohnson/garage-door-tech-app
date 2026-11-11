@@ -1,3 +1,4 @@
+import { OdooInvoiceSync } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -94,6 +95,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
         {paid(invoice) > 0 ? <Line label="Paid" value={formatMoney(paid(invoice))} /> : null}
         <Line label="Amount due" value={formatMoney(due)} bold testID="invoice-due" />
       </View>
+      <OdooInvoiceSync invoice={invoice} />
 
       {invoice.payments.length > 0 ? (
         <>

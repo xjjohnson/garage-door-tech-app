@@ -1,3 +1,4 @@
+import { OdooQuoteSend } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
@@ -97,6 +98,7 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
               setSigning(false);
             }}
           />
+          {picked ? <OdooQuoteSend job={job} option={picked} /> : null}
         </>
       ) : null}
 

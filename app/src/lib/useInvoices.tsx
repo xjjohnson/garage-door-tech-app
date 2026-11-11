@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { OdooInvoiceState } from './odooSales';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Business,
@@ -25,6 +26,8 @@ interface InvoicesApi {
   addPayment: (invoiceId: string, p: Omit<Payment, 'id' | 'at'>) => void;
   removePayment: (invoiceId: string, paymentId: string) => void;
   setVoid: (invoiceId: string, voided: boolean) => void;
+  /** Keeps what Odoo said about this invoice after sending or checking it. */
+  setOdoo: (invoiceId: string, odoo: OdooInvoiceState) => void;
   /** Adds a backup's invoices (the copy changed last wins) and, if it has one, its business details. */
   restore: (incoming: Invoice[], business?: Business) => void;
 }
@@ -109,6 +112,8 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
     [edit],
   );
 
+  const setOdoo = useCallback<InvoicesApi['setOdoo']>((id, odoo) => change((prev) => prev.map((i) => (i.id === id ? { ...i, odoo } : i))), [change]);
+
   const setBusiness = useCallback<InvoicesApi['setBusiness']>((fn) => {
     touched.current.business = true;
     setBiz(fn);
@@ -123,8 +128,8 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ invoices, loaded, business, setBusiness, create, addPayment, removePayment, setVoid, restore }),
-    [invoices, loaded, business, setBusiness, create, addPayment, removePayment, setVoid, restore],
+    () => ({ invoices, loaded, business, setBusiness, create, addPayment, removePayment, setVoid, setOdoo, restore }),
+    [invoices, loaded, business, setBusiness, create, addPayment, removePayment, setVoid, setOdoo, restore],
   );
   return <InvoicesContext.Provider value={api}>{children}</InvoicesContext.Provider>;
 }

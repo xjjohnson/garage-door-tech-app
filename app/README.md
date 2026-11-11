@@ -400,6 +400,18 @@ email; one changed only in Odoo takes Odoo's details; when both changed the
 phone wins (`src/lib/customerSync.ts`). Each customer keeps `odooId` and
 `syncedAt`.
 
+**Quotes and invoices in Odoo** (`src/lib/odooSales.ts`). With Sales
+installed, a quote the customer picked has **Send to Odoo as a sales order**:
+a confirmed `sale.order` for that option, saved on the job as `odooOrder`.
+With Invoicing, an invoice has **Send to Odoo**: a posted `account.move`
+(tied to the sales order's lines when there is one), then each payment taken
+on the phone is registered with Odoo's Register Payment wizard (cash to a cash
+journal, checks and the payment apps to the bank). **Sync with Odoo** later
+sends new payments and reads back Odoo's paid status, amount owed and total
+(Odoo adds its own product taxes). Lines use their linked Odoo product, or a
+"Garage door service" product (`GDT-SERVICE`, no tax) made the first time
+it's needed. A customer without an Odoo contact gets one on the first send.
+
 **Business numbers.** The top of Jobs shows open jobs, what you're owed and
 what was collected this week; tapping it opens **Business numbers**: the
 oldest unpaid invoice, then this week and this month (collected, split by

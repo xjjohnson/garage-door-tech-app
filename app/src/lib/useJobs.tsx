@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { OdooRef } from './odooSales';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { mergeJobs, MergeResult } from './backup';
 import { Inspection } from './inspection';
@@ -23,6 +24,8 @@ interface JobsApi {
   renameCustomer: (customerId: string, d: { customer: string; phone: string }) => void;
   /** Saves the job's safety check (or clears it). */
   setInspection: (id: string, inspection: Inspection | undefined) => void;
+  /** Remembers the sales order made in Odoo for this job. */
+  setOdooOrder: (id: string, order: OdooRef) => void;
 }
 
 const JobsContext = createContext<JobsApi | null>(null);
@@ -142,9 +145,11 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
+  const setOdooOrder = useCallback<JobsApi['setOdooOrder']>((id, odooOrder) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooOrder } : j))), [change]);
+
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }

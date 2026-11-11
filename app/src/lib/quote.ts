@@ -16,6 +16,10 @@ export interface QuoteLine {
   /** Total for the line, in cents. */
   cents: number;
   taxable: boolean;
+  /** The price-sheet line it came from (see priceLines), so it can be matched to an Odoo product. */
+  key?: string;
+  /** How many, when the line is a price each times a count (springs). */
+  qty?: number;
 }
 
 export interface QuoteOption {
@@ -86,7 +90,7 @@ function tierSprings(inputs: Exclude<JobInputs, { mode: 'extension' }>): { block
 }
 
 function addOnsFor(tier: Tier, addOns: AddOn[]): QuoteLine[] {
-  return addOns.filter((a) => a.tiers[tier] && a.name.trim() !== '').map((a) => ({ label: a.name.trim(), cents: cents(a.price), taxable: true }));
+  return addOns.filter((a) => a.tiers[tier] && a.name.trim() !== '').map((a) => ({ label: a.name.trim(), cents: cents(a.price), taxable: true, key: `addOn.${a.id}` }));
 }
 
 function taxOf(lines: QuoteLine[], sheet: PriceSheet): number {
@@ -115,9 +119,9 @@ function buildExtensionQuote(inputs: Extract<JobInputs, { mode: 'extension' }>, 
   if (!perSide) return { blocked: 'No spring size yet', options: [] };
   const options = TIERS.map((tier): QuoteOption => {
     const lines: QuoteLine[] = [
-      { label: extensionLineLabel(r, perSide), cents: cents(sheet.extensionSpring[tier]) * r.springCount, taxable: true },
-      { label: 'Extension spring labor', cents: cents(sheet.extensionLabor), taxable: false },
-      { label: 'Service call', cents: cents(sheet.serviceCall), taxable: false },
+      { label: extensionLineLabel(r, perSide), cents: cents(sheet.extensionSpring[tier]) * r.springCount, taxable: true, key: `extensionSpring.${tier}`, qty: r.springCount },
+      { label: 'Extension spring labor', cents: cents(sheet.extensionLabor), taxable: false, key: 'extensionLabor' },
+      { label: 'Service call', cents: cents(sheet.serviceCall), taxable: false, key: 'serviceCall' },
       ...addOnsFor(tier, sheet.addOns),
     ];
     const subtotal = lines.reduce((n, l) => n + l.cents, 0);
@@ -137,9 +141,9 @@ export function buildQuote(inputs: JobInputs, sheet: PriceSheet): Quote {
     if (typeof s === 'string') return { tier, available: false, reason: s, springCount, lines: [], subtotal: 0, tax: 0, total: 0 };
     const each = cents(sheet.spring[tier]);
     const lines: QuoteLine[] = [
-      { label: `${springCount === 1 ? '1 spring' : `${springCount} springs`}, ${springName(s)}`, cents: each * springCount, taxable: true },
-      { label: 'Spring labor', cents: cents(sheet.springLabor), taxable: false },
-      { label: 'Service call', cents: cents(sheet.serviceCall), taxable: false },
+      { label: `${springCount === 1 ? '1 spring' : `${springCount} springs`}, ${springName(s)}`, cents: each * springCount, taxable: true, key: `spring.${tier}`, qty: springCount },
+      { label: 'Spring labor', cents: cents(sheet.springLabor), taxable: false, key: 'springLabor' },
+      { label: 'Service call', cents: cents(sheet.serviceCall), taxable: false, key: 'serviceCall' },
       ...addOnsFor(tier, sheet.addOns),
     ];
     const subtotal = lines.reduce((n, l) => n + l.cents, 0);
