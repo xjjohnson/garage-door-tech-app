@@ -59,6 +59,9 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
       <Pressable onPress={() => router.push('/price-sheet')} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
         <Text style={styles.buttonText}>Price sheet</Text>
       </Pressable>
+      <Pressable onPress={() => router.push('/backup')} accessibilityRole="button" testID="open-backup" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+        <Text style={styles.buttonText}>Back up or restore</Text>
+      </Pressable>
       <Segmented options={FILTERS} value={filter} onChange={setFilter} testID="jobs-filter" />
 
       {loaded && jobs.length === 0 ? (

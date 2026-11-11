@@ -305,6 +305,20 @@ each ticked for Good, Better and/or Best; add or remove any) and the tax
 rate. Prices are entered on the keypad and saved on the phone as they're
 typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
 
+**Back up and restore.** **Back up or restore** at the top of Jobs opens a
+page that saves every job and the price sheet to one file,
+`garage-door-backup-YYYY-MM-DD.json`, in a folder the tech picks with the
+phone's own folder picker (Downloads, or Google Drive to keep it off the
+phone), and shows the day of the last backup. **Restore from a backup** picks
+such a file and says what it holds (how many jobs are new to this phone and
+how many are newer than the phone's copy) before anything changes; **Restore**
+then merges the jobs, deleting nothing and keeping whichever copy of a job was
+changed last, and replaces the price sheet with the backup's. The file is
+plain JSON with a format name and version (`src/lib/backup.ts`), so later
+versions, or a sync with another system, can still read it. It uses
+`expo-file-system`'s pickers (`src/lib/backupFiles.ts`), already in the 0.3.0
+APK, so it ships over the air to 0.3.0.
+
 **Look.** Near-black on white, bold type at 18 px and up, every button at
 least 56 px tall for gloves. The app is portrait and light mode only.
 
@@ -322,6 +336,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `(tabs)/diagnose.tsx` | `/diagnose` | Diagnose |
 | `price-sheet.tsx` | `/price-sheet` | The price sheet, a full page |
 | `quote/[id].tsx` | `/quote/<job id>` | One job's quote, a full page |
+| `backup.tsx` | `/backup` | Back up and restore jobs and prices, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

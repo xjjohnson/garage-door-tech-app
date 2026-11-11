@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { mergeJobs, MergeResult } from './backup';
 import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, parseJobs } from './jobs';
 
 interface JobsApi {
@@ -13,6 +14,8 @@ interface JobsApi {
   /** Records the option the customer picked, or clears it. */
   setAccepted: (id: string, accepted: AcceptedQuote | undefined) => void;
   remove: (id: string) => void;
+  /** Adds a backup's jobs; when both have a job, the one changed last wins. Nothing is deleted. */
+  restore: (incoming: Job[]) => MergeResult;
 }
 
 const JobsContext = createContext<JobsApi | null>(null);
@@ -96,7 +99,19 @@ export function JobsProvider({ children }: { children: ReactNode }) {
 
   const remove = useCallback<JobsApi['remove']>((id) => change((prev) => prev.filter((j) => j.id !== id)), [change]);
 
-  const api = useMemo(() => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove }), [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove]);
+  const restore = useCallback<JobsApi['restore']>(
+    (incoming) => {
+      const result = mergeJobs(jobs, incoming);
+      change((prev) => mergeJobs(prev, incoming).jobs);
+      return result;
+    },
+    [jobs, change],
+  );
+
+  const api = useMemo(
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore],
+  );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }
 
