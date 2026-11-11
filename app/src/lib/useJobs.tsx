@@ -16,6 +16,10 @@ interface JobsApi {
   remove: (id: string) => void;
   /** Adds a backup's jobs; when both have a job, the one changed last wins. Nothing is deleted. */
   restore: (incoming: Job[]) => MergeResult;
+  /** Links jobs to customers (job id → customer id). Not counted as a change to the job. */
+  linkCustomers: (links: Record<string, string>) => void;
+  /** Copies a customer's new name and phone onto their jobs. */
+  renameCustomer: (customerId: string, d: { customer: string; phone: string }) => void;
 }
 
 const JobsContext = createContext<JobsApi | null>(null);
@@ -108,9 +112,24 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [jobs, change],
   );
 
+  const linkCustomers = useCallback<JobsApi['linkCustomers']>(
+    (links) => change((prev) => prev.map((j) => (links[j.id] && links[j.id] !== j.customerId ? { ...j, customerId: links[j.id] } : j))),
+    [change],
+  );
+
+  const renameCustomer = useCallback<JobsApi['renameCustomer']>(
+    (customerId, d) =>
+      change((prev) =>
+        prev.map((j) =>
+          j.customerId === customerId && (j.customer !== d.customer || j.phone !== d.phone) ? { ...j, customer: d.customer, phone: d.phone, updatedAt: Date.now() } : j,
+        ),
+      ),
+    [change],
+  );
+
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }

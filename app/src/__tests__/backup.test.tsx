@@ -6,6 +6,7 @@ import { BackupFiles } from '../lib/backupFiles';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, Job, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { DEFAULT_PRICE_SHEET, parsePriceSheet, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
+import { CustomersProvider } from '../lib/useCustomers';
 import { JobsProvider } from '../lib/useJobs';
 import { PriceSheetProvider } from '../lib/usePriceSheet';
 import { BackupScreen } from '../screens/BackupScreen';
@@ -78,7 +79,9 @@ function fakeFiles(toPick: string | null = null) {
 
 const wrap = ({ children }: { children: ReactNode }) => (
   <JobsProvider>
-    <PriceSheetProvider>{children}</PriceSheetProvider>
+    <CustomersProvider>
+      <PriceSheetProvider>{children}</PriceSheetProvider>
+    </CustomersProvider>
   </JobsProvider>
 );
 
@@ -106,7 +109,7 @@ describe('Backup screen', () => {
     const parsed = parseBackup(saved[0].text);
     expect(parsed.ok && parsed.backup.jobs.map((j) => j.customer)).toEqual(['Smith']);
     expect(parsed.ok && parsed.backup.priceSheet?.serviceCall).toBe('89');
-    expect(screen.getByTestId('backup-note')).toHaveTextContent(/Saved garage-door-backup-2026-11-11\.json to Download: 1 job/);
+    expect(screen.getByTestId('backup-note')).toHaveTextContent(/Saved garage-door-backup-2026-11-11\.json to Download: 1 job, 1 customer and the price sheet/);
     expect(screen.getByTestId('backup-last')).toHaveTextContent(/Last backup: /);
     expect(await AsyncStorage.getItem(LAST_BACKUP_KEY)).toBe(String(NOW));
   });

@@ -56,9 +56,14 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           </Pressable>
         ) : null}
       </View>
-      <Pressable onPress={() => router.push('/price-sheet')} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
-        <Text style={styles.buttonText}>Price sheet</Text>
-      </Pressable>
+      <View style={styles.row}>
+        <Pressable onPress={() => router.push('/customers')} accessibilityRole="button" testID="open-customers" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
+          <Text style={styles.buttonText}>Customers</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/price-sheet')} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
+          <Text style={styles.buttonText}>Price sheet</Text>
+        </Pressable>
+      </View>
       <Pressable onPress={() => router.push('/backup')} accessibilityRole="button" testID="open-backup" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
         <Text style={styles.buttonText}>Back up or restore</Text>
       </Pressable>
@@ -163,6 +168,9 @@ function JobCard({
           {job.notes ? <Text style={styles.detail}>{job.notes}</Text> : null}
           <Action label="Quote" primary onPress={onQuote} testID={`job-quote-${job.id}`} />
           <Action label="Open in calculator" onPress={onOpen} testID={`job-open-${job.id}`} />
+          {job.customerId ? (
+            <Action label="Customer history" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: job.customerId! } })} testID={`job-customer-${job.id}`} />
+          ) : null}
           {tel ? <Action label={`Call ${job.phone}`} onPress={() => Linking.openURL(tel).catch(() => undefined)} testID={`job-call-${job.id}`} /> : null}
           <View style={styles.row}>
             <Action label="Edit details" grow onPress={onEdit} testID={`job-edit-${job.id}`} />

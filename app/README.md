@@ -305,8 +305,26 @@ each ticked for Good, Better and/or Best; add or remove any) and the tax
 rate. Prices are entered on the keypad and saved on the phone as they're
 typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
 
+**Customers.** **Customers** at the top of Jobs lists everyone a job was
+saved for, most recent first, with a search box (name, phone, email, address,
+notes, or the address or spring of one of their jobs). Every job belongs to a
+customer: when a job is saved (or loaded from an older version, or restored
+from a backup) it joins the customer with the same phone number, or else the
+same name, or a new customer is made from its details. A customer's page
+shows how to reach them (**Call**, **Text**, **Email**), their notes, how much
+they've accepted in quotes, and every job at their place, newest first;
+tapping one opens its quote. **Edit customer** changes the name, phone, email,
+main address and notes, and copies a new name and phone onto their jobs. A
+job's own address stays as typed, since the job site can differ. In the save
+sheet, typing a name offers matching customers ("Repeat customer?") to fill in
+their phone and address. A job's details show **Customer history**. Customers
+are saved on the phone (`src/lib/customers.ts`, `src/lib/useCustomers.tsx`,
+AsyncStorage `customers/v1`) and go into backups. Their fields (name, phone,
+email, street, notes) are the ones an accounting system such as Odoo keeps for
+a contact, so a later sync can map them directly.
+
 **Back up and restore.** **Back up or restore** at the top of Jobs opens a
-page that saves every job and the price sheet to one file,
+page that saves every job, every customer and the price sheet to one file,
 `garage-door-backup-YYYY-MM-DD.json`, in a folder the tech picks with the
 phone's own folder picker (Downloads, or Google Drive to keep it off the
 phone), and shows the day of the last backup. **Restore from a backup** picks
@@ -335,7 +353,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 
 | File | Address | What |
 |---|---|---|
-| `_layout.tsx` | | Saved data for every screen (jobs, prices), then a stack: the sections, with full pages on top |
+| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Springs: Match old spring and Size from door |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
@@ -344,6 +362,8 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `price-sheet.tsx` | `/price-sheet` | The price sheet, a full page |
 | `quote/[id].tsx` | `/quote/<job id>` | One job's quote, a full page |
 | `backup.tsx` | `/backup` | Back up and restore jobs and prices, a full page |
+| `customers.tsx` | `/customers` | The customer list, a full page |
+| `customer/[id].tsx` | `/customer/<id>` | One customer and their jobs, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

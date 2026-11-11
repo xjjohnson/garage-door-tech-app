@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { suggestCustomers } from '../lib/customers';
 import { EMPTY_DETAILS, JobDetails } from '../lib/jobs';
+import { useCustomersIfAny } from '../lib/useCustomers';
 import { colors, touch, type } from '../theme';
 
 const FIELDS: { key: keyof JobDetails; label: string; placeholder: string; multiline?: boolean; phone?: boolean }[] = [
@@ -34,6 +36,8 @@ export function JobDetailsSheet({
     if (visible) setDetails(initial);
   }, [visible, initial]);
   const canSave = details.customer.trim() !== '' || details.address.trim() !== '';
+  const customers = useCustomersIfAny()?.customers ?? [];
+  const suggestions = suggestCustomers(customers, details.customer);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
@@ -64,6 +68,24 @@ export function JobDetailsSheet({
                   testID={`job-${f.key}`}
                   style={[styles.input, f.multiline && styles.multiline]}
                 />
+                {f.key === 'customer' && suggestions.length > 0 ? (
+                  <View style={styles.suggestions} testID="customer-suggestions">
+                    <Text style={styles.hint}>Repeat customer?</Text>
+                    {suggestions.map((c) => (
+                      <Pressable
+                        key={c.id}
+                        onPress={() => setDetails((d) => ({ ...d, customer: c.name, phone: c.phone || d.phone, address: d.address || c.address }))}
+                        accessibilityRole="button"
+                        testID={`suggest-${c.id}`}
+                        style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.suggestionText} numberOfLines={2}>
+                          {[c.name, c.phone, c.address].filter(Boolean).join(' · ')}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             ))}
           </ScrollView>
@@ -109,6 +131,9 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 110, textAlignVertical: 'top' },
   hint: { fontSize: 16, fontWeight: '700', color: colors.muted },
+  suggestions: { gap: 6, marginTop: 4 },
+  suggestion: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.card },
+  suggestionText: { fontSize: type.body, fontWeight: '700', color: colors.text },
   save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
   pressed: { backgroundColor: colors.safety },
