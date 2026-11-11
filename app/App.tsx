@@ -38,6 +38,10 @@ const TABS: { id: Tab; label: string }[] = [
 export default function App() {
   const [section, setSection] = useState<Section>('springs');
   const [tab, setTab] = useState<Tab>('match');
+  // Diagnose is drawn the first time it's opened, not at startup, so it adds
+  // nothing to launch time. After that it stays mounted and keeps its picks.
+  const [diagnoseOpened, setDiagnoseOpened] = useState(false);
+  if (section === 'diagnose' && !diagnoseOpened) setDiagnoseOpened(true);
   const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
   return (
     <SafeAreaProvider>
@@ -84,9 +88,11 @@ export default function App() {
         <ScrollView style={[styles.flex, styles.manuals, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <ManualsScreen />
         </ScrollView>
-        <ScrollView style={[styles.flex, styles.manuals, section !== 'diagnose' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <DiagnoseScreen />
-        </ScrollView>
+        {diagnoseOpened ? (
+          <ScrollView style={[styles.flex, styles.manuals, section !== 'diagnose' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <DiagnoseScreen />
+          </ScrollView>
+        ) : null}
         {/* The app's sections, at the bottom where a thumb reaches them. */}
         <View style={styles.nav} accessibilityRole="tablist">
           {SECTIONS.map((s) => {

@@ -155,3 +155,15 @@ describe('Diagnose screen', () => {
     expect(screen.getAllByText('Diagnose').length).toBeGreaterThan(0);
   });
 });
+
+describe('Diagnose in the app', () => {
+  it('is not drawn until opened, then keeps its picks when switching away and back', async () => {
+    await render(<App />);
+    expect(screen.queryByTestId('diagnose-safety')).toBeNull();
+    await fireEvent.press(screen.getByTestId('section-diagnose'));
+    await fireEvent.press(within(screen.getByTestId('diagnose-symptoms')).getByText("Won't close"));
+    await fireEvent.press(screen.getByTestId('section-manuals'));
+    await fireEvent.press(screen.getByTestId('section-diagnose'));
+    expect(screen.getByTestId('symptom-wont-close')).toBeTruthy();
+  });
+});
