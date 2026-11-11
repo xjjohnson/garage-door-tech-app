@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, touch, type } from '../theme';
 import { Keypad } from './Keypad';
@@ -151,14 +151,46 @@ export function MeasureField({
   );
 }
 
-export function SectionTitle({ children }: { children: ReactNode }) {
-  return <Text style={styles.section}>{children}</Text>;
+/** Starts a group of fields. A heavy rule above it splits the long form into parts. */
+export function SectionTitle({ children, first }: { children: ReactNode; first?: boolean }) {
+  return (
+    <Text style={[styles.section, first && styles.sectionFirst]} accessibilityRole="header">
+      {children}
+    </Text>
+  );
 }
 
-export function TextButton({ label, onPress, testID }: { label: string; onPress: () => void; testID?: string }) {
+const CONFIRM_MS = 4000;
+
+/**
+ * Clears every input, but only on a second tap within a few seconds, so a
+ * gloved bump doesn't wipe a job's measurements.
+ */
+export function ClearButton({ onPress, testID }: { onPress: () => void; testID?: string }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), CONFIRM_MS);
+    return () => clearTimeout(t);
+  }, [armed]);
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.textButton, pressed && styles.chipPressed]}>
-      <Text style={styles.textButtonText}>{label}</Text>
+    <Pressable
+      onPress={() => {
+        if (armed) {
+          setArmed(false);
+          onPress();
+        } else {
+          setArmed(true);
+        }
+      }}
+      accessibilityRole="button"
+      accessibilityHint={armed ? 'Clears every input on this tab.' : 'Tap twice to clear every input on this tab.'}
+      testID={testID}
+      style={({ pressed }) => [styles.textButton, armed && styles.textButtonArmed, pressed && styles.chipPressed]}
+    >
+      {({ pressed }) => (
+        <Text style={[styles.textButtonText, armed && !pressed && styles.textButtonTextArmed]}>{armed ? 'Tap again to clear all' : 'Clear all inputs'}</Text>
+      )}
     </Pressable>
   );
 }
@@ -167,7 +199,8 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   hint: { fontSize: 16, color: colors.muted },
-  section: { fontSize: type.value, fontWeight: '900', color: colors.text, marginTop: 8 },
+  section: { fontSize: type.value, fontWeight: '900', color: colors.text, marginTop: 14, paddingTop: 16, borderTopWidth: 3, borderTopColor: colors.border },
+  sectionFirst: { marginTop: 0, paddingTop: 0, borderTopWidth: 0 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     minHeight: touch.min,
@@ -203,5 +236,7 @@ const styles = StyleSheet.create({
   measureUnit: { fontSize: type.value, fontWeight: '700', color: colors.muted },
   placeholder: { fontSize: type.body, fontWeight: '600', color: colors.muted },
   textButton: { minHeight: touch.min, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
+  textButtonArmed: { backgroundColor: colors.stop, borderColor: colors.stop },
   textButtonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  textButtonTextArmed: { color: colors.onStop },
 });

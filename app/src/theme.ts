@@ -19,7 +19,8 @@ export const colors = {
   backdrop: 'rgba(0,0,0,0.55)',
 } as const;
 
-export const touch = { min: 56 } as const;
+/** min: any button or chip. bar: the pinned answer bar and the bottom tabs. */
+export const touch = { min: 56, bar: 64 } as const;
 
 export const type = {
   label: 18,

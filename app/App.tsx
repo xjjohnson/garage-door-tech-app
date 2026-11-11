@@ -41,18 +41,54 @@ export default function App() {
   const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
         <StatusBar style="dark" />
         <View style={styles.header}>
-          <Text style={styles.title}>{current.title}</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            {current.title}
+          </Text>
           <Text style={styles.subtitle}>{current.subtitle}</Text>
-          <Text style={styles.build} testID="build-info" selectable>
+          <Text style={styles.build} testID="build-info" selectable numberOfLines={1}>
             {BUILD_INFO}
           </Text>
         </View>
         {/* The runtime version is the installed APK's app.json version (appVersion policy). */}
         <ApkUpdateBanner manifestUrl={APK_MANIFEST_URL} currentVersion={Updates.runtimeVersion} />
-        <View style={[styles.tabs, section === 'springs' && styles.sections]} accessibilityRole="tablist">
+        {/* Two ways into the calculator, as one joined switch so it doesn't read like the app's main tabs. */}
+        <View style={[styles.segmentWrap, section !== 'springs' && styles.hidden]}>
+          <View style={styles.segments} accessibilityRole="tablist">
+            {TABS.map((t, i) => {
+              const on = tab === t.id;
+              return (
+                <Pressable
+                  key={t.id}
+                  onPress={() => setTab(t.id)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  testID={`tab-${t.id}`}
+                  style={({ pressed }) => [styles.segment, i > 0 && styles.segmentDivider, on && styles.tabOn, pressed && !on && styles.pressed]}
+                >
+                  <Text style={[styles.tabText, on && styles.tabTextOn]}>{t.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        {/* Every screen stays mounted so switching keeps its inputs and search. */}
+        <View style={[styles.flex, (section !== 'springs' || tab !== 'match') && styles.hidden]}>
+          <MatchScreen />
+        </View>
+        <View style={[styles.flex, (section !== 'springs' || tab !== 'door') && styles.hidden]}>
+          <DoorScreen />
+        </View>
+        <ScrollView style={[styles.flex, styles.manuals, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ManualsScreen />
+        </ScrollView>
+        <ScrollView style={[styles.flex, styles.manuals, section !== 'diagnose' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <DiagnoseScreen />
+        </ScrollView>
+        {/* The app's sections, at the bottom where a thumb reaches them. */}
+        <View style={styles.nav} accessibilityRole="tablist">
           {SECTIONS.map((s) => {
             const on = section === s.id;
             return (
@@ -62,43 +98,13 @@ export default function App() {
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
                 testID={`section-${s.id}`}
-                style={[styles.tab, on && styles.tabOn]}
+                style={({ pressed }) => [styles.navItem, on && styles.navItemOn, pressed && !on && styles.navPressed]}
               >
-                <Text style={[styles.tabText, on && styles.tabTextOn]}>{s.label}</Text>
+                <Text style={[styles.navText, on && styles.navTextOn]}>{s.label}</Text>
               </Pressable>
             );
           })}
         </View>
-        <View style={[styles.tabs, section !== 'springs' && styles.hidden]} accessibilityRole="tablist">
-          {TABS.map((t) => {
-            const on = tab === t.id;
-            return (
-              <Pressable
-                key={t.id}
-                onPress={() => setTab(t.id)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-                testID={`tab-${t.id}`}
-                style={[styles.tab, on && styles.tabOn]}
-              >
-                <Text style={[styles.tabText, on && styles.tabTextOn]}>{t.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {/* Every screen stays mounted so switching keeps its inputs and search. */}
-        <ScrollView style={[styles.flex, (section !== 'springs' || tab !== 'match') && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <MatchScreen />
-        </ScrollView>
-        <ScrollView style={[styles.flex, (section !== 'springs' || tab !== 'door') && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <DoorScreen />
-        </ScrollView>
-        <ScrollView style={[styles.flex, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ManualsScreen />
-        </ScrollView>
-        <ScrollView style={[styles.flex, section !== 'diagnose' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <DiagnoseScreen />
-        </ScrollView>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -108,24 +114,25 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   hidden: { display: 'none' },
-  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
   title: { fontSize: type.big, fontWeight: '900', color: colors.text },
-  subtitle: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  build: { fontSize: 14, fontWeight: '500', color: colors.muted, marginTop: 2 },
-  sections: { borderBottomWidth: 0, paddingBottom: 0 },
-  tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 3, borderBottomColor: colors.border },
-  tab: {
-    flex: 1,
-    minHeight: touch.min,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
+  subtitle: { fontSize: 16, fontWeight: '700', color: colors.muted },
+  build: { fontSize: 13, fontWeight: '500', color: colors.muted, marginTop: 2 },
+  segmentWrap: { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 3, borderBottomColor: colors.border },
+  segments: { flexDirection: 'row', borderWidth: 3, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
+  segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: colors.bg },
+  segmentDivider: { borderLeftWidth: 3, borderLeftColor: colors.border },
   tabOn: { backgroundColor: colors.selected },
+  pressed: { backgroundColor: colors.safety },
   tabText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   tabTextOn: { color: colors.onSelected },
+  manuals: { borderTopWidth: 3, borderTopColor: colors.border },
   content: { padding: 16, paddingBottom: 48 },
+  // Black bar, the open section in safety yellow with a yellow mark on top.
+  nav: { flexDirection: 'row', backgroundColor: colors.selected },
+  navItem: { flex: 1, minHeight: touch.bar, alignItems: 'center', justifyContent: 'center', borderTopWidth: 6, borderTopColor: colors.selected },
+  navItemOn: { borderTopColor: colors.safety },
+  navPressed: { backgroundColor: colors.muted },
+  navText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
+  navTextOn: { color: colors.safety, fontWeight: '900' },
 });

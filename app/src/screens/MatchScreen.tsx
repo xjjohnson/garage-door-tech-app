@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { ChipOption, ChipRow, Field, MeasureField, SectionTitle, TextButton } from '../components/controls';
-import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
-import { DEFAULT_MATCH_FORM, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, MatchForm, runMatch, WireMethod } from '../lib/forms';
+import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
+import { ChipOption, ChipRow, ClearButton, Field, MeasureField, SectionTitle } from '../components/controls';
+import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, springName, SpringDetails, Stat, Warnings } from '../components/results';
+import { DEFAULT_MATCH_FORM, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, MatchForm, Outcome, runMatch, WireMethod } from '../lib/forms';
 import { formatFeetInches, formatInches, formatNumber, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
+import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { MatchResult, Wind, WIRES } from '../springCalc';
 import { colors, type } from '../theme';
 
@@ -36,9 +38,9 @@ export function MatchScreen() {
   const outcome = useMemo(() => runMatch(form), [form]);
   const heightOther = parseMeasurement(form.heightOther);
 
-  return (
-    <View style={styles.stack}>
-      <SectionTitle>The old spring</SectionTitle>
+  const inputs = (
+    <>
+      <SectionTitle first>The old spring</SectionTitle>
 
       <Field label="Wire size, measured by">
         <ChipRow options={WIRE_METHODS} value={form.wireMethod} onChange={(wireMethod) => update({ wireMethod })} testID="wire-method" />
@@ -111,6 +113,9 @@ export function MatchScreen() {
       <Field label="Drums (standard lift)">
         <ChipRow options={DRUM_CHOICES} value={form.drum} onChange={(drum) => update({ drum })} testID="drum" />
       </Field>
+      <Field label="Track radius" hint={TRACK_RADIUS_HINT}>
+        <ChipRow options={TRACK_RADIUS_CHOICES} value={form.trackRadius} onChange={(trackRadius) => update({ trackRadius })} testID="track" />
+      </Field>
       <MeasureField
         label="Free shaft beside the spring (optional)"
         hint="Leaves out springs that would be too long once wound."
@@ -127,15 +132,33 @@ export function MatchScreen() {
         unit="in"
         testID="field-shaft-height"
       />
-      <TextButton label="Clear all inputs" onPress={reset} testID="clear-match" />
+      <ClearButton onPress={reset} testID="clear-match" />
+    </>
+  );
 
+  const results = (
+    <>
       <SectionTitle>Results</SectionTitle>
       <SafetyBanner />
       {outcome.status === 'incomplete' ? <MissingCard missing={outcome.missing} /> : null}
       {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
       {outcome.status === 'ok' ? <MatchResults result={outcome.result} /> : null}
-    </View>
+    </>
   );
+
+  return <CalcLayout inputs={inputs} results={results} summary={matchSummary(outcome)} testID="match-bar" />;
+}
+
+/** What the pinned bar says: what's missing, the stop, or the old spring and its turns. */
+export function matchSummary(outcome: Outcome<MatchResult>): BarSummary {
+  if (outcome.status === 'incomplete') return waitingSummary(outcome.missing);
+  if (outcome.status === 'error') return { tone: 'stop', title: 'STOP', detail: outcome.message };
+  const r = outcome.result;
+  const stop = r.warnings.find((w) => w.level === 'stop');
+  if (stop) return { tone: 'stop', title: 'STOP', detail: stop.message };
+  const checks = r.warnings.filter((w) => w.level === 'caution').length;
+  const detail = [`Wind ${formatTurns(r.turns)} turns`, checks > 0 ? `${checks} to check` : 'see replacements'].join(' · ');
+  return { tone: 'ok', title: springName(r.old), detail };
 }
 
 function orderNote(result: MatchResult): string {

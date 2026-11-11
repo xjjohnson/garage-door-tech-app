@@ -26,6 +26,7 @@
     "web": "expo start --web",
     "test": "jest",
     "typecheck": "tsc --noEmit",
+    "check-links": "node --experimental-strip-types --no-warnings scripts/check-links.mjs",
     "test:math": "npm --prefix ../spring-calc test"
   },
   "private": true,

@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { ChipOption, ChipRow, Field, MeasureField, MultiChipRow, SectionTitle, TextButton } from '../components/controls';
+import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
+import { ChipOption, ChipRow, ClearButton, Field, MeasureField, MultiChipRow, SectionTitle } from '../components/controls';
 import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
-import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, runDoor } from '../lib/forms';
+import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, Outcome, runDoor } from '../lib/forms';
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
+import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { DoorResult } from '../springCalc';
 import { colors, type } from '../theme';
 
@@ -23,9 +25,9 @@ export function DoorScreen() {
   const outcome = useMemo(() => runDoor(form), [form]);
   const heightOther = parseMeasurement(form.heightOther);
 
-  return (
-    <View style={styles.stack}>
-      <SectionTitle>The door</SectionTitle>
+  const inputs = (
+    <>
+      <SectionTitle first>The door</SectionTitle>
       <MeasureField
         label="Door weight"
         hint="Weigh it with the springs unloaded: door down, scale under the bottom section."
@@ -50,6 +52,9 @@ export function DoorScreen() {
       ) : null}
       <Field label="Drums (standard lift)">
         <ChipRow options={DRUM_CHOICES} value={form.drum} onChange={(drum) => update({ drum })} testID="door-drum" />
+      </Field>
+      <Field label="Track radius" hint={TRACK_RADIUS_HINT}>
+        <ChipRow options={TRACK_RADIUS_CHOICES} value={form.trackRadius} onChange={(trackRadius) => update({ trackRadius })} testID="door-track" />
       </Field>
 
       <SectionTitle>The springs you want</SectionTitle>
@@ -78,15 +83,35 @@ export function DoorScreen() {
         unit="in"
         testID="field-door-shaft-height"
       />
-      <TextButton label="Clear all inputs" onPress={reset} testID="clear-door" />
+      <ClearButton onPress={reset} testID="clear-door" />
+    </>
+  );
 
+  const results = (
+    <>
       <SectionTitle>Results</SectionTitle>
       <SafetyBanner />
       {outcome.status === 'incomplete' ? <MissingCard missing={outcome.missing} /> : null}
       {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
       {outcome.status === 'ok' ? <DoorResults result={outcome.result} springCount={form.springCount} /> : null}
-    </View>
+    </>
   );
+
+  return <CalcLayout inputs={inputs} results={results} summary={doorSummary(outcome, form.springCount)} testID="door-bar" />;
+}
+
+/** What the pinned bar says: what's missing, the stop, or how many springs fit and the turns. */
+export function doorSummary(outcome: Outcome<DoorResult>, springCount: 1 | 2): BarSummary {
+  if (outcome.status === 'incomplete') return waitingSummary(outcome.missing);
+  if (outcome.status === 'error') return { tone: 'stop', title: 'STOP', detail: outcome.message };
+  const r = outcome.result;
+  const turns = `Wind ${formatTurns(r.turns)} turns · ${r.ipptPerSpring.toFixed(1)} IPPT`;
+  const stop = r.warnings.find((w) => w.level === 'stop');
+  if (stop) return { tone: 'stop', title: 'STOP', detail: stop.message };
+  const n = r.options.length;
+  const what = springCount === 2 ? 'pair' : 'spring';
+  if (n === 0) return { tone: 'stop', title: `No ${what} fits`, detail: turns };
+  return { tone: 'ok', title: `${n} ${what}${n === 1 ? '' : 's'} that fit`, detail: turns };
 }
 
 function DoorResults({ result, springCount }: { result: DoorResult; springCount: 1 | 2 }) {

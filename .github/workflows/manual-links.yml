@@ -1,0 +1,38 @@
+# Opens every link in the Manuals library (each maker page and each direct
+# PDF) and fails if any stopped working, so a moved or deleted PDF gets
+# noticed before a tech taps it on a job.
+#
+# Runs every Monday morning, on pull requests that change the manuals list,
+# and by hand from the Actions tab ("Run workflow"). A failed run lists the
+# broken links on the run's summary page; GitHub emails a failed scheduled
+# run to whoever last changed this file's schedule.
+#
+# It needs nothing but Node: no install, no secrets.
+name: Manuals link check
+
+on:
+  schedule:
+    - cron: '0 13 * * 1'
+  pull_request:
+    paths:
+      - 'app/src/data/manuals.ts'
+      - 'app/scripts/check-links.mjs'
+      - '.github/workflows/manual-links.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check manual links
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Open every manual link
+        working-directory: app
+        run: npm run check-links

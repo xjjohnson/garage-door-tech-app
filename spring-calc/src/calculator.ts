@@ -7,7 +7,20 @@
  * Both return plain objects plus a list of warnings. The screen must show
  * every warning; none of them is optional reading.
  */
-import { COMMON_IDS_IN, DEFAULT_DEAD_COILS, DRUMS, DrumId, LIFE_POINTS, LIFE_SERVICE_FACTOR, RATE_FACTOR_LOW, RATE_FACTOR_MID, WIRES, WireSize } from './data';
+import {
+  COMMON_IDS_IN,
+  DEFAULT_DEAD_COILS,
+  DEFAULT_TRACK_RADIUS,
+  DRUMS,
+  DrumId,
+  LIFE_POINTS,
+  LIFE_SERVICE_FACTOR,
+  RATE_FACTOR_LOW,
+  RATE_FACTOR_MID,
+  TrackRadius,
+  WIRES,
+  WireSize,
+} from './data';
 import {
   allowableTorqueForCycles,
   balancedWeight,
@@ -15,6 +28,7 @@ import {
   doorTorque,
   estimateLife,
   findWire,
+  heightForTurns,
   ippt,
   lengthForIppt,
   LifeEstimate,
@@ -22,6 +36,7 @@ import {
   springIndex,
   springWeightLb,
   standardLiftTurns,
+  trackRadiusFactor,
   windingGrowth,
   wireFromCaliper,
   wireFromTwentyCoils,
@@ -163,6 +178,8 @@ export interface MatchInput {
   maxLengthIn?: number;
   /** Floor to the center of the torsion shaft, for the cable length. */
   floorToShaftCenterIn?: number;
+  /** Track radius, 12" or 15". Default 15" (see DEFAULT_TRACK_RADIUS). */
+  trackRadiusIn?: TrackRadius;
   deadCoils?: number;
   lengthIncrementIn?: number;
 }
@@ -177,8 +194,12 @@ export interface MatchResult {
   springCount: 1 | 2;
   totalIppt: number;
   turns: number;
-  /** Door weight range these springs balance at `turns`, pounds (see RATE_FACTOR_LOW). */
+  /**
+   * Door weight range these springs balance at `turns`, pounds (see
+   * RATE_FACTOR_LOW). On 12" track both ends are about 4% lower.
+   */
   balancesDoorLb: { low: number; high: number };
+  trackRadiusIn: TrackRadius;
   /** Same rate in the other common inside diameters and neighbouring wires. */
   equivalents: SpringSpec[];
   upgrades: UpgradeOption[];
@@ -192,6 +213,7 @@ export function matchOldSpring(input: MatchInput): MatchResult {
   const drum = input.drum ?? '400-8';
   const deadCoils = input.deadCoils ?? DEFAULT_DEAD_COILS;
   const inc = input.lengthIncrementIn ?? 0.5;
+  const track = input.trackRadiusIn ?? DEFAULT_TRACK_RADIUS;
 
   // 1. Identify the wire.
   let wire: WireSize | undefined;
@@ -216,6 +238,9 @@ export function matchOldSpring(input: MatchInput): MatchResult {
   // 2. Rate of the old spring, the turns, and the torque the door needs.
   const turns = resolveTurns({ doorHeightIn: input.doorHeightIn, drum, turns: input.turns }, warnings);
   const cable = resolveCable(input.floorToShaftCenterIn, input.doorHeightIn, drum);
+  // Track radius changes how much door the springs lift at these turns, not
+  // the stress in the old spring, so it only touches balancesDoorLb.
+  const trackFactor = trackRadiusFactor(track, drum, input.doorHeightIn ?? heightForTurns(turns, drum));
   const oldIppt = ippt(wire.diameterIn, input.insideDiameterIn, input.lengthIn, deadCoils);
   const torque = oldIppt * turns; // per spring, door closed, full wind, by the textbook rate
   // DDM-consistent view: DDM's springs lift about RATE_FACTOR_LOW of the
@@ -269,9 +294,10 @@ export function matchOldSpring(input: MatchInput): MatchResult {
     totalIppt,
     turns,
     balancesDoorLb: {
-      low: balancedWeight(totalIppt, turns, drum) * RATE_FACTOR_LOW,
-      high: balancedWeight(totalIppt, turns, drum),
+      low: balancedWeight(totalIppt, turns, drum) * RATE_FACTOR_LOW * trackFactor,
+      high: balancedWeight(totalIppt, turns, drum) * trackFactor,
     },
+    trackRadiusIn: track,
     equivalents: equivalents.slice(0, 6),
     upgrades,
     ...(cable !== undefined ? { cableLengthIn: cable } : {}),
@@ -296,6 +322,8 @@ export interface DoorInput {
   maxLengthIn?: number;
   /** Floor to the center of the torsion shaft, for the cable length. */
   floorToShaftCenterIn?: number;
+  /** Track radius, 12" or 15". Default 15" (see DEFAULT_TRACK_RADIUS). */
+  trackRadiusIn?: TrackRadius;
   deadCoils?: number;
   lengthIncrementIn?: number;
 }
@@ -309,9 +337,10 @@ export interface DoorResult {
   /**
    * Options that meet the cycle target, lightest first. balancesDoorLb is the
    * range of door weight the option balances at `turns`, across the published
-   * sources (see RATE_FACTOR_LOW in data.ts).
+   * sources (see RATE_FACTOR_LOW in data.ts), adjusted for the track radius.
    */
   options: (SpringSpec & { balancesDoorLb: { low: number; high: number } })[];
+  trackRadiusIn: TrackRadius;
   /** Length of each lift cable, when floor to shaft center was entered. */
   cableLengthIn?: number;
   warnings: Warning[];
@@ -323,6 +352,7 @@ export function sizeFromDoor(input: DoorInput): DoorResult {
   const inc = input.lengthIncrementIn ?? 0.5;
   const target = input.targetCycles ?? LIFE_POINTS[0];
   const ids = input.insideDiametersIn ?? [2.0];
+  const track = input.trackRadiusIn ?? DEFAULT_TRACK_RADIUS;
 
   if (input.doorWeightLb < 30 || input.doorWeightLb > 1000) throw new RangeError('Door weight must be between 30 and 1,000 lb.');
   if (input.doorHeightIn < 48) throw new RangeError('Door height must be at least 4\'.');
@@ -332,17 +362,21 @@ export function sizeFromDoor(input: DoorInput): DoorResult {
   const torquePerSpring = doorTorque(input.doorWeightLb, input.drum) / input.springCount;
   const ipptPerSpring = torquePerSpring / turns;
   const lt: LifeTorque = { maker: torquePerSpring, conservative: torquePerSpring * LIFE_SERVICE_FACTOR };
+  // On 12" track each turn lifts less door (Canimex winds fewer turns for the
+  // same lift), so order a stronger spring. Full-wind torque, and so cycle
+  // life, is the same on both radii.
+  const trackFactor = trackRadiusFactor(track, input.drum, input.doorHeightIn);
 
   const options: DoorResult['options'] = [];
   for (const id of ids) {
     for (const w of WIRES) {
       if (allowableTorqueForCycles(w, id, target) < lt.conservative) continue;
       // Catalog IPPT to order, aiming the door at the middle of the sources' range.
-      const catalogIppt = ipptPerSpring / RATE_FACTOR_MID;
+      const catalogIppt = ipptPerSpring / (RATE_FACTOR_MID * trackFactor);
       const spec = equivalentOn(w, id, catalogIppt, lt, turns, deadCoils, inc, input.maxLengthIn);
       if (!spec || spec.life.cycles < target) continue;
       if (spec.lengthIn > 50) continue; // longer than any residential shaft side
-      const high = balancedWeight(spec.ippt * input.springCount, turns, input.drum);
+      const high = balancedWeight(spec.ippt * input.springCount, turns, input.drum) * trackFactor;
       options.push({ ...spec, balancesDoorLb: { low: high * RATE_FACTOR_LOW, high } });
     }
   }
@@ -358,6 +392,7 @@ export function sizeFromDoor(input: DoorInput): DoorResult {
     torquePerSpringInLb: torquePerSpring,
     ipptPerSpring,
     options: options.slice(0, 8),
+    trackRadiusIn: track,
     ...(cable !== undefined ? { cableLengthIn: cable } : {}),
     warnings,
   };
