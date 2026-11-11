@@ -6,6 +6,7 @@ import { formatNumber } from '../lib/measure';
 import { formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
 import { buildQuote, QuoteOption, quoteText } from '../lib/quote';
 import { formatLife } from '../lib/springNames';
+import { repairLines, withRepairs } from '../lib/inspection';
 import { invoiceStatus } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -19,7 +20,8 @@ import { colors, touch, type } from '../theme';
 export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () => void }) {
   const { sheet } = usePriceSheet();
   const { setAccepted } = useJobs();
-  const quote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
+  const quote = useMemo(() => withRepairs(buildQuote(job, sheet), job.inspection, sheet), [job, sheet]);
+  const repairs = repairLines(job.inspection);
   const priced = hasPrices(sheet);
   const { invoices, create } = useInvoices();
   const invoice = invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
@@ -47,6 +49,12 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
           <Text style={[styles.noticeBody, styles.onStop]}>{quote.blocked}. Open the job in the calculator to fix it.</Text>
         </View>
       ) : null}
+
+      <Action
+        label={job.inspection ? 'Safety check' + (repairs.length > 0 ? ` (${repairs.length} repair${repairs.length === 1 ? '' : 's'} added)` : '') : 'Do a safety check'}
+        onPress={() => router.push({ pathname: '/inspection/[id]', params: { id: job.id } })}
+        testID="quote-inspection"
+      />
 
       {quote.options.map((o) => (
         <OptionCard

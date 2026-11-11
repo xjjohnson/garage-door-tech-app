@@ -332,6 +332,17 @@ AsyncStorage `customers/v1`) and go into backups. Their fields (name, phone,
 email, street, notes) are the ones an accounting system such as Odoo keeps for
 a contact, so a later sync can map them directly.
 
+**Safety check.** A job's **Safety check** (in its details, or on its quote)
+walks the door and opener: lift cables, drums, bottom brackets, springs and
+cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
+eyes, auto-reverse (a 1½" board) and the emergency release. Each is marked
+**OK**, **Needs work** or **N/A**, with a note. Items under spring tension are
+marked PRO. **Mark the other … OK** finishes the rest in one tap. A problem
+becomes a **repair** with a name, a price on the keypad, and taxed (parts) or not
+(labor). Repairs with a price go onto every option of the job's quote, and so
+onto its invoice. **Send report to customer** shares what was checked, what
+needs work and the repairs as text. It's saved with the job (`src/lib/inspection.ts`).
+
 **Invoices.** Once the customer has picked an option on a quote, **Make
 invoice** turns it into an invoice, numbered from 1001 up, with the option's
 lines and totals copied in, so later price changes don't alter it. (If prices
@@ -401,6 +412,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `invoices.tsx` | `/invoices` | Every invoice and the total owed, a full page |
 | `invoice/[id].tsx` | `/invoice/<id>` | One invoice: payments and QR codes to pay, a full page |
 | `business.tsx` | `/business` | Business name and payment handles, a full page |
+| `inspection/[id].tsx` | `/inspection/<job id>` | One job's safety check and repairs, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

@@ -32,6 +32,7 @@ export default function RootLayout() {
                   <Stack.Screen name="invoices" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="invoice/[id]" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="business" options={{ presentation: 'modal' }} />
+                  <Stack.Screen name="inspection/[id]" options={{ presentation: 'modal' }} />
                 </Stack>
               </CalculatorLinkProvider>
             </InvoicesProvider>
