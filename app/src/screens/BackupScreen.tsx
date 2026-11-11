@@ -7,6 +7,7 @@ import { Backup, backupFileName, LAST_BACKUP_KEY, makeBackup, mergeJobs, parseBa
 import { BackupFiles, deviceBackupFiles } from '../lib/backupFiles';
 import { formatJobDate } from '../lib/jobs';
 import { useCustomers } from '../lib/useCustomers';
+import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
@@ -33,6 +34,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
   const { jobs, restore } = useJobs();
   const { customers, restore: restoreCustomers } = useCustomers();
   const { invoices, business, restore: restoreInvoices } = useInvoices();
+  const { settings: followUpSettings, dismissed, restore: restoreFollowUps } = useFollowUps();
   const { sheet, update } = usePriceSheet();
   const [lastBackup, setLastBackup] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -56,7 +58,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     try {
       const at = now();
       const name = backupFileName(at);
-      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, priceSheet: sheet }, at, Constants.expoConfig?.version));
+      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, followUps: { settings: followUpSettings, dismissed }, priceSheet: sheet }, at, Constants.expoConfig?.version));
       if (folder !== null) {
         setLastBackup(at);
         AsyncStorage.setItem(LAST_BACKUP_KEY, String(at)).catch(() => undefined);
@@ -92,6 +94,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     if (!pending) return;
     restoreCustomers(pending.customers);
     restoreInvoices(pending.invoices, pending.business);
+    if (pending.followUps) restoreFollowUps(pending.followUps);
     const { added, updated } = restore(pending.jobs);
     if (pending.priceSheet) {
       const restored = pending.priceSheet;

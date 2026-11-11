@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CalculatorLinkProvider } from '../lib/useCalculatorLink';
 import { CustomersProvider } from '../lib/useCustomers';
+import { FollowUpsProvider } from '../lib/useFollowUps';
 import { InvoicesProvider } from '../lib/useInvoices';
 import { JobsProvider } from '../lib/useJobs';
 import { PriceSheetProvider } from '../lib/usePriceSheet';
@@ -20,21 +21,25 @@ export default function RootLayout() {
         <CustomersProvider>
           <PriceSheetProvider>
             <InvoicesProvider>
-              <CalculatorLinkProvider>
-                <StatusBar style="dark" />
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="price-sheet" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="quote/[id]" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="backup" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="customers" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="customer/[id]" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="invoices" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="invoice/[id]" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="business" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="inspection/[id]" options={{ presentation: 'modal' }} />
-                </Stack>
-              </CalculatorLinkProvider>
+              <FollowUpsProvider>
+                <CalculatorLinkProvider>
+                  <StatusBar style="dark" />
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="price-sheet" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="quote/[id]" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="backup" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="customers" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="customer/[id]" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="invoices" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="invoice/[id]" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="business" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="inspection/[id]" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="stats" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="follow-ups" options={{ presentation: 'modal' }} />
+                  </Stack>
+                </CalculatorLinkProvider>
+              </FollowUpsProvider>
             </InvoicesProvider>
           </PriceSheetProvider>
         </CustomersProvider>

@@ -6,6 +6,8 @@ import { QrCode } from '../components/QrCode';
 import { balance, Invoice, invoiceStatus, invoiceText, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, STATUS_LABEL } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { cents, formatMoney, TIER_LABEL } from '../lib/prices';
+import { warrantyFor } from '../lib/followups';
+import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type } from '../theme';
 
@@ -20,6 +22,7 @@ const CONFIRM_MS = 4000;
 export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
   const { business, addPayment, removePayment, setVoid } = useInvoices();
   const status = invoiceStatus(invoice);
+  const warranty = warrantyFor(invoice, useFollowUps().settings);
   const due = balance(invoice);
   const links = payLinks(business, due, `Invoice ${invoice.number}`);
   const scannable = links.filter((l) => l.url);
@@ -50,6 +53,13 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
       <Text style={styles.meta}>
         {formatJobDate(invoice.createdAt)} · {TIER_LABEL[invoice.tier]} option
       </Text>
+      {status !== 'void' && (warranty.partsUntil || warranty.laborUntil) ? (
+        <Text style={styles.meta} testID="invoice-warranty">
+          Warranty: {warranty.partsUntil ? `springs until ${formatJobDate(warranty.partsUntil)}` : 'no spring warranty'}
+          {warranty.laborUntil ? `, labor until ${formatJobDate(warranty.laborUntil)}` : ''}
+          {(warranty.partsUntil ?? 0) > Date.now() || (warranty.laborUntil ?? 0) > Date.now() ? ' (covered now)' : ' (ended)'}
+        </Text>
+      ) : null}
       {invoice.customerId ? (
         <Action label="Customer history" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: invoice.customerId! } })} testID="invoice-customer" />
       ) : null}
