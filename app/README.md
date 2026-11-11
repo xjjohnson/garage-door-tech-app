@@ -227,6 +227,15 @@ track, 6' to 10' doors, to 42" of high lift, 45" to 7'6"). Other high-lift
 drums and vertical lift list the drums only: their turns come from the drum
 maker's chart. The math is in `spring-calc/src/drums.ts`.
 
+**Door weight estimate.** "No scale yet? Estimate the weight" under the
+door weight on From door and Extension opens a page: width, height, how the
+door is built (steel plain, steel insulated, steel both sides, wood newer or
+older) and windows. It shows a weight range, marked ESTIMATE, for quoting
+only; it never fills the calculator. Door makers don't publish weights by
+size, so the ranges are worked out per square foot from the few published
+doors (DDM, and Wayne Dalton figures quoted by a dealer), named on screen.
+The math is in `spring-calc/src/doorWeight.ts`.
+
 Results update as you type; there is no Calculate button.
 
 **Safety.** The safety banner sits above the results on both tabs and can't
