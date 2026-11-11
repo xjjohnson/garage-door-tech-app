@@ -5,11 +5,11 @@
  * can be tested directly.
  */
 import { formatLife, springName } from './springNames';
-import { runDoor, runMatch } from './forms';
+import { runDoor, runExtension, runMatch } from './forms';
 import { JobInputs } from './jobs';
 import { formatNumber } from './measure';
 import { AddOn, cents, formatMoney, PriceSheet, Tier, TIER_CYCLES, TIER_LABEL, TIERS } from './prices';
-import { SpringSpec } from '../springCalc';
+import { ExtensionResult, ExtensionSpring, SpringSpec } from '../springCalc';
 
 export interface QuoteLine {
   label: string;
@@ -24,7 +24,9 @@ export interface QuoteOption {
   available: boolean;
   reason?: string;
   spring?: SpringSpec;
-  springCount: 1 | 2;
+  /** On an extension spring job: the springs on each side, instead of `spring`. */
+  extension?: ExtensionSpring[];
+  springCount: number;
   lines: QuoteLine[];
   subtotal: number;
   tax: number;
@@ -38,7 +40,7 @@ export interface Quote {
 }
 
 /** The spring each option puts in, or why there isn't one. */
-function tierSprings(inputs: JobInputs): { blocked?: string; springs: Record<Tier, SpringSpec | string> } {
+function tierSprings(inputs: Exclude<JobInputs, { mode: 'extension' }>): { blocked?: string; springs: Record<Tier, SpringSpec | string> } {
   const none = { good: '', better: '', best: '' };
   if (inputs.mode === 'match') {
     const out = runMatch(inputs.form);
@@ -73,11 +75,49 @@ function addOnsFor(tier: Tier, addOns: AddOn[]): QuoteLine[] {
   return addOns.filter((a) => a.tiers[tier] && a.name.trim() !== '').map((a) => ({ label: a.name.trim(), cents: cents(a.price), taxable: true }));
 }
 
+function taxOf(lines: QuoteLine[], sheet: PriceSheet): number {
+  const taxRate = cents(sheet.taxPercent) / 10_000; // "8.25" → 825 → 0.0825
+  return Math.round(lines.filter((l) => l.taxable).reduce((n, l) => n + l.cents, 0) * taxRate);
+}
+
+/** "2 extension springs, 140 lb Blue, 25" × 42"" or "4 extension springs, 110 + 100 lb a side". */
+export function extensionLineLabel(r: Pick<ExtensionResult, 'springCount' | 'lengthIn' | 'stretchIn'>, perSide: ExtensionSpring[]): string {
+  const [first] = perSide;
+  const same = perSide.every((s) => s.ratingLb === first?.ratingLb);
+  const rating = same && first ? `${first.ratingLb} lb ${first.color}` : `${perSide.map((s) => s.ratingLb).join(' + ')} lb a side`;
+  const size = r.lengthIn !== undefined ? `, ${r.lengthIn}" × ${r.stretchIn}"` : `, ${r.stretchIn}" stretch`;
+  return `${r.springCount} extension springs, ${rating}${size}`;
+}
+
+/** Extension springs don't come in cycle grades: every option puts in the same size, priced by option. */
+function buildExtensionQuote(inputs: Extract<JobInputs, { mode: 'extension' }>, sheet: PriceSheet): Quote {
+  const out = runExtension(inputs.form);
+  if (out.status === 'incomplete') return { blocked: `Missing: ${out.missing.join(', ')}`, options: [] };
+  if (out.status === 'error') return { blocked: out.message, options: [] };
+  const stop = out.result.warnings.find((w) => w.level === 'stop');
+  if (stop) return { blocked: stop.message, options: [] };
+  const r = out.result;
+  const perSide = r.perSide;
+  if (!perSide) return { blocked: 'No spring size yet', options: [] };
+  const options = TIERS.map((tier): QuoteOption => {
+    const lines: QuoteLine[] = [
+      { label: extensionLineLabel(r, perSide), cents: cents(sheet.extensionSpring[tier]) * r.springCount, taxable: true },
+      { label: 'Extension spring labor', cents: cents(sheet.extensionLabor), taxable: false },
+      { label: 'Service call', cents: cents(sheet.serviceCall), taxable: false },
+      ...addOnsFor(tier, sheet.addOns),
+    ];
+    const subtotal = lines.reduce((n, l) => n + l.cents, 0);
+    const tax = taxOf(lines, sheet);
+    return { tier, available: true, extension: perSide, springCount: r.springCount, lines, subtotal, tax, total: subtotal + tax };
+  });
+  return { options };
+}
+
 export function buildQuote(inputs: JobInputs, sheet: PriceSheet): Quote {
+  if (inputs.mode === 'extension') return buildExtensionQuote(inputs, sheet);
   const springCount = inputs.form.springCount;
   const { blocked, springs } = tierSprings(inputs);
   if (blocked) return { blocked, options: [] };
-  const taxRate = cents(sheet.taxPercent) / 10_000; // "8.25" → 825 → 0.0825
   const options = TIERS.map((tier): QuoteOption => {
     const s = springs[tier];
     if (typeof s === 'string') return { tier, available: false, reason: s, springCount, lines: [], subtotal: 0, tax: 0, total: 0 };
@@ -89,7 +129,7 @@ export function buildQuote(inputs: JobInputs, sheet: PriceSheet): Quote {
       ...addOnsFor(tier, sheet.addOns),
     ];
     const subtotal = lines.reduce((n, l) => n + l.cents, 0);
-    const tax = Math.round(lines.filter((l) => l.taxable).reduce((n, l) => n + l.cents, 0) * taxRate);
+    const tax = taxOf(lines, sheet);
     return { tier, available: true, spring: s, springCount, lines, subtotal, tax, total: subtotal + tax };
   });
   return { options };

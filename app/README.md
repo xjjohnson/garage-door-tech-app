@@ -193,7 +193,7 @@ be tested ahead of time. A version you set by hand always matches.
 
 ## What's on screen
 
-Sections in the bar at the bottom: **Springs**, **Jobs**, **Manuals** and **Diagnose**. Springs has two tabs.
+Sections in the bar at the bottom: **Springs**, **Jobs**, **Manuals** and **Diagnose**. Springs has three tabs: two for torsion springs and one for extension springs.
 
 **Match old spring.** Wire by 20-coil length, caliper, or picked from the
 list (with the color code); inside diameter; relaxed length; wind; one spring
@@ -207,6 +207,15 @@ cycle rating wanted (10k, 25k, 50k), the inside diameters to consider, and
 optionally the free shaft. Results: turns to wind, the rate needed per spring,
 and up to 8 options, lightest first, each with the door-weight range it
 balances.
+
+**Extension.** Door height (7', 8', 9' or other), one spring a side or two,
+and the door weight, or the old springs' tag rating or color, plus optionally
+the old spring's length. Ratings follow DDM: each spring is rated for the
+whole door (two per side add up to it), rounded down to 10 lb. Colors follow
+DASMA TDS-171, which repeat every 100 lb, so a color alone is a STOP until the
+door is weighed or the tag is read. Stock sizes: 25" × 42" for 7', 27" × 48"
+(or 29") for 8', 39" × 54" for 9'; other heights order by a stretch of half
+the door height. The math is in `spring-calc/src/extension.ts`.
 
 Results update as you type; there is no Calculate button.
 
@@ -316,7 +325,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 |---|---|---|
 | `_layout.tsx` | | Saved data for every screen (jobs, prices), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
-| `(tabs)/index.tsx` | `/` | Springs: Match old spring and Size from door |
+| `(tabs)/index.tsx` | `/` | Springs: Match old spring, Size from door and Extension |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
 | `(tabs)/manuals.tsx` | `/manuals` | Manuals |
 | `(tabs)/diagnose.tsx` | `/diagnose` | Diagnose |

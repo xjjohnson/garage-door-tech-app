@@ -10,6 +10,11 @@ import {
   DoorInput,
   DoorResult,
   DrumId,
+  EXTENSION_COLORS,
+  ExtensionColor,
+  ExtensionInput,
+  ExtensionResult,
+  extensionSprings,
   MatchInput,
   MatchResult,
   matchOldSpring,
@@ -228,6 +233,74 @@ export function runDoor(form: DoorForm): Outcome<DoorResult> {
   if (!input) return { status: 'incomplete', missing };
   try {
     return { status: 'ok', result: sizeFromDoor(input) };
+  } catch (e) {
+    return { status: 'error', message: errorMessage(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Extension springs
+// ---------------------------------------------------------------------------
+
+/** Extension door heights: the three with stock sizes, then any other. */
+export const EXTENSION_HEIGHT_CHOICES = [
+  { label: "7'", value: '84' },
+  { label: "8'", value: '96' },
+  { label: "9'", value: '108' },
+  { label: 'Other', value: 'other' },
+] as const;
+
+export interface ExtensionForm {
+  /** Weighed door, lb. Optional when the old springs' tag or color is known. */
+  weight: string;
+  heightChoice: string;
+  heightOther: string;
+  springsPerSide: 1 | 2;
+  /** DASMA color of the old springs, or '' when not known. */
+  oldColor: string;
+  /** Pull printed on the old spring's tag, lb. */
+  oldRating: string;
+  /** Relaxed length of the old spring, coils only. */
+  oldLength: string;
+}
+
+export const DEFAULT_EXTENSION_FORM: ExtensionForm = {
+  weight: '',
+  heightChoice: '84',
+  heightOther: '',
+  springsPerSide: 1,
+  oldColor: '',
+  oldRating: '',
+  oldLength: '',
+};
+
+export function buildExtensionInput(form: ExtensionForm): { input?: ExtensionInput; missing: string[] } {
+  const missing: string[] = [];
+  const doorHeightIn = chosenNumber(form.heightChoice, form.heightOther);
+  if (doorHeightIn === undefined) missing.push('Door height');
+  const doorWeightLb = optionalMeasurement(form.weight);
+  const ratingLb = optionalMeasurement(form.oldRating);
+  const lengthIn = optionalMeasurement(form.oldLength);
+  const color = (EXTENSION_COLORS as readonly string[]).includes(form.oldColor) ? (form.oldColor as ExtensionColor) : undefined;
+  if (doorWeightLb === undefined && ratingLb === undefined && color === undefined) missing.push('Door weight, or the old springs’ tag or color');
+  if (doorHeightIn === undefined || missing.length > 0) return { missing };
+  const old = { ...(color ? { color } : {}), ...(ratingLb !== undefined ? { ratingLb } : {}), ...(lengthIn !== undefined ? { lengthIn } : {}) };
+  return {
+    missing,
+    input: {
+      doorHeightIn,
+      springsPerSide: form.springsPerSide,
+      ...(doorWeightLb !== undefined ? { doorWeightLb } : {}),
+      ...(Object.keys(old).length > 0 ? { old } : {}),
+    },
+  };
+}
+
+export function runExtension(form: ExtensionForm): Outcome<ExtensionResult> {
+  const { input, missing } = buildExtensionInput(form);
+  if (!input) return { status: 'incomplete', missing };
+  try {
+    return { status: 'ok', result: extensionSprings(input) };
   } catch (e) {
     return { status: 'error', message: errorMessage(e) };
   }

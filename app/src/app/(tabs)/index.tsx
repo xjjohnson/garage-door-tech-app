@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useCalculatorLink } from '../../lib/useCalculatorLink';
 import { DoorScreen } from '../../screens/DoorScreen';
+import { ExtensionScreen } from '../../screens/ExtensionScreen';
 import { MatchScreen } from '../../screens/MatchScreen';
 import { colors, touch, type } from '../../theme';
 
-type Tab = 'match' | 'door';
+type Tab = 'match' | 'door' | 'extension';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'match', label: 'Match old spring' },
   { id: 'door', label: 'Size from door' },
+  { id: 'extension', label: 'Extension' },
 ];
 
-/** Springs: the two calculator tabs. Both stay mounted so switching keeps their inputs. */
+/** Springs: torsion (match or size) and extension. All stay mounted so switching keeps their inputs. */
 export default function SpringsRoute() {
   const { openJob } = useCalculatorLink();
   const [tab, setTab] = useState<Tab>('match');
@@ -23,7 +25,7 @@ export default function SpringsRoute() {
 
   return (
     <View style={styles.flex}>
-      {/* Two ways into the calculator, as one joined switch so it doesn't read like the app's main tabs. */}
+      {/* Three ways into the calculator, as one joined switch so it doesn't read like the app's main tabs. */}
       <View style={styles.segmentWrap}>
         <View style={styles.segments} accessibilityRole="tablist">
           {TABS.map((t, i) => {
@@ -48,6 +50,9 @@ export default function SpringsRoute() {
       </View>
       <View style={[styles.flex, tab !== 'door' && styles.hidden]}>
         <DoorScreen open={openJob} />
+      </View>
+      <View style={[styles.flex, tab !== 'extension' && styles.hidden]}>
+        <ExtensionScreen open={openJob} />
       </View>
     </View>
   );

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, screen, within } from '@testing-library/react-native';
 import { renderApp } from '../testing/renderApp';
-import { DEFAULT_DOOR_FORM, DEFAULT_MATCH_FORM } from '../lib/forms';
+import { DEFAULT_DOOR_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { cents, DEFAULT_PRICE_SHEET, formatMoney, parsePriceSheet, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
 import { buildQuote, quoteText } from '../lib/quote';
@@ -13,6 +13,8 @@ const SHEET: PriceSheet = {
   serviceCall: '89',
   springLabor: '150',
   spring: { good: '60', better: '85', best: '120' },
+  extensionSpring: { good: '30', better: '45', best: '45' },
+  extensionLabor: '95',
   addOns: [
     { id: 'c', name: 'Lift cables (pair)', price: '45', tiers: { good: false, better: true, best: true } },
     { id: 'r', name: 'Rollers', price: '80', tiers: { good: false, better: false, best: true } },
@@ -56,6 +58,29 @@ describe('prices and quotes (plain logic)', () => {
   it('gives no quote while the calculator has a STOP or is missing inputs', () => {
     expect(buildQuote({ mode: 'match', form: DEFAULT_MATCH_FORM }, SHEET).blocked).toMatch(/Missing/);
     expect(buildQuote({ mode: 'match', form: { ...MATCH.form, twentyCoil: '4 7/16' } }, SHEET).blocked).toBeTruthy();
+  });
+
+  it('quotes an extension job: the same springs on every option, priced by option', () => {
+    const q = buildQuote({ mode: 'extension', form: { ...DEFAULT_EXTENSION_FORM, weight: '147' } }, SHEET);
+    expect(q.blocked).toBeUndefined();
+    const [good, better] = q.options;
+    expect(good.lines[0].label).toBe('2 extension springs, 140 lb Blue, 25" × 42"');
+    expect(good.lines[1]).toMatchObject({ label: 'Extension spring labor', cents: 9500 });
+    // 2 × $30 + $95 + $89; tax 8.25% on $60 = $4.95.
+    expect(good.subtotal).toBe(6000 + 9500 + 8900);
+    expect(good.tax).toBe(495);
+    expect(better.lines[0].cents).toBe(9000);
+    expect(better.extension).toEqual([{ ratingLb: 140, color: 'Blue' }]);
+  });
+
+  it('names a four-spring door with mixed springs', () => {
+    const q = buildQuote({ mode: 'extension', form: { ...DEFAULT_EXTENSION_FORM, weight: '214', springsPerSide: 2 } }, SHEET);
+    expect(q.options[0].lines[0].label).toBe('4 extension springs, 110 + 100 lb a side, 25" × 42"');
+    expect(q.options[0].lines[0].cents).toBe(4 * 3000);
+  });
+
+  it('gives no extension quote from a color alone', () => {
+    expect(buildQuote({ mode: 'extension', form: { ...DEFAULT_EXTENSION_FORM, oldColor: 'Blue' } }, SHEET).blocked).toMatch(/repeat every 100 lb/);
   });
 
   it('writes a plain-text quote to send', () => {

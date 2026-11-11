@@ -6,7 +6,7 @@
  * math again (and shows any warnings a newer version adds). The one-line
  * summary is stored too, so the list can show it without running the math.
  */
-import { DEFAULT_DOOR_FORM, DEFAULT_MATCH_FORM, DoorForm, MatchForm, restoreForm } from './forms';
+import { DEFAULT_DOOR_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, ExtensionForm, MatchForm, restoreForm } from './forms';
 import { Tier, TIERS } from './prices';
 
 export const JOBS_STORAGE_KEY = 'jobs/v1';
@@ -43,9 +43,9 @@ export interface AcceptedQuote {
   at: number;
 }
 
-export type Job = (JobBase & { mode: 'match'; form: MatchForm }) | (JobBase & { mode: 'door'; form: DoorForm });
+export type JobInputs = { mode: 'match'; form: MatchForm } | { mode: 'door'; form: DoorForm } | { mode: 'extension'; form: ExtensionForm };
 
-export type JobInputs = { mode: 'match'; form: MatchForm } | { mode: 'door'; form: DoorForm };
+export type Job = JobBase & JobInputs;
 
 /** Asks a calculator screen to load a saved job; a new nonce each time, so opening the same job twice works. */
 export interface OpenJobRequest {
@@ -56,6 +56,7 @@ export interface OpenJobRequest {
 export const MODE_LABEL: Record<Job['mode'], string> = {
   match: 'Match old spring',
   door: 'Size from door',
+  extension: 'Extension springs',
 };
 
 export function newJobId(now: number, random: () => number = Math.random): string {
@@ -146,7 +147,7 @@ export function parseJobs(raw: string | null): Job[] {
     if (!item || typeof item !== 'object') continue;
     const j = item as Record<string, unknown>;
     if (typeof j.id !== 'string' || typeof j.savedAt !== 'number') continue;
-    if (j.mode !== 'match' && j.mode !== 'door') continue;
+    if (j.mode !== 'match' && j.mode !== 'door' && j.mode !== 'extension') continue;
     const base: JobBase = {
       id: j.id,
       savedAt: j.savedAt,
@@ -163,7 +164,9 @@ export function parseJobs(raw: string | null): Job[] {
     out.push(
       j.mode === 'match'
         ? { ...base, mode: 'match', form: restoreForm(DEFAULT_MATCH_FORM, j.form) }
-        : { ...base, mode: 'door', form: restoreForm(DEFAULT_DOOR_FORM, j.form) },
+        : j.mode === 'door'
+          ? { ...base, mode: 'door', form: restoreForm(DEFAULT_DOOR_FORM, j.form) }
+          : { ...base, mode: 'extension', form: restoreForm(DEFAULT_EXTENSION_FORM, j.form) },
     );
   }
   return out;

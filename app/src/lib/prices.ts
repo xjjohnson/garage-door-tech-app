@@ -29,6 +29,10 @@ export interface PriceSheet {
   springLabor: string;
   /** Price of one spring, by the option's cycle rating. */
   spring: Record<Tier, string>;
+  /** Price of one extension spring, by option (e.g. standard for Good, long-life for Better and Best). */
+  extensionSpring: Record<Tier, string>;
+  /** Labor to replace extension springs, on every extension option. */
+  extensionLabor: string;
   addOns: AddOn[];
   /** Sales tax on parts (springs and add-ons), percent. */
   taxPercent: string;
@@ -45,6 +49,8 @@ export const DEFAULT_PRICE_SHEET: PriceSheet = {
   serviceCall: '',
   springLabor: '',
   spring: { good: '', better: '', best: '' },
+  extensionSpring: { good: '', better: '', best: '' },
+  extensionLabor: '',
   addOns: DEFAULT_ADD_ONS,
   taxPercent: '',
 };
@@ -71,7 +77,8 @@ export function hasPrices(sheet: PriceSheet): boolean {
   return (
     cents(sheet.serviceCall) > 0 ||
     cents(sheet.springLabor) > 0 ||
-    TIERS.some((t) => cents(sheet.spring[t]) > 0) ||
+    TIERS.some((t) => cents(sheet.spring[t]) > 0 || cents(sheet.extensionSpring[t]) > 0) ||
+    cents(sheet.extensionLabor) > 0 ||
     sheet.addOns.some((a) => cents(a.price) > 0)
   );
 }
@@ -96,6 +103,7 @@ export function parsePriceSheet(raw: string | null): PriceSheet {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return DEFAULT_PRICE_SHEET;
   const d = data as Record<string, unknown>;
   const spring = (d.spring && typeof d.spring === 'object' ? d.spring : {}) as Record<string, unknown>;
+  const ext = (d.extensionSpring && typeof d.extensionSpring === 'object' ? d.extensionSpring : {}) as Record<string, unknown>;
   const addOns = Array.isArray(d.addOns)
     ? d.addOns.flatMap((a): AddOn[] => {
         if (!a || typeof a !== 'object') return [];
@@ -109,6 +117,8 @@ export function parsePriceSheet(raw: string | null): PriceSheet {
     serviceCall: str(d.serviceCall),
     springLabor: str(d.springLabor),
     spring: { good: str(spring.good), better: str(spring.better), best: str(spring.best) },
+    extensionSpring: { good: str(ext.good), better: str(ext.better), best: str(ext.best) },
+    extensionLabor: str(d.extensionLabor),
     addOns,
     taxPercent: str(d.taxPercent),
   };
