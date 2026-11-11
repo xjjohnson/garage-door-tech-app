@@ -7,6 +7,16 @@ import { colors, touch, type } from '../theme';
 
 const ALL = 'all';
 
+/** Something a tap opens: an entry's maker page or one of its documents. */
+interface Target {
+  key: string;
+  url: string;
+}
+
+function pageTarget(link: ManualLink): Target {
+  return { key: link.id, url: link.url };
+}
+
 const MARKET_OPTIONS: ChipOption<string>[] = [
   { label: 'All', value: ALL },
   { label: MARKET_LABEL.residential, value: 'residential' },
@@ -19,16 +29,19 @@ interface Props {
 }
 
 /**
- * Search the makers' manuals by brand, model or series. Each row opens the
- * maker's own page in the phone's browser. Before opening, it checks for a
- * signal and says so plainly when there isn't one.
+ * Search the makers' manuals by brand, model or series. An entry with direct
+ * documents shows a button for each, which opens the PDF straight away, plus
+ * the maker's page for anything else; an entry without them opens the
+ * maker's page. Before opening, it checks for a signal and says so plainly
+ * when there isn't one.
  */
 export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.openURL(u) }: Props) {
   const [query, setQuery] = useState('');
   const [market, setMarket] = useState<string>(ALL);
   const [brand, setBrand] = useState<string>(ALL);
+  // What's being checked or couldn't open: an entry's page or one of its documents.
   const [checking, setChecking] = useState<string | null>(null);
-  const [offline, setOffline] = useState<ManualLink | null>(null);
+  const [offline, setOffline] = useState<Target | null>(null);
 
   const marketFilter = market === ALL ? null : (market as Market);
   const brandOptions = useMemo<ChipOption<string>[]>(
@@ -40,21 +53,21 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
 
   const hits = useMemo(() => searchManuals(query, brandFilter, MANUAL_LINKS, marketFilter), [query, brandFilter, marketFilter]);
 
-  async function open(link: ManualLink) {
-    setChecking(link.id);
-    const reach = await checkReach(link.url, fetchImpl);
+  async function open(target: Target) {
+    setChecking(target.key);
+    const reach = await checkReach(target.url, fetchImpl);
     setChecking(null);
     if (reach === 'offline') {
-      setOffline(link);
+      setOffline(target);
       return;
     }
     setOffline(null);
-    openUrl(link.url).catch(() => setOffline(link));
+    openUrl(target.url).catch(() => setOffline(target));
   }
 
-  function openAnyway(link: ManualLink) {
+  function openAnyway(target: Target) {
     setOffline(null);
-    openUrl(link.url).catch(() => setOffline(link));
+    openUrl(target.url).catch(() => setOffline(target));
   }
 
   return (
@@ -89,7 +102,7 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
 
       <ChipRow options={brandOptions} value={brandFilter ?? ALL} onChange={setBrand} testID="manuals-brands" />
 
-      <Text style={styles.hint}>Links open the maker's own website, so they need a signal.</Text>
+      <Text style={styles.hint}>Manuals open from the maker's own website, so they need a signal.</Text>
 
       {offline ? (
         <View style={styles.offline} accessibilityRole="alert" testID="manuals-offline">
@@ -134,17 +147,8 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
       ) : null}
 
       {hits.map(({ link, brand: b }) => {
-        const busy = checking === link.id;
-        return (
-          <Pressable
-            key={link.id}
-            onPress={() => open(link)}
-            disabled={checking !== null}
-            accessibilityRole="link"
-            accessibilityLabel={`${b.name}, ${link.title}, ${DOC_KIND_LABEL[link.kind]}. Opens the maker's website.`}
-            testID={`manual-${link.id}`}
-            style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-          >
+        const header = (
+          <>
             <View style={styles.itemTop}>
               <Text style={styles.brand}>{b.name}</Text>
               <Text style={styles.kind}>{DOC_KIND_LABEL[link.kind]}</Text>
@@ -157,8 +161,63 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
             <Text style={styles.models} numberOfLines={2}>
               {link.models.join(' · ')}
             </Text>
-            <Text style={styles.checked}>{busy ? 'Checking for a signal…' : `Link checked ${formatChecked(link.checked)}`}</Text>
-          </Pressable>
+          </>
+        );
+        const page = pageTarget(link);
+        const checked = `Link checked ${formatChecked(link.checked)}`;
+
+        // No direct documents: the whole card opens the maker's page.
+        if (!link.docs || link.docs.length === 0) {
+          return (
+            <Pressable
+              key={link.id}
+              onPress={() => open(page)}
+              disabled={checking !== null}
+              accessibilityRole="link"
+              accessibilityLabel={`${b.name}, ${link.title}, ${DOC_KIND_LABEL[link.kind]}. Opens the maker's website.`}
+              testID={`manual-${link.id}`}
+              style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+            >
+              {header}
+              <Text style={styles.checked}>{checking === page.key ? 'Checking for a signal…' : checked}</Text>
+            </Pressable>
+          );
+        }
+
+        // Direct documents: one button each, then the maker's page for the rest.
+        return (
+          <View key={link.id} testID={`manual-${link.id}`} style={styles.item}>
+            {header}
+            <View style={styles.docs}>
+              {link.docs.map((doc, n) => {
+                const target: Target = { key: `${link.id}#${n}`, url: doc.url };
+                return (
+                  <Pressable
+                    key={target.key}
+                    onPress={() => open(target)}
+                    disabled={checking !== null}
+                    accessibilityRole="link"
+                    accessibilityLabel={`${b.name}, ${doc.label}. Opens the document.`}
+                    testID={`doc-${link.id}-${n}`}
+                    style={({ pressed }) => [styles.doc, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.docText}>{checking === target.key ? 'Checking for a signal…' : doc.label}</Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                onPress={() => open(page)}
+                disabled={checking !== null}
+                accessibilityRole="link"
+                accessibilityLabel={`${b.name}, more documents on the maker's website.`}
+                testID={`more-${link.id}`}
+                style={({ pressed }) => [styles.doc, styles.more, pressed && styles.pressed]}
+              >
+                <Text style={styles.moreText}>{checking === page.key ? 'Checking for a signal…' : "More documents on the maker's page"}</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.checked}>{checked}</Text>
+          </View>
         );
       })}
     </View>
@@ -205,4 +264,9 @@ const styles = StyleSheet.create({
   models: { fontSize: 15, color: colors.muted },
   market: { fontSize: 14, fontWeight: '800', color: colors.muted },
   checked: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  docs: { gap: 6, marginTop: 4 },
+  doc: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 8, justifyContent: 'center', backgroundColor: colors.card },
+  docText: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  more: { backgroundColor: colors.bg, borderStyle: 'dashed' },
+  moreText: { fontSize: 16, fontWeight: '700', color: colors.text },
 });
