@@ -74,7 +74,7 @@ function SignedIn({ now }: { now: () => number }) {
   const [mine, setMine] = useState<OdooTask[] | null>(null);
   const [open, setOpen] = useState<OdooTask[] | null>(null);
   const [techs, setTechs] = useState<OdooUser[]>([]);
-  const [tech, setTech] = useState<number>(s.uid);
+  const [tech, setTech] = useState<number>(s.me);
   const [theirs, setTheirs] = useState<OdooTask[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -97,11 +97,11 @@ function SignedIn({ now }: { now: () => number }) {
   }, [client]);
 
   useEffect(() => {
-    if (s.tasks) load();
-  }, [load, s.tasks]);
+    if (s.kind !== 'none') load();
+  }, [load, s.kind]);
 
   useEffect(() => {
-    if (tech === s.uid || !s.tasks) {
+    if (tech === s.me || s.kind === 'none') {
       setTheirs(null);
       return;
     }
@@ -113,7 +113,7 @@ function SignedIn({ now }: { now: () => number }) {
     return () => {
       alive = false;
     };
-  }, [tech, client, s.uid, s.tasks]);
+  }, [tech, client, s.me, s.kind]);
 
   const scheduled = (t: OdooTask) => appointments.find((a) => a.id === `odoo-${t.id}`);
   const addToSchedule = (list: OdooTask[]) => restore(list.map((t) => taskToAppointment(t, now(), scheduled(t))));
@@ -123,7 +123,7 @@ function SignedIn({ now }: { now: () => number }) {
     try {
       await client!.assign(t.id, userId);
       await load();
-      if (tech !== s.uid) setTheirs(await client!.myTasks(tech));
+      if (tech !== s.me) setTheirs(await client!.myTasks(tech));
     } catch (e) {
       fail(e);
     }
@@ -140,7 +140,7 @@ function SignedIn({ now }: { now: () => number }) {
     }
   };
 
-  if (!s.tasks) {
+  if (s.kind === 'none') {
     return (
       <View style={styles.stack} testID="team">
         <Text style={styles.detail} testID="team-who">
@@ -159,7 +159,7 @@ function SignedIn({ now }: { now: () => number }) {
       <Text style={styles.detail} testID="team-who">
         Signed in as {s.name} · {s.url.replace(/^https?:\/\//, '')}
       </Text>
-      <Text style={styles.meta}>{s.fsm ? 'Jobs are Odoo Field Service tasks.' : 'Field Service isn’t installed, so jobs are Odoo Project tasks.'}</Text>
+      <Text style={styles.meta}>{s.kind === 'oca' ? (s.me ? 'Jobs are Field Service orders.' : 'Jobs are Field Service orders. You aren’t a Field Service worker in Odoo, so nothing is assigned to you; add yourself under Field Service > Workers.') : s.fsm ? 'Jobs are Odoo Field Service tasks.' : 'Field Service isn’t installed, so jobs are Odoo Project tasks.'}</Text>
       <View style={styles.row}>
         <Action label={busy ? 'Loading...' : 'Refresh'} grow disabled={busy} onPress={load} testID="team-refresh" />
         <Action label="Sign out" grow onPress={signOut} testID="team-signout" />
@@ -177,7 +177,7 @@ function SignedIn({ now }: { now: () => number }) {
         <Task key={t.id} t={t} now={now()}>
           <View style={styles.row}>
             <Action label={scheduled(t) ? 'On schedule ✓' : 'Add to schedule'} grow onPress={() => addToSchedule([t])} testID={`team-schedule-${t.id}`} />
-            {s.fsm ? <Action label="Mark done" grow onPress={() => done(t)} testID={`team-done-${t.id}`} /> : null}
+            {client!.canMarkDone ? <Action label="Mark done" grow onPress={() => done(t)} testID={`team-done-${t.id}`} /> : null}
           </View>
         </Task>
       ))}
@@ -190,7 +190,7 @@ function SignedIn({ now }: { now: () => number }) {
           <Text style={styles.label}>Give to</Text>
           <View style={styles.wrap}>
             {techs.map((u) => (
-              <Action key={u.id} label={u.id === s.uid ? `${u.name} (me)` : u.name} onPress={() => assign(t, u.id)} testID={`team-assign-${t.id}-${u.id}`} />
+              <Action key={u.id} label={u.id === s.me ? `${u.name} (me)` : u.name} onPress={() => assign(t, u.id)} testID={`team-assign-${t.id}-${u.id}`} />
             ))}
           </View>
         </Task>
@@ -199,7 +199,7 @@ function SignedIn({ now }: { now: () => number }) {
       {techs.length > 1 ? (
         <>
           <SectionTitle>A tech's jobs</SectionTitle>
-          <ChipRow options={techs.map((u) => ({ label: u.id === s.uid ? 'Me' : u.name, value: u.id }))} value={tech} onChange={setTech} scroll testID="team-techs" />
+          <ChipRow options={techs.map((u) => ({ label: u.id === s.me ? 'Me' : u.name, value: u.id }))} value={tech} onChange={setTech} scroll testID="team-techs" />
           {theirs && theirs.length === 0 ? <Text style={styles.note}>Nothing assigned.</Text> : null}
           {(theirs ?? []).map((t) => (
             <Task key={t.id} t={t} now={now()}>
@@ -208,7 +208,7 @@ function SignedIn({ now }: { now: () => number }) {
                 {techs
                   .filter((u) => u.id !== tech)
                   .map((u) => (
-                    <Action key={u.id} label={u.id === s.uid ? 'Me' : u.name} onPress={() => assign(t, u.id)} testID={`team-move-${t.id}-${u.id}`} />
+                    <Action key={u.id} label={u.id === s.me ? 'Me' : u.name} onPress={() => assign(t, u.id)} testID={`team-move-${t.id}-${u.id}`} />
                   ))}
               </View>
             </Task>

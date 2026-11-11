@@ -21,12 +21,22 @@ export interface OdooLogin {
 export interface OdooSession extends OdooLogin {
   uid: number;
   name: string;
-  /** True when the Field Service app is installed (project.task has is_fsm). */
+  /**
+   * Where jobs live: `oca` is the community Field Service app (fsm.order),
+   * `task` is Project tasks (with or without Enterprise Field Service), and
+   * `none` means neither app is installed yet.
+   */
+  kind: 'oca' | 'task' | 'none';
+  /** Who "me" is when assigning: the user id for tasks, the Field Service worker id for OCA orders (0 if this user isn't a worker). */
+  me: number;
+  /** True when Enterprise Field Service is installed (project.task has is_fsm). */
   fsm: boolean;
-  /** How tasks name their assignees: `user_ids` (Odoo 16+) or `user_id` (older). */
+  /** How tasks name their assignees: `user_ids` (Odoo 16+) or `user_id` (older). Unused for OCA orders. */
   assignField: 'user_ids' | 'user_id';
-  /** False when neither Project nor Field Service is installed, so there are no jobs to read yet. */
-  tasks: boolean;
+  /** Optional fields this Odoo has on its jobs, so reads never ask for one that isn't there. */
+  fields: string[];
+  /** OCA only: whether fsm.stage has is_closed, to leave finished orders out. */
+  closedStage?: boolean;
 }
 
 export type Fetch = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
@@ -84,32 +94,56 @@ async function rpc(fetchFn: Fetch, url: string, service: string, method: string,
   return data.result;
 }
 
+const missingModel = (e: unknown, model: string) => e instanceof OdooError && new RegExp(`${model.replace('.', '\\.')}.*(doesn.t|does not) exist`, 'i').test(e.message);
+
+/** Odoo wants datetimes as "2026-11-12 14:00:00" in UTC. */
+export function toOdooTime(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
+}
+
+const TASK_OPTIONAL = ['planned_date_begin', 'date_deadline', 'description', 'partner_phone', 'fsm_done'];
+const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end'];
+
 export class OdooClient {
   constructor(
     private readonly fetchFn: Fetch,
     readonly session: OdooSession,
     private readonly secret: string,
+    private readonly now: () => number = Date.now,
   ) {}
 
-  /** Signs in and works out which kind of tasks this Odoo has. */
-  static async signIn(fetchFn: Fetch, login: OdooLogin, secret: string): Promise<OdooClient> {
+  /** Signs in and works out which kind of jobs this Odoo has. */
+  static async signIn(fetchFn: Fetch, login: OdooLogin, secret: string, now: () => number = Date.now): Promise<OdooClient> {
     const url = cleanUrl(login.url);
     if (!url || !login.db.trim() || !login.login.trim() || !secret) throw new OdooError('Fill in the address, database, email and password or API key.', 'login');
     const uid = await rpc(fetchFn, url, 'common', 'authenticate', [login.db.trim(), login.login.trim(), secret, {}]);
     if (typeof uid !== 'number' || uid <= 0) throw new OdooError('Wrong email, password or API key.', 'login');
     const base = { url, db: login.db.trim(), login: login.login.trim(), uid };
-    const probe = new OdooClient(fetchFn, { ...base, name: '', fsm: false, assignField: 'user_ids', tasks: true }, secret);
-    const me = (await probe.call('res.users', 'read', [[uid]], { fields: ['name'] })) as { name?: string }[];
+    const blank: OdooSession = { ...base, name: '', kind: 'none', me: uid, fsm: false, assignField: 'user_ids', fields: [] };
+    const probe = new OdooClient(fetchFn, blank, secret, now);
+    const me = (await probe.call('res.users', 'read', [[uid]], { fields: ['name', 'partner_id'] })) as { name?: string; partner_id?: unknown }[];
     const name = me[0]?.name ?? login.login;
-    let fields: Record<string, unknown>;
-    try {
-      fields = (await probe.call('project.task', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
-    } catch (e) {
-      // No Project or Field Service app: signed in fine, just no jobs yet.
-      if (e instanceof OdooError && /project\.task.*(doesn.t|does not) exist/i.test(e.message)) return new OdooClient(fetchFn, { ...base, name, fsm: false, assignField: 'user_ids', tasks: false }, secret);
-      throw e;
+    const fieldsOf = async (model: string) => {
+      try {
+        return (await probe.call(model, 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
+      } catch (e) {
+        if (missingModel(e, model)) return null;
+        throw e;
+      }
+    };
+    const make = (s: Partial<OdooSession>) => new OdooClient(fetchFn, { ...blank, name, ...s }, secret, now);
+
+    // The community (OCA) Field Service app keeps jobs as fsm.order, given to workers (fsm.person).
+    const order = await fieldsOf('fsm.order');
+    if (order) {
+      const partnerId = Array.isArray(me[0]?.partner_id) ? (me[0]!.partner_id as number[])[0] : 0;
+      const people = partnerId ? ((await probe.call('fsm.person', 'search_read', [[['partner_id', '=', partnerId]]], { fields: ['name'], limit: 1 })) as { id: number }[]) : [];
+      const stage = await fieldsOf('fsm.stage');
+      return make({ kind: 'oca', me: people[0]?.id ?? 0, fields: ORDER_OPTIONAL.filter((f) => f in order), closedStage: !!stage && 'is_closed' in stage });
     }
-    return new OdooClient(fetchFn, { ...base, name, fsm: 'is_fsm' in fields, assignField: 'user_ids' in fields ? 'user_ids' : 'user_id', tasks: true }, secret);
+    const task = await fieldsOf('project.task');
+    if (!task) return make({ kind: 'none' });
+    return make({ kind: 'task', fsm: 'is_fsm' in task, assignField: 'user_ids' in task ? 'user_ids' : 'user_id', fields: TASK_OPTIONAL.filter((f) => f in task) });
   }
 
   call(model: string, method: string, args: unknown[], kwargs: Record<string, unknown> = {}): Promise<unknown> {
@@ -117,53 +151,90 @@ export class OdooClient {
     return rpc(this.fetchFn, s.url, 'object', 'execute_kw', [s.db, s.uid, this.secret, model, method, args, kwargs]);
   }
 
-  private taskDomain(extra: unknown[]): unknown[] {
-    return [...(this.session.fsm ? [['is_fsm', '=', true]] : []), ...extra];
+  private has(f: string) {
+    return this.session.fields.includes(f);
   }
 
-  private mine(uid: number): unknown[] {
-    return this.session.assignField === 'user_ids' ? ['user_ids', 'in', [uid]] : ['user_id', '=', uid];
+  /** Marking done works with either Field Service app. */
+  get canMarkDone(): boolean {
+    return this.session.kind === 'oca' || this.session.fsm;
   }
 
-  private unassigned(): unknown[] {
-    return this.session.assignField === 'user_ids' ? ['user_ids', '=', false] : ['user_id', '=', false];
+  private open(): unknown[] {
+    const s = this.session;
+    if (s.kind === 'oca') return s.closedStage ? [['stage_id.is_closed', '=', false]] : [];
+    return [...(s.fsm ? [['is_fsm', '=', true]] : []), ...(this.has('fsm_done') ? [['fsm_done', '=', false]] : []), ['active', '=', true]];
   }
 
-  async readTasks(domain: unknown[]): Promise<OdooTask[]> {
-    const fields = ['name', 'partner_id', 'planned_date_begin', 'date_deadline', 'stage_id', 'description', this.session.assignField, ...(this.session.fsm ? ['partner_phone', 'fsm_done'] : [])];
-    const rows = (await this.call('project.task', 'search_read', [this.taskDomain([...domain, ['active', '=', true]])], { fields, limit: 200, order: 'planned_date_begin asc, id asc' })) as Record<string, unknown>[];
+  private assignedTo(id: number | false): unknown[] {
+    const s = this.session;
+    if (s.kind === 'oca') return ['person_id', '=', id];
+    if (id === false) return [s.assignField, '=', false];
+    return s.assignField === 'user_ids' ? ['user_ids', 'in', [id]] : ['user_id', '=', id];
+  }
+
+  private async readJobs(who: number | false): Promise<OdooTask[]> {
+    const s = this.session;
+    if (s.kind === 'none') return [];
+    if (s.kind === 'oca') {
+      const fields = ['name', 'location_id', 'person_id', ...s.fields];
+      const order = this.has('scheduled_date_start') ? 'scheduled_date_start asc, id asc' : 'id asc';
+      const rows = (await this.call('fsm.order', 'search_read', [[this.assignedTo(who), ...this.open()]], { fields, limit: 200, order })) as Record<string, unknown>[];
+      const locIds = [...new Set(rows.map((r) => (Array.isArray(r.location_id) ? (r.location_id[0] as number) : 0)).filter(Boolean))];
+      const locs = locIds.length ? ((await this.call('fsm.location', 'read', [locIds], { fields: ['name', 'phone', 'mobile', 'street', 'city', 'zip'] })) as Record<string, unknown>[]) : [];
+      return rows.map((r) => orderToTask(r, locs));
+    }
+    const fields = ['name', 'partner_id', 'stage_id', s.assignField, ...s.fields];
+    const order = this.has('planned_date_begin') ? 'planned_date_begin asc, id asc' : this.has('date_deadline') ? 'date_deadline asc, id asc' : 'id asc';
+    const rows = (await this.call('project.task', 'search_read', [[this.assignedTo(who), ...this.open()]], { fields, limit: 200, order })) as Record<string, unknown>[];
     const partnerIds = [...new Set(rows.map((r) => (Array.isArray(r.partner_id) ? (r.partner_id[0] as number) : 0)).filter(Boolean))];
     const partners = partnerIds.length
       ? ((await this.call('res.partner', 'read', [partnerIds], { fields: ['name', 'phone', 'mobile', 'street', 'city', 'zip'] })) as Record<string, unknown>[])
       : [];
-    return rows.map((r) => toTask(r, partners, this.session.assignField));
+    return rows.map((r) => toTask(r, partners, s.assignField));
   }
 
-  /** Open jobs assigned to this tech (or to another user, for dispatch). */
-  myTasks(uid = this.session.uid): Promise<OdooTask[]> {
-    return this.readTasks([this.mine(uid), ...(this.session.fsm ? [['fsm_done', '=', false]] : [])]);
+  /** Open jobs assigned to this tech (or to another tech, for dispatch). */
+  myTasks(who = this.session.me): Promise<OdooTask[]> {
+    if (!who) return Promise.resolve([]);
+    return this.readJobs(who);
   }
 
   /** Open jobs nobody is assigned to. */
   unassignedTasks(): Promise<OdooTask[]> {
-    return this.readTasks([this.unassigned(), ...(this.session.fsm ? [['fsm_done', '=', false]] : [])]);
+    return this.readJobs(false);
   }
 
-  /** The people who can be given jobs: internal users, by name. */
+  /** The people who can be given jobs: Field Service workers, or internal users, by name. */
   async techs(): Promise<OdooUser[]> {
+    const s = this.session;
+    if (s.kind === 'none') return [];
+    if (s.kind === 'oca') {
+      const rows = (await this.call('fsm.person', 'search_read', [[['active', '=', true]]], { fields: ['name', 'email'], order: 'name asc', limit: 100 })) as Record<string, unknown>[];
+      return rows.map((r) => ({ id: r.id as number, name: str(r.name), login: str(r.email) }));
+    }
     const rows = (await this.call('res.users', 'search_read', [[['share', '=', false], ['active', '=', true]]], { fields: ['name', 'login'], order: 'name asc', limit: 100 })) as Record<string, unknown>[];
     return rows.map((r) => ({ id: r.id as number, name: str(r.name), login: str(r.login) }));
   }
 
   /** Gives a job to a tech (replacing whoever had it). */
-  assign(taskId: number, userId: number): Promise<unknown> {
-    const value = this.session.assignField === 'user_ids' ? [[6, 0, [userId]]] : userId;
-    return this.call('project.task', 'write', [[taskId], { [this.session.assignField]: value }]);
+  assign(taskId: number, techId: number): Promise<unknown> {
+    const s = this.session;
+    if (s.kind === 'oca') return this.call('fsm.order', 'write', [[taskId], { person_id: techId }]);
+    const value = s.assignField === 'user_ids' ? [[6, 0, [techId]]] : techId;
+    return this.call('project.task', 'write', [[taskId], { [s.assignField]: value }]);
   }
 
-  /** Marks a Field Service job done, the way Odoo's own "Mark as done" button does. */
+  /** Marks a job done the way Odoo's own button does. */
   async markDone(taskId: number): Promise<void> {
-    if (!this.session.fsm) throw new OdooError('Marking done needs the Field Service app in Odoo. Close it in Odoo instead.', 'server');
+    const s = this.session;
+    if (s.kind === 'oca') {
+      // Odoo wants the actual end time filled in before an order can be completed.
+      if (this.has('date_end')) await this.call('fsm.order', 'write', [[taskId], { date_end: toOdooTime(this.now()) }]);
+      await this.call('fsm.order', 'action_complete', [[taskId]]);
+      return;
+    }
+    if (!s.fsm) throw new OdooError('Marking done needs the Field Service app in Odoo. Close it in Odoo instead.', 'server');
     await this.call('project.task', 'action_fsm_validate', [[taskId]]);
   }
 }
@@ -234,6 +305,25 @@ function toTask(r: Record<string, unknown>, partners: Record<string, unknown>[],
     stage: Array.isArray(r.stage_id) ? str(r.stage_id[1]) : '',
     notes: plainText(str(r.description)),
     assignees: assignees.filter((n) => typeof n === 'number'),
+  };
+}
+
+function orderToTask(r: Record<string, unknown>, locs: Record<string, unknown>[]): OdooTask {
+  const lid = Array.isArray(r.location_id) ? (r.location_id[0] as number) : undefined;
+  const l = locs.find((x) => x.id === lid) ?? {};
+  const address = [str(l.street), [str(l.city), str(l.zip)].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const start = odooTime(r.scheduled_date_start) ?? odooTime(r.date_start);
+  const notes = [str(r.description), plainText(str(r.todo))].filter(Boolean).join('\n');
+  return {
+    id: r.id as number,
+    name: str(r.name),
+    customer: Array.isArray(r.location_id) ? str(r.location_id[1]) : '',
+    phone: str(l.mobile) || str(l.phone),
+    address,
+    ...(start !== undefined ? { start } : {}),
+    stage: Array.isArray(r.stage_id) ? str(r.stage_id[1]) : '',
+    notes: plainText(notes),
+    assignees: Array.isArray(r.person_id) ? [r.person_id[0] as number] : [],
   };
 }
 
