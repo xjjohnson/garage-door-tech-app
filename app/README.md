@@ -377,6 +377,16 @@ address, start, length, status), so a later Odoo sync can map it
 (`src/lib/schedule.ts`, AsyncStorage `schedule/v1`, included in backups). The
 app sends nothing on its own; texts open in the phone's messages app.
 
+**Time and miles.** **Time and miles** at the top of Jobs (outlined, with the
+hours so far, while on the clock) opens a page to **Start the day** and **End
+the day**, each with the truck's odometer if wanted (the last reading is
+shown). Miles are the difference, or typed in by hand on the day. The week
+(this, last, or the one before; Monday to Sunday) shows hours, miles and the
+mileage deduction at the tech's rate in cents a mile (70¢ by default, the IRS
+2025 standard rate; set this year's). **Send this week (spreadsheet)** shares
+a CSV with a row a day and a total, for taxes or an accountant
+(`src/lib/worklog.ts`, AsyncStorage `worklog/v1`, included in backups).
+
 **Safety check.** A job's **Safety check** (in its details, or on its quote)
 walks the door and opener: lift cables, drums, bottom brackets, springs and
 cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
@@ -445,7 +455,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 
 | File | Address | What |
 |---|---|---|
-| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule), then a stack: the sections, with full pages on top |
+| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Springs: Match old, From door, Extension and High lift |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
@@ -463,6 +473,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `stats.tsx` | `/stats` | Business numbers, a full page |
 | `follow-ups.tsx` | `/follow-ups` | Tune-ups, worn springs and warranty ends due, a full page |
 | `schedule.tsx` | `/schedule` | Booked visits by day; `?book=<customer id>` opens booking for them, a full page |
+| `time-log.tsx` | `/time-log` | Clock in and out, miles and the week's totals, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

@@ -8,10 +8,11 @@ import { InvoicesProvider } from '../lib/useInvoices';
 import { JobsProvider } from '../lib/useJobs';
 import { PriceSheetProvider } from '../lib/usePriceSheet';
 import { ScheduleProvider } from '../lib/useSchedule';
+import { WorkLogProvider } from '../lib/useWorkLog';
 import { colors } from '../theme';
 
 /**
- * The whole app: saved data for every screen (jobs, customers, prices, invoices, schedule), then a stack with the four
+ * The whole app: saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles), then a stack with the four
  * sections (as tabs) at the bottom and full pages such as a quote on top.
  * Routes live in this folder; see app/README.md, "Screens and routes".
  */
@@ -24,24 +25,27 @@ export default function RootLayout() {
             <InvoicesProvider>
               <FollowUpsProvider>
                 <ScheduleProvider>
-                  <CalculatorLinkProvider>
-                    <StatusBar style="dark" />
-                    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-                      <Stack.Screen name="(tabs)" />
-                      <Stack.Screen name="price-sheet" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="quote/[id]" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="backup" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="customers" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="customer/[id]" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="invoices" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="invoice/[id]" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="business" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="inspection/[id]" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="stats" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="follow-ups" options={{ presentation: 'modal' }} />
-                      <Stack.Screen name="schedule" options={{ presentation: 'modal' }} />
-                    </Stack>
-                  </CalculatorLinkProvider>
+                  <WorkLogProvider>
+                    <CalculatorLinkProvider>
+                      <StatusBar style="dark" />
+                      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="price-sheet" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="quote/[id]" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="backup" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="customers" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="customer/[id]" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="invoices" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="invoice/[id]" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="business" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="inspection/[id]" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="stats" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="follow-ups" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="schedule" options={{ presentation: 'modal' }} />
+                        <Stack.Screen name="time-log" options={{ presentation: 'modal' }} />
+                      </Stack>
+                    </CalculatorLinkProvider>
+                  </WorkLogProvider>
                 </ScheduleProvider>
               </FollowUpsProvider>
             </InvoicesProvider>
