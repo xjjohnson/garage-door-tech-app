@@ -5,6 +5,7 @@ import { ChipOption, Segmented } from '../components/controls';
 import { JobDetailsSheet } from '../components/JobDetailsSheet';
 import { formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
+import { checkCounts } from '../lib/inspection';
 import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -184,6 +185,7 @@ function JobCard({
           {job.phone ? <Text style={styles.detail}>Phone: {job.phone}</Text> : null}
           {job.notes ? <Text style={styles.detail}>{job.notes}</Text> : null}
           <Action label="Quote" primary onPress={onQuote} testID={`job-quote-${job.id}`} />
+          <Action label={job.inspection ? `Safety check (${checkCounts(job.inspection).fix} need work)` : 'Safety check'} onPress={() => router.push({ pathname: '/inspection/[id]', params: { id: job.id } })} testID={`job-inspection-${job.id}`} />
           <Action label="Open in calculator" onPress={onOpen} testID={`job-open-${job.id}`} />
           {job.customerId ? (
             <Action label="Customer history" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: job.customerId! } })} testID={`job-customer-${job.id}`} />

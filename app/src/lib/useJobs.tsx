@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { mergeJobs, MergeResult } from './backup';
+import { Inspection } from './inspection';
 import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, parseJobs } from './jobs';
 
 interface JobsApi {
@@ -20,6 +21,8 @@ interface JobsApi {
   linkCustomers: (links: Record<string, string>) => void;
   /** Copies a customer's new name and phone onto their jobs. */
   renameCustomer: (customerId: string, d: { customer: string; phone: string }) => void;
+  /** Saves the job's safety check (or clears it). */
+  setInspection: (id: string, inspection: Inspection | undefined) => void;
 }
 
 const JobsContext = createContext<JobsApi | null>(null);
@@ -127,9 +130,21 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
+  const setInspection = useCallback<JobsApi['setInspection']>(
+    (id, inspection) =>
+      change((prev) =>
+        prev.map((j) => {
+          if (j.id !== id) return j;
+          const { inspection: _old, ...rest } = j;
+          return (inspection ? { ...rest, inspection, updatedAt: Date.now() } : { ...rest, updatedAt: Date.now() }) as Job;
+        }),
+      ),
+    [change],
+  );
+
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }

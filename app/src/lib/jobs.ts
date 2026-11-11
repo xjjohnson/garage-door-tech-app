@@ -6,6 +6,7 @@
  * math again (and shows any warnings a newer version adds). The one-line
  * summary is stored too, so the list can show it without running the math.
  */
+import { Inspection, parseInspection } from './inspection';
 import { DEFAULT_DOOR_FORM, DEFAULT_DRUMS_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, DrumsForm, ExtensionForm, MatchForm, restoreForm } from './forms';
 import { Tier, TIERS } from './prices';
 
@@ -36,6 +37,8 @@ interface JobBase extends JobDetails {
   accepted?: AcceptedQuote;
   /** The customer this job belongs to (src/lib/customers.ts). Set for every job once customers load. */
   customerId?: string;
+  /** The safety check and the repairs it found (src/lib/inspection.ts). */
+  inspection?: Inspection;
 }
 
 export interface AcceptedQuote {
@@ -174,6 +177,7 @@ export function parseJobs(raw: string | null): Job[] {
       summaryDetail: str(j.summaryDetail),
       ...(parseAccepted(j.accepted) ? { accepted: parseAccepted(j.accepted) } : {}),
       ...(typeof j.customerId === 'string' && j.customerId ? { customerId: j.customerId } : {}),
+      ...(parseInspection(j.inspection) ? { inspection: parseInspection(j.inspection) } : {}),
     };
     out.push({ ...base, mode, form: restoreForm<object>(MODE_DEFAULTS[mode], j.form) } as Job);
   }
