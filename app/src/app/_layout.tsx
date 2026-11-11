@@ -49,6 +49,7 @@ export default function RootLayout() {
                             <Stack.Screen name="time-log" options={{ presentation: 'modal' }} />
                             <Stack.Screen name="stock" options={{ presentation: 'modal' }} />
                             <Stack.Screen name="photos/[id]" options={{ presentation: 'modal' }} />
+                            <Stack.Screen name="door-weight" options={{ presentation: 'modal' }} />
                           </Stack>
                         </CalculatorLinkProvider>
                       </AttachmentsProvider>
