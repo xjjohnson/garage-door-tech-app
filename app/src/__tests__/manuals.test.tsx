@@ -1,17 +1,25 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import App from '../../App';
 import { BRANDS, MANUAL_LINKS } from '../data/manuals';
-import { checkReach, formatChecked, queryWords, searchManuals } from '../lib/manualSearch';
+import { brandsFor, checkReach, formatChecked, linkMarkets, queryWords, searchManuals } from '../lib/manualSearch';
 import { ManualsScreen } from '../screens/ManualsScreen';
 
 describe('manual links data', () => {
   const brandIds = new Set(BRANDS.map((b) => b.id));
 
   it('covers every brand Justin picked', () => {
-    for (const name of ['Clopay', 'Amarr', 'Wayne Dalton', 'C.H.I.', 'LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Marantec', 'Guardian']) {
+    for (const name of ['Clopay', 'Amarr', 'Wayne Dalton', 'C.H.I.', 'LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Marantec', 'Guardian', 'Overhead Door']) {
       const brand = BRANDS.find((b) => b.name === name);
       expect(brand).toBeDefined();
       expect(MANUAL_LINKS.some((l) => l.brand === brand!.id)).toBe(true);
+    }
+  });
+
+  it('covers the commercial and gate makers from the plan', () => {
+    for (const name of ['DoorKing', 'Rytec', 'Cornell Cookson', 'Chase Doors', 'BEA', 'LiftMaster', 'Overhead Door', 'Linear', 'Clopay']) {
+      const brand = BRANDS.find((b) => b.name === name);
+      expect(brand).toBeDefined();
+      expect(MANUAL_LINKS.some((l) => l.brand === brand!.id && linkMarkets(l).includes('commercial'))).toBe(true);
     }
   });
 
@@ -64,6 +72,37 @@ describe('searchManuals', () => {
     expect(genie.every((h) => h.brand.id === 'genie')).toBe(true);
   });
 
+  it('finds older Marantec and Overhead Door openers by model number', () => {
+    expect(searchManuals('M4500')[0].link.id).toBe('marantec-m4500-m4700');
+    expect(searchManuals('m4500e')[0].link.id).toBe('marantec-m4500e-m4700e');
+    expect(searchManuals('EX-2007')[0].link.id).toBe('marantec-ex2005-ex2007');
+    expect(searchManuals('1029')[0].link.id).toBe('overhead-door-legacy-owner');
+    expect(searchManuals('codedodger').map((h) => h.link.id)).toContain('overhead-door-keypad-programming');
+    expect(searchManuals('2283').map((h) => h.link.id)).toContain('chi-document-finder');
+  });
+
+  it('splits residential from commercial and gate', () => {
+    const commercial = searchManuals('', null, MANUAL_LINKS, 'commercial');
+    const residential = searchManuals('', null, MANUAL_LINKS, 'residential');
+    expect(commercial.every((h) => linkMarkets(h.link).includes('commercial'))).toBe(true);
+    expect(residential.every((h) => linkMarkets(h.link).includes('residential'))).toBe(true);
+    // Gate links count as commercial & gate; a link for both shows in both.
+    expect(commercial.map((h) => h.link.id)).toEqual(expect.arrayContaining(['linear-gate-manuals', 'doorking-swing-gate', 'amarr-all-install']));
+    expect(residential.map((h) => h.link.id)).toContain('amarr-all-install');
+    expect(residential.map((h) => h.link.id)).not.toContain('doorking-swing-gate');
+    expect(brandsFor('commercial').map((b) => b.id)).not.toContain('guardian');
+    expect(brandsFor(null).length).toBe(BRANDS.length);
+  });
+
+  it('finds commercial operators and gate gear by model', () => {
+    expect(searchManuals('MH5011U')[0].link.id).toBe('liftmaster-commercial-medium-duty');
+    expect(searchManuals('RHX').map((h) => h.link.id)).toEqual(expect.arrayContaining(['overhead-door-rhx-install', 'overhead-door-rhx-nema']));
+    expect(searchManuals('6050')[0].link.id).toBe('doorking-swing-gate');
+    expect(searchManuals('1835')[0].link.id).toBe('doorking-entry-systems');
+    expect(searchManuals('turbo-seal')[0].link.id).toBe('rytec-documents');
+    expect(searchManuals('commercial doorking').length).toBeGreaterThan(0);
+  });
+
   it('returns nothing for a model nobody makes', () => {
     expect(searchManuals('zzz999')).toEqual([]);
   });
@@ -105,6 +144,16 @@ describe('Manuals screen', () => {
     expect(openUrl).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('manuals-open-anyway'));
     expect(openUrl).toHaveBeenCalledWith('https://linear-solutions.com/manuals/');
+  });
+
+  it('narrows makers to the market picked', async () => {
+    await render(<ManualsScreen fetchImpl={jest.fn() as unknown as typeof fetch} openUrl={jest.fn()} />);
+    expect(within(screen.getByTestId('manuals-brands')).getByText('Guardian')).toBeTruthy();
+    await fireEvent.press(within(screen.getByTestId('manuals-market')).getByText('Commercial & gate'));
+    expect(within(screen.getByTestId('manuals-brands')).queryByText('Guardian')).toBeNull();
+    expect(within(screen.getByTestId('manuals-brands')).getByText('DoorKing')).toBeTruthy();
+    expect(screen.getByTestId('manual-doorking-slide-gate')).toBeTruthy();
+    expect(screen.queryByTestId('manual-guardian-manuals')).toBeNull();
   });
 
   it('shows a helpful empty state', async () => {

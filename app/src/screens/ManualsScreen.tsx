@@ -1,13 +1,17 @@
 import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, ChipRow } from '../components/controls';
-import { BRANDS, DOC_KIND_LABEL, ManualLink } from '../data/manuals';
-import { checkReach, formatChecked, searchManuals } from '../lib/manualSearch';
+import { DOC_KIND_LABEL, MANUAL_LINKS, ManualLink, Market, MARKET_LABEL } from '../data/manuals';
+import { brandsFor, checkReach, formatChecked, linkMarkets, searchManuals } from '../lib/manualSearch';
 import { colors, touch, type } from '../theme';
 
 const ALL = 'all';
 
-const BRAND_OPTIONS: ChipOption<string>[] = [{ label: 'All', value: ALL }, ...BRANDS.map((b) => ({ label: b.name, value: b.id }))];
+const MARKET_OPTIONS: ChipOption<string>[] = [
+  { label: 'All', value: ALL },
+  { label: MARKET_LABEL.residential, value: 'residential' },
+  { label: MARKET_LABEL.commercial, value: 'commercial' },
+];
 
 interface Props {
   fetchImpl?: typeof fetch;
@@ -21,11 +25,20 @@ interface Props {
  */
 export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.openURL(u) }: Props) {
   const [query, setQuery] = useState('');
+  const [market, setMarket] = useState<string>(ALL);
   const [brand, setBrand] = useState<string>(ALL);
   const [checking, setChecking] = useState<string | null>(null);
   const [offline, setOffline] = useState<ManualLink | null>(null);
 
-  const hits = useMemo(() => searchManuals(query, brand === ALL ? null : brand), [query, brand]);
+  const marketFilter = market === ALL ? null : (market as Market);
+  const brandOptions = useMemo<ChipOption<string>[]>(
+    () => [{ label: 'All', value: ALL }, ...brandsFor(marketFilter).map((b) => ({ label: b.name, value: b.id }))],
+    [marketFilter],
+  );
+  // A maker picked earlier may have nothing in the market picked now.
+  const brandFilter = brand !== ALL && brandOptions.some((o) => o.value === brand) ? brand : null;
+
+  const hits = useMemo(() => searchManuals(query, brandFilter, MANUAL_LINKS, marketFilter), [query, brandFilter, marketFilter]);
 
   async function open(link: ManualLink) {
     setChecking(link.id);
@@ -72,7 +85,9 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
         ) : null}
       </View>
 
-      <ChipRow options={BRAND_OPTIONS} value={brand} onChange={setBrand} testID="manuals-brands" />
+      <ChipRow options={MARKET_OPTIONS} value={market} onChange={setMarket} testID="manuals-market" />
+
+      <ChipRow options={brandOptions} value={brandFilter ?? ALL} onChange={setBrand} testID="manuals-brands" />
 
       <Text style={styles.hint}>Links open the maker's own website, so they need a signal.</Text>
 
@@ -134,6 +149,9 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
               <Text style={styles.brand}>{b.name}</Text>
               <Text style={styles.kind}>{DOC_KIND_LABEL[link.kind]}</Text>
             </View>
+            <View style={styles.itemTop}>
+              <Text style={styles.market}>{linkMarkets(link).map((m) => MARKET_LABEL[m]).join(' · ')}</Text>
+            </View>
             <Text style={styles.title}>{link.title}</Text>
             {link.note ? <Text style={styles.note}>{link.note}</Text> : null}
             <Text style={styles.models} numberOfLines={2}>
@@ -185,5 +203,6 @@ const styles = StyleSheet.create({
   title: { fontSize: type.body, fontWeight: '700', color: colors.text },
   note: { fontSize: 16, color: colors.muted },
   models: { fontSize: 15, color: colors.muted },
+  market: { fontSize: 14, fontWeight: '800', color: colors.muted },
   checked: { fontSize: 14, fontWeight: '600', color: colors.muted },
 });

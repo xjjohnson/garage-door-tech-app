@@ -1,4 +1,4 @@
-import { Brand, BRANDS, DOC_KIND_LABEL, MANUAL_LINKS, ManualLink } from '../data/manuals';
+import { Brand, BRANDS, DOC_KIND_LABEL, MANUAL_LINKS, ManualLink, Market, MARKET_LABEL } from '../data/manuals';
 
 /** Lowercase, letters and digits only, so "8500 W", "8500-w" and "8500W" match. */
 export function squash(s: string): string {
@@ -20,8 +20,22 @@ export interface SearchHit {
 
 const brandById = new Map(BRANDS.map((b) => [b.id, b]));
 
+/** Residential, commercial & gate, or both. Gate links are commercial & gate unless they say otherwise. */
+export function linkMarkets(link: ManualLink): Market[] {
+  if (link.markets && link.markets.length > 0) return link.markets;
+  return link.category === 'gate' ? ['commercial'] : ['residential'];
+}
+
+/** The makers that have at least one link for this market (all makers for null), in BRANDS order. */
+export function brandsFor(market: Market | null, links: ManualLink[] = MANUAL_LINKS): Brand[] {
+  if (!market) return BRANDS;
+  const ids = new Set(links.filter((l) => linkMarkets(l).includes(market)).map((l) => l.brand));
+  return BRANDS.filter((b) => ids.has(b.id));
+}
+
 function haystack(link: ManualLink, brand: Brand): string {
-  return [brand.name, ...brand.aliases, link.title, DOC_KIND_LABEL[link.kind], link.category, ...link.models].map(squash).join(' ');
+  const markets = linkMarkets(link).map((m) => MARKET_LABEL[m]);
+  return [brand.name, ...brand.aliases, link.title, DOC_KIND_LABEL[link.kind], link.category, ...markets, ...link.models].map(squash).join(' ');
 }
 
 /**
@@ -43,12 +57,14 @@ function score(link: ManualLink, brand: Brand, words: string[]): number {
 
 /**
  * Every link whose maker, title, kind or models contain all the words typed.
- * With no words, every link (optionally only one maker's), in the data's order.
+ * With no words, every link (optionally only one maker's, or one market's),
+ * in the data's order.
  */
 export function searchManuals(
   query: string,
   brandId: string | null = null,
   links: ManualLink[] = MANUAL_LINKS,
+  market: Market | null = null,
 ): SearchHit[] {
   const words = queryWords(query);
   const hits: { hit: SearchHit; score: number; order: number }[] = [];
@@ -56,6 +72,7 @@ export function searchManuals(
     const brand = brandById.get(link.brand);
     if (!brand) return;
     if (brandId && link.brand !== brandId) return;
+    if (market && !linkMarkets(link).includes(market)) return;
     if (words.length > 0) {
       const hay = haystack(link, brand);
       if (!words.every((w) => hay.includes(w))) return;
