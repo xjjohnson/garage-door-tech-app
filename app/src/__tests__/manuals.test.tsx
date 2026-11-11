@@ -8,7 +8,7 @@ describe('manual links data', () => {
   const brandIds = new Set(BRANDS.map((b) => b.id));
 
   it('covers every brand Justin picked', () => {
-    for (const name of ['Clopay', 'Amarr', 'Wayne Dalton', 'C.H.I.', 'LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Marantec', 'Guardian']) {
+    for (const name of ['Clopay', 'Amarr', 'Wayne Dalton', 'C.H.I.', 'LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Marantec', 'Guardian', 'Overhead Door']) {
       const brand = BRANDS.find((b) => b.name === name);
       expect(brand).toBeDefined();
       expect(MANUAL_LINKS.some((l) => l.brand === brand!.id)).toBe(true);
@@ -62,6 +62,15 @@ describe('searchManuals', () => {
     const genie = searchManuals('', 'genie');
     expect(genie.length).toBeGreaterThan(0);
     expect(genie.every((h) => h.brand.id === 'genie')).toBe(true);
+  });
+
+  it('finds older Marantec and Overhead Door openers by model number', () => {
+    expect(searchManuals('M4500')[0].link.id).toBe('marantec-m4500-m4700');
+    expect(searchManuals('m4500e')[0].link.id).toBe('marantec-m4500e-m4700e');
+    expect(searchManuals('EX-2007')[0].link.id).toBe('marantec-ex2005-ex2007');
+    expect(searchManuals('1029')[0].link.id).toBe('overhead-door-legacy-owner');
+    expect(searchManuals('codedodger').map((h) => h.link.id)).toContain('overhead-door-keypad-programming');
+    expect(searchManuals('2283').map((h) => h.link.id)).toContain('chi-document-finder');
   });
 
   it('returns nothing for a model nobody makes', () => {
