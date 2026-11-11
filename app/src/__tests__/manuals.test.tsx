@@ -95,7 +95,26 @@ describe('searchManuals', () => {
 
   it('finds a model by its number and puts exact matches first', () => {
     const hits = searchManuals('B4613TC');
-    expect(hits[0].link.id).toBe('chamberlain-b4600-install');
+    expect(hits[0].link.id).toBe('chamberlain-b4613tc');
+  });
+
+  it('finds per-model opener entries, current and older', () => {
+    const top = (q: string) => searchManuals(q).map((h) => h.link.id);
+    expect(top('6690L')).toContain('liftmaster-6690l');
+    expect(top('8165W')).toContain('liftmaster-8165w');
+    expect(top('3280')).toContain('liftmaster-3280');
+    expect(top('WD962KD')).toContain('chamberlain-wd962kd');
+    expect(top('7155')).toContain('genie-7055-7155');
+    expect(top('H4000')).toContain('genie-is-isl-screw');
+    expect(top('Destiny 1200')).toContain('overhead-door-destiny-odyssey');
+  });
+
+  it('finds door series documents', () => {
+    const top = (q: string) => searchManuals(q).map((h) => h.link.id);
+    expect(top('9100')).toContain('wayne-dalton-9100-9405-9605');
+    expect(top('2250')).toContain('chi-2250-2251');
+    expect(top('Lincoln')).toContain('amarr-steel-docs');
+    expect(top('Fast-Seal')).toContain('rytec-fast-seal');
   });
 
   it('matches brand aliases', () => {
@@ -169,11 +188,11 @@ describe('Manuals screen', () => {
     const fetchImpl = jest.fn().mockResolvedValue({ status: 200 }) as unknown as typeof fetch;
     const openUrl = jest.fn().mockResolvedValue(undefined);
     await render(<ManualsScreen fetchImpl={fetchImpl} openUrl={openUrl} />);
-    await fireEvent.changeText(screen.getByTestId('manuals-search'), 'B4613');
-    await fireEvent.press(screen.getByTestId('manual-chamberlain-b4600-install'));
+    await fireEvent.changeText(screen.getByTestId('manuals-search'), 'B373');
+    await fireEvent.press(screen.getByTestId('manual-chamberlain-b353'));
     await waitFor(() =>
       expect(openUrl).toHaveBeenCalledWith(
-        'https://support.chamberlaingroup.com/s/article/Chamberlain-B4603TC-B4643TC-B4613TC-B6313TC-B6753TC-Installation-Manual-English-French',
+        'https://support.chamberlaingroup.com/s/article/Chamberlain-models-B353-B353C-B373-B550-B550C-B750-B750C-B751C-B970-B970C-B1381-B1381C-Installation-Manual-Spanish',
       ),
     );
     expect(screen.queryByTestId('manuals-offline')).toBeNull();

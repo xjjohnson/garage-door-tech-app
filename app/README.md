@@ -219,7 +219,10 @@ brand buttons that shows only the makers in the market picked. Where the
 maker's page lists its PDFs with plain links, the entry shows one button per
 document (install manual, user's guide, quick start, Spanish versions and so
 on) that opens the PDF straight away, plus a "More documents on the maker's
-page" button. Other entries open the maker's own page in the phone's browser:
+page" button. Openers have an entry per model or model family, current and
+discontinued (LiftMaster, Chamberlain, Genie, Overhead Door and others), so an
+older opener found on a job can be looked up by the number on its label. Door
+makers have entries per door series. Other entries open the maker's own page in the phone's browser:
 manual search pages, document finders and troubleshooting. Nothing is copied
 into the app; every PDF opens from the maker's own site. Before opening, the
 app checks for a signal; with none it says so and offers Try again or Open
