@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { QrCode } from '../components/QrCode';
+import { SignatureSheet } from '../components/SignaturePad';
+import { signatureFor } from '../lib/attachments';
+import { invoiceHtml, pdfName } from '../lib/pdf';
+import { useAttachments } from '../lib/useAttachments';
 import { balance, Invoice, invoiceStatus, invoiceText, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { cents, formatMoney, TIER_LABEL } from '../lib/prices';
@@ -31,6 +35,20 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
   const scannable = links.filter((l) => l.url);
   const [qrFor, setQrFor] = useState<PayMethod | null>(null);
   const shownQr = scannable.find((l) => l.method === qrFor) ?? scannable[0];
+
+  const attachments = useAttachments();
+  const signature = signatureFor(attachments, 'invoice', invoice.id);
+  const [signing, setSigning] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
+  const warrantyNote =
+    status !== 'void' && (warranty.partsUntil || warranty.laborUntil)
+      ? `Warranty: ${warranty.partsUntil ? `springs until ${formatJobDate(warranty.partsUntil)}` : 'no spring warranty'}${warranty.laborUntil ? `, labor until ${formatJobDate(warranty.laborUntil)}` : ''}.`
+      : undefined;
+  const sendPdf = () => {
+    if (!attachments.media) return;
+    setPdfError(false);
+    attachments.media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(`Invoice ${invoice.number}`, invoice.billTo)).catch(() => setPdfError(true));
+  };
 
   const [method, setMethod] = useState<PayMethod>('cash');
   const [amount, setAmount] = useState('');
@@ -167,8 +185,31 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
         </>
       ) : null}
 
+      <SectionTitle>Signature</SectionTitle>
+      {signature ? (
+        <Text style={styles.detail} testID="invoice-signed">
+          Signed by {signature.name || 'the customer'} on {formatJobDate(signature.at)}
+        </Text>
+      ) : (
+        <Text style={styles.meta}>The customer signs that the work is done, on this phone. It goes on the PDF.</Text>
+      )}
+      <Action label={signature ? 'Sign again' : 'Customer signs'} onPress={() => setSigning(true)} testID="invoice-sign" />
+      <SignatureSheet
+        visible={signing}
+        title={`Invoice ${invoice.number}`}
+        agreement="Work completed to my satisfaction."
+        initialName={invoice.billTo}
+        onCancel={() => setSigning(false)}
+        onSave={(s) => {
+          attachments.sign({ for: 'invoice', refId: invoice.id, ...s });
+          setSigning(false);
+        }}
+      />
+
       <SectionTitle>More</SectionTitle>
-      <Action label="Send to customer" onPress={() => Share.share({ message: invoiceText(invoice, business) }).catch(() => undefined)} testID="invoice-share" />
+      {attachments.media ? <Action label="Send as PDF" primary onPress={sendPdf} testID="invoice-pdf" /> : null}
+      {pdfError ? <Text style={styles.meta}>Couldn't make the PDF. Try again, or send it as text.</Text> : null}
+      <Action label="Send as text" onPress={() => Share.share({ message: invoiceText(invoice, business) }).catch(() => undefined)} testID="invoice-share" />
       {status === 'void' ? (
         <Action label="Restore invoice" onPress={() => setVoid(invoice.id, false)} testID="invoice-unvoid" />
       ) : (
