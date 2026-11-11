@@ -105,6 +105,26 @@ describe('door form', () => {
   });
 });
 
+describe('cable length', () => {
+  it('stays off until floor to shaft center is entered', () => {
+    const r = runMatch(pair225);
+    expect(r.status === 'ok' && r.result.cableLengthIn).toBeUndefined();
+  });
+  it('is floor to shaft center plus 8" on 400-8 drums, in both modes', () => {
+    const m = runMatch({ ...pair225, shaftHeight: '94 1/2' });
+    expect(m.status === 'ok' && m.result.cableLengthIn).toBe(102.5);
+    const d = runDoor({ ...DEFAULT_DOOR_FORM, weight: '164', shaftHeight: '94' });
+    expect(d.status === 'ok' && d.result.cableLengthIn).toBe(102);
+  });
+  it('a shaft below the top of the door is an error', () => {
+    expect(runDoor({ ...DEFAULT_DOOR_FORM, weight: '164', shaftHeight: '80' }).status).toBe('error');
+  });
+  it('a form saved before the field existed loads with it blank', () => {
+    const { shaftHeight: _drop, ...older } = DEFAULT_DOOR_FORM;
+    expect(restoreForm(DEFAULT_DOOR_FORM, { ...older, weight: '150' }).shaftHeight).toBe('');
+  });
+});
+
 describe('restoreForm', () => {
   it('keeps saved values of the right type and fills the rest', () => {
     const saved = { length: '26', springCount: 1, idChoice: 7, junk: 'x' };

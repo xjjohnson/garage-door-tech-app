@@ -68,6 +68,8 @@ export interface MatchForm {
   heightOther: string;
   drum: DrumId;
   shaft: string;
+  /** Floor to the center of the torsion shaft, for the cable length. Optional. */
+  shaftHeight: string;
 }
 
 export const DEFAULT_MATCH_FORM: MatchForm = {
@@ -84,7 +86,14 @@ export const DEFAULT_MATCH_FORM: MatchForm = {
   heightOther: '',
   drum: '400-8',
   shaft: '',
+  shaftHeight: '',
 };
+
+/** Optional positive measurement, or nothing when blank or not a number. */
+function optionalMeasurement(text: string): number | undefined {
+  const v = parseMeasurement(text);
+  return v !== undefined && v > 0 ? v : undefined;
+}
 
 function chosenNumber(choice: string, other: string): number | undefined {
   return choice === 'other' ? parseMeasurement(other) : parseMeasurement(choice);
@@ -113,6 +122,7 @@ export function buildMatchInput(form: MatchForm): { input?: MatchInput; missing:
   if (missing.length > 0 || insideDiameterIn === undefined || lengthIn === undefined) return { missing };
 
   const shaft = parseMeasurement(form.shaft);
+  const shaftHeight = optionalMeasurement(form.shaftHeight);
   return {
     missing,
     input: {
@@ -124,6 +134,7 @@ export function buildMatchInput(form: MatchForm): { input?: MatchInput; missing:
       doorHeightIn,
       drum: form.drum,
       ...(shaft !== undefined && shaft > 0 ? { maxLengthIn: shaft } : {}),
+      ...(shaftHeight !== undefined ? { floorToShaftCenterIn: shaftHeight } : {}),
     },
   };
 }
@@ -156,6 +167,8 @@ export interface DoorForm {
   targetCycles: number;
   ids: number[];
   shaft: string;
+  /** Floor to the center of the torsion shaft, for the cable length. Optional. */
+  shaftHeight: string;
 }
 
 export const DEFAULT_DOOR_FORM: DoorForm = {
@@ -167,6 +180,7 @@ export const DEFAULT_DOOR_FORM: DoorForm = {
   targetCycles: 10_000,
   ids: [2],
   shaft: '',
+  shaftHeight: '',
 };
 
 export function buildDoorInput(form: DoorForm): { input?: DoorInput; missing: string[] } {
@@ -178,6 +192,7 @@ export function buildDoorInput(form: DoorForm): { input?: DoorInput; missing: st
   if (form.ids.length === 0) missing.push('Inside diameter');
   if (doorWeightLb === undefined || doorHeightIn === undefined || form.ids.length === 0) return { missing };
   const shaft = parseMeasurement(form.shaft);
+  const shaftHeight = optionalMeasurement(form.shaftHeight);
   return {
     missing,
     input: {
@@ -188,6 +203,7 @@ export function buildDoorInput(form: DoorForm): { input?: DoorInput; missing: st
       targetCycles: form.targetCycles,
       insideDiametersIn: [...form.ids].sort((a, b) => a - b),
       ...(shaft !== undefined && shaft > 0 ? { maxLengthIn: shaft } : {}),
+      ...(shaftHeight !== undefined ? { floorToShaftCenterIn: shaftHeight } : {}),
     },
   };
 }

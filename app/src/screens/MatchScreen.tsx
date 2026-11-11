@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ChipOption, ChipRow, Field, MeasureField, SectionTitle, TextButton } from '../components/controls';
 import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
 import { DEFAULT_MATCH_FORM, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, MatchForm, runMatch, WireMethod } from '../lib/forms';
-import { formatFeetInches, formatNumber, formatTurns, parseMeasurement } from '../lib/measure';
+import { formatFeetInches, formatInches, formatNumber, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { MatchResult, Wind, WIRES } from '../springCalc';
 import { colors, type } from '../theme';
@@ -119,6 +119,14 @@ export function MatchScreen() {
         unit="in"
         testID="field-shaft"
       />
+      <MeasureField
+        label="Floor to shaft center (optional)"
+        hint="Measure to the middle of the torsion shaft to get the cable length."
+        value={form.shaftHeight}
+        onChange={(shaftHeight) => update({ shaftHeight })}
+        unit="in"
+        testID="field-shaft-height"
+      />
       <TextButton label="Clear all inputs" onPress={reset} testID="clear-match" />
 
       <SectionTitle>Results</SectionTitle>
@@ -148,6 +156,7 @@ function MatchResults({ result }: { result: MatchResult }) {
         <Stat label="Turns to wind" value={formatTurns(result.turns)} />
         <Stat label={`Balances a door of${each}`} value={lbRange(result.balancesDoorLb)} />
         <Stat label="Total rate" value={`${result.totalIppt.toFixed(1)} IPPT`} />
+        {result.cableLengthIn !== undefined ? <Stat label="Cable length (each)" value={formatInches(result.cableLengthIn, 8)} /> : null}
       </Card>
 
       {stopped ? (

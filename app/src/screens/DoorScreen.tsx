@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ChipOption, ChipRow, Field, MeasureField, MultiChipRow, SectionTitle, TextButton } from '../components/controls';
 import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
 import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, runDoor } from '../lib/forms';
-import { formatFeetInches, formatTurns, parseMeasurement } from '../lib/measure';
+import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { DoorResult } from '../springCalc';
 import { colors, type } from '../theme';
@@ -70,6 +70,14 @@ export function DoorScreen() {
         unit="in"
         testID="field-door-shaft"
       />
+      <MeasureField
+        label="Floor to shaft center (optional)"
+        hint="Measure to the middle of the torsion shaft to get the cable length."
+        value={form.shaftHeight}
+        onChange={(shaftHeight) => update({ shaftHeight })}
+        unit="in"
+        testID="field-door-shaft-height"
+      />
       <TextButton label="Clear all inputs" onPress={reset} testID="clear-door" />
 
       <SectionTitle>Results</SectionTitle>
@@ -88,6 +96,7 @@ function DoorResults({ result, springCount }: { result: DoorResult; springCount:
       <Card title="Wind" testID="card-turns">
         <Stat label="Turns to wind" value={formatTurns(result.turns)} />
         <Stat label="Rate needed per spring" value={`${result.ipptPerSpring.toFixed(1)} IPPT`} />
+        {result.cableLengthIn !== undefined ? <Stat label="Cable length (each)" value={formatInches(result.cableLengthIn, 8)} /> : null}
       </Card>
       {result.options.length > 0 ? (
         <Card title={springCount === 2 ? 'Spring pairs that fit' : 'Springs that fit'} testID="card-options">
