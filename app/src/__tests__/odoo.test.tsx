@@ -7,10 +7,14 @@ import { renderApp } from '../testing/renderApp';
 type Task = Record<string, unknown> & { id: number };
 
 /** A tiny pretend Odoo: two users, a few tasks, Field Service on or off. */
-function fakeOdoo({ fsm = true, assignField = 'user_ids' as 'user_ids' | 'user_id', secret = 'key123', project = true } = {}) {
+function fakeOdoo({ fsm = true, assignField = 'user_ids' as 'user_ids' | 'user_id', secret = 'key123', project = true, oca = false, planning = true } = {}) {
   const tasks: Task[] = [
     { id: 11, name: 'Broken spring', partner_id: [7, 'Pat Smith'], planned_date_begin: '2026-11-12 15:00:00', date_deadline: false, stage_id: [1, 'New'], description: '<p>Left spring <b>snapped</b></p>', [assignField]: assignField === 'user_ids' ? [2] : [2, 'Justin'], partner_phone: '555-123-4567', fsm_done: false, active: true },
     { id: 12, name: 'Tune-up', partner_id: [8, 'Lee Park'], planned_date_begin: false, date_deadline: '2026-11-14', stage_id: [1, 'New'], description: '', [assignField]: assignField === 'user_ids' ? [] : false, fsm_done: false, active: true },
+  ];
+  const orders: { id: number; name: string; location_id: [number, string] | false; person_id: [number, string] | false; scheduled_date_start: string | false; stage_id: [number, string]; description: string; todo: string; date_end: string | false; closed: boolean }[] = [
+    { id: 501, name: 'SO-501', location_id: [70, 'Pat Smith'], person_id: [40, 'Justin'], scheduled_date_start: '2026-11-12 15:00:00', stage_id: [1, 'Scheduled'], description: 'Spring snapped', todo: '<p>Bring 2 springs</p>', date_end: false, closed: false },
+    { id: 502, name: 'SO-502', location_id: [70, 'Pat Smith'], person_id: false, scheduled_date_start: false, stage_id: [1, 'New'], description: '', todo: '', date_end: false, closed: false },
   ];
   const calls: { model?: string; method: string; args: unknown[] }[] = [];
   const has = (t: Task, d: unknown[]) =>
@@ -33,11 +37,42 @@ function fakeOdoo({ fsm = true, assignField = 'user_ids' as 'user_ids' | 'user_i
     calls.push({ model, method, args });
     if (pw !== secret) return error('odoo.exceptions.AccessDenied', 'Access Denied');
     if (!project && model === 'project.task') return error('builtins.KeyError', "Object project.task doesn't exist");
-    if (model === 'project.task' && method === 'fields_get') return reply({ name: {}, [assignField]: {}, ...(fsm ? { is_fsm: {} } : {}) });
-    if (model === 'res.users' && method === 'read') return reply([{ id: 2, name: 'Justin' }]);
+    if (model.startsWith('fsm.') && !oca) return error('builtins.KeyError', `Object ${model} doesn't exist`);
+    if (model === 'project.task' && method === 'fields_get') {
+      if (!planning) return reply({ name: {}, date_deadline: {}, description: {}, [assignField]: {} });
+      return reply({ name: {}, [assignField]: {}, planned_date_begin: {}, date_deadline: {}, description: {}, ...(fsm ? { is_fsm: {}, fsm_done: {}, partner_phone: {} } : {}) });
+    }
+    if (model === 'fsm.order' && method === 'fields_get') return reply({ name: {}, location_id: {}, person_id: {}, scheduled_date_start: {}, stage_id: {}, description: {}, todo: {}, date_end: {} });
+    if (model === 'fsm.stage' && method === 'fields_get') return reply({ name: {}, is_closed: {} });
+    if (model === 'fsm.person' && method === 'search_read') {
+      const d = args[0] as [string, string, unknown][];
+      const people = [{ id: 40, name: 'Justin', email: 'j@x.test', partner_id: 90 }, { id: 41, name: 'Sam', email: 's@x.test', partner_id: 91 }];
+      return reply(people.filter((p) => d.every(([f, , v]) => f !== 'partner_id' || p.partner_id === v)));
+    }
+    if (model === 'fsm.location' && method === 'read') return reply([{ id: 70, name: 'Pat Smith', street: '1 Oak St', city: 'Springfield', zip: '12345', phone: '555-123-4567', mobile: '' }]);
+    if (model === 'fsm.order' && method === 'search_read') {
+      const d = args[0] as [string, string, unknown][];
+      return reply(orders.filter((o) => !o.closed && d.every(([f, , v]) => f !== 'person_id' || (v === false ? o.person_id === false : Array.isArray(o.person_id) && o.person_id[0] === v))));
+    }
+    if (model === 'fsm.order' && method === 'write') {
+      const [[id], vals] = args as [number[], Record<string, unknown>];
+      const o = orders.find((x) => x.id === id)!;
+      if ('person_id' in vals) o.person_id = [vals.person_id as number, 'x'];
+      if ('date_end' in vals) o.date_end = vals.date_end as string;
+      return reply(true);
+    }
+    if (model === 'fsm.order' && method === 'action_complete') {
+      const o = orders.find((x) => x.id === (args[0] as number[])[0])!;
+      if (!o.date_end) return error('odoo.exceptions.ValidationError', "Cannot move to Complete until 'Actual End' is filled in");
+      o.closed = true;
+      return reply(true);
+    }
+    if (model === 'res.users' && method === 'read') return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
     if (model === 'res.users' && method === 'search_read') return reply([{ id: 2, name: 'Justin', login: 'j@x.test' }, { id: 3, name: 'Sam', login: 's@x.test' }]);
     if (model === 'res.partner') return reply([{ id: 7, name: 'Pat Smith', street: '1 Oak St', city: 'Springfield', zip: '12345', phone: '', mobile: '' }, { id: 8, name: 'Lee Park', street: '', city: '', zip: '', phone: '555-999-0000', mobile: '' }]);
     if (model === 'project.task' && method === 'search_read') {
+      const kw = params.args[6] as { fields?: string[] };
+      if (!planning && kw?.fields?.includes('planned_date_begin')) return error('ValueError', "Invalid field 'planned_date_begin' on model 'project.task'");
       const domain = (args[0] as unknown[]).filter((c) => !(Array.isArray(c) && c[0] === 'is_fsm'));
       if (!fsm && (args[0] as unknown[]).some((c) => Array.isArray(c) && c[0] === 'is_fsm')) return error('ValueError', 'Invalid field is_fsm');
       return reply(tasks.filter((t) => has(t, domain)));
@@ -84,7 +119,7 @@ describe('Odoo (plain logic)', () => {
       { id: 11, name: 'Broken spring', customer: 'Pat Smith', customerId: 7, phone: '555-123-4567', address: '1 Oak St, Springfield 12345', start: Date.UTC(2026, 10, 12, 15), stage: 'New', notes: 'Left spring snapped', assignees: [2] },
     ]);
     const search = o.calls.find((x) => x.method === 'search_read' && x.model === 'project.task')!;
-    expect(search.args[0]).toEqual([['is_fsm', '=', true], ['user_ids', 'in', [2]], ['fsm_done', '=', false], ['active', '=', true]]);
+    expect(search.args[0]).toEqual([['user_ids', 'in', [2]], ['is_fsm', '=', true], ['fsm_done', '=', false], ['active', '=', true]]);
     const appt = taskToAppointment(mine[0], 1);
     expect(appt).toMatchObject({ id: 'odoo-11', start: Date.UTC(2026, 10, 12, 15), name: 'Pat Smith', what: 'Broken spring', status: 'booked' });
   });
@@ -112,7 +147,31 @@ describe('Odoo (plain logic)', () => {
 
   it('signs in when Odoo has no Project or Field Service app yet', async () => {
     const c = await OdooClient.signIn(fakeOdoo({ project: false }).fetchFn, login, 'key123');
-    expect(c.session).toMatchObject({ uid: 2, name: 'Justin', tasks: false });
+    expect(c.session).toMatchObject({ uid: 2, name: 'Justin', kind: 'none' });
+  });
+
+  it('reads Project tasks on community Odoo without asking for Enterprise-only fields', async () => {
+    const c = await OdooClient.signIn(fakeOdoo({ fsm: false, planning: false }).fetchFn, login, 'key123');
+    expect(c.session).toMatchObject({ kind: 'task', fields: ['date_deadline', 'description'] });
+    expect((await c.myTasks()).map((t) => [t.id, t.name])).toEqual([[11, 'Broken spring']]);
+    expect(c.canMarkDone).toBe(false);
+  });
+
+  it('uses community Field Service orders, workers and locations', async () => {
+    const o = fakeOdoo({ oca: true, project: false });
+    const c = await OdooClient.signIn(o.fetchFn, login, 'key123', () => Date.UTC(2026, 10, 12, 17));
+    expect(c.session).toMatchObject({ kind: 'oca', me: 40, closedStage: true });
+    expect(await c.myTasks()).toEqual([
+      { id: 501, name: 'SO-501', customer: 'Pat Smith', phone: '555-123-4567', address: '1 Oak St, Springfield 12345', start: Date.UTC(2026, 10, 12, 15), stage: 'Scheduled', notes: 'Spring snapped\nBring 2 springs', assignees: [40] },
+    ]);
+    expect((await c.unassignedTasks()).map((t) => t.id)).toEqual([502]);
+    expect((await c.techs()).map((t) => [t.id, t.name])).toEqual([[40, 'Justin'], [41, 'Sam']]);
+    await c.assign(502, 41);
+    expect((await c.myTasks(41)).map((t) => t.id)).toEqual([502]);
+    expect(c.canMarkDone).toBe(true);
+    await c.markDone(501);
+    expect(o.calls.find((x) => x.method === 'write' && x.model === 'fsm.order' && 'date_end' in (x.args[1] as object))?.args[1]).toEqual({ date_end: '2026-11-12 17:00:00' });
+    expect(await c.myTasks()).toEqual([]);
   });
 
   it('says plainly when the sign-in is wrong or Odoo is unreachable', async () => {
