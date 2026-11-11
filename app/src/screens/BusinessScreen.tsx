@@ -5,7 +5,7 @@ import { Business, payLinks } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type } from '../theme';
 
-const FIELDS: { key: keyof Business; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' }[] = [
+const FIELDS: { key: keyof Business; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' | 'url' }[] = [
   { key: 'name', label: 'Business name', placeholder: 'Shown at the top of invoices' },
   { key: 'phone', label: 'Business phone', placeholder: 'For questions about an invoice', keyboard: 'phone-pad' },
   { key: 'cashtag', label: 'Cash App $cashtag', placeholder: '$yourcashtag', hint: 'Invoices show a QR code that opens Cash App with the amount filled in.' },
@@ -16,6 +16,13 @@ const FIELDS: { key: keyof Business; label: string; placeholder: string; hint?: 
     placeholder: 'The one your bank uses for Zelle',
     hint: "Zelle has no link that fills in the amount, so invoices show this to send to.",
     keyboard: 'email-address',
+  },
+  {
+    key: 'reviewUrl',
+    label: 'Review link',
+    placeholder: 'g.page/r/... or your Yelp page',
+    hint: 'Your Google review link (Google Business Profile, "Ask for reviews"). Paid invoices get an Ask for a review button that texts it.',
+    keyboard: 'url',
   },
 ];
 

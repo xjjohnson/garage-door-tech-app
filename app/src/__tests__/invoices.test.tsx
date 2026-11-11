@@ -24,7 +24,7 @@ import { renderApp } from '../testing/renderApp';
 
 const MATCH = { mode: 'match' as const, form: { ...DEFAULT_MATCH_FORM, twentyCoil: '4 1/2', length: '24' } };
 const SHEET: PriceSheet = { ...DEFAULT_PRICE_SHEET, serviceCall: '89', springLabor: '150', spring: { good: '60', better: '85', best: '120' }, taxPercent: '8.25' };
-const BIZ: Business = { name: 'Ace Doors', phone: '555-000-1111', cashtag: '$AceDoors', venmo: '@ace-doors', zelle: 'pay@acedoors.com' };
+const BIZ: Business = { name: 'Ace Doors', phone: '555-000-1111', cashtag: '$AceDoors', venmo: '@ace-doors', zelle: 'pay@acedoors.com', reviewUrl: '' };
 
 const job = createJob(MATCH, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: '.225 × 2" × 24"' }, 1000, 'j1');
 const good = buildQuote(MATCH, SHEET).options[0];
@@ -181,5 +181,32 @@ describe('invoices in the app', () => {
     expect(screen.getByTestId('invoice-status')).toHaveTextContent('UNPAID');
     await fireEvent.press(screen.getByTestId('invoice-void'));
     expect(screen.getByTestId('invoice-status')).toHaveTextContent('VOID');
+  });
+});
+
+describe('review requests', () => {
+  it('cleans up the review link and writes the ask', () => {
+    const { reviewLink, reviewRequestText } = require('../lib/invoices') as typeof import('../lib/invoices');
+    expect(reviewLink({ reviewUrl: 'g.page/r/abc/review' })).toBe('https://g.page/r/abc/review');
+    expect(reviewLink({ reviewUrl: 'not a link' })).toBe('');
+    expect(reviewRequestText({ billTo: 'Pat Smith' }, { ...BIZ, reviewUrl: 'https://g.page/r/abc' })).toBe(
+      "Hi Pat, thanks for choosing Ace Doors! If you're happy with the work on your garage door, a quick review helps a lot: https://g.page/r/abc",
+    );
+  });
+
+  it('offers to ask for a review once an invoice is paid', async () => {
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(BUSINESS_STORAGE_KEY, JSON.stringify({ ...BIZ, reviewUrl: 'g.page/r/abc' }));
+    const i = createInvoice({ ...job, customerId: 'c1' }, good, [], 5, 'i1');
+    await AsyncStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([{ ...i, payments: [{ id: 'p', method: 'cash', amount: i.total, at: 6, reference: '' }] }]));
+    await AsyncStorage.setItem('customers/v1', JSON.stringify([{ id: 'c1', name: 'Pat Smith', phone: '555-123-4567', email: '', address: '', notes: '', createdAt: 1, updatedAt: 1 }]));
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, customerId: 'c1' }]));
+    const { Linking } = require('react-native');
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    await renderApp('/invoice/i1');
+    await settle();
+    await fireEvent.press(screen.getByTestId('invoice-review'));
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(/^sms:5551234567\?body=Hi%20Pat.*https%3A%2F%2Fg\.page%2Fr%2Fabc$/));
+    open.mockRestore();
   });
 });

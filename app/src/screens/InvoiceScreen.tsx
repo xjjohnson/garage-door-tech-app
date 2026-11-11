@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { QrCode } from '../components/QrCode';
-import { balance, Invoice, invoiceStatus, invoiceText, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, STATUS_LABEL } from '../lib/invoices';
+import { balance, Invoice, invoiceStatus, invoiceText, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { cents, formatMoney, TIER_LABEL } from '../lib/prices';
-import { warrantyFor } from '../lib/followups';
+import { textLink, warrantyFor } from '../lib/followups';
+import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type } from '../theme';
@@ -23,6 +24,8 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
   const { business, addPayment, removePayment, setVoid } = useInvoices();
   const status = invoiceStatus(invoice);
   const warranty = warrantyFor(invoice, useFollowUps().settings);
+  const phone = useCustomers().customers.find((c) => c.id === invoice.customerId)?.phone ?? '';
+  const review = reviewLink(business) ? textLink(phone, reviewRequestText(invoice, business)) : undefined;
   const due = balance(invoice);
   const links = payLinks(business, due, `Invoice ${invoice.number}`);
   const scannable = links.filter((l) => l.url);
@@ -150,6 +153,17 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
             }}
             testID="payment-record"
           />
+        </>
+      ) : null}
+
+      {status === 'paid' && reviewLink(business) ? (
+        <>
+          <SectionTitle>Paid in full</SectionTitle>
+          {review ? (
+            <Action label="Ask for a review" primary onPress={() => Linking.openURL(review).catch(() => undefined)} testID="invoice-review" />
+          ) : (
+            <Action label="Ask for a review" onPress={() => Share.share({ message: reviewRequestText(invoice, business) }).catch(() => undefined)} testID="invoice-review-share" />
+          )}
         </>
       ) : null}
 
