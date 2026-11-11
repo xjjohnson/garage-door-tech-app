@@ -234,10 +234,24 @@ page" button. Openers have an entry per model or model family, current and
 discontinued (LiftMaster, Chamberlain, Genie, Overhead Door and others), so an
 older opener found on a job can be looked up by the number on its label. Door
 makers have entries per door series. Other entries open the maker's own page in the phone's browser:
-manual search pages, document finders and troubleshooting. Nothing is copied
-into the app; every PDF opens from the maker's own site. Before opening, the
+manual search pages, document finders and troubleshooting. Nothing is bundled
+in the app; every PDF comes from the maker's own site (starred ones are
+downloaded from there to the phone, see below). Before opening, the
 app checks for a signal; with none it says so and offers Try again or Open
 anyway. Each entry shows the day its links were last checked.
+
+**Starred manuals work with no signal.** Each entry has a **Star** button.
+Starred entries come first in the list, and their PDFs are downloaded to the
+phone (`src/lib/useSavedManuals.ts`, `src/lib/manualFiles.ts`), so a document
+button marked "Saved on this phone" opens in the phone's PDF viewer with no
+signal check. A link that turns out to be a web page instead of a PDF (checked
+by the file's first bytes, not its address) isn't kept and says it needs a
+signal. Anything that couldn't download is tried again each time Manuals opens
+and with **Try saving again**. Unstarring deletes the saved copies. This uses
+`expo-file-system`, which the `expo` package already builds into the APK, so
+it shipped over the air without a version bump; check with
+`npx expo-modules-autolinking resolve -p android` before assuming the same of
+another module.
 
 The links live in `src/data/manuals.ts`. To add one, open the page in a
 browser to be sure it loads, then add an entry with today's date in
