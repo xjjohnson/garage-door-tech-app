@@ -21,7 +21,7 @@ export interface BarSummary {
 /**
  * A calculator screen: the inputs and results scroll, and a bar pinned to
  * the bottom always shows the answer so far. Tapping the bar jumps to the
- * results, which start with the safety banner.
+ * results, which start with any STOP or CHECK card, then the safety banner.
  */
 export function CalcLayout({ inputs, results, summary, testID }: { inputs: ReactNode; results: ReactNode; summary: BarSummary; testID?: string }) {
   const scroll = useRef<ScrollViewInstance>(null);
@@ -63,11 +63,13 @@ function ResultBar({ summary, onPress, testID }: { summary: BarSummary; onPress:
       {({ pressed }) => (
         <>
           <View style={styles.barText}>
-            <Text style={[styles.barTitle, t.text, pressed && styles.pressedText]} numberOfLines={1}>
+            {/* Wraps to a second line rather than cutting off "Enter length of 20 coils". */}
+            <Text style={[styles.barTitle, t.text, pressed && styles.pressedText]} numberOfLines={2}>
               {summary.title}
             </Text>
             {summary.detail ? (
-              <Text style={[styles.barDetail, t.sub, pressed && styles.pressedText]} numberOfLines={2}>
+              // A STOP reason is never cut off: the bar grows to fit it.
+              <Text style={[styles.barDetail, t.sub, pressed && styles.pressedText]} numberOfLines={summary.tone === 'stop' ? undefined : 2} testID={testID ? `${testID}-detail` : undefined}>
                 {summary.detail}
               </Text>
             ) : null}

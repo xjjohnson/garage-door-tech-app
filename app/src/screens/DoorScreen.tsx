@@ -106,9 +106,11 @@ export function DoorScreen({ open }: { open?: OpenJobRequest }) {
   const results = (
     <>
       <SectionTitle>Results</SectionTitle>
+      {/* STOP and CHECK cards first, so the bar's jump lands on them, then the general safety banner. */}
+      {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
+      {outcome.status === 'ok' ? <Warnings warnings={outcome.result.warnings} /> : null}
       <SafetyBanner />
       {outcome.status === 'incomplete' ? <MissingCard missing={outcome.missing} /> : null}
-      {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
       {outcome.status === 'ok' ? <DoorResults result={outcome.result} springCount={form.springCount} /> : null}
       <SaveJobPanel
         inputs={{ mode: 'door', form }}
@@ -141,7 +143,6 @@ export function doorSummary(outcome: Outcome<DoorResult>, springCount: 1 | 2): B
 function DoorResults({ result, springCount }: { result: DoorResult; springCount: 1 | 2 }) {
   return (
     <View style={styles.stack} testID="door-results">
-      <Warnings warnings={result.warnings} />
       <Card title="Wind" testID="card-turns">
         <Stat label="Turns to wind" value={formatTurns(result.turns)} />
         <Stat label="Rate needed per spring" value={`${result.ipptPerSpring.toFixed(1)} IPPT`} />

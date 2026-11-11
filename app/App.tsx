@@ -53,6 +53,7 @@ function Main() {
   const { isUpdatePending } = Updates.useUpdates();
   const [section, setSection] = useState<Section>('springs');
   const [tab, setTab] = useState<Tab>('match');
+  const [showBuild, setShowBuild] = useState(false);
   // Manuals and Diagnose are drawn the first time they're opened, not at
   // startup, so they add nothing to launch time (Manuals has hundreds of
   // entries). After that they stay mounted and keep their search and picks.
@@ -72,15 +73,18 @@ function Main() {
     <SafeAreaProvider>
       <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
         <StatusBar style="dark" />
-        <View style={styles.header}>
+        {/* The build line is for support, not for techs: hold the title to show or hide it. */}
+        <Pressable style={styles.header} onLongPress={() => setShowBuild((v) => !v)} accessibilityHint="Hold to show the app version" testID="header">
           <Text style={styles.title} accessibilityRole="header">
             {current.title}
           </Text>
           <Text style={styles.subtitle}>{current.subtitle}</Text>
-          <Text style={styles.build} testID="build-info" selectable numberOfLines={1}>
-            {BUILD_INFO}
-          </Text>
-        </View>
+          {showBuild ? (
+            <Text style={styles.build} testID="build-info" selectable numberOfLines={1}>
+              {BUILD_INFO}
+            </Text>
+          ) : null}
+        </Pressable>
         {/* The runtime version is the installed APK's app.json version (appVersion policy). */}
         <ApkUpdateBanner manifestUrl={APK_MANIFEST_URL} currentVersion={Updates.runtimeVersion} />
         {/* Two ways into the calculator, as one joined switch so it doesn't read like the app's main tabs. */}

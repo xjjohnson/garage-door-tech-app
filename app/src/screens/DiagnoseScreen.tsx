@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ChipOption, ChipRow } from '../components/controls';
+import { ChipOption, ChipRow, Segmented } from '../components/controls';
 import { DIAG_BRANDS, DIAG_SAFETY, DiagSource, SYMPTOMS } from '../data/diagnostics';
 import { familiesFor, familyById, findCode, hostOf } from '../lib/diagnose';
 import { colors, touch, type } from '../theme';
@@ -70,7 +70,8 @@ export function DiagnoseScreen({ openUrl = (u) => Linking.openURL(u) }: Props) {
         ))}
       </View>
 
-      <ChipRow options={MODE_OPTIONS} value={mode} onChange={setMode} testID="diagnose-mode" />
+      {/* A mode, not an answer: the same joined switch as Springs and Manuals. */}
+      <Segmented options={MODE_OPTIONS} value={mode} onChange={setMode} testID="diagnose-mode" />
 
       {mode === 'symptom' ? (
         <View style={styles.stack} testID="diagnose-by-symptom">
