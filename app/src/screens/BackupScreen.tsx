@@ -8,6 +8,7 @@ import { BackupFiles, deviceBackupFiles } from '../lib/backupFiles';
 import { formatJobDate } from '../lib/jobs';
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
+import { useSchedule } from '../lib/useSchedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
@@ -35,6 +36,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
   const { customers, restore: restoreCustomers } = useCustomers();
   const { invoices, business, restore: restoreInvoices } = useInvoices();
   const { settings: followUpSettings, dismissed, restore: restoreFollowUps } = useFollowUps();
+  const { appointments, restore: restoreSchedule } = useSchedule();
   const { sheet, update } = usePriceSheet();
   const [lastBackup, setLastBackup] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     try {
       const at = now();
       const name = backupFileName(at);
-      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, followUps: { settings: followUpSettings, dismissed }, priceSheet: sheet }, at, Constants.expoConfig?.version));
+      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, followUps: { settings: followUpSettings, dismissed }, appointments, priceSheet: sheet }, at, Constants.expoConfig?.version));
       if (folder !== null) {
         setLastBackup(at);
         AsyncStorage.setItem(LAST_BACKUP_KEY, String(at)).catch(() => undefined);
@@ -95,6 +97,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     restoreCustomers(pending.customers);
     restoreInvoices(pending.invoices, pending.business);
     if (pending.followUps) restoreFollowUps(pending.followUps);
+    if (pending.appointments.length > 0) restoreSchedule(pending.appointments);
     const { added, updated } = restore(pending.jobs);
     if (pending.priceSheet) {
       const restored = pending.priceSheet;
@@ -103,6 +106,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     setPending(null);
     const parts = [`${plural(added, 'job')} added`, `${plural(updated, 'job')} updated`];
     if (pending.invoices.length > 0) parts.push(plural(pending.invoices.length, 'invoice'));
+    if (pending.appointments.length > 0) parts.push(plural(pending.appointments.length, 'visit'));
     if (pending.priceSheet) parts.push('price sheet restored');
     setNote({ kind: 'ok', text: `Restored: ${parts.join(', ')}.` });
   };
