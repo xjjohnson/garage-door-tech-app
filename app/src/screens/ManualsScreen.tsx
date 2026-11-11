@@ -7,6 +7,14 @@ import { colors, touch, type } from '../theme';
 
 const ALL = 'all';
 
+/**
+ * Cards drawn at once. The full list has hundreds of entries, each with its
+ * document buttons, and drawing them all made the screen slow to open on a
+ * phone. A search usually lands in the first few; "Show more" adds the next
+ * batch.
+ */
+export const MANUALS_PAGE = 25;
+
 /** Something a tap opens: an entry's maker page or one of its documents. */
 interface Target {
   key: string;
@@ -52,6 +60,12 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
   const brandFilter = brand !== ALL && brandOptions.some((o) => o.value === brand) ? brand : null;
 
   const hits = useMemo(() => searchManuals(query, brandFilter, MANUAL_LINKS, marketFilter), [query, brandFilter, marketFilter]);
+  // How many cards to draw. A new search or filter starts again from one page.
+  const filterKey = `${query}|${brandFilter ?? ''}|${marketFilter ?? ''}`;
+  const [page, setPage] = useState({ key: filterKey, count: MANUALS_PAGE });
+  const shownCount = page.key === filterKey ? page.count : MANUALS_PAGE;
+  const shown = hits.slice(0, shownCount);
+  const more = Math.min(MANUALS_PAGE, hits.length - shown.length);
 
   async function open(target: Target) {
     setChecking(target.key);
@@ -146,7 +160,7 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
         </View>
       ) : null}
 
-      {hits.map(({ link, brand: b }) => {
+      {shown.map(({ link, brand: b }) => {
         const header = (
           <>
             <View style={styles.itemTop}>
@@ -220,6 +234,20 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
           </View>
         );
       })}
+
+      {more > 0 ? (
+        <Pressable
+          onPress={() => setPage({ key: filterKey, count: shownCount + MANUALS_PAGE })}
+          accessibilityRole="button"
+          accessibilityLabel={`Show ${more} more links`}
+          testID="manuals-more"
+          style={({ pressed }) => [styles.button, styles.showMore, pressed && styles.pressed]}
+        >
+          <Text style={styles.buttonText}>
+            Show {more} more ({hits.length - shown.length} left)
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -252,6 +280,7 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  showMore: { flex: 0, paddingHorizontal: 12 },
   empty: { padding: 12, borderRadius: 10, backgroundColor: colors.card, gap: 6 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
