@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import App from '../../App';
+import { renderApp } from '../testing/renderApp';
 import { BRANDS, MANUAL_LINKS } from '../data/manuals';
 import { brandsFor, checkReach, formatChecked, linkMarkets, linkUrls, queryWords, searchManuals } from '../lib/manualSearch';
 import { MANUALS_PAGE, ManualsScreen } from '../screens/ManualsScreen';
@@ -285,7 +285,7 @@ describe('Manuals screen', () => {
   });
 
   it('is reachable from the app header', async () => {
-    await render(<App />);
+    await renderApp();
     await fireEvent.press(screen.getByTestId('section-manuals'));
     expect(screen.getByTestId('manuals-search')).toBeTruthy();
     expect(screen.getAllByText('Manuals').length).toBeGreaterThan(0);

@@ -2,7 +2,8 @@
   "expo": {
     "name": "Spring Calc",
     "slug": "tech-app",
-    "version": "0.2.0",
+    "scheme": "garagedoortech",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -40,6 +41,7 @@
       }
     },
     "plugins": [
+      "expo-router",
       "./plugins/withReleaseSigning"
     ]
   }

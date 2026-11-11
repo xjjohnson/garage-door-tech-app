@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import App from '../../App';
+import { fireEvent, screen, within } from '@testing-library/react-native';
+import { renderApp } from '../testing/renderApp';
 import { DEFAULT_DOOR_FORM, DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { cents, DEFAULT_PRICE_SHEET, formatMoney, parsePriceSheet, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
@@ -86,7 +86,7 @@ describe('quotes in the app', () => {
   it('asks for prices, then quotes the job and records what the customer picked', async () => {
     const job = createJob(MATCH, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: '.225 × 2" × 24"' }, 1000, 'j1');
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
-    await render(<App />);
+    await renderApp();
     await fireEvent.press(screen.getByTestId('section-jobs'));
     await fireEvent.press(await screen.findByTestId('job-toggle-j1'));
     await fireEvent.press(screen.getByTestId('job-quote-j1'));
@@ -98,16 +98,15 @@ describe('quotes in the app', () => {
     await keypad(['6', '0']);
     await fireEvent.press(screen.getByTestId('price-labor'));
     await keypad(['1', '5', '0']);
-    await waitFor(async () => expect(parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY)).springLabor).toBe('150'));
+    expect(parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY)).springLabor).toBe('150');
+    // Closing the price sheet goes back to the quote, now priced.
     await fireEvent.press(screen.getByTestId('prices-sheet-close'));
-
-    await fireEvent.press(screen.getByTestId('job-quote-j1'));
     expect(screen.queryByTestId('quote-no-prices')).toBeNull();
     // 2 × $60 + $150 labor, no tax set.
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$270');
     await fireEvent.press(screen.getByTestId('quote-accept-good'));
     expect(screen.getByTestId('quote-accepted-note')).toHaveTextContent(/^Customer picked Good at \$270 on /);
-    await waitFor(async () => expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].accepted).toMatchObject({ tier: 'good', total: 27000 }));
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].accepted).toMatchObject({ tier: 'good', total: 27000 });
 
     await fireEvent.press(screen.getByTestId('quote-sheet-close'));
     expect(screen.getByTestId('job-accepted-j1')).toHaveTextContent(/Picked Good, \$270/);

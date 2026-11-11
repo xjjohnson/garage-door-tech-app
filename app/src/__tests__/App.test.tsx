@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import App from '../../App';
+import { renderApp } from '../testing/renderApp';
 import { SAFETY_TEXT } from '../components/results';
 import { MATCH_STORAGE_KEY } from '../screens/MatchScreen';
 
@@ -22,7 +22,7 @@ beforeEach(async () => {
 
 describe('spring calculator app', () => {
   it('shows the safety banner on both tabs, with no way to close it', async () => {
-    await render(<App />);
+    await renderApp();
     expect(screen.getByText(SAFETY_TEXT)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('tab-door'));
     expect(screen.getByText(SAFETY_TEXT)).toBeTruthy();
@@ -30,7 +30,7 @@ describe('spring calculator app', () => {
   });
 
   it('match mode: 20 coils 4 1/2, 24" pair on a 7\' door gives a .225 x 2" x 24"', async () => {
-    await render(<App />);
+    await renderApp();
     expect(screen.getByTestId('missing')).toBeTruthy();
     await enter('field-twenty', ['4', '1/2']);
     await enter('field-length', ['2', '4']);
@@ -45,7 +45,7 @@ describe('spring calculator app', () => {
   });
 
   it('match mode: an ambiguous 20-coil reading hides the order options', async () => {
-    await render(<App />);
+    await renderApp();
     await enter('field-twenty', ['4', '7/16']);
     await enter('field-length', ['2', '4']);
     await screen.findByTestId('match-results');
@@ -56,7 +56,7 @@ describe('spring calculator app', () => {
   });
 
   it('match mode: cancel on the keypad keeps the old value', async () => {
-    await render(<App />);
+    await renderApp();
     await enter('field-length', ['2', '4']);
     await fireEvent.press(screen.getByTestId('field-length'));
     await fireEvent.press(within(screen.getByTestId('keypad')).getByTestId('key-clear'));
@@ -65,7 +65,7 @@ describe('spring calculator app', () => {
   });
 
   it('size from door: a 164 lb 7\' door with a pair lists options and turns', async () => {
-    await render(<App />);
+    await renderApp();
     await fireEvent.press(screen.getByTestId('tab-door'));
     await enter('field-weight', ['1', '6', '4']);
     const results = await screen.findByTestId('door-results');
@@ -74,7 +74,7 @@ describe('spring calculator app', () => {
   });
 
   it('both screens offer 12" and 15" track, 15" picked to start', async () => {
-    await render(<App />);
+    await renderApp();
     const match = screen.getByTestId('track');
     expect(within(match).getByRole('radio', { name: '15"' }).props.accessibilityState).toEqual({ selected: true });
     await enter('field-twenty', ['4', '1/2']);
@@ -88,7 +88,7 @@ describe('spring calculator app', () => {
   });
 
   it('size from door: a weight out of range shows a stop, not a crash', async () => {
-    await render(<App />);
+    await renderApp();
     await fireEvent.press(screen.getByTestId('tab-door'));
     await enter('field-weight', ['5']);
     // One STOP card in the results, and the pinned bar says STOP too.
@@ -97,7 +97,7 @@ describe('spring calculator app', () => {
   });
 
   it('the pinned bar says what is missing, then the answer', async () => {
-    await render(<App />);
+    await renderApp();
     expect(within(screen.getByTestId('match-bar')).getByText('Enter length of 20 coils')).toBeTruthy();
     await enter('field-twenty', ['4', '1/2']);
     await enter('field-length', ['2', '4']);
@@ -106,7 +106,7 @@ describe('spring calculator app', () => {
   });
 
   it('the bar says how many springs the figures are for, and names cautions', async () => {
-    await render(<App />);
+    await renderApp();
     await enter('field-twenty', ['4', '1/2']);
     await enter('field-length', ['2', '4']);
     expect(within(screen.getByTestId('match-bar')).getByText(/^Pair · Wind 7 1\/2 turns · \d+ cautions?$/)).toBeTruthy();
@@ -115,7 +115,7 @@ describe('spring calculator app', () => {
   });
 
   it('a STOP reason in the bar is never cut off, and its card comes before the safety banner', async () => {
-    await render(<App />);
+    await renderApp();
     await fireEvent.press(screen.getByTestId('tab-door'));
     await enter('field-weight', ['5']);
     await screen.findAllByTestId('warning-stop');
@@ -134,14 +134,14 @@ describe('spring calculator app', () => {
   });
 
   it('the build line is hidden until the title is held', async () => {
-    await render(<App />);
+    await renderApp();
     expect(screen.queryByTestId('build-info')).toBeNull();
     await fireEvent(screen.getByTestId('header'), 'longPress');
     expect(screen.getByTestId('build-info')).toBeTruthy();
   });
 
   it('clear all inputs needs a second tap', async () => {
-    await render(<App />);
+    await renderApp();
     await enter('field-length', ['2', '4']);
     await fireEvent.press(screen.getByTestId('clear-match'));
     expect(screen.getByLabelText('Spring length (relaxed): 24 in')).toBeTruthy();
@@ -151,11 +151,11 @@ describe('spring calculator app', () => {
   });
 
   it('remembers the last inputs per tab', async () => {
-    const first = await render(<App />);
+    const first = await renderApp();
     await enter('field-length', ['2', '6']);
-    await waitFor(async () => expect(await AsyncStorage.getItem(MATCH_STORAGE_KEY)).toContain('"length":"26"'));
+    expect(await AsyncStorage.getItem(MATCH_STORAGE_KEY)).toContain('"length":"26"');
     await first.unmount();
-    await render(<App />);
+    await renderApp();
     expect(await screen.findByLabelText('Spring length (relaxed): 26 in')).toBeTruthy();
   });
 });

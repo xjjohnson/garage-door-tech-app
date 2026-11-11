@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import App from '../../App';
+import { fireEvent, screen, within } from '@testing-library/react-native';
+import { renderApp } from '../testing/renderApp';
 import { DEFAULT_DOOR_FORM, DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, Job, JOBS_STORAGE_KEY, parseJobs, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
 
@@ -67,7 +67,7 @@ beforeEach(async () => {
 
 describe('saved jobs in the app', () => {
   it('saves a spring result as a job, lists it, reopens it in the calculator and saves changes back', async () => {
-    await render(<App />);
+    await renderApp();
     // No answer yet: nothing to save.
     expect(screen.getByTestId('job-save')).toBeDisabled();
 
@@ -84,7 +84,7 @@ describe('saved jobs in the app', () => {
     expect(screen.getByTestId('job-saved')).toHaveTextContent('Saved to Jobs: Pat Smith');
     expect(screen.getByTestId('linked-job')).toHaveTextContent('Job: Pat Smith');
 
-    await waitFor(async () => expect(await storedJobs()).toHaveLength(1));
+    expect(await storedJobs()).toHaveLength(1);
     const [saved] = await storedJobs();
     expect(saved).toMatchObject({ customer: 'Pat Smith', mode: 'match', summaryTitle: '.225 × 2" × 24"' });
 
@@ -108,14 +108,14 @@ describe('saved jobs in the app', () => {
 
     await enter('field-length', ['back', 'back', '2', '6']);
     await fireEvent.press(screen.getByTestId('job-update'));
-    await waitFor(async () => expect((await storedJobs())[0].summaryTitle).toBe('.225 × 2" × 26"'));
+    expect((await storedJobs())[0].summaryTitle).toBe('.225 × 2" × 26"');
     expect((await storedJobs())[0].form).toMatchObject({ length: '26' });
   });
 
   it('edits, marks done and deletes (on a second tap) from the Jobs list', async () => {
     const saved = createJob({ mode: 'door', form: DEFAULT_DOOR_FORM }, { customer: 'Lee', address: '4 Elm Rd', phone: '', notes: '' }, { title: '3 pairs that fit' }, 1000, 'j1');
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([saved]));
-    await render(<App />);
+    await renderApp();
     await fireEvent.press(screen.getByTestId('section-jobs'));
     await screen.findByTestId('job-j1');
     expect(screen.getByTestId('jobs-count')).toHaveTextContent('1 shown · 1 open');
@@ -132,14 +132,14 @@ describe('saved jobs in the app', () => {
     expect(screen.queryByTestId('job-j1')).toBeNull();
     await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('Done'));
     expect(screen.getByTestId('job-j1')).toBeTruthy();
-    await waitFor(async () => expect((await storedJobs())[0]).toMatchObject({ status: 'done', notes: 'Needs new rollers' }));
+    expect((await storedJobs())[0]).toMatchObject({ status: 'done', notes: 'Needs new rollers' });
 
     // Still open from before.
     await fireEvent.press(screen.getByTestId('job-delete-j1'));
     expect(screen.getByTestId('job-j1')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('job-delete-j1'));
     expect(screen.queryByTestId('job-j1')).toBeNull();
-    await waitFor(async () => expect(await storedJobs()).toEqual([]));
+    expect(await storedJobs()).toEqual([]);
     expect(screen.getByTestId('jobs-empty')).toBeTruthy();
   });
 
@@ -147,7 +147,7 @@ describe('saved jobs in the app', () => {
     const a = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat Smith', address: '', phone: '', notes: '' }, { title: 'x' }, 1, 'a');
     const b = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Lee Jones', address: '', phone: '', notes: '' }, { title: 'y' }, 2, 'b');
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([a, b]));
-    await render(<App />);
+    await renderApp();
     await fireEvent.press(screen.getByTestId('section-jobs'));
     await screen.findByTestId('job-a');
     await fireEvent.changeText(screen.getByTestId('jobs-search'), 'jones');
