@@ -15,6 +15,7 @@ import { Business, Invoice, parseBusiness, parseInvoices } from './invoices';
 import { Job, parseJobs } from './jobs';
 import { FollowUpStore, parseFollowUpStore } from './followups';
 import { Appointment, parseSchedule } from './schedule';
+import { parseWorkLog, WorkLog } from './worklog';
 import { parsePriceSheet, PriceSheet } from './prices';
 
 export const BACKUP_FORMAT = 'garage-door-tech-backup';
@@ -34,11 +35,13 @@ export interface Backup {
   followUps?: FollowUpStore;
   /** Booked visits; empty in backups made before the schedule existed. */
   appointments: Appointment[];
+  /** Days on the clock and miles, if the backup has them. */
+  workLog?: WorkLog;
   /** Missing when the file had none; restoring then leaves the phone's prices alone. */
   priceSheet?: PriceSheet;
 }
 
-export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; invoices?: Invoice[]; business?: Business; followUps?: FollowUpStore; appointments?: Appointment[]; priceSheet: PriceSheet }, now: number, appVersion?: string): string {
+export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; invoices?: Invoice[]; business?: Business; followUps?: FollowUpStore; appointments?: Appointment[]; workLog?: WorkLog; priceSheet: PriceSheet }, now: number, appVersion?: string): string {
   const file = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -50,6 +53,7 @@ export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; invoices
     ...(data.business ? { business: data.business } : {}),
     ...(data.followUps ? { followUps: data.followUps } : {}),
     appointments: data.appointments ?? [],
+    ...(data.workLog ? { workLog: data.workLog } : {}),
     priceSheet: data.priceSheet,
   };
   return JSON.stringify(file, null, 1);
@@ -83,6 +87,7 @@ export function parseBackup(raw: string): ParsedBackup {
       ...(d.business && typeof d.business === 'object' ? { business: parseBusiness(d.business) } : {}),
       ...(d.followUps && typeof d.followUps === 'object' ? { followUps: parseFollowUpStore(d.followUps) } : {}),
       appointments: Array.isArray(d.appointments) ? parseSchedule(d.appointments) : [],
+      ...(d.workLog && typeof d.workLog === 'object' ? { workLog: parseWorkLog(d.workLog) } : {}),
       ...(priceSheet ? { priceSheet } : {}),
     },
   };
