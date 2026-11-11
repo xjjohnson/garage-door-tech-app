@@ -129,9 +129,15 @@ old app is uninstalled. Later APKs install over 0.2.0 as usual.
 
 Over-the-air (OTA) updates let a phone that already has the app pick up new
 screens and math without installing a new APK. The app checks for an update
-when it opens, downloads it in the background, and switches to it the next
-time it opens. If the update server can't be reached, nothing breaks: the
-app keeps running the version it has, offline.
+when it opens, and again each time it comes back to the screen (at most every
+ten minutes), and downloads it in the background. Once an update has
+downloaded, a yellow **Update ready** bar shows above the bottom tabs:
+**Restart** switches to it right away, and **Later** hides the bar until the
+app is next opened, which also switches to it. The app never restarts on its
+own, so nobody loses their place mid-job, and saved inputs come back after a
+restart (`src/components/UpdateReadyBar.tsx`, `src/lib/otaUpdate.ts`). If the
+update server can't be reached, nothing breaks: the app keeps running the
+version it has, offline.
 
 **How it's wired.** `app.json` points the app at Expo's update server for
 this project (`updates.url`) and asks for the `production` channel. On every
@@ -163,7 +169,9 @@ native code, an Expo SDK upgrade, or a change to native settings in
 (`src/lib/apkUpdate.ts`, address in `src/config.ts`). If the version there is
 newer than the installed APK's, a banner under the header offers
 **Download**, which opens the APK so Android can show its Install screen,
-or **Later**, which hides it until the app is opened again. With no signal,
+or **Later**, which hides it until the app is opened again. It reads the file
+again each time the app comes back to the screen, at most every ten minutes,
+so a phone that keeps the app open still hears about it. With no signal,
 or if the file can't be read, nothing shows and the app carries on. Inputs
 saved on the phone survive the reinstall.
 
