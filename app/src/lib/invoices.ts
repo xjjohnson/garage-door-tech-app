@@ -63,9 +63,11 @@ export interface Business {
   venmo: string;
   /** The email or phone number Zelle payments go to. */
   zelle: string;
+  /** The link customers use to leave a review (Google, Yelp, Facebook...). */
+  reviewUrl: string;
 }
 
-export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '' };
+export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '', reviewUrl: '' };
 
 export function paid(inv: Pick<Invoice, 'payments'>): number {
   return inv.payments.reduce((n, p) => n + p.amount, 0);
@@ -242,7 +244,7 @@ export function parseBusiness(raw: string | null | object): Business {
   }
   if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
   const d = data as Record<string, unknown>;
-  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle) };
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl) };
 }
 
 /** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */
@@ -262,3 +264,16 @@ export function sortInvoices(list: Invoice[]): Invoice[] {
 }
 
 export const tierLabel = (t: Tier) => TIER_LABEL[t];
+
+/** A usable review link: what was typed, with https:// added if it was left off. Empty if it doesn't look like a web address. */
+export function reviewLink(b: Pick<Business, 'reviewUrl'>): string {
+  const u = b.reviewUrl.trim();
+  if (!u || /\s/.test(u) || !u.includes('.')) return '';
+  return /^https?:\/\//i.test(u) ? u : `https://${u}`;
+}
+
+/** The text asking a paid-up customer for a review. */
+export function reviewRequestText(inv: Pick<Invoice, 'billTo'>, b: Business): string {
+  const name = inv.billTo.split(/\s+/)[0] || 'there';
+  return `Hi ${name}, thanks for choosing ${b.name || 'us'}! If you're happy with the work on your garage door, a quick review helps a lot: ${reviewLink(b)}`;
+}

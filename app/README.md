@@ -390,7 +390,9 @@ tap. **Send to customer** shares the invoice as text with the payment links.
 jobs and customer pages show their invoices and what's owed.
 
 **Your business.** At the top of Jobs: business name and phone (on invoices),
-Cash App $cashtag, Venmo username and Zelle email or phone. It shows the QR
+Cash App $cashtag, Venmo username and Zelle email or phone. A **review link**
+(your Google review link, or Yelp) adds **Ask for a review** to paid invoices:
+it opens a text to the customer with a thank-you and the link. It shows the QR
 codes so they can be checked with another phone. QR codes are drawn with
 plain views from `qrcode-generator` (plain JavaScript, so this shipped over
 the air). Invoices and business details are saved on the phone
