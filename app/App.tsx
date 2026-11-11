@@ -6,12 +6,13 @@ import * as Updates from 'expo-updates';
 import { ApkUpdateBanner } from './src/components/ApkUpdateBanner';
 import { APK_MANIFEST_URL } from './src/config';
 import { formatBuildInfo } from './src/lib/buildInfo';
+import { DiagnoseScreen } from './src/screens/DiagnoseScreen';
 import { DoorScreen } from './src/screens/DoorScreen';
 import { ManualsScreen } from './src/screens/ManualsScreen';
 import { MatchScreen } from './src/screens/MatchScreen';
 import { colors, touch, type } from './src/theme';
 
-type Section = 'springs' | 'manuals';
+type Section = 'springs' | 'manuals' | 'diagnose';
 type Tab = 'match' | 'door';
 
 // Read once: what's running doesn't change until the app restarts.
@@ -26,6 +27,7 @@ const BUILD_INFO = formatBuildInfo({
 const SECTIONS: { id: Section; label: string; title: string; subtitle: string }[] = [
   { id: 'springs', label: 'Springs', title: 'Spring calculator', subtitle: 'Torsion, standard lift' },
   { id: 'manuals', label: 'Manuals', title: 'Manuals', subtitle: "Makers' install and owner's manuals" },
+  { id: 'diagnose', label: 'Diagnose', title: 'Diagnose', subtitle: 'Opener codes and symptoms, works offline' },
 ];
 
 const TABS: { id: Tab; label: string }[] = [
@@ -93,6 +95,9 @@ export default function App() {
         </ScrollView>
         <ScrollView style={[styles.flex, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <ManualsScreen />
+        </ScrollView>
+        <ScrollView style={[styles.flex, section !== 'diagnose' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <DiagnoseScreen />
         </ScrollView>
       </SafeAreaView>
     </SafeAreaProvider>
