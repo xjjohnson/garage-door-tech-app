@@ -7,6 +7,7 @@ import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, Job, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { DEFAULT_PRICE_SHEET, parsePriceSheet, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
 import { CustomersProvider } from '../lib/useCustomers';
+import { FollowUpsProvider } from '../lib/useFollowUps';
 import { InvoicesProvider } from '../lib/useInvoices';
 import { JobsProvider } from '../lib/useJobs';
 import { PriceSheetProvider } from '../lib/usePriceSheet';
@@ -82,7 +83,9 @@ const wrap = ({ children }: { children: ReactNode }) => (
   <JobsProvider>
     <CustomersProvider>
       <PriceSheetProvider>
-        <InvoicesProvider>{children}</InvoicesProvider>
+        <InvoicesProvider>
+          <FollowUpsProvider>{children}</FollowUpsProvider>
+        </InvoicesProvider>
       </PriceSheetProvider>
     </CustomersProvider>
   </JobsProvider>

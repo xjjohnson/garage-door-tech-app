@@ -9,6 +9,9 @@ import { checkCounts } from '../lib/inspection';
 import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
+import { StatsCard } from './StatsScreen';
+import { followUps } from '../lib/followups';
+import { useFollowUps } from '../lib/useFollowUps';
 import { colors, touch, type } from '../theme';
 
 type Filter = JobStatus | 'all';
@@ -41,6 +44,8 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
 
   return (
     <View style={styles.stack}>
+      <StatsCard />
+      <FollowUpsButton />
       <View style={styles.searchRow}>
         <TextInput
           value={query}
@@ -121,6 +126,18 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         }}
       />
     </View>
+  );
+}
+
+/** Follow-ups due, with a count, above the list. */
+function FollowUpsButton() {
+  const { invoices, business } = useInvoices();
+  const { settings, dismissed } = useFollowUps();
+  const due = useMemo(() => followUps(invoices, settings, business, Date.now(), dismissed).filter((f) => f.due <= Date.now() + 7 * 24 * 3600 * 1000).length, [invoices, settings, business, dismissed]);
+  return (
+    <Pressable onPress={() => router.push('/follow-ups')} accessibilityRole="button" testID="open-followups" style={({ pressed }) => [styles.button, due > 0 && styles.due, pressed && styles.pressed]}>
+      <Text style={styles.buttonText}>{due > 0 ? `Follow-ups: ${due} due` : 'Follow-ups'}</Text>
+    </Pressable>
   );
 }
 
@@ -274,6 +291,7 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.bg },
   primary: { backgroundColor: colors.selected },
+  due: { backgroundColor: colors.safety },
   armed: { backgroundColor: colors.stop, borderColor: colors.stop },
   pressed: { backgroundColor: colors.safety },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },

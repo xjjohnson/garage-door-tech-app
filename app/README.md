@@ -342,6 +342,27 @@ AsyncStorage `customers/v1`) and go into backups. Their fields (name, phone,
 email, street, notes) are the ones an accounting system such as Odoo keeps for
 a contact, so a later sync can map them directly.
 
+**Business numbers.** The top of Jobs shows open jobs, what you're owed and
+what was collected this week; tapping it opens **Business numbers**: the
+oldest unpaid invoice, then this week and this month (collected, split by
+cash / check / Cash App / Venmo / Zelle, invoiced, average ticket, jobs saved,
+quotes accepted and the share of jobs that became one), and a bar chart of
+collections over six months. Weeks start Monday. Void invoices aren't counted
+(`src/lib/stats.ts`).
+
+**Follow-ups and warranty.** **Follow-ups** at the top of Jobs (yellow, with a
+count, when something is due within a week) lists repeat work from your
+invoices, 45 days ahead and up to a year overdue: a **tune-up** a year after a
+job, **springs near the end of their life** (the option's cycle rating at
+your cycles a day, flagged six months early), and **spring warranty ending**
+(a month before). Each has **Text the customer** with a message ready to edit
+in the phone's messages app, and **Done** to clear it. Only the latest invoice
+at an address counts. Settings at the bottom: cycles a day (4 by default),
+tune-up interval, spring warranty by option (Good 12, Better 36, Best 60 months)
+and labor warranty (12). An invoice shows its warranty dates and whether it's
+covered now, for callbacks (`src/lib/followups.ts`, AsyncStorage
+`followups/v1`, included in backups). The app sends nothing on its own.
+
 **Safety check.** A job's **Safety check** (in its details, or on its quote)
 walks the door and opener: lift cables, drums, bottom brackets, springs and
 cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
@@ -423,6 +444,8 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `invoice/[id].tsx` | `/invoice/<id>` | One invoice: payments and QR codes to pay, a full page |
 | `business.tsx` | `/business` | Business name and payment handles, a full page |
 | `inspection/[id].tsx` | `/inspection/<job id>` | One job's safety check and repairs, a full page |
+| `stats.tsx` | `/stats` | Business numbers, a full page |
+| `follow-ups.tsx` | `/follow-ups` | Tune-ups, worn springs and warranty ends due, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar
