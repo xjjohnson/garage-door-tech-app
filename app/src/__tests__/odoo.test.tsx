@@ -7,7 +7,7 @@ import { renderApp } from '../testing/renderApp';
 type Task = Record<string, unknown> & { id: number };
 
 /** A tiny pretend Odoo: two users, a few tasks, Field Service on or off. */
-function fakeOdoo({ fsm = true, assignField = 'user_ids' as 'user_ids' | 'user_id', secret = 'key123' } = {}) {
+function fakeOdoo({ fsm = true, assignField = 'user_ids' as 'user_ids' | 'user_id', secret = 'key123', project = true } = {}) {
   const tasks: Task[] = [
     { id: 11, name: 'Broken spring', partner_id: [7, 'Pat Smith'], planned_date_begin: '2026-11-12 15:00:00', date_deadline: false, stage_id: [1, 'New'], description: '<p>Left spring <b>snapped</b></p>', [assignField]: assignField === 'user_ids' ? [2] : [2, 'Justin'], partner_phone: '555-123-4567', fsm_done: false, active: true },
     { id: 12, name: 'Tune-up', partner_id: [8, 'Lee Park'], planned_date_begin: false, date_deadline: '2026-11-14', stage_id: [1, 'New'], description: '', [assignField]: assignField === 'user_ids' ? [] : false, fsm_done: false, active: true },
@@ -32,6 +32,7 @@ function fakeOdoo({ fsm = true, assignField = 'user_ids' as 'user_ids' | 'user_i
     const [, , pw, model, method, args] = params.args as [string, number, string, string, string, unknown[], Record<string, unknown>];
     calls.push({ model, method, args });
     if (pw !== secret) return error('odoo.exceptions.AccessDenied', 'Access Denied');
+    if (!project && model === 'project.task') return error('builtins.KeyError', "Object project.task doesn't exist");
     if (model === 'project.task' && method === 'fields_get') return reply({ name: {}, [assignField]: {}, ...(fsm ? { is_fsm: {} } : {}) });
     if (model === 'res.users' && method === 'read') return reply([{ id: 2, name: 'Justin' }]);
     if (model === 'res.users' && method === 'search_read') return reply([{ id: 2, name: 'Justin', login: 'j@x.test' }, { id: 3, name: 'Sam', login: 's@x.test' }]);
@@ -109,6 +110,11 @@ describe('Odoo (plain logic)', () => {
     await expect(c.markDone(11)).rejects.toThrow(/Field Service/);
   });
 
+  it('signs in when Odoo has no Project or Field Service app yet', async () => {
+    const c = await OdooClient.signIn(fakeOdoo({ project: false }).fetchFn, login, 'key123');
+    expect(c.session).toMatchObject({ uid: 2, name: 'Justin', tasks: false });
+  });
+
   it('says plainly when the sign-in is wrong or Odoo is unreachable', async () => {
     const o = fakeOdoo();
     await expect(OdooClient.signIn(o.fetchFn, login, 'nope')).rejects.toEqual(new OdooError('Wrong email, password or API key.', 'login'));
@@ -158,5 +164,21 @@ describe('Team screen', () => {
     expect(screen.queryByTestId('team-assign-12-3')).toBeNull();
     // The password or key never goes into AsyncStorage.
     expect(JSON.stringify(await AsyncStorage.multiGet(await AsyncStorage.getAllKeys()))).not.toContain('key123');
+  });
+
+  it('explains which Odoo app to install when there are no jobs yet', async () => {
+    await AsyncStorage.clear();
+    const o = fakeOdoo({ project: false });
+    jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
+    await renderApp('/team');
+    await settle();
+    await fireEvent.changeText(screen.getByTestId('team-url'), 'acme.odoo.com');
+    await fireEvent.changeText(screen.getByTestId('team-login'), 'j@x.test');
+    await fireEvent.changeText(screen.getByTestId('team-secret'), 'key123');
+    await fireEvent.press(screen.getByTestId('team-signin-go'));
+    await settle();
+    expect(screen.getByTestId('team-who')).toHaveTextContent(/^Signed in as Justin/);
+    expect(screen.getByTestId('team-no-tasks')).toHaveTextContent(/install Field Service/);
+    expect(screen.queryByTestId('team-error')).toBeNull();
   });
 });

@@ -97,11 +97,11 @@ function SignedIn({ now }: { now: () => number }) {
   }, [client]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (s.tasks) load();
+  }, [load, s.tasks]);
 
   useEffect(() => {
-    if (tech === s.uid) {
+    if (tech === s.uid || !s.tasks) {
       setTheirs(null);
       return;
     }
@@ -113,7 +113,7 @@ function SignedIn({ now }: { now: () => number }) {
     return () => {
       alive = false;
     };
-  }, [tech, client, s.uid]);
+  }, [tech, client, s.uid, s.tasks]);
 
   const scheduled = (t: OdooTask) => appointments.find((a) => a.id === `odoo-${t.id}`);
   const addToSchedule = (list: OdooTask[]) => restore(list.map((t) => taskToAppointment(t, now(), scheduled(t))));
@@ -139,6 +139,20 @@ function SignedIn({ now }: { now: () => number }) {
       fail(e);
     }
   };
+
+  if (!s.tasks) {
+    return (
+      <View style={styles.stack} testID="team">
+        <Text style={styles.detail} testID="team-who">
+          Signed in as {s.name} · {s.url.replace(/^https?:\/\//, '')}
+        </Text>
+        <Text style={styles.note} testID="team-no-tasks">
+          Your Odoo doesn’t have a jobs app yet. In Odoo, open Apps and install Field Service (or Project if your plan doesn’t include Field Service). Then sign out here and sign in again.
+        </Text>
+        <Action label="Sign out" onPress={signOut} testID="team-signout" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.stack} testID="team">

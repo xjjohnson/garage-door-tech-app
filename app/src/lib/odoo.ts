@@ -25,6 +25,8 @@ export interface OdooSession extends OdooLogin {
   fsm: boolean;
   /** How tasks name their assignees: `user_ids` (Odoo 16+) or `user_id` (older). */
   assignField: 'user_ids' | 'user_id';
+  /** False when neither Project nor Field Service is installed, so there are no jobs to read yet. */
+  tasks: boolean;
 }
 
 export type Fetch = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
@@ -96,10 +98,18 @@ export class OdooClient {
     const uid = await rpc(fetchFn, url, 'common', 'authenticate', [login.db.trim(), login.login.trim(), secret, {}]);
     if (typeof uid !== 'number' || uid <= 0) throw new OdooError('Wrong email, password or API key.', 'login');
     const base = { url, db: login.db.trim(), login: login.login.trim(), uid };
-    const probe = new OdooClient(fetchFn, { ...base, name: '', fsm: false, assignField: 'user_ids' }, secret);
-    const fields = (await probe.call('project.task', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
+    const probe = new OdooClient(fetchFn, { ...base, name: '', fsm: false, assignField: 'user_ids', tasks: true }, secret);
     const me = (await probe.call('res.users', 'read', [[uid]], { fields: ['name'] })) as { name?: string }[];
-    return new OdooClient(fetchFn, { ...base, name: me[0]?.name ?? login.login, fsm: 'is_fsm' in fields, assignField: 'user_ids' in fields ? 'user_ids' : 'user_id' }, secret);
+    const name = me[0]?.name ?? login.login;
+    let fields: Record<string, unknown>;
+    try {
+      fields = (await probe.call('project.task', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
+    } catch (e) {
+      // No Project or Field Service app: signed in fine, just no jobs yet.
+      if (e instanceof OdooError && /project\.task.*(doesn.t|does not) exist/i.test(e.message)) return new OdooClient(fetchFn, { ...base, name, fsm: false, assignField: 'user_ids', tasks: false }, secret);
+      throw e;
+    }
+    return new OdooClient(fetchFn, { ...base, name, fsm: 'is_fsm' in fields, assignField: 'user_ids' in fields ? 'user_ids' : 'user_id', tasks: true }, secret);
   }
 
   call(model: string, method: string, args: unknown[], kwargs: Record<string, unknown> = {}): Promise<unknown> {
