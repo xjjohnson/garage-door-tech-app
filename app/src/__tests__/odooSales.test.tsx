@@ -1,0 +1,186 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, fireEvent, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
+import { CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
+import { DEFAULT_MATCH_FORM } from '../lib/forms';
+import { INVOICES_STORAGE_KEY, PAY_LABEL, parseInvoices } from '../lib/invoices';
+import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
+import { Fetch, OdooClient } from '../lib/odoo';
+import { lineValues, readInvoice, sendInvoice, sendOrder, sendPayments, SERVICE_PRODUCT_CODE } from '../lib/odooSales';
+import { DEFAULT_PRICE_SHEET, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
+import { buildQuote, QuoteLine } from '../lib/quote';
+import { renderApp } from '../testing/renderApp';
+
+const MATCH = { mode: 'match' as const, form: { ...DEFAULT_MATCH_FORM, twentyCoil: '4 1/2', length: '24' } };
+const SHEET: PriceSheet = {
+  ...DEFAULT_PRICE_SHEET,
+  serviceCall: '89',
+  springLabor: '150',
+  spring: { good: '60', better: '85', best: '120' },
+  odoo: { serviceCall: { id: 1, name: '[SVC] Service call' }, 'spring.good': { id: 2, name: 'Torsion spring 10k' } },
+};
+
+type Call = { model: string; method: string; args: unknown[]; kw: Record<string, unknown> };
+
+/** A pretend Odoo 19 with Sales and Invoicing. */
+function fakeOdoo() {
+  const calls: Call[] = [];
+  const products: { id: number; default_code: string }[] = [];
+  const moves: Record<number, { residual: number; total: number; state: string }> = {};
+  const fetchFn: Fetch = async (_url, init) => {
+    const { params } = JSON.parse(init.body);
+    const reply = (result: unknown) => ({ ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, result }) });
+    const missing = (model: string) => ({ ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, error: { message: 'Odoo Server Error', data: { name: 'builtins.KeyError', message: `Object ${model} doesn't exist` } } }) });
+    if (params.service === 'common') return reply(2);
+    const [, , , model, method, args, kw] = params.args as [string, number, string, string, string, unknown[], Record<string, unknown>];
+    calls.push({ model, method, args, kw: kw ?? {} });
+    const key = `${model}.${method}`;
+    if (model === 'res.users') return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
+    if (method === 'fields_get') {
+      if (['product.product', 'sale.order', 'account.move'].includes(model)) return reply({ name: {}, sale_ok: {}, lst_price: {} });
+      if (model === 'res.partner') return reply({ name: {}, customer_rank: {} });
+      return missing(model);
+    }
+    switch (key) {
+      case 'res.partner.create':
+        return reply(300);
+      case 'product.product.search':
+        return reply(products.filter((p) => p.default_code === SERVICE_PRODUCT_CODE).map((p) => p.id));
+      case 'product.product.create':
+        products.push({ id: 50, default_code: (args[0] as { default_code: string }).default_code });
+        return reply(50);
+      case 'sale.order.create':
+        return reply(700);
+      case 'sale.order.action_confirm':
+        return reply(true);
+      case 'sale.order.read':
+        return reply([{ id: 700, name: 'S00012' }]);
+      case 'sale.order.line.search_read':
+        return reply([{ id: 801 }, { id: 802 }, { id: 803 }]);
+      case 'account.move.create': {
+        const lines = (args[0] as { invoice_line_ids: [number, number, { price_unit: number; quantity: number }][] }).invoice_line_ids;
+        const total = Math.round(lines.reduce((n, [, , v]) => n + v.price_unit * v.quantity, 0) * 100);
+        moves[900] = { residual: total, total, state: 'not_paid' };
+        return reply(900);
+      }
+      case 'account.move.action_post':
+        return reply(true);
+      case 'account.move.read': {
+        const m = moves[900];
+        return reply([{ id: 900, name: 'INV/2026/00007', amount_total: m.total / 100, amount_residual: m.residual / 100, payment_state: m.state }]);
+      }
+      case 'account.journal.search': {
+        const d = args[0] as [string, string, unknown][];
+        return reply(d[0][2] === 'cash' ? [] : [11]);
+      }
+      case 'account.payment.register.create':
+        return reply(40 + calls.filter((c) => c.method === 'create' && c.model === 'account.payment.register').length);
+      case 'account.payment.register.action_create_payments': {
+        const wiz = calls.filter((c) => c.model === 'account.payment.register' && c.method === 'create').at(-1)!;
+        const amount = Math.round((wiz.args[0] as { amount: number }).amount * 100);
+        moves[900].residual -= amount;
+        moves[900].state = moves[900].residual <= 0 ? 'paid' : 'partial';
+        return reply(true);
+      }
+    }
+    return missing(model);
+  };
+  return { fetchFn, calls };
+}
+
+const login = { url: 'x.test', db: 'x', login: 'j' };
+
+describe('quotes and invoices to Odoo (plain logic)', () => {
+  it('uses the linked Odoo product per line, or the service product, with quantity and unit price', () => {
+    const lines: QuoteLine[] = [
+      { label: '2 springs', cents: 12000, taxable: true, key: 'spring.good', qty: 2 },
+      { label: 'Spring labor', cents: 15000, taxable: false, key: 'springLabor' },
+      { label: 'Free check', cents: 0, taxable: false, key: 'addOn.x' },
+    ];
+    expect(lineValues(lines, SHEET.odoo, () => 50, 'quantity')).toEqual([
+      { product_id: 2, name: '2 springs', quantity: 2, price_unit: 60 },
+      { product_id: 50, name: 'Spring labor', quantity: 1, price_unit: 150 },
+    ]);
+  });
+
+  it('sends a confirmed order, an invoice tied to it, and payments by method', async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    const option = buildQuote(MATCH, SHEET).options[0];
+    const order = await sendOrder(c, 300, option.lines, SHEET.odoo, '12 Oak St');
+    expect(order).toEqual({ id: 700, name: 'S00012' });
+    const created = o.calls.find((x) => x.model === 'sale.order' && x.method === 'create')!.args[0] as { partner_id: number; order_line: unknown[] };
+    expect(created.partner_id).toBe(300);
+    expect(created.order_line).toEqual([
+      [0, 0, { product_id: 2, name: '2 springs, .225 × 2" × 24"', product_uom_qty: 2, price_unit: 60 }],
+      [0, 0, { product_id: 50, name: 'Spring labor', product_uom_qty: 1, price_unit: 150 }],
+      [0, 0, { product_id: 1, name: 'Service call', product_uom_qty: 1, price_unit: 89 }],
+    ]);
+    // The service product was made once, with no taxes.
+    expect(o.calls.filter((x) => x.model === 'product.product' && x.method === 'create')).toHaveLength(1);
+    expect(o.calls.some((x) => x.model === 'sale.order' && x.method === 'action_confirm')).toBe(true);
+
+    const inv = await sendInvoice(c, 300, option.lines, SHEET.odoo, 'Invoice 1001', order);
+    expect(inv).toMatchObject({ id: 900, name: 'INV/2026/00007', total: 35900, residual: 35900, paymentState: 'not_paid' });
+    const move = o.calls.find((x) => x.model === 'account.move' && x.method === 'create')!.args[0] as { invoice_origin: string; invoice_line_ids: [number, number, Record<string, unknown>][] };
+    expect(move.invoice_origin).toBe('S00012');
+    expect(move.invoice_line_ids.map(([, , v]) => v.sale_line_ids)).toEqual([[[6, 0, [801]]], [[6, 0, [802]]], [[6, 0, [803]]]]);
+
+    const sent = await sendPayments(c, 900, [{ id: 'p1', method: 'cash', amount: 10000, at: Date.UTC(2026, 10, 11), reference: '' }, { id: 'p2', method: 'check', amount: 25900, at: Date.UTC(2026, 10, 11), reference: '1042' }], (m) => PAY_LABEL[m]);
+    expect(sent).toEqual(['p1', 'p2']);
+    const wiz = o.calls.filter((x) => x.model === 'account.payment.register' && x.method === 'create');
+    expect(wiz.map((w) => w.args[0])).toEqual([
+      { amount: 100, payment_date: '2026-11-11', journal_id: 11, communication: 'Cash' },
+      { amount: 259, payment_date: '2026-11-11', journal_id: 11, communication: 'Check 1042' },
+    ]);
+    expect(wiz[0].kw.context).toEqual({ active_model: 'account.move', active_ids: [900] });
+    expect(await readInvoice(c, 900, sent, 5)).toMatchObject({ residual: 0, paymentState: 'paid', sentPayments: ['p1', 'p2'] });
+  });
+});
+
+describe('quote and invoice screens with Odoo', () => {
+  const settle = async (n = 10) => {
+    for (let k = 0; k < n; k++) await act(async () => undefined);
+  };
+  afterEach(() => jest.restoreAllMocks());
+
+  it('sends the picked option as a sales order and the invoice with its payment', async () => {
+    const job = createJob(MATCH, { customer: 'Pat Smith', address: '12 Oak St', phone: '555-123-4567', notes: '' }, { title: '.225 × 2" × 24"' }, 1000, 'j1');
+    const good = buildQuote(MATCH, SHEET).options[0];
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify(SHEET));
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, customerId: 'c1', accepted: { tier: 'good', total: good.total, at: 2000 } }]));
+    await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([{ id: 'c1', name: 'Pat Smith', phone: '555-123-4567', email: '', address: '12 Oak St', notes: '', createdAt: 1, updatedAt: 1 }]));
+    const o = fakeOdoo();
+    jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
+    await renderApp('/team');
+    await settle();
+    await fireEvent.changeText(screen.getByTestId('team-url'), login.url);
+    await fireEvent.changeText(screen.getByTestId('team-db'), login.db);
+    await fireEvent.changeText(screen.getByTestId('team-login'), login.login);
+    await fireEvent.changeText(screen.getByTestId('team-secret'), 'k');
+    await fireEvent.press(screen.getByTestId('team-signin-go'));
+    await settle();
+
+    await act(async () => router.push('/quote/j1'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('quote-odoo-send'));
+    await settle();
+    expect(screen.getByTestId('quote-odoo-order')).toHaveTextContent('In Odoo as sales order S00012.');
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].odooOrder).toEqual({ id: 700, name: 'S00012' });
+    // The customer is now an Odoo contact too.
+    expect(parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY))[0].odooId).toBe(300);
+
+    await fireEvent.press(screen.getByTestId('quote-make-invoice'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('invoice-odoo-send'));
+    await settle();
+    expect(screen.getByTestId('invoice-odoo-state')).toHaveTextContent('In Odoo as INV/2026/00007: Not paid, $359 owed. Odoo total $359.');
+    const saved = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY))[0];
+    expect(saved.odoo).toMatchObject({ id: 900, residual: 35900 });
+    // Sent once only: a second tap syncs instead of making another invoice.
+    await fireEvent.press(screen.getByTestId('invoice-odoo-send'));
+    await settle();
+    expect(o.calls.filter((x) => x.model === 'account.move' && x.method === 'create')).toHaveLength(1);
+  });
+});

@@ -20,6 +20,7 @@ const SHEET: PriceSheet = {
     { id: 'r', name: 'Rollers', price: '80', tiers: { good: false, better: false, best: true } },
   ],
   taxPercent: '8.25',
+  odoo: {},
 };
 
 describe('prices and quotes (plain logic)', () => {

@@ -10,6 +10,8 @@ interface CustomersApi {
   update: (id: string, fields: CustomerFields) => void;
   /** Adds a backup's customers; when both have one, the copy changed last wins. */
   restore: (incoming: Customer[]) => void;
+  /** Replaces the list (for the Odoo sync), copying changed names and phones onto jobs. */
+  apply: (fn: (prev: Customer[]) => Customer[]) => void;
 }
 
 const CustomersContext = createContext<CustomersApi | null>(null);
@@ -75,7 +77,25 @@ export function CustomersProvider({ children }: { children: ReactNode }) {
     setCustomers((prev) => mergeCustomers(prev, incoming));
   }, []);
 
-  const api = useMemo(() => ({ customers, loaded, update, restore }), [customers, loaded, update, restore]);
+  const latest = useRef(customers);
+  latest.current = customers;
+  const apply = useCallback<CustomersApi['apply']>(
+    (fn) => {
+      const prev = latest.current;
+      const next = fn(prev);
+      touched.current = true;
+      latest.current = next;
+      setCustomers(next);
+      const old = new Map(prev.map((c) => [c.id, c]));
+      for (const c of next) {
+        const o = old.get(c.id);
+        if (o && (o.name !== c.name || o.phone !== c.phone)) renameCustomer(c.id, { customer: c.name, phone: c.phone });
+      }
+    },
+    [renameCustomer],
+  );
+
+  const api = useMemo(() => ({ customers, loaded, update, restore, apply }), [customers, loaded, update, restore, apply]);
   return <CustomersContext.Provider value={api}>{children}</CustomersContext.Provider>;
 }
 

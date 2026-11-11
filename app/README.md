@@ -363,6 +363,16 @@ each ticked for Good, Better and/or Best; add or remove any) and the tax
 rate. Prices are entered on the keypad and saved on the phone as they're
 typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
 
+**Prices from Odoo.** When signed in to Odoo (Jobs > Team) and Odoo has
+products, **Import prices from Odoo** at the top of the price sheet brings in
+every product that can be sold (`sale_ok`) with its sales price
+(`product.product` `lst_price`). Products not linked to a line yet become
+add-ons ticked on no option, folded under **Show N more Odoo items** until a
+tier is picked. Any line can be linked to an Odoo product (**Link to Odoo
+product**, route `/odoo-product`); later imports update linked prices and
+list products that are gone. Links are kept in the sheet's `odoo` map, by
+line key. Offline, the sheet works as before.
+
 **Customers.** **Customers** at the top of Jobs lists everyone a job was
 saved for, most recent first, with a search box (name, phone, email, address,
 notes, or the address or spring of one of their jobs). Every job belongs to a
@@ -380,6 +390,27 @@ are saved on the phone (`src/lib/customers.ts`, `src/lib/useCustomers.tsx`,
 AsyncStorage `customers/v1`) and go into backups. Their fields (name, phone,
 email, street, notes) are the ones an accounting system such as Odoo keeps for
 a contact, so a later sync can map them directly.
+
+**Customers in Odoo.** Signed in to Odoo, **Sync customers with Odoo** at
+the top of Customers brings in Odoo customers (`res.partner` with
+`customer_rank > 0`), linking ones already on the phone by phone number or
+name, and creates the phone's new customers in Odoo marked as customers. A
+customer changed on the phone since the last sync sends its name, phone and
+email; one changed only in Odoo takes Odoo's details; when both changed the
+phone wins (`src/lib/customerSync.ts`). Each customer keeps `odooId` and
+`syncedAt`.
+
+**Quotes and invoices in Odoo** (`src/lib/odooSales.ts`). With Sales
+installed, a quote the customer picked has **Send to Odoo as a sales order**:
+a confirmed `sale.order` for that option, saved on the job as `odooOrder`.
+With Invoicing, an invoice has **Send to Odoo**: a posted `account.move`
+(tied to the sales order's lines when there is one), then each payment taken
+on the phone is registered with Odoo's Register Payment wizard (cash to a cash
+journal, checks and the payment apps to the bank). **Sync with Odoo** later
+sends new payments and reads back Odoo's paid status, amount owed and total
+(Odoo adds its own product taxes). Lines use their linked Odoo product, or a
+"Garage door service" product (`GDT-SERVICE`, no tax) made the first time
+it's needed. A customer without an Odoo contact gets one on the first send.
 
 **Business numbers.** The top of Jobs shows open jobs, what you're owed and
 what was collected this week; tapping it opens **Business numbers**: the
@@ -546,6 +577,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `(tabs)/manuals.tsx` | `/manuals` | Manuals |
 | `(tabs)/diagnose.tsx` | `/diagnose` | Diagnose |
 | `price-sheet.tsx` | `/price-sheet` | The price sheet, a full page |
+| `odoo-product.tsx` | `/odoo-product?line=…` | Pick the Odoo product a price-sheet line follows |
 | `quote/[id].tsx` | `/quote/<job id>` | One job's quote, a full page |
 | `backup.tsx` | `/backup` | Back up and restore jobs and prices, a full page |
 | `customers.tsx` | `/customers` | The customer list, a full page |

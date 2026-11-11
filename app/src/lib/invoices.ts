@@ -10,6 +10,7 @@
  * Odoo or similar can map it one to one.
  */
 import { formatJobDate } from './jobs';
+import { OdooInvoiceState, parseInvoiceState } from './odooSales';
 import { formatMoney, Tier, TIER_LABEL, TIERS } from './prices';
 import { QuoteLine, QuoteOption } from './quote';
 
@@ -49,6 +50,8 @@ export interface Invoice {
   updatedAt: number;
   /** Set when cancelled; kept so the numbers stay in order. */
   voidedAt?: number;
+  /** The posted invoice in Odoo, with what Odoo last said is paid (src/lib/odooSales.ts). */
+  odoo?: OdooInvoiceState;
 }
 
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'void';
@@ -200,7 +203,7 @@ export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
       ? x.lines.flatMap((l): QuoteLine[] => {
           if (!l || typeof l !== 'object') return [];
           const y = l as Record<string, unknown>;
-          return [{ label: str(y.label), cents: num(y.cents), taxable: y.taxable === true }];
+          return [{ label: str(y.label), cents: num(y.cents), taxable: y.taxable === true, ...(str(y.key) ? { key: str(y.key) } : {}), ...(num(y.qty) > 0 ? { qty: num(y.qty) } : {}) }];
         })
       : [];
     const payments = Array.isArray(x.payments)
@@ -228,6 +231,7 @@ export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
       createdAt,
       updatedAt: num(x.updatedAt) || createdAt,
       ...(num(x.voidedAt) ? { voidedAt: num(x.voidedAt) } : {}),
+      ...(parseInvoiceState(x.odoo) ? { odoo: parseInvoiceState(x.odoo) } : {}),
     });
   }
   return out;

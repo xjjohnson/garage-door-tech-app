@@ -6,6 +6,7 @@
  * math again (and shows any warnings a newer version adds). The one-line
  * summary is stored too, so the list can show it without running the math.
  */
+import { OdooRef, parseRef } from './odooSales';
 import { Inspection, parseInspection } from './inspection';
 import { DEFAULT_DOOR_FORM, DEFAULT_DRUMS_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, DrumsForm, ExtensionForm, MatchForm, restoreForm } from './forms';
 import { Tier, TIERS } from './prices';
@@ -39,6 +40,8 @@ interface JobBase extends JobDetails {
   customerId?: string;
   /** The safety check and the repairs it found (src/lib/inspection.ts). */
   inspection?: Inspection;
+  /** The sales order made in Odoo from the accepted option (src/lib/odooSales.ts). */
+  odooOrder?: OdooRef;
 }
 
 export interface AcceptedQuote {
@@ -178,6 +181,7 @@ export function parseJobs(raw: string | null): Job[] {
       ...(parseAccepted(j.accepted) ? { accepted: parseAccepted(j.accepted) } : {}),
       ...(typeof j.customerId === 'string' && j.customerId ? { customerId: j.customerId } : {}),
       ...(parseInspection(j.inspection) ? { inspection: parseInspection(j.inspection) } : {}),
+      ...(parseRef(j.odooOrder) ? { odooOrder: parseRef(j.odooOrder) } : {}),
     };
     out.push({ ...base, mode, form: restoreForm<object>(MODE_DEFAULTS[mode], j.form) } as Job);
   }
