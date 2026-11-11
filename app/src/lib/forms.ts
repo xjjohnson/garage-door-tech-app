@@ -9,12 +9,17 @@
 import {
   DoorInput,
   DoorResult,
+  DrumFit,
   DrumId,
+  drumsThatFit,
   EXTENSION_COLORS,
   ExtensionColor,
   ExtensionInput,
   ExtensionResult,
   extensionSprings,
+  HighLiftResult,
+  highLiftD400_54,
+  LiftType,
   MatchInput,
   MatchResult,
   matchOldSpring,
@@ -301,6 +306,96 @@ export function runExtension(form: ExtensionForm): Outcome<ExtensionResult> {
   if (!input) return { status: 'incomplete', missing };
   try {
     return { status: 'ok', result: extensionSprings(input) };
+  } catch (e) {
+    return { status: 'error', message: errorMessage(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Drums and cables: standard, high and vertical lift
+// ---------------------------------------------------------------------------
+
+export const LIFT_CHOICES: { label: string; value: LiftType }[] = [
+  { label: 'Standard', value: 'standard' },
+  { label: 'High lift', value: 'high' },
+  { label: 'Vertical', value: 'vertical' },
+];
+
+export interface DrumsForm {
+  lift: LiftType;
+  weight: string;
+  heightChoice: string;
+  heightOther: string;
+  /** How far the track runs straight up past the door before it curves, inches. */
+  highLift: string;
+  shaftHeight: string;
+  springCount: 1 | 2;
+  targetCycles: number;
+  ids: number[];
+}
+
+export const DEFAULT_DRUMS_FORM: DrumsForm = {
+  lift: 'high',
+  weight: '',
+  heightChoice: '84',
+  heightOther: '',
+  highLift: '',
+  shaftHeight: '',
+  springCount: 2,
+  targetCycles: 10_000,
+  ids: [2],
+};
+
+export interface DrumsResult {
+  lift: LiftType;
+  fits: DrumFit[];
+  /** Turns, rate and springs, for high lift on D400-54 drums. */
+  highLift?: HighLiftResult;
+  /** Why there are no turns for this door, when there aren't. */
+  noTurns?: string;
+}
+
+export function runDrums(form: DrumsForm): Outcome<DrumsResult> {
+  const missing: string[] = [];
+  const doorHeightIn = chosenNumber(form.heightChoice, form.heightOther);
+  if (doorHeightIn === undefined) missing.push('Door height');
+  const highLiftIn = parseMeasurement(form.highLift);
+  if (form.lift === 'high' && highLiftIn === undefined) missing.push('High lift');
+  const doorWeightLb = optionalMeasurement(form.weight);
+  if (form.lift === 'high' && doorWeightLb === undefined) missing.push('Door weight');
+  if (form.lift === 'high' && form.ids.length === 0) missing.push('Inside diameter');
+  if (missing.length > 0 || doorHeightIn === undefined) return { status: 'incomplete', missing };
+  const floorToShaftCenterIn = optionalMeasurement(form.shaftHeight);
+  try {
+    const fits = drumsThatFit({
+      lift: form.lift,
+      doorHeightIn,
+      ...(doorWeightLb !== undefined ? { doorWeightLb } : {}),
+      ...(highLiftIn !== undefined ? { highLiftIn } : {}),
+      ...(floorToShaftCenterIn !== undefined ? { floorToShaftCenterIn } : {}),
+    });
+    if (form.lift === 'vertical') return { status: 'ok', result: { lift: form.lift, fits, noTurns: "Vertical-lift turns come from the drum maker's chart, which the app doesn't have yet." } };
+    if (form.lift === 'standard') return { status: 'ok', result: { lift: form.lift, fits, noTurns: 'For turns and springs on 4" drums, use Size from door.' } };
+    const d400 = fits.find((f) => f.drum.model === 'D400-54');
+    let noTurns: string | undefined;
+    let highLift: HighLiftResult | undefined;
+    if (!d400?.fits) noTurns = `The D400-54 ${d400?.reason ?? "doesn't fit"}. Turns for bigger high-lift drums come from the drum maker's chart.`;
+    else {
+      try {
+        highLift = highLiftD400_54({
+          doorHeightIn,
+          highLiftIn: highLiftIn!,
+          doorWeightLb: doorWeightLb!,
+          springCount: form.springCount,
+          targetCycles: form.targetCycles,
+          insideDiametersIn: [...form.ids].sort((a, b) => a - b),
+          ...(floorToShaftCenterIn !== undefined ? { floorToShaftCenterIn } : {}),
+        });
+      } catch (e) {
+        noTurns = errorMessage(e);
+      }
+    }
+    return { status: 'ok', result: { lift: form.lift, fits, ...(highLift ? { highLift } : {}), ...(noTurns ? { noTurns } : {}) } };
   } catch (e) {
     return { status: 'error', message: errorMessage(e) };
   }
