@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, SectionTitle } from '../components/controls';
@@ -6,6 +6,8 @@ import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, springName, Spring
 import { DEFAULT_MATCH_FORM, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, MatchForm, Outcome, runMatch, WireMethod } from '../lib/forms';
 import { formatFeetInches, formatInches, formatNumber, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
+import { OpenJobRequest } from '../lib/jobs';
+import { SaveJobPanel } from '../components/SaveJobPanel';
 import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { MatchResult, Wind, WIRES } from '../springCalc';
 import { colors, type } from '../theme';
@@ -33,9 +35,19 @@ const COUNT_OPTIONS: ChipOption<1 | 2>[] = [
 
 export const MATCH_STORAGE_KEY = 'spring-calc/match-form/v1';
 
-export function MatchScreen() {
-  const { form, update, reset } = usePersistentForm<MatchForm>(MATCH_STORAGE_KEY, DEFAULT_MATCH_FORM);
+export function MatchScreen({ open }: { open?: OpenJobRequest }) {
+  const { form, update, reset, replace } = usePersistentForm<MatchForm>(MATCH_STORAGE_KEY, DEFAULT_MATCH_FORM);
   const outcome = useMemo(() => runMatch(form), [form]);
+  const summary = matchSummary(outcome);
+  // The saved job these inputs came from, so changes can be saved back to it.
+  const [linkedId, setLinkedId] = useState<string | undefined>();
+  useEffect(() => {
+    if (open?.job.mode !== 'match') return;
+    replace(open.job.form);
+    setLinkedId(open.job.id);
+    // Only a new request loads; the nonce changes on every open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open?.nonce]);
   const heightOther = parseMeasurement(form.heightOther);
 
   const inputs = (
@@ -132,7 +144,11 @@ export function MatchScreen() {
         unit="in"
         testID="field-shaft-height"
       />
-      <ClearButton onPress={reset} testID="clear-match" />
+      <ClearButton
+        onPress={() => {
+          reset();
+          setLinkedId(undefined);
+        }} testID="clear-match" />
     </>
   );
 
@@ -143,10 +159,18 @@ export function MatchScreen() {
       {outcome.status === 'incomplete' ? <MissingCard missing={outcome.missing} /> : null}
       {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
       {outcome.status === 'ok' ? <MatchResults result={outcome.result} /> : null}
+      <SaveJobPanel
+        inputs={{ mode: 'match', form }}
+        summary={summary}
+        ready={outcome.status !== 'incomplete'}
+        linkedId={linkedId}
+        onLink={setLinkedId}
+        testID="match-save-job"
+      />
     </>
   );
 
-  return <CalcLayout inputs={inputs} results={results} summary={matchSummary(outcome)} testID="match-bar" />;
+  return <CalcLayout inputs={inputs} results={results} summary={summary} testID="match-bar" />;
 }
 
 /** What the pinned bar says: what's missing, the stop, or the old spring and its turns. */

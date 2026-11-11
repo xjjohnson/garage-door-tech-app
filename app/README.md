@@ -190,7 +190,7 @@ be tested ahead of time. A version you set by hand always matches.
 
 ## What's on screen
 
-Two sections at the top, **Springs** and **Manuals**. Springs has two tabs.
+Sections in the bar at the bottom: **Springs**, **Jobs**, **Manuals** and **Diagnose**. Springs has two tabs.
 
 **Match old spring.** Wire by 20-coil length, caliper, or picked from the
 list (with the color code); inside diameter; relaxed length; wind; one spring
@@ -255,6 +255,20 @@ of a PDF. The "Manuals link check" GitHub workflow runs it every Monday, on
 pull requests that change the list, and by hand from the Actions tab; a
 failed run lists the broken links on its summary page. Sites that turn away
 automated checks show as "check by hand", not as broken.
+
+**Jobs.** Under the results on either Springs tab, **Save as a job** asks for
+the customer, address, phone (optional) and notes, typed on the phone's own
+keyboard, and saves them with the tab's inputs and its answer. The Jobs
+section lists them, open jobs first and newest first, with a search box
+(customer, address, phone, notes or spring size) and an Open / Done / All
+switch. Tapping a job shows **Open in calculator**, which puts its inputs back
+on the right tab, **Call** when there's a phone number, **Edit details**,
+**Mark done** or **Reopen**, and **Delete job** (on a second tap). A tab
+opened from a job says so above its save button and offers **Save changes**
+(back to that job) or **New job**; Clear all inputs unlinks it. A job keeps
+the inputs, not the result, so reopening it runs the current math. Jobs live
+only on the phone (AsyncStorage, `src/lib/jobs.ts` and `src/lib/useJobs.tsx`),
+with no account and no network; uninstalling the app deletes them.
 
 **Look.** Near-black on white, bold type at 18 px and up, every button at
 least 56 px tall for gloves. The app is portrait and light mode only.

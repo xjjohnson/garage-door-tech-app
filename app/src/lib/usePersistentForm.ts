@@ -45,5 +45,14 @@ export function usePersistentForm<T extends object>(key: string, defaults: T) {
     setForm(defaults);
   }, [defaults]);
 
-  return { form, update, reset };
+  /** Swaps in a whole saved form, e.g. a job opened from the Jobs list. */
+  const replace = useCallback(
+    (next: T) => {
+      touched.current = true;
+      setForm(restoreForm(defaults, next));
+    },
+    [defaults],
+  );
+
+  return { form, update, reset, replace };
 }

@@ -7,13 +7,16 @@ import { ApkUpdateBanner } from './src/components/ApkUpdateBanner';
 import { UpdateReadyBar } from './src/components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from './src/config';
 import { formatBuildInfo } from './src/lib/buildInfo';
+import { Job, OpenJobRequest } from './src/lib/jobs';
+import { JobsProvider } from './src/lib/useJobs';
 import { DiagnoseScreen } from './src/screens/DiagnoseScreen';
 import { DoorScreen } from './src/screens/DoorScreen';
+import { JobsScreen } from './src/screens/JobsScreen';
 import { ManualsScreen } from './src/screens/ManualsScreen';
 import { MatchScreen } from './src/screens/MatchScreen';
 import { colors, touch, type } from './src/theme';
 
-type Section = 'springs' | 'manuals' | 'diagnose';
+type Section = 'springs' | 'jobs' | 'manuals' | 'diagnose';
 type Tab = 'match' | 'door';
 
 // Read once: what's running doesn't change until the app restarts.
@@ -27,6 +30,7 @@ const BUILD_INFO = formatBuildInfo({
 
 const SECTIONS: { id: Section; label: string; title: string; subtitle: string }[] = [
   { id: 'springs', label: 'Springs', title: 'Spring calculator', subtitle: 'Torsion, standard lift' },
+  { id: 'jobs', label: 'Jobs', title: 'Jobs', subtitle: 'Saved on this phone' },
   { id: 'manuals', label: 'Manuals', title: 'Manuals', subtitle: "Makers' install and owner's manuals" },
   { id: 'diagnose', label: 'Diagnose', title: 'Diagnose', subtitle: 'Opener codes and symptoms, works offline' },
 ];
@@ -37,6 +41,14 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function App() {
+  return (
+    <JobsProvider>
+      <Main />
+    </JobsProvider>
+  );
+}
+
+function Main() {
   // Turns true when expo-updates finishes downloading an update by itself at launch.
   const { isUpdatePending } = Updates.useUpdates();
   const [section, setSection] = useState<Section>('springs');
@@ -46,6 +58,13 @@ export default function App() {
   // entries). After that they stay mounted and keep their search and picks.
   const [manualsOpened, setManualsOpened] = useState(false);
   const [diagnoseOpened, setDiagnoseOpened] = useState(false);
+  // A saved job to load into its calculator tab, from the Jobs list.
+  const [openJob, setOpenJob] = useState<OpenJobRequest | undefined>();
+  const openInCalculator = (job: Job) => {
+    setOpenJob((prev) => ({ job, nonce: (prev?.nonce ?? 0) + 1 }));
+    setTab(job.mode);
+    setSection('springs');
+  };
   if (section === 'manuals' && !manualsOpened) setManualsOpened(true);
   if (section === 'diagnose' && !diagnoseOpened) setDiagnoseOpened(true);
   const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
@@ -86,11 +105,14 @@ export default function App() {
         </View>
         {/* Every screen stays mounted so switching keeps its inputs and search. */}
         <View style={[styles.flex, (section !== 'springs' || tab !== 'match') && styles.hidden]}>
-          <MatchScreen />
+          <MatchScreen open={openJob} />
         </View>
         <View style={[styles.flex, (section !== 'springs' || tab !== 'door') && styles.hidden]}>
-          <DoorScreen />
+          <DoorScreen open={openJob} />
         </View>
+        <ScrollView style={[styles.flex, styles.manuals, section !== 'jobs' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <JobsScreen onOpen={openInCalculator} />
+        </ScrollView>
         {manualsOpened ? (
           <ScrollView style={[styles.flex, styles.manuals, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <ManualsScreen />
@@ -116,7 +138,9 @@ export default function App() {
                 testID={`section-${s.id}`}
                 style={({ pressed }) => [styles.navItem, on && styles.navItemOn, pressed && !on && styles.navPressed]}
               >
-                <Text style={[styles.navText, on && styles.navTextOn]}>{s.label}</Text>
+                <Text style={[styles.navText, on && styles.navTextOn]} numberOfLines={1} adjustsFontSizeToFit>
+                  {s.label}
+                </Text>
               </Pressable>
             );
           })}
@@ -146,7 +170,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 48 },
   // Black bar, the open section in safety yellow with a yellow mark on top.
   nav: { flexDirection: 'row', backgroundColor: colors.selected },
-  navItem: { flex: 1, minHeight: touch.bar, alignItems: 'center', justifyContent: 'center', borderTopWidth: 6, borderTopColor: colors.selected },
+  navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar, alignItems: 'center', justifyContent: 'center', borderTopWidth: 6, borderTopColor: colors.selected },
   navItemOn: { borderTopColor: colors.safety },
   navPressed: { backgroundColor: colors.muted },
   navText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
