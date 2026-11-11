@@ -46,6 +46,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
       {tel ? <Action label={`Call ${customer.phone}`} primary onPress={() => Linking.openURL(tel).catch(() => undefined)} testID="customer-call" /> : null}
       {tel ? <Action label="Text" onPress={() => Linking.openURL(tel.replace('tel:', 'sms:')).catch(() => undefined)} testID="customer-text" /> : null}
       {mail ? <Action label="Email" onPress={() => Linking.openURL(mail).catch(() => undefined)} testID="customer-email" /> : null}
+      <Action label="Book a visit" onPress={() => router.push({ pathname: '/schedule', params: { book: customer.id } })} testID="customer-book" />
       <Action label="Edit customer" onPress={() => setEditing(true)} testID="customer-edit" />
 
       <Text style={styles.section} accessibilityRole="header">

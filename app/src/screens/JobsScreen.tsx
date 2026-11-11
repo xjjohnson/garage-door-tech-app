@@ -10,6 +10,7 @@ import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { StatsCard } from './StatsScreen';
+import { NextVisits } from './ScheduleScreen';
 import { followUps } from '../lib/followups';
 import { useFollowUps } from '../lib/useFollowUps';
 import { colors, touch, type } from '../theme';
@@ -45,6 +46,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   return (
     <View style={styles.stack}>
       <StatsCard />
+      <NextVisits />
       <FollowUpsButton />
       <View style={styles.searchRow}>
         <TextInput

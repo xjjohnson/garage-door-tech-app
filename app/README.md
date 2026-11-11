@@ -363,6 +363,20 @@ and labor warranty (12). An invoice shows its warranty dates and whether it's
 covered now, for callbacks (`src/lib/followups.ts`, AsyncStorage
 `followups/v1`, included in backups). The app sends nothing on its own.
 
+**Schedule.** **Schedule** at the top of Jobs shows the next two booked
+visits and opens a page with a row of days (yesterday to two weeks out) and
+that day's visits in time order. **Book a visit** (also on a customer's page,
+filled in with their name, phone and address) takes a customer, address,
+phone, what it's for (Broken spring, Tune-up, Opener...), the day, a start time
+from half-hour buttons between 7 am and 6 pm, and a length, and warns when it
+overlaps another booked visit. Each visit has **Directions** (Google Maps),
+**Call**, **On my way** (pick 15, 30, 45 or 60 minutes for a ready text),
+**Remind** (a confirmation text for the day and time), **Done**, **Next day**
+and **Cancel**. A visit keeps what a field-service system keeps (customer,
+address, start, length, status), so a later Odoo sync can map it
+(`src/lib/schedule.ts`, AsyncStorage `schedule/v1`, included in backups). The
+app sends nothing on its own; texts open in the phone's messages app.
+
 **Safety check.** A job's **Safety check** (in its details, or on its quote)
 walks the door and opener: lift cables, drums, bottom brackets, springs and
 cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
@@ -402,7 +416,7 @@ system keeps (number, customer, lines, tax, total, payments, amount due), so
 a later Odoo sync can map it to an invoice there.
 
 **Back up and restore.** **Back up or restore** at the top of Jobs opens a
-page that saves every job, customer and invoice, the price sheet and the business details to one file,
+page that saves every job, customer, invoice and booked visit, the price sheet and the business details to one file,
 `garage-door-backup-YYYY-MM-DD.json`, in a folder the tech picks with the
 phone's own folder picker (Downloads, or Google Drive to keep it off the
 phone), and shows the day of the last backup. **Restore from a backup** picks
@@ -431,7 +445,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 
 | File | Address | What |
 |---|---|---|
-| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices), then a stack: the sections, with full pages on top |
+| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Springs: Match old, From door, Extension and High lift |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
@@ -448,6 +462,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `inspection/[id].tsx` | `/inspection/<job id>` | One job's safety check and repairs, a full page |
 | `stats.tsx` | `/stats` | Business numbers, a full page |
 | `follow-ups.tsx` | `/follow-ups` | Tune-ups, worn springs and warranty ends due, a full page |
+| `schedule.tsx` | `/schedule` | Booked visits by day; `?book=<customer id>` opens booking for them, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar
