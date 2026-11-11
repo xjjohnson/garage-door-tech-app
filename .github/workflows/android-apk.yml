@@ -46,6 +46,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The release-number check compares with the base branch.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -54,6 +57,11 @@ jobs:
           cache-dependency-path: |
             app/package-lock.json
             spring-calc/package-lock.json
+
+      # Every change that ships to phones gets its own release number (app/README.md, "Release numbers").
+      - name: Release number raised
+        if: github.event_name == 'pull_request'
+        run: node app/scripts/check-release.mjs "origin/${{ github.base_ref }}"
 
       - name: Spring math tests (Vitest)
         working-directory: spring-calc
