@@ -6,6 +6,7 @@ import { SectionTitle } from '../components/controls';
 import { Backup, backupFileName, LAST_BACKUP_KEY, makeBackup, mergeJobs, parseBackup } from '../lib/backup';
 import { BackupFiles, deviceBackupFiles } from '../lib/backupFiles';
 import { formatJobDate } from '../lib/jobs';
+import { useCustomers } from '../lib/useCustomers';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type } from '../theme';
@@ -21,7 +22,7 @@ type Note = { kind: 'ok' | 'error'; text: string } | null;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * Saves every job and the price sheet to one file in a folder the tech picks
+ * Saves every job, customer and the price sheet to one file in a folder the tech picks
  * (Downloads, Google Drive...), and reads one back. Restoring merges: nothing
  * on the phone is deleted, and a job on both keeps whichever copy changed
  * last. The price sheet is replaced by the backup's.
@@ -29,6 +30,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 export function BackupScreen({ files: given, now = Date.now }: Props) {
   const files = useMemo(() => (given === undefined ? deviceBackupFiles() : given), [given]);
   const { jobs, restore } = useJobs();
+  const { customers, restore: restoreCustomers } = useCustomers();
   const { sheet, update } = usePriceSheet();
   const [lastBackup, setLastBackup] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,11 +54,11 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     try {
       const at = now();
       const name = backupFileName(at);
-      const folder = await files.save(name, makeBackup({ jobs, priceSheet: sheet }, at, Constants.expoConfig?.version));
+      const folder = await files.save(name, makeBackup({ jobs, customers, priceSheet: sheet }, at, Constants.expoConfig?.version));
       if (folder !== null) {
         setLastBackup(at);
         AsyncStorage.setItem(LAST_BACKUP_KEY, String(at)).catch(() => undefined);
-        setNote({ kind: 'ok', text: `Saved ${name} to ${folder}: ${plural(jobs.length, 'job')} and the price sheet.` });
+        setNote({ kind: 'ok', text: `Saved ${name} to ${folder}: ${plural(jobs.length, 'job')}, ${plural(customers.length, 'customer')} and the price sheet.` });
       }
     } catch {
       setNote({ kind: 'error', text: "Couldn't save the backup there. Try another folder, such as Downloads." });
@@ -86,6 +88,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
 
   const confirm = () => {
     if (!pending) return;
+    restoreCustomers(pending.customers);
     const { added, updated } = restore(pending.jobs);
     if (pending.priceSheet) {
       const restored = pending.priceSheet;
@@ -102,7 +105,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
   return (
     <View style={styles.stack} testID="backup">
       <Text style={styles.note}>
-        Jobs and prices live only on this phone. A backup puts them in one file somewhere else, so a new phone or a reinstall doesn't lose them.
+        Jobs, customers and prices live only on this phone. A backup puts them in one file somewhere else, so a new phone or a reinstall doesn't lose them.
       </Text>
 
       {files === null ? (

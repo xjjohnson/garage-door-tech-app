@@ -34,6 +34,8 @@ interface JobBase extends JobDetails {
   summaryDetail: string;
   /** The quote option the customer said yes to, with its total then. */
   accepted?: AcceptedQuote;
+  /** The customer this job belongs to (src/lib/customers.ts). Set for every job once customers load. */
+  customerId?: string;
 }
 
 export interface AcceptedQuote {
@@ -159,6 +161,7 @@ export function parseJobs(raw: string | null): Job[] {
       summaryTitle: str(j.summaryTitle),
       summaryDetail: str(j.summaryDetail),
       ...(parseAccepted(j.accepted) ? { accepted: parseAccepted(j.accepted) } : {}),
+      ...(typeof j.customerId === 'string' && j.customerId ? { customerId: j.customerId } : {}),
     };
     out.push(
       j.mode === 'match'

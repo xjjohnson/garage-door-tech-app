@@ -1,5 +1,5 @@
 /**
- * Backups: everything the tech has typed in (saved jobs and the price sheet)
+ * Backups: everything the tech has typed in (jobs, customers and the price sheet)
  * in one file they can keep somewhere other than the phone, and read back
  * after a reinstall or on a new phone. Kept free of React so it can be tested
  * directly.
@@ -9,6 +9,7 @@
  * Each job keeps its own id and updatedAt, which is what lets a restore merge
  * instead of wiping the phone.
  */
+import { Customer, parseCustomers } from './customers';
 import { Job, parseJobs } from './jobs';
 import { parsePriceSheet, PriceSheet } from './prices';
 
@@ -20,17 +21,20 @@ export const LAST_BACKUP_KEY = 'backup.last.v1';
 export interface Backup {
   exportedAt: number;
   jobs: Job[];
+  /** Empty in backups made before customers existed; they're rebuilt from the jobs. */
+  customers: Customer[];
   /** Missing when the file had none; restoring then leaves the phone's prices alone. */
   priceSheet?: PriceSheet;
 }
 
-export function makeBackup(data: { jobs: Job[]; priceSheet: PriceSheet }, now: number, appVersion?: string): string {
+export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; priceSheet: PriceSheet }, now: number, appVersion?: string): string {
   const file = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: new Date(now).toISOString(),
     ...(appVersion ? { appVersion } : {}),
     jobs: data.jobs,
+    customers: data.customers ?? [],
     priceSheet: data.priceSheet,
   };
   return JSON.stringify(file, null, 1);
@@ -59,6 +63,7 @@ export function parseBackup(raw: string): ParsedBackup {
     backup: {
       exportedAt: Number.isNaN(at) ? 0 : at,
       jobs: Array.isArray(d.jobs) ? parseJobs(JSON.stringify(d.jobs)) : [],
+      customers: Array.isArray(d.customers) ? parseCustomers(d.customers) : [],
       ...(priceSheet ? { priceSheet } : {}),
     },
   };
