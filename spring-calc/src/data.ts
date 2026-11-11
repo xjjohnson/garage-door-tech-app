@@ -39,6 +39,8 @@ export const STEEL = {
  * set for 0.88x to 0.90x (12" track) or 0.92x to 0.93x (15" track) the door
  * this formula gives at 7-1/2 turns, so RATE_FACTOR_LOW matches 15" track
  * and runs about 3% high for 12" track (see the reference chart tests).
+ * The track radius choice corrects for that (see trackRadiusFactor and
+ * CANIMEX_STANDARD_LIFT_MULTIPLIERS below).
  */
 export const RATE_FACTOR_LOW = 0.92;
 export const RATE_FACTOR_MID = 0.96;
@@ -188,4 +190,77 @@ export interface Drum {
 export const DRUMS: Record<DrumId, Drum> = {
   '400-8': { id: '400-8', cableRadiusIn: 2.0, maxDoorHeightIn: 96, highMomentArmIn: 2.275, cableAllowanceIn: 8, label: '400-8 (4", doors to 8\')' },
   '400-12': { id: '400-12', cableRadiusIn: 2.0, maxDoorHeightIn: 144, highMomentArmIn: 2.293, cableAllowanceIn: 8, label: '400-12 (4", doors to 12\')' },
+};
+
+/**
+ * Radius of the curve where the horizontal track meets the vertical track,
+ * inches. Residential standard-lift track is 12" or 15".
+ */
+export type TrackRadius = 12 | 15;
+export const TRACK_RADII: readonly TrackRadius[] = [12, 15];
+
+/**
+ * The calculator's lift factors (RATE_FACTOR_LOW, RATE_FACTOR_MID) were
+ * fitted to 15" radius track, so 15" leaves every result as it was.
+ */
+export const DEFAULT_TRACK_RADIUS: TrackRadius = 15;
+
+/**
+ * Canimex standard-lift multipliers, inches per turn, from the "multiplier
+ * for standard-lift drum" tables in the Canimex Torque Force cable drum and
+ * torsion spring manual (D400-96 for the 400-8, D400-144 for the 400-12).
+ * Each row is [door height in inches, 12" track, 15" track]. Canimex sizes a
+ * spring set as IPPT = multiplier x door weight, and the multiplier is the
+ * drum's high moment arm over the turns on the spring.
+ *
+ * The same door gets about 0.3 more turns on 15" track (7.9 vs 7.6 for a 7'
+ * door), so each turn has to lift less: a given spring set balances about 4%
+ * less door on 12" track. The full-wind torque (door weight x high moment
+ * arm) is the same on both, so cycle life does not change.
+ *
+ * Only the ratio of the two columns is used (see trackRadiusFactor in
+ * springMath.ts). Low-headroom track is out of scope.
+ */
+export const CANIMEX_STANDARD_LIFT_MULTIPLIERS: Record<DrumId, readonly (readonly [number, number, number])[]> = {
+  '400-8': [
+    [72, 0.3374, 0.3219],
+    [75, 0.3266, 0.3124],
+    [78, 0.3165, 0.3033],
+    [81, 0.307, 0.2948],
+    [84, 0.298, 0.2866],
+    [87, 0.2895, 0.2789],
+    [90, 0.2814, 0.2715],
+    [93, 0.2738, 0.2645],
+    [96, 0.2666, 0.2579],
+    [98, 0.2619, 0.2536],
+  ],
+  '400-12': [
+    [72, 0.3425, 0.3268],
+    [75, 0.3317, 0.3172],
+    [78, 0.3214, 0.308],
+    [81, 0.3117, 0.2993],
+    [84, 0.3026, 0.291],
+    [87, 0.2939, 0.2832],
+    [90, 0.2858, 0.2757],
+    [93, 0.278, 0.2686],
+    [96, 0.2706, 0.2618],
+    [99, 0.2637, 0.2553],
+    [102, 0.257, 0.2492],
+    [105, 0.2507, 0.2433],
+    [108, 0.2446, 0.2377],
+    [111, 0.2389, 0.2323],
+    [114, 0.2334, 0.2271],
+    [117, 0.2281, 0.2222],
+    [120, 0.2231, 0.2175],
+    [123, 0.2183, 0.2129],
+    [126, 0.2137, 0.2086],
+    [129, 0.2093, 0.2044],
+    [132, 0.205, 0.2003],
+    [135, 0.2009, 0.1965],
+    [138, 0.197, 0.1927],
+    [141, 0.1932, 0.1891],
+    [144, 0.1896, 0.1857],
+    [147, 0.1861, 0.1823],
+    [148, 0.1849, 0.1812],
+  ],
 };

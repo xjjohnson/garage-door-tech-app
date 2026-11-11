@@ -6,6 +6,7 @@ import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, springName, Spring
 import { DEFAULT_MATCH_FORM, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, MatchForm, Outcome, runMatch, WireMethod } from '../lib/forms';
 import { formatFeetInches, formatInches, formatNumber, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
+import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { MatchResult, Wind, WIRES } from '../springCalc';
 import { colors, type } from '../theme';
 
@@ -111,6 +112,9 @@ export function MatchScreen() {
       ) : null}
       <Field label="Drums (standard lift)">
         <ChipRow options={DRUM_CHOICES} value={form.drum} onChange={(drum) => update({ drum })} testID="drum" />
+      </Field>
+      <Field label="Track radius" hint={TRACK_RADIUS_HINT}>
+        <ChipRow options={TRACK_RADIUS_CHOICES} value={form.trackRadius} onChange={(trackRadius) => update({ trackRadius })} testID="track" />
       </Field>
       <MeasureField
         label="Free shaft beside the spring (optional)"

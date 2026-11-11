@@ -1,4 +1,5 @@
 import {
+  buildDoorInput,
   buildMatchInput,
   DEFAULT_DOOR_FORM,
   DEFAULT_MATCH_FORM,
@@ -137,5 +138,38 @@ describe('restoreForm', () => {
   it('ignores garbage', () => {
     expect(restoreForm(DEFAULT_DOOR_FORM, null)).toEqual(DEFAULT_DOOR_FORM);
     expect(restoreForm(DEFAULT_DOOR_FORM, [1, 2])).toEqual(DEFAULT_DOOR_FORM);
+  });
+});
+
+describe('track radius', () => {
+  const door164: DoorForm = { ...DEFAULT_DOOR_FORM, weight: '164' };
+
+  it('defaults to 15" on both screens and is passed to the math', () => {
+    expect(DEFAULT_MATCH_FORM.trackRadius).toBe(15);
+    expect(DEFAULT_DOOR_FORM.trackRadius).toBe(15);
+    expect(buildMatchInput({ ...pair225, trackRadius: 12 }).input?.trackRadiusIn).toBe(12);
+    expect(buildDoorInput({ ...door164, trackRadius: 12 }).input?.trackRadiusIn).toBe(12);
+  });
+
+  it('12" track: the old pair balances about 4% less door, replacements unchanged', () => {
+    const on15 = runMatch(pair225);
+    const on12 = runMatch({ ...pair225, trackRadius: 12 });
+    if (on15.status !== 'ok' || on12.status !== 'ok') throw new Error('expected results');
+    expect(on12.result.balancesDoorLb.high / on15.result.balancesDoorLb.high).toBeCloseTo(0.962, 3);
+    expect(on12.result.equivalents).toEqual(on15.result.equivalents);
+  });
+
+  it('12" track: a 164 lb door gets a slightly stronger pair', () => {
+    const on15 = runDoor(door164);
+    const on12 = runDoor({ ...door164, trackRadius: 12 });
+    if (on15.status !== 'ok' || on12.status !== 'ok') throw new Error('expected results');
+    expect(on12.result.options[0]!.ippt).toBeGreaterThan(on15.result.options[0]!.ippt);
+  });
+
+  it('a form saved before the choice existed loads with 15"', () => {
+    const { trackRadius: _a, ...olderMatch } = DEFAULT_MATCH_FORM;
+    const { trackRadius: _b, ...olderDoor } = DEFAULT_DOOR_FORM;
+    expect(restoreForm(DEFAULT_MATCH_FORM, { ...olderMatch, length: '24' }).trackRadius).toBe(15);
+    expect(restoreForm(DEFAULT_DOOR_FORM, { ...olderDoor, weight: '150' }).trackRadius).toBe(15);
   });
 });

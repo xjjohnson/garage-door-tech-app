@@ -5,12 +5,14 @@
  * offline and the tests can check each formula on its own.
  */
 import {
+  CANIMEX_STANDARD_LIFT_MULTIPLIERS,
   DEFAULT_DEAD_COILS,
   DRUMS,
   DrumId,
   LIFE_POINTS,
   MIP_REFERENCE_ID_IN,
   STEEL,
+  TrackRadius,
   WIRES,
   WireSize,
 } from './data';
@@ -248,6 +250,45 @@ export function doorTorque(doorWeightLb: number, drumId: DrumId): number {
 /** Door weight a set of springs balances when wound `turns` turns. */
 export function balancedWeight(totalIppt: number, turns: number, drumId: DrumId): number {
   return (totalIppt * turns) / DRUMS[drumId].cableRadiusIn;
+}
+
+/**
+ * How much door a spring set lifts on this track radius, relative to the
+ * 15" track the lift factors were fitted to: 1 on 15" track, about 0.96 on
+ * 12" (Canimex's 15" multiplier over its 12" one at this door height).
+ * Multiply RATE_FACTOR_LOW and RATE_FACTOR_MID by it.
+ *
+ * Heights between table rows are interpolated; heights outside the table
+ * take its nearest row.
+ */
+export function trackRadiusFactor(trackRadiusIn: TrackRadius, drumId: DrumId, doorHeightIn: number): number {
+  if (trackRadiusIn === 15) return 1;
+  if (trackRadiusIn !== 12) throw new RangeError('Track radius must be 12" or 15".');
+  const rows = CANIMEX_STANDARD_LIFT_MULTIPLIERS[drumId];
+  const ratio = (r: readonly [number, number, number]) => r[2] / r[1];
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  if (!first || !last) throw new Error(`No track multipliers for ${drumId}.`);
+  if (doorHeightIn <= first[0]) return ratio(first);
+  if (doorHeightIn >= last[0]) return ratio(last);
+  for (let i = 0; i < rows.length - 1; i++) {
+    const a = rows[i]!;
+    const b = rows[i + 1]!;
+    if (doorHeightIn >= a[0] && doorHeightIn <= b[0]) {
+      const t = (doorHeightIn - a[0]) / (b[0] - a[0]);
+      return ratio(a) + t * (ratio(b) - ratio(a));
+    }
+  }
+  throw new Error('Track multiplier table is not in height order.');
+}
+
+/**
+ * Door height a turn count implies on a standard-lift drum, the inverse of
+ * the turns rule before rounding. Used to look up the track factor when the
+ * tech entered turns instead of a door height.
+ */
+export function heightForTurns(turns: number, drumId: DrumId): number {
+  return Math.max(0, turns - 1) * 2 * Math.PI * DRUMS[drumId].cableRadiusIn;
 }
 
 /**

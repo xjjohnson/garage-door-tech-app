@@ -6,6 +6,7 @@ import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Sta
 import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, Outcome, runDoor } from '../lib/forms';
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
+import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { DoorResult } from '../springCalc';
 import { colors, type } from '../theme';
 
@@ -51,6 +52,9 @@ export function DoorScreen() {
       ) : null}
       <Field label="Drums (standard lift)">
         <ChipRow options={DRUM_CHOICES} value={form.drum} onChange={(drum) => update({ drum })} testID="door-drum" />
+      </Field>
+      <Field label="Track radius" hint={TRACK_RADIUS_HINT}>
+        <ChipRow options={TRACK_RADIUS_CHOICES} value={form.trackRadius} onChange={(trackRadius) => update({ trackRadius })} testID="door-track" />
       </Field>
 
       <SectionTitle>The springs you want</SectionTitle>

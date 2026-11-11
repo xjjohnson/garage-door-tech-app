@@ -61,6 +61,16 @@ All units are inches, pounds, inch-pounds.
   lift gap, and puts full-wind torque 14% above door weight × 2", which is
   the life gap. RATE_FACTOR_LOW (0.92) matches 15" track and runs about 3%
   high for 12" track.
+- **Track radius.** Both screens ask for 12" or 15" track, 15" by default
+  (the factors above were fitted to it, so 15" results are unchanged). On
+  12" track Canimex winds about 0.3 fewer turns for the same door, so a
+  spring set lifts less: the calculator multiplies the lift factors by
+  Canimex's 15" multiplier over its 12" one at that door height (0.954 for
+  a 6' door, 0.962 for 7', 0.967 for 8' on a 400-8; up to 0.98 for a 12'
+  door on a 400-12). Mode 2 orders a spring that much stronger and Mode 1
+  shows that much less door. Cycle life is unchanged, because the full-wind
+  torque (door weight × high moment arm) is the same on both radii. Turns
+  shown stay on the 7-1/2-for-7' rule. Low-headroom track is not covered.
 - **20 coils of .234.** DASMA and Service Spring print 4-5/8", but 20 coils
   of .2343" wire are 4.69" long. DDM prints 4-11/16", and so does the table.
 - **Wire names.** ".218" is really .2187" and ".225" is .2253". The code uses
