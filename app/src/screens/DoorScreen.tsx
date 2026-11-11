@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ChipOption, ChipRow, Field, MeasureField, MultiChipRow, SectionTitle, TextButton } from '../components/controls';
 import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
-import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, runDoor } from '../lib/forms';
+import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, runDoor, TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { DoorResult } from '../springCalc';
@@ -50,6 +50,9 @@ export function DoorScreen() {
       ) : null}
       <Field label="Drums (standard lift)">
         <ChipRow options={DRUM_CHOICES} value={form.drum} onChange={(drum) => update({ drum })} testID="door-drum" />
+      </Field>
+      <Field label="Track radius" hint={TRACK_RADIUS_HINT}>
+        <ChipRow options={TRACK_RADIUS_CHOICES} value={form.trackRadius} onChange={(trackRadius) => update({ trackRadius })} testID="door-track" />
       </Field>
 
       <SectionTitle>The springs you want</SectionTitle>

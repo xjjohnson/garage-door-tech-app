@@ -14,6 +14,7 @@ import {
   MatchResult,
   matchOldSpring,
   sizeFromDoor,
+  TrackRadius,
   Wind,
   WIRES,
 } from '../springCalc';
@@ -44,6 +45,14 @@ export const DRUM_CHOICES: { label: string; value: DrumId }[] = [
   { label: '400-12', value: '400-12' },
 ];
 
+/** Track radius: the curve where the vertical track turns horizontal. */
+export const TRACK_RADIUS_CHOICES: { label: string; value: TrackRadius }[] = [
+  { label: '12"', value: 12 },
+  { label: '15"', value: 15 },
+];
+
+export const TRACK_RADIUS_HINT = 'The curve where the track turns flat. 12" track needs about 4% more spring.';
+
 export const CYCLE_CHOICES = [10_000, 25_000, 50_000] as const;
 
 // ---------------------------------------------------------------------------
@@ -67,6 +76,7 @@ export interface MatchForm {
   heightChoice: string;
   heightOther: string;
   drum: DrumId;
+  trackRadius: TrackRadius;
   shaft: string;
   /** Floor to the center of the torsion shaft, for the cable length. Optional. */
   shaftHeight: string;
@@ -85,6 +95,7 @@ export const DEFAULT_MATCH_FORM: MatchForm = {
   heightChoice: '84',
   heightOther: '',
   drum: '400-8',
+  trackRadius: 15,
   shaft: '',
   shaftHeight: '',
 };
@@ -133,6 +144,7 @@ export function buildMatchInput(form: MatchForm): { input?: MatchInput; missing:
       springCount: form.springCount,
       doorHeightIn,
       drum: form.drum,
+      trackRadiusIn: form.trackRadius,
       ...(shaft !== undefined && shaft > 0 ? { maxLengthIn: shaft } : {}),
       ...(shaftHeight !== undefined ? { floorToShaftCenterIn: shaftHeight } : {}),
     },
@@ -163,6 +175,7 @@ export interface DoorForm {
   heightChoice: string;
   heightOther: string;
   drum: DrumId;
+  trackRadius: TrackRadius;
   springCount: 1 | 2;
   targetCycles: number;
   ids: number[];
@@ -176,6 +189,7 @@ export const DEFAULT_DOOR_FORM: DoorForm = {
   heightChoice: '84',
   heightOther: '',
   drum: '400-8',
+  trackRadius: 15,
   springCount: 2,
   targetCycles: 10_000,
   ids: [2],
@@ -199,6 +213,7 @@ export function buildDoorInput(form: DoorForm): { input?: DoorInput; missing: st
       doorWeightLb,
       doorHeightIn,
       drum: form.drum,
+      trackRadiusIn: form.trackRadius,
       springCount: form.springCount,
       targetCycles: form.targetCycles,
       insideDiametersIn: [...form.ids].sort((a, b) => a - b),

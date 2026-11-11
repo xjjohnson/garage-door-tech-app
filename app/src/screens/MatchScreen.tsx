@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ChipOption, ChipRow, Field, MeasureField, SectionTitle, TextButton } from '../components/controls';
 import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
-import { DEFAULT_MATCH_FORM, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, MatchForm, runMatch, WireMethod } from '../lib/forms';
+import { DEFAULT_MATCH_FORM, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, MatchForm, runMatch, TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT, WireMethod } from '../lib/forms';
 import { formatFeetInches, formatInches, formatNumber, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { MatchResult, Wind, WIRES } from '../springCalc';
@@ -110,6 +110,9 @@ export function MatchScreen() {
       ) : null}
       <Field label="Drums (standard lift)">
         <ChipRow options={DRUM_CHOICES} value={form.drum} onChange={(drum) => update({ drum })} testID="drum" />
+      </Field>
+      <Field label="Track radius" hint={TRACK_RADIUS_HINT}>
+        <ChipRow options={TRACK_RADIUS_CHOICES} value={form.trackRadius} onChange={(trackRadius) => update({ trackRadius })} testID="track" />
       </Field>
       <MeasureField
         label="Free shaft beside the spring (optional)"
