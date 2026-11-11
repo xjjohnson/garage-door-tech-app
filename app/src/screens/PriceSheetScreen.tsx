@@ -22,9 +22,9 @@ export function PriceSheetScreen() {
 
       <SectionTitle first>On every option</SectionTitle>
       <Money label="Service call" value={sheet.serviceCall} onChange={(serviceCall) => set({ serviceCall })} testID="price-service" />
-      <Money label="Spring labor" hint="Labor to replace the springs, for one or a pair." value={sheet.springLabor} onChange={(springLabor) => set({ springLabor })} testID="price-labor" />
+      <Money label="Torsion spring labor" hint="Labor to replace torsion springs, for one or a pair." value={sheet.springLabor} onChange={(springLabor) => set({ springLabor })} testID="price-labor" />
 
-      <SectionTitle>Springs, price each</SectionTitle>
+      <SectionTitle>Torsion springs, price each</SectionTitle>
       <Text style={styles.note}>Each option puts in springs of a higher cycle rating. A pair is charged as two.</Text>
       {TIERS.map((t) => (
         <Money
@@ -33,6 +33,19 @@ export function PriceSheetScreen() {
           value={sheet.spring[t]}
           onChange={(v) => update((s) => ({ ...s, spring: { ...s.spring, [t]: v } }))}
           testID={`price-spring-${t}`}
+        />
+      ))}
+
+      <SectionTitle>Extension springs, price each</SectionTitle>
+      <Text style={styles.note}>Every option puts in the same size. Price them as you sell them, e.g. standard for Good and long-life for Better and Best. A pair is charged as two.</Text>
+      <Money label="Extension spring labor" value={sheet.extensionLabor} onChange={(extensionLabor) => set({ extensionLabor })} testID="price-ext-labor" />
+      {TIERS.map((t) => (
+        <Money
+          key={t}
+          label={`${TIER_LABEL[t]}: extension spring`}
+          value={sheet.extensionSpring[t]}
+          onChange={(v) => update((s) => ({ ...s, extensionSpring: { ...s.extensionSpring, [t]: v } }))}
+          testID={`price-ext-${t}`}
         />
       ))}
 

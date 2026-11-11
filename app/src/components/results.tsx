@@ -8,12 +8,15 @@ import { colors, type } from '../theme';
 export const SAFETY_TEXT =
   "Torsion springs store enough energy to cause serious injury. Results are estimates from published charts and must be checked against the spring maker's data. Only trained technicians should wind or unwind springs. Use proper winding bars, never screwdrivers.";
 
+export const EXTENSION_SAFETY_TEXT =
+  "Extension springs under tension can snap and fly across the garage. Open the door fully and clamp the track before taking a spring off, and never run a door without a safety cable through every spring. Results are estimates from published charts; check them against the door maker's data. Only trained technicians should replace springs.";
+
 /** Always shown above the results. It has no close button on purpose. */
-export function SafetyBanner() {
+export function SafetyBanner({ text = SAFETY_TEXT }: { text?: string }) {
   return (
     <View style={styles.safety} testID="safety-banner" accessibilityRole="alert">
       <Text style={styles.safetyTitle}>⚠ SAFETY</Text>
-      <Text style={styles.safetyText}>{SAFETY_TEXT}</Text>
+      <Text style={styles.safetyText}>{text}</Text>
     </View>
   );
 }

@@ -89,9 +89,13 @@ function OptionCard({ option, accepted, onAccept }: { option: QuoteOption; accep
           {formatMoney(option.total)}
         </Text>
       </View>
-      <Text style={styles.meta}>
-        For {formatNumber(TIER_CYCLES[option.tier])}+ cycles · these springs are rated {option.spring ? formatLife(option.spring.life) : '?'}
-      </Text>
+      {option.extension ? (
+        <Text style={styles.meta}>Extension springs, the same size on every option</Text>
+      ) : (
+        <Text style={styles.meta}>
+          For {formatNumber(TIER_CYCLES[option.tier])}+ cycles · these springs are rated {option.spring ? formatLife(option.spring.life) : '?'}
+        </Text>
+      )}
       {option.lines.map((l, i) => (
         <View key={i} style={styles.line}>
           <Text style={styles.lineLabel}>{l.label}</Text>
