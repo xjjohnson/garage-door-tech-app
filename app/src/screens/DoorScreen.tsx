@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ChipOption, ChipRow, Field, MeasureField, MultiChipRow, SectionTitle, TextButton } from '../components/controls';
 import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
-import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, runDoor, TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
+import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, runDoor } from '../lib/forms';
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
+import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { DoorResult } from '../springCalc';
 import { colors, type } from '../theme';
 
