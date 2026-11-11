@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, SectionTitle } from '../components/controls';
 import { Card, ErrorCard, EXTENSION_SAFETY_TEXT, MissingCard, SafetyBanner, Stat, Warnings } from '../components/results';
+import { EstimateWeightLink } from '../components/EstimateWeightLink';
 import { SaveJobPanel } from '../components/SaveJobPanel';
 import { DEFAULT_EXTENSION_FORM, ExtensionForm, EXTENSION_HEIGHT_CHOICES, Outcome, runExtension } from '../lib/forms';
 import { OpenJobRequest } from '../lib/jobs';
@@ -64,6 +65,7 @@ export function ExtensionScreen({ open }: { open?: OpenJobRequest }) {
         placeholder="Tap to enter, or use the old springs"
         testID="field-ext-weight"
       />
+      <EstimateWeightLink testID="ext-estimate-weight" />
 
       <SectionTitle>The old springs</SectionTitle>
       <MeasureField

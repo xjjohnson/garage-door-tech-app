@@ -7,6 +7,7 @@ import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICE
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { OpenJobRequest } from '../lib/jobs';
+import { EstimateWeightLink } from '../components/EstimateWeightLink';
 import { SaveJobPanel } from '../components/SaveJobPanel';
 import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { DoorResult } from '../springCalc';
@@ -49,6 +50,7 @@ export function DoorScreen({ open }: { open?: OpenJobRequest }) {
         allowFraction={false}
         testID="field-weight"
       />
+      <EstimateWeightLink testID="door-estimate-weight" />
       <Field label="Door height">
         <ChipRow options={[...HEIGHT_CHOICES]} value={form.heightChoice} onChange={(heightChoice) => update({ heightChoice })} testID="door-height" />
       </Field>
