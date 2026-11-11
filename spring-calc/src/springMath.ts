@@ -251,6 +251,20 @@ export function balancedWeight(totalIppt: number, turns: number, drumId: DrumId)
 }
 
 /**
+ * Length to cut each lift cable for a standard-lift drum:
+ *     cable = floor to shaft center + the drum's allowance (8" on 400-8 and
+ *     400-12 drums)
+ * The allowance covers the turns left on the drum and the loop at the
+ * bottom bracket. Measure floor to the center of the torsion shaft.
+ */
+export function cableLengthIn(floorToShaftCenterIn: number, drumId: DrumId): number {
+  if (!(floorToShaftCenterIn > 0) || floorToShaftCenterIn > 240) {
+    throw new RangeError('Floor to shaft center must be between 0 and 240 inches.');
+  }
+  return floorToShaftCenterIn + DRUMS[drumId].cableAllowanceIn;
+}
+
+/**
  * How much longer the spring gets when wound: about one wire diameter per
  * turn. The tech needs this much free shaft beside the spring.
  */

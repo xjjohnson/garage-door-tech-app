@@ -11,6 +11,7 @@ import { COMMON_IDS_IN, DEFAULT_DEAD_COILS, DRUMS, DrumId, LIFE_POINTS, LIFE_SER
 import {
   allowableTorqueForCycles,
   balancedWeight,
+  cableLengthIn,
   doorTorque,
   estimateLife,
   findWire,
@@ -117,6 +118,18 @@ function equivalentOn(
   return spec;
 }
 
+/**
+ * Cable length for each lift cable, or undefined when the tech didn't
+ * measure floor to shaft center. The shaft has to sit above the door.
+ */
+function resolveCable(floorToShaftCenterIn: number | undefined, doorHeightIn: number | undefined, drum: DrumId): number | undefined {
+  if (floorToShaftCenterIn === undefined) return undefined;
+  if (doorHeightIn !== undefined && floorToShaftCenterIn <= doorHeightIn) {
+    throw new RangeError('Floor to shaft center must be more than the door height. Measure to the middle of the torsion shaft.');
+  }
+  return cableLengthIn(floorToShaftCenterIn, drum);
+}
+
 function resolveTurns(input: { doorHeightIn?: number; drum: DrumId; turns?: number }, warnings: Warning[]): number {
   if (input.turns !== undefined) {
     if (input.turns <= 0 || input.turns > 20) throw new RangeError('Turns must be between 0 and 20.');
@@ -148,6 +161,8 @@ export interface MatchInput {
   upgradeTargets?: number[];
   /** Free shaft length per spring, if the tech measured it. */
   maxLengthIn?: number;
+  /** Floor to the center of the torsion shaft, for the cable length. */
+  floorToShaftCenterIn?: number;
   deadCoils?: number;
   lengthIncrementIn?: number;
 }
@@ -167,6 +182,8 @@ export interface MatchResult {
   /** Same rate in the other common inside diameters and neighbouring wires. */
   equivalents: SpringSpec[];
   upgrades: UpgradeOption[];
+  /** Length of each lift cable, when floor to shaft center was entered. */
+  cableLengthIn?: number;
   warnings: Warning[];
 }
 
@@ -198,6 +215,7 @@ export function matchOldSpring(input: MatchInput): MatchResult {
 
   // 2. Rate of the old spring, the turns, and the torque the door needs.
   const turns = resolveTurns({ doorHeightIn: input.doorHeightIn, drum, turns: input.turns }, warnings);
+  const cable = resolveCable(input.floorToShaftCenterIn, input.doorHeightIn, drum);
   const oldIppt = ippt(wire.diameterIn, input.insideDiameterIn, input.lengthIn, deadCoils);
   const torque = oldIppt * turns; // per spring, door closed, full wind, by the textbook rate
   // DDM-consistent view: DDM's springs lift about RATE_FACTOR_LOW of the
@@ -256,6 +274,7 @@ export function matchOldSpring(input: MatchInput): MatchResult {
     },
     equivalents: equivalents.slice(0, 6),
     upgrades,
+    ...(cable !== undefined ? { cableLengthIn: cable } : {}),
     warnings,
   };
 }
@@ -275,6 +294,8 @@ export interface DoorInput {
   insideDiametersIn?: number[];
   /** Free shaft length per spring, if measured. */
   maxLengthIn?: number;
+  /** Floor to the center of the torsion shaft, for the cable length. */
+  floorToShaftCenterIn?: number;
   deadCoils?: number;
   lengthIncrementIn?: number;
 }
@@ -291,6 +312,8 @@ export interface DoorResult {
    * sources (see RATE_FACTOR_LOW in data.ts).
    */
   options: (SpringSpec & { balancesDoorLb: { low: number; high: number } })[];
+  /** Length of each lift cable, when floor to shaft center was entered. */
+  cableLengthIn?: number;
   warnings: Warning[];
 }
 
@@ -305,6 +328,7 @@ export function sizeFromDoor(input: DoorInput): DoorResult {
   if (input.doorHeightIn < 48) throw new RangeError('Door height must be at least 4\'.');
 
   const turns = standardLiftTurns(input.doorHeightIn, input.drum);
+  const cable = resolveCable(input.floorToShaftCenterIn, input.doorHeightIn, input.drum);
   const torquePerSpring = doorTorque(input.doorWeightLb, input.drum) / input.springCount;
   const ipptPerSpring = torquePerSpring / turns;
   const lt: LifeTorque = { maker: torquePerSpring, conservative: torquePerSpring * LIFE_SERVICE_FACTOR };
@@ -329,7 +353,14 @@ export function sizeFromDoor(input: DoorInput): DoorResult {
   }
   warnings.push({ level: 'info', message: `Start at ${turns} turns, then check balance and adjust a quarter turn at a time.` });
 
-  return { turns, torquePerSpringInLb: torquePerSpring, ipptPerSpring, options: options.slice(0, 8), warnings };
+  return {
+    turns,
+    torquePerSpringInLb: torquePerSpring,
+    ipptPerSpring,
+    options: options.slice(0, 8),
+    ...(cable !== undefined ? { cableLengthIn: cable } : {}),
+    warnings,
+  };
 }
 
 export { DRUMS, WIRES, findWire };

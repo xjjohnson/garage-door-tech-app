@@ -2,7 +2,7 @@
 
 Pure TypeScript, no dependencies, works offline. Drop `src/` into the Expo app
 later. Tests: `npm install && npm test` (Vitest), types: `npm run typecheck`.
-Status: 60 tests passing, Nov 10 2026.
+Status: 111 tests passing, Nov 11 2026.
 
 ## The math
 
@@ -23,6 +23,9 @@ All units are inches, pounds, inch-pounds.
 6. **Wire from 20 coils.** Matched to the DASMA 20-coil table within 1/16",
    flagged as ambiguous near the midpoint between two sizes.
 7. **Growth.** A spring gets about one wire diameter longer per turn wound.
+8. **Cable length.** Floor to shaft center + 8" for each cable on 400-8 and
+   400-12 drums (the same rule from Service Spring, APCO, DNS, OMI and
+   Torque Force). Shown when the tech enters floor to shaft center.
 
 ## How it checks against published charts
 
@@ -33,6 +36,11 @@ All units are inches, pounds, inch-pounds.
 | Same | Max torque at 10k–100k cycles | Within 3%. Ours is lower (more conservative) on 4 of 6 springs, and at most 1.7% higher on the .225s |
 | DDM, .207×22 and .225×23.5 pairs | Door weight lifted | DDM rates about 8% less door than the formula |
 | DDM, .207×22 and .218×24 | Cycle rating | DDM rates about 45% fewer cycles than Canimex |
+| Canimex charts 1.75" and 2.00" | Rate constants, weight per inch, MIP | Within 0.5%. Our MIP below 2.5" ID is 0–4% under the chart, never over |
+| Service Spring weight-per-inch chart, 13 wires × 3 IDs | Weight per inch | Within 0.5% (its .295 row runs 1.3% heavy; Canimex agrees with us) |
+| DASMA color sheet #171, Service Spring sheet | Color per wire | All 14 match |
+| Spring Engineering app worked example | IPPT of .218×2"×25" | 27.53 vs 27.74 (0.8%) |
+| Canimex cable drum manual, D400-96 / D400-144 | Lift and life factors | Canimex sizes on the drum's high moment arm (2.275"); that explains both the 8% and 15% factors below |
 
 ### Disagreements and how they were resolved
 
@@ -46,6 +54,15 @@ All units are inches, pounds, inch-pounds.
   15% higher. The calculator shows DDM's (lower) figure as the rating and the
   Canimex figure as the optimistic end. With this, a .225×2"×24" pair on a 7'
   door rates 10,000 cycles, which is how the trade sells that spring.
+- **Why the factors exist.** Canimex's drum manual sizes springs on the
+  drum's high moment arm (2.275" on a D400-96, 2.293" on a D400-144), not
+  2", and winds a 7' door 7.6 turns on 12" track or 7.9 on 15". That rates a
+  spring set for 0.88–0.93× the door the plain formula gives, which is the
+  lift gap, and puts full-wind torque 14% above door weight × 2", which is
+  the life gap. RATE_FACTOR_LOW (0.92) matches 15" track and runs about 3%
+  high for 12" track.
+- **20 coils of .234.** DASMA and Service Spring print 4-5/8", but 20 coils
+  of .2343" wire are 4.69" long. DDM prints 4-11/16", and so does the table.
 - **Wire names.** ".218" is really .2187" and ".225" is .2253". The code uses
   the actual diameters; using the nominal ones throws IPPT off by up to 2.4%.
 
@@ -61,6 +78,13 @@ chart before it can be added.
 - American Garage Door Supply product pages (IPPT and turns-vs-cycles tables).
 - DDM Garage Doors product pages and "How many turns do you wind a torsion spring".
 - DASMA torsion spring table, in Controlled Products' Spring Reference Chart.
+- Canimex spring charts for 1.75" and 2.00" coil diameter, and the Canimex
+  Torque Force cable drum and torsion spring manual.
+- Service Spring Corp weight-per-inch chart and spring ordering sheet.
+- DASMA torsion and extension spring color sheet #171 (Rev. 9/2015).
+- DDM Garage Doors, "How to measure torsion springs" (10- and 20-coil table).
+- Cable length formula and drum cross-reference (Service Spring, APCO, DNS,
+  OMI, Torque Force part numbers).
 - Service Spring, "Understanding 3 impacts of the garage door drum".
 - Richard Kinch, truetex.com garage door spring page (torque and turns).
 - Dr. Drang, "Let's twist again", leancrew.com (IPPT and stress derivation).

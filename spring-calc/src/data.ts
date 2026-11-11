@@ -32,6 +32,13 @@ export const STEEL = {
  * and shows the door-weight range from RATE_FACTOR_LOW to 1.0. Either way the
  * door should land within about a quarter turn of balance. Mode 1 (match the
  * old spring) is not affected, because it compares springs to each other.
+ *
+ * Canimex's cable drum manual explains most of the gap: it sizes springs on
+ * the drum's high moment arm (2.275" on a D400-96) rather than 2", and winds
+ * a 7' door 7.6 turns on 12" radius track or 7.9 on 15". That rates a spring
+ * set for 0.88x to 0.90x (12" track) or 0.92x to 0.93x (15" track) the door
+ * this formula gives at 7-1/2 turns, so RATE_FACTOR_LOW matches 15" track
+ * and runs about 3% high for 12" track (see the reference chart tests).
  */
 export const RATE_FACTOR_LOW = 0.92;
 export const RATE_FACTOR_MID = 0.96;
@@ -45,16 +52,24 @@ export const RATE_FACTOR_MID = 0.96;
  * were 15% higher than the door actually needs.
  *
  * To stay on the safe side, the calculator rates life at the door's torque
- * times LIFE_SERVICE_FACTOR, which lands on DDM's numbers. The screen can
+ * times LIFE_SERVICE_FACTOR, which lands on DDM's numbers. It is also, within
+ * 1%, what Canimex's drum manual does: it takes the full-wind torque as door
+ * weight x the drum's high moment arm, and 2.275 / 2.0 = 1.14. The screen can
  * also show the maker-chart figure (factor 1.0) as the optimistic end.
  */
 export const LIFE_SERVICE_FACTOR = 1.15;
 
 /**
  * Dead (inactive) coils per spring: the coils clamped in the two cones that
- * do not twist. Canimex uses 5 on its 2.5" and 2.63" charts and 3 on its
- * 3.75" chart. American Garage Door Supply's 2" and 1-3/4" IPPT values fit
- * 3 to 4. We use 4 as the default; a calling screen can override it.
+ * do not twist. Sources split around 4:
+ *  - Canimex prints 5 on its 1.75", 2.5" and 2.63" charts and 3 on 3.75".
+ *  - Canimex's 2.00" chart prints 0 for most wires (5 for a few).
+ *  - The Spring Engineering app's .2187 x 2" x 25" at 27.74 IPPT fits 5.
+ *  - American Garage Door Supply's 2" and 1-3/4" IPPT values fit 4 to 5.
+ * 4 is kept because the DDM-fitted factors above were set with it: moving to
+ * 5 raises every IPPT about 1%, lengthens Mode 2 springs about 1/4" and cuts
+ * a .225 x 2" x 24" pair on a 7' door just under 10,000 cycles. A calling
+ * screen can override it.
  */
 export const DEFAULT_DEAD_COILS = 4;
 
@@ -79,7 +94,10 @@ export interface WireSize {
   diameterIn: number;
   /** DASMA color code for the cone/paint mark, where DASMA lists one. */
   color?: string;
-  /** DASMA length of 20 closely wound coils, inches. */
+  /**
+   * Length of 20 closely wound coils, inches, to the nearest 1/16" (DASMA,
+   * except .234: see WIRES).
+   */
   twentyCoilIn?: number;
   /**
    * Maximum torque per spring in inch-pounds (MIP) at each life point in
@@ -97,7 +115,13 @@ export interface WireSize {
  *  - Diameters and MIP: Canimex spring charts RCI2_50 and RCI2_63, hosted by
  *    IDC Spring (idcspring.com), read November 2026.
  *  - Color and 20-coil length: DASMA torsion spring table in Controlled
- *    Products' "Spring Reference Chart" PDF, read November 2026.
+ *    Products' "Spring Reference Chart" PDF, read November 2026. The colors
+ *    also match DASMA sheet #171 (Rev. 9/2015) and Service Spring's ordering
+ *    sheet for every wire here.
+ *  - 20-coil length for .234: DASMA and Service Spring print 4-5/8", but 20
+ *    coils of .2343" wire are 4.686" long, which rounds to 4-11/16". DDM's
+ *    measuring guide prints 4-11/16" and so does this table. Every other
+ *    size is within 1/32" of 20 x its diameter.
  *
  * Canimex also prints a .2375" wire. It is left out because it has no DASMA
  * entry and sits between .234 and .243, which would make the 20-coil
@@ -110,7 +134,7 @@ export const WIRES: readonly WireSize[] = [
   { nominal: '.207', diameterIn: 0.207, color: 'Yellow', twentyCoilIn: 4.125, mipInLb: [212, 197, 177, 152, 131] },
   { nominal: '.218', diameterIn: 0.2187, color: 'White', twentyCoilIn: 4.375, mipInLb: [247, 229, 207, 178, 153] },
   { nominal: '.225', diameterIn: 0.2253, color: 'Red', twentyCoilIn: 4.5, mipInLb: [269, 249, 225, 193, 166] },
-  { nominal: '.234', diameterIn: 0.234, color: 'Brown', twentyCoilIn: 4.625, mipInLb: [299, 277, 250, 214, 185] },
+  { nominal: '.234', diameterIn: 0.234, color: 'Brown', twentyCoilIn: 4.6875, mipInLb: [299, 277, 250, 214, 185] },
   { nominal: '.243', diameterIn: 0.2437, color: 'Green', twentyCoilIn: 4.875, mipInLb: [334, 310, 280, 240, 207] },
   { nominal: '.250', diameterIn: 0.25, color: 'Gold', twentyCoilIn: 5.0, mipInLb: [359, 333, 300, 258, 222] },
   { nominal: '.262', diameterIn: 0.2625, color: 'Blue', twentyCoilIn: 5.25, mipInLb: [411, 382, 344, 295, 254] },
@@ -131,6 +155,17 @@ export interface Drum {
   cableRadiusIn: number;
   /** Tallest door the drum holds enough cable for, inches. */
   maxDoorHeightIn: number;
+  /**
+   * Canimex's high moment arm (HMA) for this drum, inches: the largest
+   * radius the cable pulls at, which Canimex sizes springs on. Used only to
+   * check the calculator's safety factors (see LIFE_SERVICE_FACTOR).
+   */
+  highMomentArmIn: number;
+  /**
+   * Cable length = floor to shaft center + this, inches, for each cable
+   * (standard-lift cable length rule for 4" drums: +8").
+   */
+  cableAllowanceIn: number;
   label: string;
 }
 
@@ -141,10 +176,16 @@ export interface Drum {
  * lifts about 13" per turn, so a 7' door takes about 7-1/2 turns
  * (Service Spring; DDM, "How Many Turns Do You Wind a Torsion Spring").
  *
+ * Canimex's cable drum manual lists its D400-96 (the 400-8 size) for doors
+ * to 98" and its D400-144 (400-12) to 148"; the limits here stay at the
+ * even 8' and 12' the part numbers name. Both drums take cable of floor to
+ * shaft center + 8" (Service Spring, APCO, DNS, OMI and Torque Force all
+ * give the same rule for these two drums).
+ *
  * High-lift, vertical-lift and tapered drums change the cable radius as the
  * door travels. They need the drum maker's chart and are out of scope for v1.
  */
 export const DRUMS: Record<DrumId, Drum> = {
-  '400-8': { id: '400-8', cableRadiusIn: 2.0, maxDoorHeightIn: 96, label: '400-8 (4", doors to 8\')' },
-  '400-12': { id: '400-12', cableRadiusIn: 2.0, maxDoorHeightIn: 144, label: '400-12 (4", doors to 12\')' },
+  '400-8': { id: '400-8', cableRadiusIn: 2.0, maxDoorHeightIn: 96, highMomentArmIn: 2.275, cableAllowanceIn: 8, label: '400-8 (4", doors to 8\')' },
+  '400-12': { id: '400-12', cableRadiusIn: 2.0, maxDoorHeightIn: 144, highMomentArmIn: 2.293, cableAllowanceIn: 8, label: '400-12 (4", doors to 12\')' },
 };
