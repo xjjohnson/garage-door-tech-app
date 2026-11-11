@@ -139,9 +139,11 @@ export function MatchScreen() {
   const results = (
     <>
       <SectionTitle>Results</SectionTitle>
+      {/* STOP and CHECK cards first, so the bar's jump lands on them, then the general safety banner. */}
+      {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
+      {outcome.status === 'ok' ? <Warnings warnings={outcome.result.warnings} /> : null}
       <SafetyBanner />
       {outcome.status === 'incomplete' ? <MissingCard missing={outcome.missing} /> : null}
-      {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
       {outcome.status === 'ok' ? <MatchResults result={outcome.result} /> : null}
     </>
   );
@@ -157,7 +159,9 @@ export function matchSummary(outcome: Outcome<MatchResult>): BarSummary {
   const stop = r.warnings.find((w) => w.level === 'stop');
   if (stop) return { tone: 'stop', title: 'STOP', detail: stop.message };
   const checks = r.warnings.filter((w) => w.level === 'caution').length;
-  const detail = [`Wind ${formatTurns(r.turns)} turns`, checks > 0 ? `${checks} to check` : 'see replacements'].join(' · ');
+  // The spring count leads, because "Pair" is the default and a skipped answer changes every figure.
+  const count = r.springCount === 2 ? 'Pair' : 'One spring';
+  const detail = [count, `Wind ${formatTurns(r.turns)} turns`, checks > 0 ? `${checks} caution${checks === 1 ? '' : 's'}` : 'see replacements'].join(' · ');
   return { tone: 'ok', title: springName(r.old), detail };
 }
 
@@ -172,7 +176,6 @@ function MatchResults({ result }: { result: MatchResult }) {
   const each = result.springCount === 2 ? ' (pair)' : '';
   return (
     <View style={styles.stack} testID="match-results">
-      <Warnings warnings={result.warnings} />
 
       <Card title="Old spring" testID="card-old">
         <SpringDetails spec={result.old} />

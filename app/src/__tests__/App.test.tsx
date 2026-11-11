@@ -105,6 +105,41 @@ describe('spring calculator app', () => {
     expect(within(screen.getByTestId('match-bar')).getByText(/Wind 7 1\/2 turns/)).toBeTruthy();
   });
 
+  it('the bar says how many springs the figures are for, and names cautions', async () => {
+    await render(<App />);
+    await enter('field-twenty', ['4', '1/2']);
+    await enter('field-length', ['2', '4']);
+    expect(within(screen.getByTestId('match-bar')).getByText(/^Pair · Wind 7 1\/2 turns · \d+ cautions?$/)).toBeTruthy();
+    await fireEvent.press(within(screen.getByTestId('count')).getByRole('radio', { name: 'One spring' }));
+    expect(within(screen.getByTestId('match-bar')).getByText(/^One spring · /)).toBeTruthy();
+  });
+
+  it('a STOP reason in the bar is never cut off, and its card comes before the safety banner', async () => {
+    await render(<App />);
+    await fireEvent.press(screen.getByTestId('tab-door'));
+    await enter('field-weight', ['5']);
+    await screen.findAllByTestId('warning-stop');
+    expect(screen.getByTestId('door-bar-detail').props.numberOfLines).toBeUndefined();
+    // Match is mounted first and has no STOP, so the last banner is the door screen's.
+    const ids: string[] = [];
+    const walk = (n: any) => {
+      if (typeof n?.props?.testID === 'string') ids.push(n.props.testID);
+      (n?.children ?? []).forEach((c: any) => typeof c === 'object' && walk(c));
+    };
+    walk(screen.root);
+    const stopAt = ids.indexOf('warning-stop');
+    const doorBanner = ids.lastIndexOf('safety-banner');
+    expect(stopAt).toBeGreaterThan(-1);
+    expect(stopAt).toBeLessThan(doorBanner);
+  });
+
+  it('the build line is hidden until the title is held', async () => {
+    await render(<App />);
+    expect(screen.queryByTestId('build-info')).toBeNull();
+    await fireEvent(screen.getByTestId('header'), 'longPress');
+    expect(screen.getByTestId('build-info')).toBeTruthy();
+  });
+
   it('clear all inputs needs a second tap', async () => {
     await render(<App />);
     await enter('field-length', ['2', '4']);
