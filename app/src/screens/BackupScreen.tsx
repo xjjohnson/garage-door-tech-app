@@ -9,6 +9,7 @@ import { formatJobDate } from '../lib/jobs';
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useSchedule } from '../lib/useSchedule';
+import { useStock } from '../lib/useStock';
 import { useWorkLog } from '../lib/useWorkLog';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -39,6 +40,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
   const { settings: followUpSettings, dismissed, restore: restoreFollowUps } = useFollowUps();
   const { appointments, restore: restoreSchedule } = useSchedule();
   const { shifts, centsPerMile, restore: restoreWorkLog } = useWorkLog();
+  const { items: stockItems, suppliers, restore: restoreStock } = useStock();
   const { sheet, update } = usePriceSheet();
   const [lastBackup, setLastBackup] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,7 +64,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     try {
       const at = now();
       const name = backupFileName(at);
-      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, followUps: { settings: followUpSettings, dismissed }, appointments, workLog: { shifts, centsPerMile }, priceSheet: sheet }, at, Constants.expoConfig?.version));
+      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, followUps: { settings: followUpSettings, dismissed }, appointments, workLog: { shifts, centsPerMile }, stock: { items: stockItems, suppliers }, priceSheet: sheet }, at, Constants.expoConfig?.version));
       if (folder !== null) {
         setLastBackup(at);
         AsyncStorage.setItem(LAST_BACKUP_KEY, String(at)).catch(() => undefined);
@@ -101,6 +103,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     if (pending.followUps) restoreFollowUps(pending.followUps);
     if (pending.appointments.length > 0) restoreSchedule(pending.appointments);
     if (pending.workLog) restoreWorkLog(pending.workLog);
+    if (pending.stock) restoreStock(pending.stock);
     const { added, updated } = restore(pending.jobs);
     if (pending.priceSheet) {
       const restored = pending.priceSheet;

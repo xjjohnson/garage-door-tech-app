@@ -12,6 +12,7 @@ import { useJobs } from '../lib/useJobs';
 import { StatsCard } from './StatsScreen';
 import { NextVisits } from './ScheduleScreen';
 import { ClockButton } from './WorkLogScreen';
+import { StockButton } from './StockScreen';
 import { followUps } from '../lib/followups';
 import { useFollowUps } from '../lib/useFollowUps';
 import { colors, touch, type } from '../theme';
@@ -48,7 +49,10 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
     <View style={styles.stack}>
       <StatsCard />
       <NextVisits />
-      <ClockButton />
+      <View style={styles.row}>
+        <ClockButton />
+        <StockButton />
+      </View>
       <FollowUpsButton />
       <View style={styles.searchRow}>
         <TextInput

@@ -387,6 +387,19 @@ mileage deduction at the tech's rate in cents a mile (70¢ by default, the IRS
 a CSV with a row a day and a total, for taxes or an accountant
 (`src/lib/worklog.ts`, AsyncStorage `worklog/v1`, included in backups).
 
+**Truck stock.** **Truck stock** at the top of Jobs (outlined, with a count,
+when something is low) lists what's on the truck by Springs, Parts, and
+Openers and remotes, each with big **−** and **+** buttons. **Add common
+items** starts a torsion-truck list at 0 to fill in. An item has a reorder
+point and a fill-to count, a supplier, an optional part number and cost.
+**To order** groups low items by supplier with the quantity to get back to
+the fill-to count, and **Text order** or **Email order** opens a ready message
+to that supplier (phone and email are set under **Suppliers**); **Got it, add
+to stock** adds the order to the counts. An item keeps what an inventory
+system keeps for a product (name, part number, on hand, reorder point, cost,
+vendor), so a later Odoo sync can map it (`src/lib/stock.ts`, AsyncStorage
+`stock/v1`, included in backups).
+
 **Safety check.** A job's **Safety check** (in its details, or on its quote)
 walks the door and opener: lift cables, drums, bottom brackets, springs and
 cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
@@ -455,7 +468,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 
 | File | Address | What |
 |---|---|---|
-| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles), then a stack: the sections, with full pages on top |
+| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Springs: Match old, From door, Extension and High lift |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
@@ -474,6 +487,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `follow-ups.tsx` | `/follow-ups` | Tune-ups, worn springs and warranty ends due, a full page |
 | `schedule.tsx` | `/schedule` | Booked visits by day; `?book=<customer id>` opens booking for them, a full page |
 | `time-log.tsx` | `/time-log` | Clock in and out, miles and the week's totals, a full page |
+| `stock.tsx` | `/stock` | Truck stock and orders to suppliers, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

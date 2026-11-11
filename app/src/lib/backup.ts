@@ -16,6 +16,7 @@ import { Job, parseJobs } from './jobs';
 import { FollowUpStore, parseFollowUpStore } from './followups';
 import { Appointment, parseSchedule } from './schedule';
 import { parseWorkLog, WorkLog } from './worklog';
+import { parseStock, StockStore } from './stock';
 import { parsePriceSheet, PriceSheet } from './prices';
 
 export const BACKUP_FORMAT = 'garage-door-tech-backup';
@@ -37,11 +38,13 @@ export interface Backup {
   appointments: Appointment[];
   /** Days on the clock and miles, if the backup has them. */
   workLog?: WorkLog;
+  /** Truck stock and suppliers, if the backup has them. */
+  stock?: StockStore;
   /** Missing when the file had none; restoring then leaves the phone's prices alone. */
   priceSheet?: PriceSheet;
 }
 
-export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; invoices?: Invoice[]; business?: Business; followUps?: FollowUpStore; appointments?: Appointment[]; workLog?: WorkLog; priceSheet: PriceSheet }, now: number, appVersion?: string): string {
+export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; invoices?: Invoice[]; business?: Business; followUps?: FollowUpStore; appointments?: Appointment[]; workLog?: WorkLog; stock?: StockStore; priceSheet: PriceSheet }, now: number, appVersion?: string): string {
   const file = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -54,6 +57,7 @@ export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; invoices
     ...(data.followUps ? { followUps: data.followUps } : {}),
     appointments: data.appointments ?? [],
     ...(data.workLog ? { workLog: data.workLog } : {}),
+    ...(data.stock ? { stock: data.stock } : {}),
     priceSheet: data.priceSheet,
   };
   return JSON.stringify(file, null, 1);
@@ -88,6 +92,7 @@ export function parseBackup(raw: string): ParsedBackup {
       ...(d.followUps && typeof d.followUps === 'object' ? { followUps: parseFollowUpStore(d.followUps) } : {}),
       appointments: Array.isArray(d.appointments) ? parseSchedule(d.appointments) : [],
       ...(d.workLog && typeof d.workLog === 'object' ? { workLog: parseWorkLog(d.workLog) } : {}),
+      ...(d.stock && typeof d.stock === 'object' ? { stock: parseStock(d.stock) } : {}),
       ...(priceSheet ? { priceSheet } : {}),
     },
   };
