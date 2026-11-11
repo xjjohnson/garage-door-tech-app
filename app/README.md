@@ -270,6 +270,24 @@ the inputs, not the result, so reopening it runs the current math. Jobs live
 only on the phone (AsyncStorage, `src/lib/jobs.ts` and `src/lib/useJobs.tsx`),
 with no account and no network; uninstalling the app deletes them.
 
+**Quotes.** A saved job's **Quote** button prices it three ways from the
+price sheet: **Good** puts in 10,000-cycle springs (in Match old spring, the
+same size as the old one), **Better** 25,000 and **Best** 50,000, each with
+the spring labor, the service call and whichever add-ons the price sheet
+includes in that option. Sales tax is charged on parts (springs and
+add-ons), not labor. **Send to customer** shares the quote as plain text
+(text message, email, anything the phone offers), and **Customer picked**
+records the option and its total on the job, shown in the Jobs list. An
+option with no spring of that rating says so instead of a price, and a job
+whose calculator shows a STOP gets no quote until it's fixed
+(`src/lib/quote.ts`).
+
+**Price sheet.** Opened from the top of Jobs or from a quote: service call,
+spring labor, a price per spring for each option, add-ons (named freely,
+each ticked for Good, Better and/or Best; add or remove any) and the tax
+rate. Prices are entered on the keypad and saved on the phone as they're
+typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
+
 **Look.** Near-black on white, bold type at 18 px and up, every button at
 least 56 px tall for gloves. The app is portrait and light mode only.
 

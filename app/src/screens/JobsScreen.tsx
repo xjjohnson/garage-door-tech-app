@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, Segmented } from '../components/controls';
+import { FullSheet } from '../components/FullSheet';
 import { JobDetailsSheet } from '../components/JobDetailsSheet';
 import { formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
+import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { useJobs } from '../lib/useJobs';
+import { PriceSheetScreen } from './PriceSheetScreen';
+import { QuoteScreen } from './QuoteScreen';
 import { colors, touch, type } from '../theme';
 
 type Filter = JobStatus | 'all';
@@ -16,6 +20,9 @@ const FILTERS: ChipOption<Filter>[] = [
 
 const CONFIRM_MS = 4000;
 
+/** What's open over the list: the price sheet, or one job's quote. */
+type Panel = { kind: 'prices' } | { kind: 'quote'; jobId: string } | null;
+
 /**
  * Saved jobs, open ones first. Tapping a job shows its details and what can
  * be done with it: open it in the calculator, call the customer, edit, mark
@@ -27,6 +34,8 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   const [filter, setFilter] = useState<Filter>('open');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Job | null>(null);
+  const [panel, setPanel] = useState<Panel>(null);
+  const quoting = panel?.kind === 'quote' ? jobs.find((j) => j.id === panel.jobId) : undefined;
 
   const shown = useMemo(() => {
     const byStatus = filter === 'all' ? jobs : jobs.filter((j) => j.status === filter);
@@ -54,6 +63,9 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           </Pressable>
         ) : null}
       </View>
+      <Pressable onPress={() => setPanel({ kind: 'prices' })} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+        <Text style={styles.buttonText}>Price sheet</Text>
+      </Pressable>
       <Segmented options={FILTERS} value={filter} onChange={setFilter} testID="jobs-filter" />
 
       {loaded && jobs.length === 0 ? (
@@ -75,6 +87,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           expanded={expanded === job.id}
           onToggle={() => setExpanded((e) => (e === job.id ? null : job.id))}
           onOpen={() => onOpen(job)}
+          onQuote={() => setPanel({ kind: 'quote', jobId: job.id })}
           onEdit={() => setEditing(job)}
           onStatus={(s) => setStatus(job.id, s)}
           onDelete={() => {
@@ -83,6 +96,13 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           }}
         />
       ))}
+
+      <FullSheet visible={panel?.kind === 'prices'} title="Price sheet" onClose={() => setPanel(null)} testID="prices-sheet">
+        <PriceSheetScreen />
+      </FullSheet>
+      <FullSheet visible={quoting !== undefined} title="Quote" onClose={() => setPanel(null)} testID="quote-sheet">
+        {quoting ? <QuoteScreen job={quoting} onSetPrices={() => setPanel({ kind: 'prices' })} /> : null}
+      </FullSheet>
 
       <JobDetailsSheet
         visible={editing !== null}
@@ -104,6 +124,7 @@ function JobCard({
   expanded,
   onToggle,
   onOpen,
+  onQuote,
   onEdit,
   onStatus,
   onDelete,
@@ -112,6 +133,7 @@ function JobCard({
   expanded: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  onQuote: () => void;
   onEdit: () => void;
   onStatus: (s: JobStatus) => void;
   onDelete: () => void;
@@ -137,6 +159,11 @@ function JobCard({
         {job.customer && job.address ? <Text style={styles.address}>{job.address}</Text> : null}
         <Text style={styles.answer}>{job.summaryTitle}</Text>
         {job.summaryDetail ? <Text style={styles.meta}>{job.summaryDetail}</Text> : null}
+        {job.accepted ? (
+          <Text style={styles.accepted} testID={`job-accepted-${job.id}`}>
+            Picked {TIER_LABEL[job.accepted.tier]}, {formatMoney(job.accepted.total)}
+          </Text>
+        ) : null}
         <Text style={styles.meta}>
           {formatJobDate(job.savedAt)} · {MODE_LABEL[job.mode]}
         </Text>
@@ -145,7 +172,8 @@ function JobCard({
         <View style={styles.actions}>
           {job.phone ? <Text style={styles.detail}>Phone: {job.phone}</Text> : null}
           {job.notes ? <Text style={styles.detail}>{job.notes}</Text> : null}
-          <Action label="Open in calculator" primary onPress={onOpen} testID={`job-open-${job.id}`} />
+          <Action label="Quote" primary onPress={onQuote} testID={`job-quote-${job.id}`} />
+          <Action label="Open in calculator" onPress={onOpen} testID={`job-open-${job.id}`} />
           {tel ? <Action label={`Call ${job.phone}`} onPress={() => Linking.openURL(tel).catch(() => undefined)} testID={`job-call-${job.id}`} /> : null}
           <View style={styles.row}>
             <Action label="Edit details" grow onPress={onEdit} testID={`job-edit-${job.id}`} />
@@ -222,6 +250,7 @@ const styles = StyleSheet.create({
   badgeDone: { color: colors.onSelected, backgroundColor: colors.selected },
   address: { fontSize: type.body, fontWeight: '700', color: colors.text },
   answer: { fontSize: type.body, fontWeight: '900', color: colors.text, marginTop: 4 },
+  accepted: { fontSize: type.body, fontWeight: '900', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   actions: { gap: 8, padding: 12, paddingTop: 10, borderTopWidth: 2, borderTopColor: colors.border },
   detail: { fontSize: type.body, color: colors.text, lineHeight: 24 },
