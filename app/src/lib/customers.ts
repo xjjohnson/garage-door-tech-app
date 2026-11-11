@@ -26,6 +26,10 @@ export interface Customer {
   notes: string;
   createdAt: number;
   updatedAt: number;
+  /** The Odoo contact (res.partner id) this customer syncs with. */
+  odooId?: number;
+  /** `updatedAt` as of the last sync with Odoo; a later updatedAt means the phone has changes to send. */
+  syncedAt?: number;
 }
 
 export type CustomerFields = Pick<Customer, 'name' | 'phone' | 'email' | 'address' | 'notes'>;
@@ -185,6 +189,8 @@ export function parseCustomers(raw: string | null | unknown[]): Customer[] {
       notes: str(c.notes),
       createdAt,
       updatedAt: typeof c.updatedAt === 'number' ? c.updatedAt : createdAt,
+      ...(typeof c.odooId === 'number' && c.odooId > 0 ? { odooId: c.odooId } : {}),
+      ...(typeof c.syncedAt === 'number' ? { syncedAt: c.syncedAt } : {}),
     });
   }
   return out;

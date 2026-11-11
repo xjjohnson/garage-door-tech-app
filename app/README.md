@@ -391,6 +391,15 @@ AsyncStorage `customers/v1`) and go into backups. Their fields (name, phone,
 email, street, notes) are the ones an accounting system such as Odoo keeps for
 a contact, so a later sync can map them directly.
 
+**Customers in Odoo.** Signed in to Odoo, **Sync customers with Odoo** at
+the top of Customers brings in Odoo customers (`res.partner` with
+`customer_rank > 0`), linking ones already on the phone by phone number or
+name, and creates the phone's new customers in Odoo marked as customers. A
+customer changed on the phone since the last sync sends its name, phone and
+email; one changed only in Odoo takes Odoo's details; when both changed the
+phone wins (`src/lib/customerSync.ts`). Each customer keeps `odooId` and
+`syncedAt`.
+
 **Business numbers.** The top of Jobs shows open jobs, what you're owed and
 what was collected this week; tapping it opens **Business numbers**: the
 oldest unpaid invoice, then this week and this month (collected, split by

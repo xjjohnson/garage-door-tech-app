@@ -7,6 +7,8 @@
  * otherwise ordinary Project tasks. Kept free of React; the network call is
  * passed in, so tests use a fake server.
  */
+import type { CustomerFields } from './customers';
+import type { OdooPartner } from './customerSync';
 import { Appointment } from './schedule';
 
 export const ODOO_STORAGE_KEY = 'odoo/v1';
@@ -137,6 +139,7 @@ export function toOdooTime(ms: number): string {
 }
 
 const TASK_OPTIONAL = ['planned_date_begin', 'date_deadline', 'description', 'partner_phone', 'fsm_done'];
+const PARTNER_OPTIONAL = ['customer_rank', 'mobile'];
 const PRODUCT_OPTIONAL = ['sale_ok', 'default_code'];
 const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end'];
 
@@ -217,6 +220,43 @@ export class OdooClient {
     const { domain, fields } = this.productQuery();
     const rows = (await this.call('product.product', 'search_read', [domain], { fields, limit: 2000, order: 'name asc' })) as Record<string, unknown>[];
     return rows.map(toProduct);
+  }
+
+  private partnerFieldsCache: Promise<string[]> | null = null;
+
+  /** Optional res.partner fields this Odoo has (mobile went away in Odoo 19; customer_rank comes with Sales or Invoicing). */
+  private partnerFields(): Promise<string[]> {
+    if (!this.partnerFieldsCache) {
+      this.partnerFieldsCache = (this.call('res.partner', 'fields_get', [], { attributes: ['type'] }) as Promise<Record<string, unknown>>).then((f) => PARTNER_OPTIONAL.filter((x) => x in f));
+      this.partnerFieldsCache.catch(() => {
+        this.partnerFieldsCache = null;
+      });
+    }
+    return this.partnerFieldsCache;
+  }
+
+  /** The business's customers (contacts marked as customers once Sales or Invoicing is installed), up to 5000. */
+  async partners(): Promise<OdooPartner[]> {
+    const pf = await this.partnerFields();
+    const domain = pf.includes('customer_rank') ? [['customer_rank', '>', 0]] : [['partner_share', '=', true], ['is_company', '=', false]];
+    const fields = ['name', 'phone', 'email', 'street', 'street2', 'city', 'zip', 'comment', 'write_date', ...pf.filter((f) => f === 'mobile')];
+    const rows = (await this.call('res.partner', 'search_read', [domain], { fields, limit: 5000, order: 'id asc' })) as Record<string, unknown>[];
+    return rows.map(toPartner);
+  }
+
+  /** Makes a contact in Odoo for a customer from the phone, marked as a customer. Returns its id. */
+  async createPartner(f: CustomerFields): Promise<number> {
+    const pf = await this.partnerFields();
+    const vals: Record<string, unknown> = { name: f.name, phone: f.phone || false, email: f.email || false, street: f.address || false, comment: f.notes ? escapeHtml(f.notes) : false };
+    if (pf.includes('customer_rank')) vals.customer_rank = 1;
+    return (await this.call('res.partner', 'create', [vals])) as number;
+  }
+
+  /** Sends a customer's changed name, phone or email to Odoo. */
+  writePartner(id: number, f: Partial<CustomerFields>): Promise<unknown> {
+    const vals: Record<string, unknown> = {};
+    for (const k of ['name', 'phone', 'email'] as const) if (f[k] !== undefined) vals[k] = f[k] || false;
+    return this.call('res.partner', 'write', [[id], vals]);
   }
 
   /** Marking done works with either Field Service app. */
@@ -326,6 +366,23 @@ export interface OdooTask {
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
+
+const escapeHtml = (t: string) =>
+  `<p>${t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
+
+function toPartner(r: Record<string, unknown>): OdooPartner {
+  const street = [str(r.street), str(r.street2)].filter(Boolean).join(' ');
+  const address = [street, [str(r.city), str(r.zip)].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return {
+    id: r.id as number,
+    name: str(r.name),
+    phone: str(r.phone) || str(r.mobile),
+    email: str(r.email),
+    address,
+    notes: plainText(str(r.comment)),
+    changedAt: odooTime(r.write_date) ?? 0,
+  };
+}
 
 function toProduct(r: Record<string, unknown>): OdooProduct {
   const price = typeof r.lst_price === 'number' ? r.lst_price : 0;

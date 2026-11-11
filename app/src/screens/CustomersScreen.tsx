@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { OdooCustomerSync } from '../components/OdooCustomerSync';
 import { customerName, searchCustomers, sortCustomers, summarize } from '../lib/customers';
 import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
@@ -19,6 +20,7 @@ export function CustomersScreen() {
 
   return (
     <View style={styles.stack} testID="customers">
+      <OdooCustomerSync />
       <View style={styles.searchRow}>
         <TextInput
           value={query}
