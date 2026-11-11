@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, MultiChipRow, SectionTitle } from '../components/controls';
@@ -6,6 +6,8 @@ import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Sta
 import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, Outcome, runDoor } from '../lib/forms';
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
+import { OpenJobRequest } from '../lib/jobs';
+import { SaveJobPanel } from '../components/SaveJobPanel';
 import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { DoorResult } from '../springCalc';
 import { colors, type } from '../theme';
@@ -20,9 +22,19 @@ const ID_OPTIONS: ChipOption<number>[] = ID_CHOICES.map((c) => ({ label: c.label
 
 export const DOOR_STORAGE_KEY = 'spring-calc/door-form/v1';
 
-export function DoorScreen() {
-  const { form, update, reset } = usePersistentForm<DoorForm>(DOOR_STORAGE_KEY, DEFAULT_DOOR_FORM);
+export function DoorScreen({ open }: { open?: OpenJobRequest }) {
+  const { form, update, reset, replace } = usePersistentForm<DoorForm>(DOOR_STORAGE_KEY, DEFAULT_DOOR_FORM);
   const outcome = useMemo(() => runDoor(form), [form]);
+  const summary = doorSummary(outcome, form.springCount);
+  // The saved job these inputs came from, so changes can be saved back to it.
+  const [linkedId, setLinkedId] = useState<string | undefined>();
+  useEffect(() => {
+    if (open?.job.mode !== 'door') return;
+    replace(open.job.form);
+    setLinkedId(open.job.id);
+    // Only a new request loads; the nonce changes on every open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open?.nonce]);
   const heightOther = parseMeasurement(form.heightOther);
 
   const inputs = (
@@ -83,7 +95,11 @@ export function DoorScreen() {
         unit="in"
         testID="field-door-shaft-height"
       />
-      <ClearButton onPress={reset} testID="clear-door" />
+      <ClearButton
+        onPress={() => {
+          reset();
+          setLinkedId(undefined);
+        }} testID="clear-door" />
     </>
   );
 
@@ -94,10 +110,18 @@ export function DoorScreen() {
       {outcome.status === 'incomplete' ? <MissingCard missing={outcome.missing} /> : null}
       {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
       {outcome.status === 'ok' ? <DoorResults result={outcome.result} springCount={form.springCount} /> : null}
+      <SaveJobPanel
+        inputs={{ mode: 'door', form }}
+        summary={summary}
+        ready={outcome.status !== 'incomplete'}
+        linkedId={linkedId}
+        onLink={setLinkedId}
+        testID="door-save-job"
+      />
     </>
   );
 
-  return <CalcLayout inputs={inputs} results={results} summary={doorSummary(outcome, form.springCount)} testID="door-bar" />;
+  return <CalcLayout inputs={inputs} results={results} summary={summary} testID="door-bar" />;
 }
 
 /** What the pinned bar says: what's missing, the stop, or how many springs fit and the turns. */

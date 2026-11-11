@@ -1,0 +1,117 @@
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { EMPTY_DETAILS, JobDetails } from '../lib/jobs';
+import { colors, touch, type } from '../theme';
+
+const FIELDS: { key: keyof JobDetails; label: string; placeholder: string; multiline?: boolean; phone?: boolean }[] = [
+  { key: 'customer', label: 'Customer', placeholder: 'Name' },
+  { key: 'address', label: 'Address', placeholder: 'Street and town' },
+  { key: 'phone', label: 'Phone', placeholder: 'Optional', phone: true },
+  { key: 'notes', label: 'Notes', placeholder: 'Door, parts used, what was found', multiline: true },
+];
+
+/**
+ * The customer's details for a job, typed on the phone's own keyboard. Save
+ * needs a customer or an address so the job can be found again.
+ */
+export function JobDetailsSheet({
+  visible,
+  title,
+  initial = EMPTY_DETAILS,
+  saveLabel = 'Save job',
+  onSave,
+  onCancel,
+}: {
+  visible: boolean;
+  title: string;
+  initial?: JobDetails;
+  saveLabel?: string;
+  onSave: (details: JobDetails) => void;
+  onCancel: () => void;
+}) {
+  const [details, setDetails] = useState<JobDetails>(initial);
+  useEffect(() => {
+    if (visible) setDetails(initial);
+  }, [visible, initial]);
+  const canSave = details.customer.trim() !== '' || details.address.trim() !== '';
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
+      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Pressable style={styles.dismiss} onPress={onCancel} accessibilityLabel="Cancel" />
+        <View style={styles.sheet} testID="job-sheet">
+          <View style={styles.titleRow}>
+            <Text style={styles.title} accessibilityRole="header">
+              {title}
+            </Text>
+            <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" testID="job-sheet-cancel">
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.fields}>
+            {FIELDS.map((f) => (
+              <View key={f.key} style={styles.field}>
+                <Text style={styles.label}>{f.label}</Text>
+                <TextInput
+                  value={details[f.key]}
+                  onChangeText={(v) => setDetails((d) => ({ ...d, [f.key]: v }))}
+                  placeholder={f.placeholder}
+                  placeholderTextColor={colors.muted}
+                  multiline={f.multiline}
+                  keyboardType={f.phone ? 'phone-pad' : 'default'}
+                  autoCapitalize={f.phone ? 'none' : 'sentences'}
+                  accessibilityLabel={f.label}
+                  testID={`job-${f.key}`}
+                  style={[styles.input, f.multiline && styles.multiline]}
+                />
+              </View>
+            ))}
+          </ScrollView>
+          {!canSave ? <Text style={styles.hint}>Enter a customer or an address.</Text> : null}
+          <Pressable
+            onPress={() => canSave && onSave(details)}
+            disabled={!canSave}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canSave }}
+            testID="job-sheet-save"
+            style={({ pressed }) => [styles.save, !canSave && styles.saveOff, pressed && styles.pressed]}
+          >
+            {({ pressed }) => <Text style={[styles.saveText, pressed && styles.pressedText]}>{saveLabel}</Text>}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
+  dismiss: { flex: 1 },
+  sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  title: { flex: 1, fontSize: type.value, fontWeight: '900', color: colors.text },
+  cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
+  cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
+  fields: { gap: 12, paddingBottom: 4 },
+  field: { gap: 4 },
+  label: { fontSize: type.label, fontWeight: '800', color: colors.text },
+  input: {
+    minHeight: touch.min,
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    fontSize: type.body,
+    fontWeight: '700',
+    color: colors.text,
+    backgroundColor: colors.bg,
+  },
+  multiline: { minHeight: 110, textAlignVertical: 'top' },
+  hint: { fontSize: 16, fontWeight: '700', color: colors.muted },
+  save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
+  saveOff: { backgroundColor: colors.muted },
+  pressed: { backgroundColor: colors.safety },
+  saveText: { fontSize: type.value, fontWeight: '900', color: colors.onSelected },
+  pressedText: { color: colors.text },
+});

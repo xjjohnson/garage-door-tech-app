@@ -1,0 +1,165 @@
+/**
+ * Saved jobs: a calculator's inputs saved with the customer's details, kept
+ * on the phone. Kept free of React so it can be tested directly.
+ *
+ * A job stores the inputs, not the result, so reopening it runs the current
+ * math again (and shows any warnings a newer version adds). The one-line
+ * summary is stored too, so the list can show it without running the math.
+ */
+import { DEFAULT_DOOR_FORM, DEFAULT_MATCH_FORM, DoorForm, MatchForm, restoreForm } from './forms';
+
+export const JOBS_STORAGE_KEY = 'jobs/v1';
+
+export type JobStatus = 'open' | 'done';
+
+export interface JobDetails {
+  customer: string;
+  address: string;
+  phone: string;
+  notes: string;
+}
+
+export const EMPTY_DETAILS: JobDetails = { customer: '', address: '', phone: '', notes: '' };
+
+interface JobBase extends JobDetails {
+  id: string;
+  /** Milliseconds since 1970, when first saved. */
+  savedAt: number;
+  /** When the inputs or details last changed. */
+  updatedAt: number;
+  status: JobStatus;
+  /** The calculator's answer when saved, e.g. ".225 × 2" × 24"". */
+  summaryTitle: string;
+  summaryDetail: string;
+}
+
+export type Job = (JobBase & { mode: 'match'; form: MatchForm }) | (JobBase & { mode: 'door'; form: DoorForm });
+
+export type JobInputs = { mode: 'match'; form: MatchForm } | { mode: 'door'; form: DoorForm };
+
+/** Asks a calculator screen to load a saved job; a new nonce each time, so opening the same job twice works. */
+export interface OpenJobRequest {
+  job: Job;
+  nonce: number;
+}
+
+export const MODE_LABEL: Record<Job['mode'], string> = {
+  match: 'Match old spring',
+  door: 'Size from door',
+};
+
+export function newJobId(now: number, random: () => number = Math.random): string {
+  return `${now.toString(36)}-${Math.floor(random() * 1e9).toString(36)}`;
+}
+
+/** Trims every field so stray spaces from the phone keyboard don't get saved. */
+export function cleanDetails(d: JobDetails): JobDetails {
+  return { customer: d.customer.trim(), address: d.address.trim(), phone: d.phone.trim(), notes: d.notes.trim() };
+}
+
+export function createJob(
+  inputs: JobInputs,
+  details: JobDetails,
+  summary: { title: string; detail?: string },
+  now: number,
+  id: string = newJobId(now),
+): Job {
+  return {
+    ...cleanDetails(details),
+    ...inputs,
+    id,
+    savedAt: now,
+    updatedAt: now,
+    status: 'open',
+    summaryTitle: summary.title,
+    summaryDetail: summary.detail ?? '',
+  } as Job;
+}
+
+/** What the list shows as the job's name. */
+export function jobName(job: Pick<Job, 'customer' | 'address'>): string {
+  return job.customer || job.address || 'No name';
+}
+
+/** Open jobs first, then newest first. */
+export function sortJobs(jobs: Job[]): Job[] {
+  return [...jobs].sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'open' ? -1 : 1;
+    return b.savedAt - a.savedAt;
+  });
+}
+
+function squash(s: string): string {
+  return s.toLowerCase().replace(/[\s\-().]/g, '');
+}
+
+/** Matches customer, address, phone, notes and the spring summary; spaces, dashes and case don't matter. */
+export function searchJobs(jobs: Job[], query: string): Job[] {
+  const words = query.toLowerCase().split(/\s+/).map(squash).filter(Boolean);
+  if (words.length === 0) return jobs;
+  return jobs.filter((j) => {
+    const hay = squash([j.customer, j.address, j.phone, j.notes, j.summaryTitle, j.summaryDetail, MODE_LABEL[j.mode]].join(' '));
+    return words.every((w) => hay.includes(w));
+  });
+}
+
+/** "Nov 11, 2026" in the phone's language, falling back to ISO if Intl is missing. */
+export function formatJobDate(ms: number): string {
+  const d = new Date(ms);
+  try {
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
+function str(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+/**
+ * Reads the saved list. Anything that isn't a job is dropped, and forms from
+ * an older version get any new fields from the defaults, so a bad entry can
+ * never stop the list from loading.
+ */
+export function parseJobs(raw: string | null): Job[] {
+  if (!raw) return [];
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(data)) return [];
+  const out: Job[] = [];
+  for (const item of data) {
+    if (!item || typeof item !== 'object') continue;
+    const j = item as Record<string, unknown>;
+    if (typeof j.id !== 'string' || typeof j.savedAt !== 'number') continue;
+    if (j.mode !== 'match' && j.mode !== 'door') continue;
+    const base: JobBase = {
+      id: j.id,
+      savedAt: j.savedAt,
+      updatedAt: typeof j.updatedAt === 'number' ? j.updatedAt : j.savedAt,
+      status: j.status === 'done' ? 'done' : 'open',
+      customer: str(j.customer),
+      address: str(j.address),
+      phone: str(j.phone),
+      notes: str(j.notes),
+      summaryTitle: str(j.summaryTitle),
+      summaryDetail: str(j.summaryDetail),
+    };
+    out.push(
+      j.mode === 'match'
+        ? { ...base, mode: 'match', form: restoreForm(DEFAULT_MATCH_FORM, j.form) }
+        : { ...base, mode: 'door', form: restoreForm(DEFAULT_DOOR_FORM, j.form) },
+    );
+  }
+  return out;
+}
+
+/** A tel: link with only the characters a dialer understands, or nothing if there's no number. */
+export function phoneLink(phone: string): string | undefined {
+  const digits = phone.replace(/[^\d+]/g, '');
+  return digits.replace(/\+/g, '').length >= 3 ? `tel:${digits}` : undefined;
+}
