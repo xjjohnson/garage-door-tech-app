@@ -17,6 +17,7 @@ import {
   ExtensionInput,
   ExtensionResult,
   extensionSprings,
+  heavySectionalD525_216,
   HighLiftResult,
   highLiftD400_54,
   LiftType,
@@ -329,7 +330,10 @@ export interface DrumsForm {
   /** How far the track runs straight up past the door before it curves, inches. */
   highLift: string;
   shaftHeight: string;
-  springCount: 1 | 2;
+  /** Four only on standard lift (D525-216); high lift takes one or a pair. */
+  springCount: 1 | 2 | 4;
+  /** Standard lift on D525-216: the track radius column of Canimex's table. */
+  trackRadius: TrackRadius;
   targetCycles: number;
   ids: number[];
 }
@@ -342,15 +346,21 @@ export const DEFAULT_DRUMS_FORM: DrumsForm = {
   highLift: '',
   shaftHeight: '',
   springCount: 2,
+  trackRadius: 15,
   targetCycles: 10_000,
   ids: [2],
 };
+
+/** Inside diameters offered on the drums tab: the residential three plus 3 3/4" for heavy doors. */
+export const COMMERCIAL_ID_CHOICES = [...ID_CHOICES, { label: '3 3/4"', value: 3.75 }] as const;
 
 export interface DrumsResult {
   lift: LiftType;
   fits: DrumFit[];
   /** Turns, rate and springs, for high lift on D400-54 drums. */
   highLift?: HighLiftResult;
+  /** Turns, rate and springs, for a heavy standard-lift door on D525-216 drums. */
+  heavy?: HighLiftResult;
   /** Why there are no turns for this door, when there aren't. */
   noTurns?: string;
 }
@@ -363,7 +373,7 @@ export function runDrums(form: DrumsForm): Outcome<DrumsResult> {
   if (form.lift === 'high' && highLiftIn === undefined) missing.push('High lift');
   const doorWeightLb = optionalMeasurement(form.weight);
   if (form.lift === 'high' && doorWeightLb === undefined) missing.push('Door weight');
-  if (form.lift === 'high' && form.ids.length === 0) missing.push('Inside diameter');
+  if (form.lift !== 'vertical' && doorWeightLb !== undefined && form.ids.length === 0) missing.push('Inside diameter');
   if (missing.length > 0 || doorHeightIn === undefined) return { status: 'incomplete', missing };
   const floorToShaftCenterIn = optionalMeasurement(form.shaftHeight);
   try {
@@ -375,7 +385,28 @@ export function runDrums(form: DrumsForm): Outcome<DrumsResult> {
       ...(floorToShaftCenterIn !== undefined ? { floorToShaftCenterIn } : {}),
     });
     if (form.lift === 'vertical') return { status: 'ok', result: { lift: form.lift, fits, noTurns: "Vertical-lift turns come from the drum maker's chart, which the app doesn't have yet." } };
-    if (form.lift === 'standard') return { status: 'ok', result: { lift: form.lift, fits, noTurns: 'For turns and springs on 4" drums, use Size from door.' } };
+    if (form.lift === 'standard') {
+      const d525 = fits.find((f) => f.drum.model === 'D525-216');
+      const note = 'For turns and springs on 4" drums, use Size from door.';
+      if (doorWeightLb === undefined || !d525 || (!d525.fits && !/rated/.test(d525.reason ?? ''))) {
+        return { status: 'ok', result: { lift: form.lift, fits, noTurns: doorWeightLb === undefined ? `${note} Enter the door weight for D525-216 drums.` : note } };
+      }
+      try {
+        const heavy = heavySectionalD525_216({
+          doorHeightIn,
+          doorWeightLb,
+          trackRadiusIn: form.trackRadius,
+          springCount: form.springCount,
+          targetCycles: form.targetCycles,
+          insideDiametersIn: [...form.ids].sort((a, b) => a - b),
+          ...(floorToShaftCenterIn !== undefined ? { floorToShaftCenterIn } : {}),
+        });
+        return { status: 'ok', result: { lift: form.lift, fits, heavy, noTurns: note } };
+      } catch (e) {
+        return { status: 'ok', result: { lift: form.lift, fits, noTurns: errorMessage(e) } };
+      }
+    }
+    if (form.springCount === 4) return { status: 'error', message: 'High lift on D400-54 drums takes one spring or a pair.' };
     const d400 = fits.find((f) => f.drum.model === 'D400-54');
     let noTurns: string | undefined;
     let highLift: HighLiftResult | undefined;

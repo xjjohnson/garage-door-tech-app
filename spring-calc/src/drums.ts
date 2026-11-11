@@ -12,7 +12,7 @@
  * radius track.
  */
 import type { SpringSpec, Warning } from './calculator';
-import { DEFAULT_DEAD_COILS, LIFE_POINTS, WIRES } from './data';
+import { DEFAULT_DEAD_COILS, LIFE_POINTS, WIRES, WireSize } from './data';
 import { allowableTorqueForCycles, estimateLife, ippt, lengthForIppt, roundLength, springIndex, springWeightLb, windingGrowth } from './springMath';
 
 export type LiftType = 'standard' | 'high' | 'vertical';
@@ -93,6 +93,158 @@ export function drumsThatFit(input: { lift: LiftType; doorHeightIn: number; door
       input.floorToShaftCenterIn !== undefined && drum.cableAllowanceIn !== undefined ? input.floorToShaftCenterIn + drum.cableAllowanceIn - highLift : undefined;
     return { drum, fits: !reason, ...(reason ? { reason } : {}), ...(cable !== undefined ? { cableLengthIn: cable } : {}) };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Springs for a Canimex rate and torque
+// ---------------------------------------------------------------------------
+
+/**
+ * Heavier wires on Canimex's 3.750" coil diameter chart (RCI3_75, hosted by
+ * IDC Spring, idcspring.com, read November 2026), past the .295 the
+ * residential list stops at. MIP is the chart's summary line at each life
+ * point. Canimex prints K too, which the textbook rate reproduces (see the
+ * tests). These have no DASMA color or 20-coil length, so they're kept off
+ * the residential list and used only by the Canimex-chart sizing here.
+ */
+export const HEAVY_WIRES: readonly WireSize[] = [
+  { nominal: '.297', diameterIn: 0.297, mipInLb: [581, 538, 486, 417, 359] },
+  { nominal: '.306', diameterIn: 0.3065, mipInLb: [634, 588, 530, 455, 392] },
+  { nominal: '.312', diameterIn: 0.3125, mipInLb: [669, 621, 560, 481, 414] },
+  { nominal: '.319', diameterIn: 0.3195, mipInLb: [712, 660, 595, 511, 440] },
+  { nominal: '.331', diameterIn: 0.331, mipInLb: [786, 729, 657, 564, 486] },
+];
+
+/** Inside diameters for commercial work: the residential ones plus 3-3/4". */
+export const COMMERCIAL_IDS_IN = [1.75, 2.0, 2.625, 3.75] as const;
+
+/**
+ * Springs that give a rate and carry a full-wind torque for a cycle target,
+ * lightest first. Canimex's IPPT matches the textbook rate (see STEEL in
+ * data.ts) and its torque is already taken at the high moment arm, so life
+ * is rated on that torque as is.
+ */
+export function canimexSpringOptions(input: {
+  ipptPerSpring: number;
+  torquePerSpringInLb: number;
+  turns: number;
+  targetCycles: number;
+  insideDiametersIn: readonly number[];
+  heavyWires?: boolean;
+  maxLengthIn?: number;
+}): SpringSpec[] {
+  const deadCoils = DEFAULT_DEAD_COILS;
+  const wires = input.heavyWires ? [...WIRES, ...HEAVY_WIRES] : WIRES;
+  const maxLength = input.maxLengthIn ?? 50;
+  const options: SpringSpec[] = [];
+  for (const id of input.insideDiametersIn) {
+    for (const w of wires) {
+      if (springIndex(w.diameterIn, id) < 8) continue;
+      if (allowableTorqueForCycles(w, id, input.targetCycles) < input.torquePerSpringInLb) continue;
+      const lengthIn = roundLength(lengthForIppt(w.diameterIn, id, input.ipptPerSpring, deadCoils));
+      if (lengthIn <= (deadCoils + 1) * w.diameterIn || lengthIn > maxLength) continue;
+      const life = estimateLife(w, id, input.torquePerSpringInLb);
+      if (life.belowMinimum || life.cycles < input.targetCycles) continue;
+      options.push({
+        wire: w.nominal,
+        wireIn: w.diameterIn,
+        insideDiameterIn: id,
+        lengthIn,
+        ippt: ippt(w.diameterIn, id, lengthIn, deadCoils),
+        life,
+        makerChartLife: life,
+        growthIn: windingGrowth(w.diameterIn, input.turns),
+        weightLb: springWeightLb(w.diameterIn, id, lengthIn),
+      });
+    }
+  }
+  return options.sort((a, b) => a.weightLb - b.weightLb);
+}
+
+// ---------------------------------------------------------------------------
+// Heavy sectional on D525-216 drums (standard lift)
+// ---------------------------------------------------------------------------
+
+/** D525-216 high moment arm, inches (Canimex manual, standard-lift specs). */
+export const D525_216_HMA_IN = 2.936;
+
+/**
+ * Canimex's D525-216 standard-lift multiplier table: [door height in inches,
+ * 12" track, 15" track], every 3" from 6' to 19'3". Printed turns equal
+ * HMA / multiplier to 0.1 on every row (see the tests).
+ */
+export const D525_216_CHART: readonly (readonly [number, number, number])[] = [
+  [72, 0.5712, 0.5443], [75, 0.5532, 0.5284], [78, 0.5362, 0.5133], [81, 0.5201, 0.4989], [84, 0.505, 0.4852],
+  [87, 0.4906, 0.4722], [90, 0.477, 0.4598], [93, 0.4641, 0.448], [96, 0.4519, 0.4368], [99, 0.4403, 0.4261],
+  [102, 0.4292, 0.4158], [105, 0.4187, 0.4061], [108, 0.4087, 0.3967], [111, 0.3991, 0.3878], [114, 0.3899, 0.3792],
+  [117, 0.3812, 0.371], [120, 0.3728, 0.3631], [123, 0.3648, 0.3556], [126, 0.3571, 0.3483], [129, 0.3497, 0.3414],
+  [132, 0.3427, 0.3347], [135, 0.3359, 0.3282], [138, 0.3293, 0.322], [141, 0.323, 0.316], [144, 0.317, 0.3102],
+  [147, 0.3111, 0.3047], [150, 0.3055, 0.2993], [153, 0.3001, 0.2941], [156, 0.2948, 0.2891], [159, 0.2897, 0.2842],
+  [162, 0.2848, 0.2795], [165, 0.2801, 0.275], [168, 0.2755, 0.2706], [171, 0.2711, 0.2663], [174, 0.2668, 0.2622],
+  [177, 0.2626, 0.2582], [180, 0.2586, 0.2543], [183, 0.2547, 0.2505], [186, 0.2509, 0.2468], [189, 0.2472, 0.2433],
+  [192, 0.2436, 0.2398], [195, 0.2401, 0.2365], [198, 0.2367, 0.2332], [201, 0.2334, 0.23], [204, 0.2302, 0.2269],
+  [207, 0.2271, 0.2239], [210, 0.2241, 0.2209], [213, 0.2212, 0.2181], [216, 0.2183, 0.2153], [219, 0.2155, 0.2126],
+  [222, 0.2127, 0.2099], [225, 0.2101, 0.2073], [228, 0.2075, 0.2048], [231, 0.2049, 0.2023],
+];
+
+export interface HeavySectionalInput {
+  doorHeightIn: number;
+  doorWeightLb: number;
+  trackRadiusIn: 12 | 15;
+  /** Springs on the shaft; heavy doors often run four. */
+  springCount: 1 | 2 | 4;
+  targetCycles?: number;
+  insideDiametersIn?: number[];
+  floorToShaftCenterIn?: number;
+}
+
+/** Turns, rate and springs for a heavy standard-lift door on D525-216 drums, from Canimex's table. */
+export function heavySectionalD525_216(input: HeavySectionalInput): HighLiftResult {
+  const warnings: Warning[] = [];
+  const drum = CANIMEX_DRUMS.find((d) => d.model === 'D525-216')!;
+  if (!(input.doorWeightLb >= 100 && input.doorWeightLb <= 2000)) throw new RangeError('Door weight must be between 100 and 2,000 lb.');
+  const heights = D525_216_CHART.map((r) => r[0]);
+  if (input.doorHeightIn < 72 || input.doorHeightIn > 231) throw new RangeError("The D525-216 chart covers doors 6' to 19'3\" tall.");
+  if (input.floorToShaftCenterIn !== undefined && input.floorToShaftCenterIn <= input.doorHeightIn) {
+    throw new RangeError('Floor to shaft center must be more than the door height. Measure to the middle of the torsion shaft.');
+  }
+  const { i, t } = bracket(heights, input.doorHeightIn);
+  const col = input.trackRadiusIn === 12 ? 1 : 2;
+  const a = D525_216_CHART[i]!;
+  const b = D525_216_CHART[i + 1] ?? a;
+  const multiplier = lerp(a[col] as number, b[col] as number, t);
+  const exact = D525_216_HMA_IN / multiplier;
+  if (input.doorWeightLb / 2 > drum.maxLoadLb) {
+    warnings.push({ level: 'stop', message: `D525-216 drums are rated ${drum.maxLoadLb} lb each; this door puts ${Math.round(input.doorWeightLb / 2)} lb on each. Use D800-384 drums and the maker's chart.` });
+  }
+  const ipptPerSpring = (multiplier * input.doorWeightLb) / input.springCount;
+  const torque = (input.doorWeightLb * D525_216_HMA_IN) / input.springCount;
+  const turns = Math.floor(exact * 4) / 4;
+  const target = input.targetCycles ?? LIFE_POINTS[0];
+  const options = canimexSpringOptions({
+    ipptPerSpring,
+    torquePerSpringInLb: torque,
+    turns: exact,
+    targetCycles: target,
+    insideDiametersIn: input.insideDiametersIn ?? [2.625, 3.75],
+    heavyWires: true,
+    maxLengthIn: 60,
+  });
+  if (options.length === 0) {
+    warnings.push({ level: 'stop', message: input.springCount === 4 ? 'No set of four in the supported range (to .331 wire) fits. Use the spring maker\'s chart.' : 'No spring in the supported range (to .331 wire) fits at this count. Try more springs on the shaft.' });
+  }
+  warnings.push({ level: 'info', message: `Start at ${turns} turns (Canimex: ${exact.toFixed(1)}), then check balance and adjust a quarter turn at a time.` });
+  const cableLengthIn = input.floorToShaftCenterIn !== undefined ? input.floorToShaftCenterIn + drum.cableAllowanceIn! : undefined;
+  return {
+    turns,
+    exactTurns: exact,
+    multiplier,
+    ipptPerSpring,
+    torquePerSpringInLb: torque,
+    options: options.slice(0, 8),
+    ...(cableLengthIn !== undefined ? { cableLengthIn } : {}),
+    warnings,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -210,33 +362,7 @@ export function highLiftD400_54(input: HighLiftInput): HighLiftResult {
   const torque = (input.doorWeightLb * hmaIn) / input.springCount;
   const turns = Math.floor(exact * 4) / 4;
   const target = input.targetCycles ?? LIFE_POINTS[0];
-  const deadCoils = DEFAULT_DEAD_COILS;
-
-  // Canimex's IPPT matches the textbook rate (see STEEL in data.ts), and its
-  // torque is already taken at the high moment arm, so it rates life as is.
-  const options: SpringSpec[] = [];
-  for (const id of input.insideDiametersIn ?? [2]) {
-    for (const w of WIRES) {
-      if (springIndex(w.diameterIn, id) < 8) continue;
-      if (allowableTorqueForCycles(w, id, target) < torque) continue;
-      const lengthIn = roundLength(lengthForIppt(w.diameterIn, id, ipptPerSpring, deadCoils));
-      if (lengthIn <= (deadCoils + 1) * w.diameterIn || lengthIn > 50) continue;
-      const life = estimateLife(w, id, torque);
-      if (life.belowMinimum || life.cycles < target) continue;
-      options.push({
-        wire: w.nominal,
-        wireIn: w.diameterIn,
-        insideDiameterIn: id,
-        lengthIn,
-        ippt: ippt(w.diameterIn, id, lengthIn, deadCoils),
-        life,
-        makerChartLife: life,
-        growthIn: windingGrowth(w.diameterIn, exact),
-        weightLb: springWeightLb(w.diameterIn, id, lengthIn),
-      });
-    }
-  }
-  options.sort((a, b) => a.weightLb - b.weightLb);
+  const options = canimexSpringOptions({ ipptPerSpring, torquePerSpringInLb: torque, turns: exact, targetCycles: target, insideDiametersIn: input.insideDiametersIn ?? [2] });
   if (options.length === 0) {
     warnings.push({ level: 'stop', message: input.springCount === 1 ? 'No single spring in the supported range fits. Try a pair.' : 'No spring pair in the supported range fits. Try a larger inside diameter.' });
   }
