@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Updates from 'expo-updates';
 import { ApkUpdateBanner } from './src/components/ApkUpdateBanner';
+import { UpdateReadyBar } from './src/components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from './src/config';
 import { formatBuildInfo } from './src/lib/buildInfo';
 import { DiagnoseScreen } from './src/screens/DiagnoseScreen';
@@ -36,11 +37,16 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function App() {
+  // Turns true when expo-updates finishes downloading an update by itself at launch.
+  const { isUpdatePending } = Updates.useUpdates();
   const [section, setSection] = useState<Section>('springs');
   const [tab, setTab] = useState<Tab>('match');
-  // Diagnose is drawn the first time it's opened, not at startup, so it adds
-  // nothing to launch time. After that it stays mounted and keeps its picks.
+  // Manuals and Diagnose are drawn the first time they're opened, not at
+  // startup, so they add nothing to launch time (Manuals has hundreds of
+  // entries). After that they stay mounted and keep their search and picks.
+  const [manualsOpened, setManualsOpened] = useState(false);
   const [diagnoseOpened, setDiagnoseOpened] = useState(false);
+  if (section === 'manuals' && !manualsOpened) setManualsOpened(true);
   if (section === 'diagnose' && !diagnoseOpened) setDiagnoseOpened(true);
   const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
   return (
@@ -85,14 +91,18 @@ export default function App() {
         <View style={[styles.flex, (section !== 'springs' || tab !== 'door') && styles.hidden]}>
           <DoorScreen />
         </View>
-        <ScrollView style={[styles.flex, styles.manuals, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ManualsScreen />
-        </ScrollView>
+        {manualsOpened ? (
+          <ScrollView style={[styles.flex, styles.manuals, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <ManualsScreen />
+          </ScrollView>
+        ) : null}
         {diagnoseOpened ? (
           <ScrollView style={[styles.flex, styles.manuals, section !== 'diagnose' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <DiagnoseScreen />
           </ScrollView>
         ) : null}
+        {/* Shown once an over-the-air update has downloaded; never restarts on its own. */}
+        <UpdateReadyBar pending={isUpdatePending} />
         {/* The app's sections, at the bottom where a thumb reaches them. */}
         <View style={styles.nav} accessibilityRole="tablist">
           {SECTIONS.map((s) => {

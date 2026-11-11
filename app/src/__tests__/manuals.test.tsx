@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import App from '../../App';
 import { BRANDS, MANUAL_LINKS } from '../data/manuals';
 import { brandsFor, checkReach, formatChecked, linkMarkets, linkUrls, queryWords, searchManuals } from '../lib/manualSearch';
-import { ManualsScreen } from '../screens/ManualsScreen';
+import { MANUALS_PAGE, ManualsScreen } from '../screens/ManualsScreen';
 
 describe('manual links data', () => {
   const brandIds = new Set(BRANDS.map((b) => b.id));
@@ -242,6 +242,7 @@ describe('Manuals screen', () => {
     const fetchImpl = jest.fn().mockRejectedValue(new TypeError('Network request failed')) as unknown as typeof fetch;
     const openUrl = jest.fn().mockResolvedValue(undefined);
     await render(<ManualsScreen fetchImpl={fetchImpl} openUrl={openUrl} />);
+    await fireEvent.changeText(screen.getByTestId('manuals-search'), 'linear');
     await fireEvent.press(screen.getByTestId('manual-linear-manuals'));
     const banner = await screen.findByTestId('manuals-offline');
     expect(within(banner).getByText('No signal')).toBeTruthy();
@@ -256,9 +257,24 @@ describe('Manuals screen', () => {
     await fireEvent.press(within(screen.getByTestId('manuals-market')).getByText('Commercial & gate'));
     expect(within(screen.getByTestId('manuals-brands')).queryByText('Genie')).toBeNull();
     expect(within(screen.getByTestId('manuals-brands')).getByText('DoorKing')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('manuals-search'), 'doorking');
     expect(screen.getByTestId('manual-doorking-slide-gate')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('manuals-search'), 'guardian');
     expect(screen.queryByTestId('manual-guardian-628')).toBeNull();
     expect(screen.getByTestId('manual-guardian-commercial')).toBeTruthy();
+  });
+
+  it('draws one page of cards at a time, with Show more for the rest', async () => {
+    await render(<ManualsScreen fetchImpl={jest.fn() as unknown as typeof fetch} openUrl={jest.fn()} />);
+    const cards = () => screen.queryAllByTestId(/^manual-(?!s-)/);
+    expect(screen.getByText(`${MANUAL_LINKS.length} links`)).toBeTruthy();
+    expect(cards()).toHaveLength(MANUALS_PAGE);
+    await fireEvent.press(screen.getByTestId('manuals-more'));
+    expect(cards()).toHaveLength(Math.min(2 * MANUALS_PAGE, MANUAL_LINKS.length));
+    // A new search starts again from one page, and a short list has no button.
+    await fireEvent.changeText(screen.getByTestId('manuals-search'), '628');
+    expect(cards().length).toBeLessThanOrEqual(MANUALS_PAGE);
+    expect(screen.queryByTestId('manuals-more')).toBeNull();
   });
 
   it('shows a helpful empty state', async () => {

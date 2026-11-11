@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ApkCheck, checkForApk } from '../lib/apkUpdate';
+import { isCheckDue } from '../lib/otaUpdate';
+import { useAppForeground } from '../lib/useAppForeground';
 import { colors, touch, type } from '../theme';
 
 interface Props {
@@ -9,26 +11,37 @@ interface Props {
   currentVersion: string | null | undefined;
   fetchImpl?: typeof fetch;
   openUrl?: (url: string) => Promise<unknown>;
+  now?: () => number;
 }
 
 /**
  * Shown under the header when a newer APK exists. Download opens the APK
  * link in the browser; Android then shows its own Install screen. "Later"
- * hides it until the app is opened again.
+ * hides it until the app is opened again. It checks when the app opens and
+ * again each time the app comes back to the screen, at most every ten
+ * minutes, so a phone that never closes the app still hears about it.
  */
-export function ApkUpdateBanner({ manifestUrl, currentVersion, fetchImpl = fetch, openUrl = (u) => Linking.openURL(u) }: Props) {
+export function ApkUpdateBanner({ manifestUrl, currentVersion, fetchImpl = fetch, openUrl = (u) => Linking.openURL(u), now = Date.now }: Props) {
   const [check, setCheck] = useState<ApkCheck>({ status: 'off' });
   const [hidden, setHidden] = useState(false);
+  const [round, setRound] = useState(0);
+  const lastCheckAt = useRef<number | undefined>(undefined);
+
+  useAppForeground(() => {
+    if (isCheckDue(lastCheckAt.current, now())) setRound((r) => r + 1);
+  });
 
   useEffect(() => {
     let live = true;
+    lastCheckAt.current = now();
     checkForApk(manifestUrl, currentVersion, fetchImpl).then((c) => {
-      if (live) setCheck(c);
+      // A failed re-check (no signal) keeps what the last one found.
+      if (live && c.status !== 'unknown') setCheck(c);
     });
     return () => {
       live = false;
     };
-  }, [manifestUrl, currentVersion, fetchImpl]);
+  }, [manifestUrl, currentVersion, fetchImpl, now, round]);
 
   if (check.status !== 'update' || hidden) return null;
   const { version, apkUrl } = check;
