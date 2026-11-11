@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import App from '../../App';
+import { renderApp } from '../testing/renderApp';
 import { DIAG_BRANDS, DIAG_FAMILIES, DIAG_SAFETY, SYMPTOMS } from '../data/diagnostics';
 import { familiesFor, findCode, hostOf } from '../lib/diagnose';
 import { DiagnoseScreen } from '../screens/DiagnoseScreen';
@@ -149,7 +149,7 @@ describe('Diagnose screen', () => {
   });
 
   it('is reachable from the app header', async () => {
-    await render(<App />);
+    await renderApp();
     await fireEvent.press(screen.getByTestId('section-diagnose'));
     expect(screen.getByTestId('diagnose-safety')).toBeTruthy();
     expect(screen.getAllByText('Diagnose').length).toBeGreaterThan(0);
@@ -158,7 +158,7 @@ describe('Diagnose screen', () => {
 
 describe('Diagnose in the app', () => {
   it('is not drawn until opened, then keeps its picks when switching away and back', async () => {
-    await render(<App />);
+    await renderApp();
     expect(screen.queryByTestId('diagnose-safety')).toBeNull();
     await fireEvent.press(screen.getByTestId('section-diagnose'));
     await fireEvent.press(within(screen.getByTestId('diagnose-symptoms')).getByText("Won't close"));

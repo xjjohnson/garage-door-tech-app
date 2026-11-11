@@ -25,7 +25,7 @@ Run lint and typecheck before declaring any task done.
 
 ## Navigation & Routing
 
-- The app is one screen today with two in-screen tabs (Match old spring, Size from door) in `App.tsx`. Move to **Expo Router** when more screens arrive (manuals, price sheet, saved jobs). Routes would live in `src/app/`; keep non-route code outside it.
+- Navigation is **Expo Router** (`expo-router` ~58). Routes live in `src/app/` and stay thin; what a screen draws lives in `src/screens/`, shared code in `src/lib/` and `src/components/`. The four bottom sections are `src/app/(tabs)/` with their own header and bar (listed in `src/lib/sections.ts`); full pages such as `/quote/[id]` sit on the root stack. See README "Screens and routes".
 - Docs: https://docs.expo.dev/router/introduction.md
 
 ## Spring math

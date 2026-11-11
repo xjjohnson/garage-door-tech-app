@@ -181,7 +181,10 @@ app's `version` in `app.json` (the `appVersion` policy). So when a change
 touches native code, raise `version` (for example 0.1.0 to 0.2.0) in the same
 change. The new APK then gets updates for 0.2.0, and phones still on the
 0.1.0 APK keep the last update that works for them instead of getting one
-they can't run. JavaScript-only changes keep the same version.
+they can't run. JavaScript-only changes keep the same version. Version 0.3.0 is such a
+change: the move to Expo Router added native libraries (`expo-router`,
+`react-native-screens`, `expo-linking`, `expo-constants`), so phones need
+the 0.3.0 APK, and 0.2.0 APKs keep their last update.
 
 This policy was picked over Expo's automatic `fingerprint` policy because
 the APK is built with Gradle here, not EAS Build, and a fingerprint computed
@@ -305,11 +308,43 @@ typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
 **Look.** Near-black on white, bold type at 18 px and up, every button at
 least 56 px tall for gloves. The app is portrait and light mode only.
 
+## Screens and routes
+
+Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
+
+| File | Address | What |
+|---|---|---|
+| `_layout.tsx` | | Saved data for every screen (jobs, prices), then a stack: the sections, with full pages on top |
+| `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
+| `(tabs)/index.tsx` | `/` | Springs: Match old spring and Size from door |
+| `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
+| `(tabs)/manuals.tsx` | `/manuals` | Manuals |
+| `(tabs)/diagnose.tsx` | `/diagnose` | Diagnose |
+| `price-sheet.tsx` | `/price-sheet` | The price sheet, a full page |
+| `quote/[id].tsx` | `/quote/<job id>` | One job's quote, a full page |
+
+A section stays mounted once opened, so switching keeps its inputs and
+search; Manuals and Diagnose aren't drawn until first opened. The bottom bar
+and header are the app's own (`src/lib/sections.ts` lists the sections); the
+navigator's tab bar is hidden. Full pages have a Close button that goes back.
+
+**Adding a screen.** Put what it draws in `src/screens/`, then a thin route
+file in `src/app/`: a new file there becomes a page at its own address, and
+`router.push('/that-address')` opens it. A new bottom section also needs a
+line in `src/lib/sections.ts` and a file in `src/app/(tabs)/`.
+
+**Tests** render the real routes with `renderApp()` (`src/testing/renderApp.tsx`,
+built on `expo-router/testing-library`). It runs Jest on fake timers, so read
+saved data straight after an action instead of with an async `waitFor`.
+
 ## Code
 
-- `App.tsx`: header, the Springs/Manuals sections and the two spring tabs.
-  Every screen stays mounted, so switching keeps its inputs.
-- `src/screens/`: `MatchScreen.tsx`, `DoorScreen.tsx`, `ManualsScreen.tsx`.
+- `src/app/`: the screens and routes (Expo Router). Each file is an
+  address; see "Screens and routes" below.
+- `src/screens/`: what each screen draws (`MatchScreen.tsx`,
+  `DoorScreen.tsx`, `JobsScreen.tsx`, `QuoteScreen.tsx`,
+  `PriceSheetScreen.tsx`, `ManualsScreen.tsx`, `DiagnoseScreen.tsx`). Route
+  files stay thin and call these.
 - `src/data/manuals.ts`: the makers, their manual links and direct PDFs.
 - `scripts/check-links.mjs`: the link check (`npm run check-links`).
 - `src/lib/manualSearch.ts`: search, ranking and the signal check.

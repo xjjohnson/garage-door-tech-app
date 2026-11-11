@@ -1,13 +1,11 @@
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, Segmented } from '../components/controls';
-import { FullSheet } from '../components/FullSheet';
 import { JobDetailsSheet } from '../components/JobDetailsSheet';
 import { formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { useJobs } from '../lib/useJobs';
-import { PriceSheetScreen } from './PriceSheetScreen';
-import { QuoteScreen } from './QuoteScreen';
 import { colors, touch, type } from '../theme';
 
 type Filter = JobStatus | 'all';
@@ -20,9 +18,6 @@ const FILTERS: ChipOption<Filter>[] = [
 
 const CONFIRM_MS = 4000;
 
-/** What's open over the list: the price sheet, or one job's quote. */
-type Panel = { kind: 'prices' } | { kind: 'quote'; jobId: string } | null;
-
 /**
  * Saved jobs, open ones first. Tapping a job shows its details and what can
  * be done with it: open it in the calculator, call the customer, edit, mark
@@ -34,8 +29,6 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   const [filter, setFilter] = useState<Filter>('open');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Job | null>(null);
-  const [panel, setPanel] = useState<Panel>(null);
-  const quoting = panel?.kind === 'quote' ? jobs.find((j) => j.id === panel.jobId) : undefined;
 
   const shown = useMemo(() => {
     const byStatus = filter === 'all' ? jobs : jobs.filter((j) => j.status === filter);
@@ -63,7 +56,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           </Pressable>
         ) : null}
       </View>
-      <Pressable onPress={() => setPanel({ kind: 'prices' })} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+      <Pressable onPress={() => router.push('/price-sheet')} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
         <Text style={styles.buttonText}>Price sheet</Text>
       </Pressable>
       <Segmented options={FILTERS} value={filter} onChange={setFilter} testID="jobs-filter" />
@@ -87,7 +80,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           expanded={expanded === job.id}
           onToggle={() => setExpanded((e) => (e === job.id ? null : job.id))}
           onOpen={() => onOpen(job)}
-          onQuote={() => setPanel({ kind: 'quote', jobId: job.id })}
+          onQuote={() => router.push({ pathname: '/quote/[id]', params: { id: job.id } })}
           onEdit={() => setEditing(job)}
           onStatus={(s) => setStatus(job.id, s)}
           onDelete={() => {
@@ -96,13 +89,6 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           }}
         />
       ))}
-
-      <FullSheet visible={panel?.kind === 'prices'} title="Price sheet" onClose={() => setPanel(null)} testID="prices-sheet">
-        <PriceSheetScreen />
-      </FullSheet>
-      <FullSheet visible={quoting !== undefined} title="Quote" onClose={() => setPanel(null)} testID="quote-sheet">
-        {quoting ? <QuoteScreen job={quoting} onSetPrices={() => setPanel({ kind: 'prices' })} /> : null}
-      </FullSheet>
 
       <JobDetailsSheet
         visible={editing !== null}
