@@ -20,6 +20,11 @@ export interface SearchHit {
 
 const brandById = new Map(BRANDS.map((b) => [b.id, b]));
 
+/** Every address a link opens: the maker's page, then each direct document. */
+export function linkUrls(link: ManualLink): string[] {
+  return [link.url, ...(link.docs ?? []).map((d) => d.url)];
+}
+
 /** Residential, commercial & gate, or both. Gate links are commercial & gate unless they say otherwise. */
 export function linkMarkets(link: ManualLink): Market[] {
   if (link.markets && link.markets.length > 0) return link.markets;
@@ -35,7 +40,8 @@ export function brandsFor(market: Market | null, links: ManualLink[] = MANUAL_LI
 
 function haystack(link: ManualLink, brand: Brand): string {
   const markets = linkMarkets(link).map((m) => MARKET_LABEL[m]);
-  return [brand.name, ...brand.aliases, link.title, DOC_KIND_LABEL[link.kind], link.category, ...markets, ...link.models].map(squash).join(' ');
+  const docs = (link.docs ?? []).map((d) => d.label);
+  return [brand.name, ...brand.aliases, link.title, DOC_KIND_LABEL[link.kind], link.category, ...markets, ...link.models, ...docs].map(squash).join(' ');
 }
 
 /**
@@ -56,7 +62,8 @@ function score(link: ManualLink, brand: Brand, words: string[]): number {
 }
 
 /**
- * Every link whose maker, title, kind or models contain all the words typed.
+ * Every link whose maker, title, kind, models or document names contain all
+ * the words typed.
  * With no words, every link (optionally only one maker's, or one market's),
  * in the data's order.
  */

@@ -215,19 +215,35 @@ resets a tab.
 
 **Manuals.** A search box (brand, model or series; case, spaces and dashes
 don't matter), a row to pick Residential or Commercial & gate, and a row of
-brand buttons that shows only the makers in the market picked. Each row opens the maker's own page
-in the phone's browser: install instructions, owner's manuals, manual search
-pages and troubleshooting. Nothing is copied into the app. Before opening, the
+brand buttons that shows only the makers in the market picked. Where the
+maker's page lists its PDFs with plain links, the entry shows one button per
+document (install manual, user's guide, quick start, Spanish versions and so
+on) that opens the PDF straight away, plus a "More documents on the maker's
+page" button. Other entries open the maker's own page in the phone's browser:
+manual search pages, document finders and troubleshooting. Nothing is copied
+into the app; every PDF opens from the maker's own site. Before opening, the
 app checks for a signal; with none it says so and offers Try again or Open
-anyway. Each row shows the day its link was last checked.
+anyway. Each entry shows the day its links were last checked.
 
 The links live in `src/data/manuals.ts`. To add one, open the page in a
 browser to be sure it loads, then add an entry with today's date in
 `checked`. Mark a commercial door or operator with `markets: ['commercial']`
 (gate links count as commercial & gate on their own). A new maker also goes in `BRANDS` with its own website hosts; the
 tests fail on any link whose host isn't one of its maker's, so a mirror or a
-manual-sharing site can't slip in. A change there is plain JavaScript and
-reaches phones over the air.
+manual-sharing site can't slip in. Direct PDFs go in an entry's `docs`, copied
+from the maker's page, which stays in `url` as the "More documents" page. A
+few makers keep their PDFs on a file store under another address (LiftMaster
+on Chamberlain's Widen store, Clopay on literature.clopay.com, Chase on
+assets.nlcnet.net); those go in the maker's `fileHosts`, and the tests refuse
+a document anywhere else. A change there is plain JavaScript and reaches
+phones over the air.
+
+**Link check.** `npm run check-links` opens every page and PDF in the list
+and names any that are gone (404), unreachable, or now open a web page instead
+of a PDF. The "Manuals link check" GitHub workflow runs it every Monday, on
+pull requests that change the list, and by hand from the Actions tab; a
+failed run lists the broken links on its summary page. Sites that turn away
+automated checks show as "check by hand", not as broken.
 
 **Look.** Near-black on white, bold type at 18 px and up, every button at
 least 56 px tall for gloves. The app is portrait and light mode only.
@@ -237,7 +253,8 @@ least 56 px tall for gloves. The app is portrait and light mode only.
 - `App.tsx`: header, the Springs/Manuals sections and the two spring tabs.
   Every screen stays mounted, so switching keeps its inputs.
 - `src/screens/`: `MatchScreen.tsx`, `DoorScreen.tsx`, `ManualsScreen.tsx`.
-- `src/data/manuals.ts`: the makers and their manual links.
+- `src/data/manuals.ts`: the makers, their manual links and direct PDFs.
+- `scripts/check-links.mjs`: the link check (`npm run check-links`).
 - `src/lib/manualSearch.ts`: search, ranking and the signal check.
 - `src/components/`: `Keypad.tsx` (fraction keypad), `controls.tsx` (choice
   buttons, measurement fields), `results.tsx` (safety banner, warnings,
