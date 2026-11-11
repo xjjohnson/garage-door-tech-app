@@ -519,7 +519,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | File | Address | What |
 |---|---|---|
 | `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures, Odoo team), then a stack: the sections, with full pages on top |
-| `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
+| `(tabs)/_layout.tsx` | | Header (with the Settings button and version), update banners, the four sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Springs: Match old, From door, Extension and High lift |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
 | `(tabs)/manuals.tsx` | `/manuals` | Manuals |
@@ -540,6 +540,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `stock.tsx` | `/stock` | Truck stock and orders to suppliers, a full page |
 | `photos/[id].tsx` | `/photos/<job id>` | One job's before and after photos, a full page |
 | `team.tsx` | `/team` | Odoo sign-in, my assigned jobs and dispatch, a full page |
+| `settings.tsx` | `/settings` | App version, update channel and a Check for update button, plus links to Your business, the price sheet, the Odoo sign-in and backups; opened from the Settings button (with the version on it) at the top right of every section |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

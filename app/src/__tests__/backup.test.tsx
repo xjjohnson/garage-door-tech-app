@@ -167,11 +167,11 @@ describe('Backup screen', () => {
     expect(screen.queryByTestId('backup-note')).toBeNull();
   });
 
-  it('opens from the top of Jobs', async () => {
-    const app = await renderApp('/jobs');
-    await fireEvent.press(screen.getByTestId('open-backup'));
+  it('opens from Settings', async () => {
+    const app = await renderApp('/settings');
+    await fireEvent.press(screen.getByTestId('settings-backup'));
     expect(app.getPathname()).toBe('/backup');
     await fireEvent.press(screen.getByTestId('backup-page-close'));
-    expect(app.getPathname()).toBe('/jobs');
+    expect(app.getPathname()).toBe('/settings');
   });
 });
