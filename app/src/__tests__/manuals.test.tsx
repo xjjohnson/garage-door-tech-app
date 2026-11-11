@@ -112,9 +112,12 @@ describe('searchManuals', () => {
   it('finds door series documents', () => {
     const top = (q: string) => searchManuals(q).map((h) => h.link.id);
     expect(top('9100')).toContain('wayne-dalton-9100-9405-9605');
-    expect(top('2250')).toContain('chi-2250-2251');
+    expect(top('2250')).toContain('chi-2250-4250');
     expect(top('Lincoln')).toContain('amarr-steel-docs');
     expect(top('Fast-Seal')).toContain('rytec-fast-seal');
+    expect(searchManuals('4216')[0].link.id).toBe('chi-2216-4216');
+    expect(searchManuals('5800')[0].link.id).toBe('chi-5500-5800');
+    expect(searchManuals('2298')[0].link.id).toBe('chi-2291-2294-2296-2298');
   });
 
   it('matches brand aliases', () => {
