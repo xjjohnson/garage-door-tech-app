@@ -186,7 +186,8 @@ change: the move to Expo Router added native libraries (`expo-router`,
 `react-native-screens`, `expo-linking`, `expo-constants`), so phones need
 the 0.3.0 APK, and 0.2.0 APKs keep their last update. Version 0.4.0 added
 the camera, PDF and share sheet (`expo-image-picker`, `expo-print`,
-`expo-sharing`) and `react-native-svg` for signatures, so phones need the
+`expo-sharing`), `react-native-svg` for signatures and `expo-secure-store`
+(for a future Odoo sign-in), so phones need the
 0.4.0 APK for those and for every update after it; 0.3.0 APKs keep their last
 update and show the new-APK banner.
 
