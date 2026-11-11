@@ -16,6 +16,14 @@
 
 export type Category = 'door' | 'opener' | 'gate';
 
+/** Who the door or operator is for. Gate gear always counts as commercial & gate. */
+export type Market = 'residential' | 'commercial';
+
+export const MARKET_LABEL: Record<Market, string> = {
+  residential: 'Residential',
+  commercial: 'Commercial & gate',
+};
+
 export type DocKind = 'install' | 'owner' | 'library' | 'troubleshooting' | 'bulletin';
 
 export const DOC_KIND_LABEL: Record<DocKind, string> = {
@@ -45,13 +53,18 @@ export interface ManualLink {
   models: string[];
   /** A short tip shown under the title, e.g. how to search the maker's page. */
   note?: string;
+  /**
+   * Who it's for. Left out, a link counts as residential, or as commercial &
+   * gate when its category is 'gate'.
+   */
+  markets?: Market[];
   url: string;
   /** The day someone last opened the link and saw it load, as YYYY-MM-DD. */
   checked: string;
 }
 
 export const BRANDS: Brand[] = [
-  { id: 'clopay', name: 'Clopay', aliases: [], makes: ['door'], hosts: ['www.clopaydoor.com'] },
+  { id: 'clopay', name: 'Clopay', aliases: [], makes: ['door'], hosts: ['www.clopaydoor.com', 'consumerservices.clopay.com'] },
   { id: 'amarr', name: 'Amarr', aliases: [], makes: ['door'], hosts: ['www.amarr.com'] },
   {
     id: 'wayne-dalton',
@@ -118,6 +131,41 @@ export const BRANDS: Brand[] = [
     // own file store; the link we keep is always the overheaddoor.com one.
     hosts: ['www.overheaddoor.com'],
   },
+  {
+    id: 'doorking',
+    name: 'DoorKing',
+    aliases: ['DKS', 'Door King'],
+    makes: ['gate'],
+    hosts: ['www.doorking.com'],
+  },
+  {
+    id: 'rytec',
+    name: 'Rytec',
+    aliases: [],
+    makes: ['door'],
+    hosts: ['www.rytecdoors.com'],
+  },
+  {
+    id: 'cornell-cookson',
+    name: 'Cornell Cookson',
+    aliases: ['CornellCookson', 'Cornell', 'Cookson'],
+    makes: ['door'],
+    hosts: ['clopay.cornellcookson.com'],
+  },
+  {
+    id: 'chase',
+    name: 'Chase Doors',
+    aliases: ['Chase', 'Chase Industries'],
+    makes: ['door'],
+    hosts: ['www.chasedoors.com'],
+  },
+  {
+    id: 'bea',
+    name: 'BEA',
+    aliases: ['BEA Sensors'],
+    makes: ['gate'],
+    hosts: ['us.beasensors.com'],
+  },
 ];
 
 export const MANUAL_LINKS: ManualLink[] = [
@@ -152,6 +200,7 @@ export const MANUAL_LINKS: ManualLink[] = [
     title: 'Residential and commercial install instructions',
     kind: 'library',
     category: 'door',
+    markets: ['residential', 'commercial'],
     models: ['commercial', 'SuperFlex', 'rolling', '4000', '4100', '4200', '4300', '4400', '4500', '5101', '5501', '5601', '5652'],
     url: 'https://www.amarr.com/us/en/support/garage-door-and-commercial-door-installation-instructions',
     checked: '2026-11-10',
@@ -505,6 +554,183 @@ export const MANUAL_LINKS: ManualLink[] = [
     category: 'opener',
     models: ['CodeDodger', 'CodeDodger 2', 'OKP-BX', 'OWK-BX', 'keypad', 'programming'],
     url: 'https://www.overheaddoor.com/residential/programming-instructions/wireless-keypad-programming',
+    checked: '2026-11-11',
+  },
+
+  // Commercial & gate (checked against each maker's own site, Nov 11, 2026)
+  {
+    id: 'liftmaster-commercial-logic5',
+    brand: 'liftmaster',
+    title: 'Logic 5.0 commercial operators: install manual, user\'s guide, service guide',
+    kind: 'install',
+    category: 'opener',
+    markets: ['commercial'],
+    models: ['Logic 5', 'Logic 5.0', 'T', 'APT', 'H', 'J', 'HJ', 'GH', 'GT', 'SD', 'GSD', 'DHJ', 'trolley', 'hoist', 'jackshaft'],
+    note: 'Manuals are under Installation & Support on the T trolley page; they cover the other Logic 5.0 models too.',
+    url: 'https://www.liftmaster.com/t-trolley-operator/p/T',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'liftmaster-commercial-medium-duty',
+    brand: 'liftmaster',
+    title: 'Medium-duty commercial operators: install manual and user\'s guide',
+    kind: 'install',
+    category: 'opener',
+    markets: ['commercial'],
+    models: ['MH', 'MJ', 'MHS', 'MGJ', 'MT', 'BMT', 'MH5011U', 'MJ5011U', 'MHS5011U', 'MGJ5011U', '5011', 'medium duty', 'hoist', 'jackshaft'],
+    url: 'https://www.liftmaster.com/mh-hoist-operator-medium-duty-door-operator/p/MH',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'overhead-door-rsx-install',
+    brand: 'overhead-door',
+    title: 'RSX commercial operator install manual (trolley)',
+    kind: 'install',
+    category: 'opener',
+    markets: ['commercial'],
+    models: ['RSX', 'trolley', 'sidemount', 'dual trolley', 'jackshaft'],
+    url: 'https://www.overheaddoor.com/Documents/operator-rsx-drawbar-install.pdf',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'overhead-door-rhx-install',
+    brand: 'overhead-door',
+    title: 'RHX commercial/industrial operator install manual (trolley)',
+    kind: 'install',
+    category: 'opener',
+    markets: ['commercial'],
+    models: ['RHX', 'trolley', 'sidemount', 'dual trolley', 'OPAKSMTHX', 'OPAKDTHX'],
+    url: 'https://www.overheaddoor.com/Documents/operator-rhx-trolley-install.pdf',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'overhead-door-rhx-nema',
+    brand: 'overhead-door',
+    title: 'RHX NEMA 7/9 explosion-proof operator install manual',
+    kind: 'install',
+    category: 'opener',
+    markets: ['commercial'],
+    models: ['RHX', 'NEMA 7', 'NEMA 9', 'explosion proof', 'hoist', 'trolley'],
+    url: 'https://www.overheaddoor.com/Documents/operator-rhx-nema-manual.pdf',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'linear-mo-s',
+    brand: 'linear',
+    title: 'MO-S commercial door operator install and owner\'s manual',
+    kind: 'install',
+    category: 'opener',
+    markets: ['commercial'],
+    models: ['MO-S', 'MO', 'MOS', 'solid state', 'commercial'],
+    url: 'https://linear-solutions.com/wp-content/uploads/MO-S_230770.pdf',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'clopay-commercial-sectional',
+    brand: 'clopay',
+    title: 'Commercial and industrial sectional door install manual',
+    kind: 'install',
+    category: 'door',
+    markets: ['commercial'],
+    models: ['commercial sectional', 'industrial', 'Safe-T chain hoist', 'chain hoist'],
+    note: 'Also has the commercial supplemental instructions.',
+    url: 'https://consumerservices.clopay.com/support/solutions/articles/67000612876-commercial-installation-manuals',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'doorking-slide-gate',
+    brand: 'doorking',
+    title: 'Slide gate operators: owner\'s manuals by model',
+    kind: 'library',
+    category: 'gate',
+    models: ['9000', '9024', '9050', '9100', '9150', '9200', '9500', '2170', 'eVolve', 'slide gate'],
+    note: 'Pick the model, then the manual that matches the date it was built.',
+    url: 'https://www.doorking.com/tech-support/slide-gate-operator/',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'doorking-swing-gate',
+    brand: 'doorking',
+    title: 'Swing gate operators: owner\'s manuals by model',
+    kind: 'library',
+    category: 'gate',
+    models: ['6004', '6006', '6050', '6100', '6300', '6500', '6524', '6550', '2160', 'eVolve', 'swing gate'],
+    url: 'https://www.doorking.com/tech-support/swing-gate-operator/',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'doorking-entry-systems',
+    brand: 'doorking',
+    title: 'Telephone and video entry systems',
+    kind: 'library',
+    category: 'gate',
+    models: ['1802', '1803', '1808', '1810', '1812', '1816', '1819', '1820', '1833', '1834', '1835', '1837', '1838', '2108', '2112', 'Access Plus', 'telephone entry', 'intercom', 'call box'],
+    url: 'https://www.doorking.com/tech-support/telephone/',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'doorking-traffic-control',
+    brand: 'doorking',
+    title: 'Barrier gates and traffic control',
+    kind: 'library',
+    category: 'gate',
+    models: ['1601', '1602', '1603', '1610', '1620', '1625', '1175', 'barrier gate', 'parking', 'AutoSpikes', 'traffic spikes', 'overhead gate'],
+    url: 'https://www.doorking.com/tech-support/traffic-control/',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'rytec-documents',
+    brand: 'rytec',
+    title: 'Document resource center: owner\'s and install manuals',
+    kind: 'library',
+    category: 'door',
+    markets: ['commercial'],
+    models: ['Spiral', 'Spiral FV', 'Spiral HZ', 'Spiral LH', 'Spiral LP', 'Spiral VP', 'Spiral VT', 'Turbo-Seal', 'Turbo-Slide', 'Fast-Seal', 'Clean-Roll', 'Pharma-Seal', 'Plexline', 'PredaDoor', 'PredaCool', 'Sure-Seal', 'FlexTec', 'Bantam', 'PowerTec', 'high speed', 'technical bulletin'],
+    note: 'Filter by product and pick Owner\'s or Installation Manuals.',
+    url: 'https://www.rytecdoors.com/resources',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'cornell-cookson-300',
+    brand: 'cornell-cookson',
+    title: '300 Series rolling door install instructions',
+    kind: 'install',
+    category: 'door',
+    markets: ['commercial'],
+    models: ['300', '300 Series', 'Extreme 300', 'rolling', 'APEX Pro'],
+    url: 'https://clopay.cornellcookson.com/docs/architectportallibraries/commercial-install-manuals/300-door-install-manual912be02433ce40ed8d844ea8f3d05703.pdf',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'cornell-cookson-1024',
+    brand: 'cornell-cookson',
+    title: '1024 high-cycle rolling door install instructions',
+    kind: 'install',
+    category: 'door',
+    markets: ['commercial'],
+    models: ['1024', 'HSHC', 'high cycle', 'rolling', 'APEX Pro', 'Micanan'],
+    url: 'https://clopay.cornellcookson.com/docs/architectportallibraries/commercial-install-manuals/1024-door-install-manual.pdf',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'chase-install',
+    brand: 'chase',
+    title: 'Install instructions: traffic, cold storage, strip and roll-up doors',
+    kind: 'library',
+    category: 'door',
+    markets: ['commercial'],
+    models: ['Durulite', 'Retailer', 'R25', 'Proline', '300i', '400i', '300s', '400s', 'ColdGuard', 'VLE', 'SSE-EHD', 'BPE-EHD', 'SSM-EHD', 'BPM-EHD', '1900-RLS', '1900-PLC', 'F1900-PLC', 'Screen-Pro', 'AirGard', 'strip door', 'traffic door', 'cold storage'],
+    url: 'https://www.chasedoors.com/resources/installation-instructions',
+    checked: '2026-11-11',
+  },
+  {
+    id: 'bea-lzr-h100',
+    brand: 'bea',
+    title: 'LZR-H100 gate and barrier safety sensor user guides',
+    kind: 'owner',
+    category: 'gate',
+    models: ['LZR-H100', 'H100', 'laser scanner', 'sliding gate', 'swing gate', 'barrier arm'],
+    url: 'https://us.beasensors.com/en/product/lzr-h100/downloads/',
     checked: '2026-11-11',
   },
 ];

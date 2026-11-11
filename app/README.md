@@ -214,7 +214,8 @@ take decimals instead of fractions.
 resets a tab.
 
 **Manuals.** A search box (brand, model or series; case, spaces and dashes
-don't matter) and a row of brand buttons. Each row opens the maker's own page
+don't matter), a row to pick Residential or Commercial & gate, and a row of
+brand buttons that shows only the makers in the market picked. Each row opens the maker's own page
 in the phone's browser: install instructions, owner's manuals, manual search
 pages and troubleshooting. Nothing is copied into the app. Before opening, the
 app checks for a signal; with none it says so and offers Try again or Open
@@ -222,7 +223,8 @@ anyway. Each row shows the day its link was last checked.
 
 The links live in `src/data/manuals.ts`. To add one, open the page in a
 browser to be sure it loads, then add an entry with today's date in
-`checked`. A new maker also goes in `BRANDS` with its own website hosts; the
+`checked`. Mark a commercial door or operator with `markets: ['commercial']`
+(gate links count as commercial & gate on their own). A new maker also goes in `BRANDS` with its own website hosts; the
 tests fail on any link whose host isn't one of its maker's, so a mirror or a
 manual-sharing site can't slip in. A change there is plain JavaScript and
 reaches phones over the air.
