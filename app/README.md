@@ -308,6 +308,13 @@ typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
 **Look.** Near-black on white, bold type at 18 px and up, every button at
 least 56 px tall for gloves. The app is portrait and light mode only.
 
+**Diagnose.** Three modes: by symptom, by blink or beep code, and
+**Program**, step-by-step guides per opener family for remotes, keypads,
+travel limits, force and erasing all remotes. All of it is bundled and works
+offline. Programming guides live in `src/data/programming.ts`; a task with no
+`checked` date shows "Not checked against the maker's manual yet" with the
+points to confirm, and each family links its manuals from the Manuals library.
+
 ## Screens and routes
 
 Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
