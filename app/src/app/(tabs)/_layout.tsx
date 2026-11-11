@@ -1,24 +1,14 @@
 import { router, usePathname } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import * as Updates from 'expo-updates';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from '../../config';
-import { formatBuildInfo } from '../../lib/buildInfo';
+import { SHORT_VERSION } from '../../lib/appVersion';
 import { SECTIONS } from '../../lib/sections';
 import { colors, touch, type } from '../../theme';
-
-// Read once: what's running doesn't change until the app restarts.
-const BUILD_INFO = formatBuildInfo({
-  runtimeVersion: Updates.runtimeVersion,
-  updateId: Updates.updateId,
-  createdAt: Updates.createdAt,
-  isEmbeddedLaunch: Updates.isEmbeddedLaunch,
-  manifest: Updates.manifest,
-});
 
 /**
  * The four sections as tabs. The header, update banners and the bottom bar
@@ -30,24 +20,32 @@ const BUILD_INFO = formatBuildInfo({
 export default function TabsLayout() {
   // Turns true when expo-updates finishes downloading an update by itself at launch.
   const { isUpdatePending } = Updates.useUpdates();
-  const [showBuild, setShowBuild] = useState(false);
   const pathname = usePathname();
   const current = SECTIONS.find((s) => s.href === pathname) ?? SECTIONS[0];
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
-      {/* The build line is for support, not for techs: hold the title to show or hide it. */}
-      <Pressable style={styles.header} onLongPress={() => setShowBuild((v) => !v)} accessibilityHint="Hold to show the app version" testID="header">
-        <Text style={styles.title} accessibilityRole="header">
-          {current.title}
-        </Text>
-        <Text style={styles.subtitle}>{current.subtitle}</Text>
-        {showBuild ? (
-          <Text style={styles.build} testID="build-info" selectable numberOfLines={1}>
-            {BUILD_INFO}
+      {/* Settings at the top right, with the running version on it so it's always in sight. */}
+      <View style={styles.header} testID="header">
+        <View style={styles.headText}>
+          <Text style={styles.title} accessibilityRole="header">
+            {current.title}
           </Text>
-        ) : null}
-      </Pressable>
+          <Text style={styles.subtitle}>{current.subtitle}</Text>
+        </View>
+        <Pressable
+          onPress={() => router.push('/settings')}
+          accessibilityRole="button"
+          accessibilityLabel={`Settings, app ${SHORT_VERSION}`}
+          testID="open-settings"
+          style={({ pressed }) => [styles.settings, pressed && styles.navPressedLight]}
+        >
+          <Text style={styles.settingsText}>Settings</Text>
+          <Text style={styles.version} testID="header-version">
+            {SHORT_VERSION}
+          </Text>
+        </Pressable>
+      </View>
       {/* The runtime version is the installed APK's app.json version (appVersion policy). */}
       <ApkUpdateBanner manifestUrl={APK_MANIFEST_URL} currentVersion={Updates.runtimeVersion} />
       <View style={styles.root}>
@@ -85,10 +83,14 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  headText: { flex: 1 },
   title: { fontSize: type.big, fontWeight: '900', color: colors.text },
   subtitle: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  build: { fontSize: 13, fontWeight: '500', color: colors.muted, marginTop: 2 },
+  settings: { minHeight: touch.min, minWidth: touch.min + 24, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  settingsText: { fontSize: 16, fontWeight: '800', color: colors.text },
+  version: { fontSize: 13, fontWeight: '700', color: colors.muted },
+  navPressedLight: { backgroundColor: colors.safety },
   // Black bar, the open section in safety yellow with a yellow mark on top.
   nav: { flexDirection: 'row', backgroundColor: colors.selected },
   navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar, alignItems: 'center', justifyContent: 'center', borderTopWidth: 6, borderTopColor: colors.selected },

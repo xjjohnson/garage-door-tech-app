@@ -43,3 +43,8 @@ export function formatBuildInfo(s: BuildSource): string {
   }
   return parts.join(' · ');
 }
+
+/** The short version for the header, such as "v0.4.0". */
+export function shortVersion(runtimeVersion: string | null | undefined): string {
+  return runtimeVersion ? `v${runtimeVersion}` : 'dev';
+}

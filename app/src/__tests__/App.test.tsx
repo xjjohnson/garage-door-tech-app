@@ -133,10 +133,12 @@ describe('spring calculator app', () => {
     expect(stopAt).toBeLessThan(doorBanner);
   });
 
-  it('the build line is hidden until the title is held', async () => {
-    await renderApp();
+  it('shows the version on the Settings button, and the full build line in Settings', async () => {
+    const app = await renderApp();
+    expect(screen.getByTestId('header-version')).toBeTruthy();
     expect(screen.queryByTestId('build-info')).toBeNull();
-    await fireEvent(screen.getByTestId('header'), 'longPress');
+    await fireEvent.press(screen.getByTestId('open-settings'));
+    expect(app.getPathname()).toBe('/settings');
     expect(screen.getByTestId('build-info')).toBeTruthy();
   });
 

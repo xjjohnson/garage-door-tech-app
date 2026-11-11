@@ -53,6 +53,7 @@ export default function RootLayout() {
                               <Stack.Screen name="photos/[id]" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="team" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="door-weight" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
                             </Stack>
                           </CalculatorLinkProvider>
                         </OdooProvider>
