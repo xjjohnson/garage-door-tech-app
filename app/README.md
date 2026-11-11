@@ -434,6 +434,22 @@ print or save it (`src/lib/pdf.ts`, `src/lib/attachments.ts`,
 `src/lib/deviceMedia.ts`, AsyncStorage `attachments/v1`). **Send as text**
 still sends the plain-text version.
 
+**Team (Odoo).** **Team** next to **Back up or restore** signs in to the
+business's Odoo (address, database, email, and a password or, better, an
+API key from Odoo's My Preferences > Account Security). The key is kept in the
+phone's keystore (`expo-secure-store`), never in AsyncStorage or backups, and
+the app signs in again on its own when it opens. **My jobs** lists the open
+jobs Odoo assigns to you, with Directions and Call; **Add to schedule** (or
+**Put all on my schedule**) puts them on the Schedule as visits, and **Mark
+done** closes a Field Service job the way Odoo's own button does.
+**Dispatch** lists unassigned jobs with a button for each tech to give it to,
+and **A tech's jobs** shows one tech's list with buttons to move a job to
+someone else. Jobs are Odoo Field Service tasks when that app is installed,
+and ordinary Project tasks otherwise; Odoo 16+ (`user_ids`) and older
+(`user_id`) are both handled. It talks to Odoo's `/jsonrpc` endpoint
+(`src/lib/odoo.ts`, `src/lib/useOdoo.tsx`, sign-in details in AsyncStorage
+`odoo/v1`). Needs the 0.4.0 APK for the keystore.
+
 **Safety check.** A job's **Safety check** (in its details, or on its quote)
 walks the door and opener: lift cables, drums, bottom brackets, springs and
 cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
@@ -502,7 +518,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 
 | File | Address | What |
 |---|---|---|
-| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures), then a stack: the sections, with full pages on top |
+| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures, Odoo team), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Springs: Match old, From door, Extension and High lift |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
@@ -523,6 +539,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `time-log.tsx` | `/time-log` | Clock in and out, miles and the week's totals, a full page |
 | `stock.tsx` | `/stock` | Truck stock and orders to suppliers, a full page |
 | `photos/[id].tsx` | `/photos/<job id>` | One job's before and after photos, a full page |
+| `team.tsx` | `/team` | Odoo sign-in, my assigned jobs and dispatch, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

@@ -13,6 +13,7 @@ import { StatsCard } from './StatsScreen';
 import { NextVisits } from './ScheduleScreen';
 import { ClockButton } from './WorkLogScreen';
 import { StockButton } from './StockScreen';
+import { TeamButton } from './TeamScreen';
 import { followUps } from '../lib/followups';
 import { useFollowUps } from '../lib/useFollowUps';
 import { colors, touch, type } from '../theme';
@@ -88,9 +89,12 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           <Text style={styles.buttonText}>Your business</Text>
         </Pressable>
       </View>
-      <Pressable onPress={() => router.push('/backup')} accessibilityRole="button" testID="open-backup" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
-        <Text style={styles.buttonText}>Back up or restore</Text>
-      </Pressable>
+      <View style={styles.row}>
+        <Pressable onPress={() => router.push('/backup')} accessibilityRole="button" testID="open-backup" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
+          <Text style={styles.buttonText}>Back up or restore</Text>
+        </Pressable>
+        <TeamButton />
+      </View>
       <Segmented options={FILTERS} value={filter} onChange={setFilter} testID="jobs-filter" />
 
       {loaded && jobs.length === 0 ? (
