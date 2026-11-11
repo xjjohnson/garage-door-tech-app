@@ -3,13 +3,15 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChipOption, ChipRow, Segmented } from '../components/controls';
 import { DIAG_BRANDS, DIAG_SAFETY, DiagSource, SYMPTOMS } from '../data/diagnostics';
 import { familiesFor, familyById, findCode, hostOf } from '../lib/diagnose';
+import { ProgramScreen } from './ProgramScreen';
 import { colors, touch, type } from '../theme';
 
-type Mode = 'symptom' | 'code';
+type Mode = 'symptom' | 'code' | 'program';
 
 const MODE_OPTIONS: ChipOption<Mode>[] = [
   { label: 'By symptom', value: 'symptom' },
   { label: 'By code', value: 'code' },
+  { label: 'Program', value: 'program' },
 ];
 
 const BRAND_OPTIONS: ChipOption<string>[] = DIAG_BRANDS.map((b) => ({ label: b.name, value: b.id }));
@@ -23,7 +25,8 @@ interface Props {
 /**
  * Opener troubleshooting that works with no signal: pick what the door is
  * doing, or the maker and the blink or beep code, and get the checks in
- * order. Only the "Source" links at the bottom need internet.
+ * order. Program has step-by-step guides for remotes, keypads, travel
+ * limits and force. Only the maker links at the bottom need internet.
  */
 export function DiagnoseScreen({ openUrl = (u) => Linking.openURL(u) }: Props) {
   const [mode, setMode] = useState<Mode>('symptom');
@@ -111,6 +114,8 @@ export function DiagnoseScreen({ openUrl = (u) => Linking.openURL(u) }: Props) {
             <Text style={styles.hint}>Pick one to see what to check, in order.</Text>
           )}
         </View>
+      ) : mode === 'program' ? (
+        <ProgramScreen openUrl={openUrl} />
       ) : (
         <View style={styles.stack} testID="diagnose-by-code">
           <Text style={styles.label}>Brand</Text>
