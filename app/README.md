@@ -223,7 +223,11 @@ door weight and, optionally, floor to shaft center. It lists which Canimex
 drums hold the door (cable capacity and load per drum) with each one's cable
 length. On high lift with D400-54 drums it also gives the turns, the rate per
 spring and spring options, from Canimex's D400-54 multiplier chart (15"
-track, 6' to 10' doors, to 42" of high lift, 45" to 7'6"). Other high-lift
+track, 6' to 10' doors, to 42" of high lift, 45" to 7'6"). On standard lift
+with a door weight it also sizes springs on D525-216 drums for heavy
+commercial sectional doors, from Canimex's D525-216 table (12" or 15" track,
+6' to 19'3"), with one, two or four springs, 3 3/4" inside diameter, and
+heavier wires to .331 from Canimex's 3.750" chart. Other high-lift
 drums and vertical lift list the drums only: their turns come from the drum
 maker's chart. The math is in `spring-calc/src/drums.ts`.
 

@@ -66,3 +66,26 @@ describe('high lift tab in the app', () => {
     expect(screen.getByTestId('drum-D400-54')).toHaveTextContent(/✓ D400-54/);
   });
 });
+
+describe('heavy sectional on the drums tab', () => {
+  const HEAVY = { ...DEFAULT_DRUMS_FORM, lift: 'standard' as const, heightChoice: 'other', heightOther: '168', weight: '700', springCount: 4 as const, ids: [3.75] };
+  it('sizes a heavy door on D525-216', () => {
+    const out = runDrums(HEAVY);
+    expect(out.status).toBe('ok');
+    if (out.status !== 'ok') return;
+    expect(out.result.heavy?.turns).toBe(10.75);
+    expect(out.result.heavy?.options.length).toBeGreaterThan(0);
+  });
+  it('standard lift without a weight just lists drums', () => {
+    const out = runDrums({ ...HEAVY, weight: '' });
+    expect(out.status === 'ok' && out.result.heavy).toBeFalsy();
+  });
+  it('quotes four springs', () => {
+    const q = buildQuote({ mode: 'drums', form: HEAVY }, { ...DEFAULT_PRICE_SHEET, spring: { good: '100', better: '140', best: '180' } });
+    expect(q.options[0].lines[0].label).toMatch(/^4 springs, /);
+    expect(q.options[0].lines[0].cents).toBe(40000);
+  });
+  it('high lift refuses four springs', () => {
+    expect(runDrums({ ...HIGH, springCount: 4 }).status).toBe('error');
+  });
+});

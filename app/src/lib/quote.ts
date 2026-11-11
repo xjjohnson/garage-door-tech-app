@@ -65,7 +65,7 @@ function tierSprings(inputs: Exclude<JobInputs, { mode: 'extension' }>): { block
       const out = runDrums({ ...inputs.form, targetCycles: TIER_CYCLES[t] });
       if (out.status === 'incomplete') return { blocked: `Missing: ${out.missing.join(', ')}`, springs: none };
       if (out.status === 'error') return { blocked: out.message, springs: none };
-      const hl = out.result.highLift;
+      const hl = out.result.highLift ?? out.result.heavy;
       if (!hl) return { blocked: out.result.noTurns ?? 'No turns for this door', springs: none };
       // A tier with no spring is shown as unavailable; any other STOP blocks the quote.
       const stop = hl.warnings.find((w) => w.level === 'stop' && !/fits/.test(w.message));
@@ -137,7 +137,7 @@ export function buildQuote(inputs: JobInputs, sheet: PriceSheet): Quote {
     if (typeof s === 'string') return { tier, available: false, reason: s, springCount, lines: [], subtotal: 0, tax: 0, total: 0 };
     const each = cents(sheet.spring[tier]);
     const lines: QuoteLine[] = [
-      { label: `${springCount === 2 ? '2 springs' : '1 spring'}, ${springName(s)}`, cents: each * springCount, taxable: true },
+      { label: `${springCount === 1 ? '1 spring' : `${springCount} springs`}, ${springName(s)}`, cents: each * springCount, taxable: true },
       { label: 'Spring labor', cents: cents(sheet.springLabor), taxable: false },
       { label: 'Service call', cents: cents(sheet.serviceCall), taxable: false },
       ...addOnsFor(tier, sheet.addOns),

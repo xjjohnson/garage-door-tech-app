@@ -75,3 +75,36 @@ describe('which drum fits', () => {
     expect(drumsThatFit({ lift: 'vertical', doorHeightIn: 144, doorWeightLb: 800 }).filter((f) => f.fits).map((f) => f.drum.model)).toEqual(['D1100-216', 'D1350-336']);
   });
 });
+
+import { D525_216_CHART, D525_216_HMA_IN, HEAVY_WIRES, heavySectionalD525_216 } from '../src/drums';
+import { rateConstant } from '../src/springMath';
+
+describe('heavy sectional on D525-216', () => {
+  it('HMA / multiplier gives the turns Canimex prints', () => {
+    const printed: [number, number, number][] = [[72, 5.1, 5.4], [84, 5.8, 6.1], [120, 7.9, 8.1], [168, 10.7, 10.9], [231, 14.3, 14.5]];
+    for (const [h, t12, t15] of printed) {
+      const row = D525_216_CHART.find((r) => r[0] === h)!;
+      expect(Math.abs(D525_216_HMA_IN / row[1] - t12)).toBeLessThanOrEqual(0.051);
+      expect(Math.abs(D525_216_HMA_IN / row[2] - t15)).toBeLessThanOrEqual(0.051);
+    }
+  });
+  it('the textbook rate reproduces the K Canimex prints for the heavy wires (3.75" chart)', () => {
+    const printedK: Record<string, number> = { '.297': 5654, '.306': 6398, '.312': 6904, '.319': 7531, '.331': 8651 };
+    for (const w of HEAVY_WIRES) expect(Math.abs(rateConstant(w.diameterIn, 3.75) / printedK[w.nominal]! - 1)).toBeLessThan(0.01);
+  });
+  it('a 14\' 700 lb door on 15" track: too much for a pair, fine on four', () => {
+    const pair = heavySectionalD525_216({ doorHeightIn: 168, doorWeightLb: 700, trackRadiusIn: 15, springCount: 2 });
+    expect(pair.options).toHaveLength(0);
+    expect(pair.warnings.some((w) => w.level === 'stop' && /more springs/.test(w.message))).toBe(true);
+    const r = heavySectionalD525_216({ doorHeightIn: 168, doorWeightLb: 700, trackRadiusIn: 15, springCount: 4, floorToShaftCenterIn: 180 });
+    expect(r.turns).toBe(10.75);
+    expect(r.ipptPerSpring).toBeCloseTo((0.2706 * 700) / 4, 3);
+    expect(r.cableLengthIn).toBe(190);
+    expect(r.options.length).toBeGreaterThan(0);
+    for (const o of r.options) expect(o.life.cycles).toBeGreaterThanOrEqual(10_000);
+  });
+  it('stops past 750 lb a drum', () => {
+    const r = heavySectionalD525_216({ doorHeightIn: 168, doorWeightLb: 1600, trackRadiusIn: 15, springCount: 2 });
+    expect(r.warnings.some((w) => w.level === 'stop' && /D800-384/.test(w.message))).toBe(true);
+  });
+});
