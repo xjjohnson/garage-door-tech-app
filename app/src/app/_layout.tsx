@@ -22,6 +22,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="price-sheet" options={{ presentation: 'modal' }} />
               <Stack.Screen name="quote/[id]" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="backup" options={{ presentation: 'modal' }} />
             </Stack>
           </CalculatorLinkProvider>
         </PriceSheetProvider>
