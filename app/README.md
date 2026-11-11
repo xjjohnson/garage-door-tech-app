@@ -363,6 +363,16 @@ each ticked for Good, Better and/or Best; add or remove any) and the tax
 rate. Prices are entered on the keypad and saved on the phone as they're
 typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
 
+**Prices from Odoo.** When signed in to Odoo (Jobs > Team) and Odoo has
+products, **Import prices from Odoo** at the top of the price sheet brings in
+every product that can be sold (`sale_ok`) with its sales price
+(`product.product` `lst_price`). Products not linked to a line yet become
+add-ons ticked on no option, folded under **Show N more Odoo items** until a
+tier is picked. Any line can be linked to an Odoo product (**Link to Odoo
+product**, route `/odoo-product`); later imports update linked prices and
+list products that are gone. Links are kept in the sheet's `odoo` map, by
+line key. Offline, the sheet works as before.
+
 **Customers.** **Customers** at the top of Jobs lists everyone a job was
 saved for, most recent first, with a search box (name, phone, email, address,
 notes, or the address or spring of one of their jobs). Every job belongs to a
@@ -546,6 +556,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `(tabs)/manuals.tsx` | `/manuals` | Manuals |
 | `(tabs)/diagnose.tsx` | `/diagnose` | Diagnose |
 | `price-sheet.tsx` | `/price-sheet` | The price sheet, a full page |
+| `odoo-product.tsx` | `/odoo-product?line=…` | Pick the Odoo product a price-sheet line follows |
 | `quote/[id].tsx` | `/quote/<job id>` | One job's quote, a full page |
 | `backup.tsx` | `/backup` | Back up and restore jobs and prices, a full page |
 | `customers.tsx` | `/customers` | The customer list, a full page |

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipRow, SectionTitle } from '../components/controls';
 import { phoneLink } from '../lib/jobs';
-import { cleanUrl, guessDb, OdooError, OdooTask, OdooUser, taskToAppointment } from '../lib/odoo';
+import { appsFound, cleanUrl, guessDb, OdooError, OdooTask, OdooUser, taskToAppointment } from '../lib/odoo';
 import { dayLabel, formatTime, mapsLink } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
@@ -146,6 +146,7 @@ function SignedIn({ now }: { now: () => number }) {
         <Text style={styles.detail} testID="team-who">
           Signed in as {s.name} · {s.url.replace(/^https?:\/\//, '')}
         </Text>
+        <AppsFound />
         <Text style={styles.note} testID="team-no-tasks">
           Your Odoo doesn’t have a jobs app yet. In Odoo, open Apps and install Field Service (or Project if your plan doesn’t include Field Service). Then sign out here and sign in again.
         </Text>
@@ -159,6 +160,7 @@ function SignedIn({ now }: { now: () => number }) {
       <Text style={styles.detail} testID="team-who">
         Signed in as {s.name} · {s.url.replace(/^https?:\/\//, '')}
       </Text>
+      <AppsFound />
       <Text style={styles.meta}>{s.kind === 'oca' ? (s.me ? 'Jobs are Field Service orders.' : 'Jobs are Field Service orders. You aren’t a Field Service worker in Odoo, so nothing is assigned to you; add yourself under Field Service > Workers.') : s.fsm ? 'Jobs are Odoo Field Service tasks.' : 'Field Service isn’t installed, so jobs are Odoo Project tasks.'}</Text>
       <View style={styles.row}>
         <Action label={busy ? 'Loading...' : 'Refresh'} grow disabled={busy} onPress={load} testID="team-refresh" />
@@ -216,6 +218,18 @@ function SignedIn({ now }: { now: () => number }) {
         </>
       ) : null}
     </View>
+  );
+}
+
+/** Which Odoo apps the phone found, so it's clear what can sync. */
+function AppsFound() {
+  const { client } = useOdoo();
+  const found = client ? appsFound(client.session) : [];
+  return (
+    <Text style={styles.meta} testID="team-apps">
+      {found.length ? `Found in your Odoo: ${found.join(', ')}.` : 'No Field Service, Sales, Invoicing or products found in your Odoo for this account.'}
+      {client?.session.apps.products ? ' Import your Odoo prices on the Price sheet.' : ''}
+    </Text>
   );
 }
 

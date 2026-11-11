@@ -37,6 +37,41 @@ export interface OdooSession extends OdooLogin {
   fields: string[];
   /** OCA only: whether fsm.stage has is_closed, to leave finished orders out. */
   closedStage?: boolean;
+  /** Which other Odoo apps this user can reach, so the app only offers syncs that will work. */
+  apps: OdooApps;
+  /** Optional fields product.product has here (sale_ok, default_code). */
+  productFields: string[];
+}
+
+export interface OdooApps {
+  /** Products (product.product), from Sales, Invoicing or Inventory. */
+  products: boolean;
+  /** Quotations and sales orders (sale.order). */
+  sales: boolean;
+  /** Invoices (account.move). */
+  invoicing: boolean;
+}
+
+export const NO_APPS: OdooApps = { products: false, sales: false, invoicing: false };
+
+/** "Field Service, Sales, Invoicing, Products": what the app found, for the Team screen. */
+export function appsFound(s: Pick<OdooSession, 'kind' | 'fsm' | 'apps'>): string[] {
+  return [
+    ...(s.kind === 'oca' || s.fsm ? ['Field Service'] : s.kind === 'task' ? ['Project'] : []),
+    ...(s.apps.sales ? ['Sales'] : []),
+    ...(s.apps.invoicing ? ['Invoicing'] : []),
+    ...(s.apps.products ? ['Products'] : []),
+  ];
+}
+
+/** A product as the price sheet sees it. */
+export interface OdooProduct {
+  id: number;
+  name: string;
+  /** Internal reference, if any. */
+  code: string;
+  /** Sales price in cents. */
+  cents: number;
 }
 
 export type Fetch = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
@@ -102,6 +137,7 @@ export function toOdooTime(ms: number): string {
 }
 
 const TASK_OPTIONAL = ['planned_date_begin', 'date_deadline', 'description', 'partner_phone', 'fsm_done'];
+const PRODUCT_OPTIONAL = ['sale_ok', 'default_code'];
 const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end'];
 
 export class OdooClient {
@@ -119,7 +155,7 @@ export class OdooClient {
     const uid = await rpc(fetchFn, url, 'common', 'authenticate', [login.db.trim(), login.login.trim(), secret, {}]);
     if (typeof uid !== 'number' || uid <= 0) throw new OdooError('Wrong email, password or API key.', 'login');
     const base = { url, db: login.db.trim(), login: login.login.trim(), uid };
-    const blank: OdooSession = { ...base, name: '', kind: 'none', me: uid, fsm: false, assignField: 'user_ids', fields: [] };
+    const blank: OdooSession = { ...base, name: '', kind: 'none', me: uid, fsm: false, assignField: 'user_ids', fields: [], apps: NO_APPS, productFields: [] };
     const probe = new OdooClient(fetchFn, blank, secret, now);
     const me = (await probe.call('res.users', 'read', [[uid]], { fields: ['name', 'partner_id'] })) as { name?: string; partner_id?: unknown }[];
     const name = me[0]?.name ?? login.login;
@@ -131,7 +167,12 @@ export class OdooClient {
         throw e;
       }
     };
-    const make = (s: Partial<OdooSession>) => new OdooClient(fetchFn, { ...blank, name, ...s }, secret, now);
+    // The other apps are optional: a model that's missing, or that this user can't read, just isn't offered.
+    const maybe = (model: string) => fieldsOf(model).catch(() => null);
+    const [product, sale, move] = await Promise.all([maybe('product.product'), maybe('sale.order'), maybe('account.move')]);
+    const apps: OdooApps = { products: !!product, sales: !!sale, invoicing: !!move };
+    const productFields = product ? PRODUCT_OPTIONAL.filter((f) => f in product) : [];
+    const make = (s: Partial<OdooSession>) => new OdooClient(fetchFn, { ...blank, name, apps, productFields, ...s }, secret, now);
 
     // The community (OCA) Field Service app keeps jobs as fsm.order, given to workers (fsm.person).
     const order = await fieldsOf('fsm.order');
@@ -153,6 +194,29 @@ export class OdooClient {
 
   private has(f: string) {
     return this.session.fields.includes(f);
+  }
+
+  private productQuery(): { domain: unknown[]; fields: string[] } {
+    const pf = this.session.productFields;
+    return { domain: pf.includes('sale_ok') ? [['sale_ok', '=', true]] : [], fields: ['name', 'lst_price', ...(pf.includes('default_code') ? ['default_code'] : [])] };
+  }
+
+  /** Products that can be sold, by name or internal reference; all of them (up to the limit) for an empty search. */
+  async products(search = '', limit = 50): Promise<OdooProduct[]> {
+    if (!this.session.apps.products) return [];
+    const q = search.trim();
+    const { domain, fields } = this.productQuery();
+    const match = q ? (fields.includes('default_code') ? ['|', ['name', 'ilike', q], ['default_code', 'ilike', q]] : [['name', 'ilike', q]]) : [];
+    const rows = (await this.call('product.product', 'search_read', [[...domain, ...match]], { fields, limit, order: 'name asc' })) as Record<string, unknown>[];
+    return rows.map(toProduct);
+  }
+
+  /** Every product that can be sold, for importing the price list (up to 2000). */
+  async allProducts(): Promise<OdooProduct[]> {
+    if (!this.session.apps.products) return [];
+    const { domain, fields } = this.productQuery();
+    const rows = (await this.call('product.product', 'search_read', [domain], { fields, limit: 2000, order: 'name asc' })) as Record<string, unknown>[];
+    return rows.map(toProduct);
   }
 
   /** Marking done works with either Field Service app. */
@@ -262,6 +326,11 @@ export interface OdooTask {
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
+
+function toProduct(r: Record<string, unknown>): OdooProduct {
+  const price = typeof r.lst_price === 'number' ? r.lst_price : 0;
+  return { id: r.id as number, name: str(r.name), code: str(r.default_code), cents: Math.max(0, Math.round(price * 100)) };
+}
 
 /** Odoo sends datetimes as "2026-11-12 14:00:00" in UTC, and dates as "2026-11-12". */
 export function odooTime(v: unknown): number | undefined {
