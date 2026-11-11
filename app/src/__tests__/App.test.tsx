@@ -77,7 +77,28 @@ describe('spring calculator app', () => {
     await render(<App />);
     await fireEvent.press(screen.getByTestId('tab-door'));
     await enter('field-weight', ['5']);
-    expect(await screen.findAllByText(/Door weight must be between/)).toHaveLength(1);
+    // One STOP card in the results, and the pinned bar says STOP too.
+    expect(await screen.findAllByTestId('warning-stop')).toHaveLength(1);
+    expect(within(screen.getByTestId('door-bar')).getByText(/Door weight must be between/)).toBeTruthy();
+  });
+
+  it('the pinned bar says what is missing, then the answer', async () => {
+    await render(<App />);
+    expect(within(screen.getByTestId('match-bar')).getByText('Enter length of 20 coils')).toBeTruthy();
+    await enter('field-twenty', ['4', '1/2']);
+    await enter('field-length', ['2', '4']);
+    expect(within(screen.getByTestId('match-bar')).getByText('.225 × 2" × 24"')).toBeTruthy();
+    expect(within(screen.getByTestId('match-bar')).getByText(/Wind 7 1\/2 turns/)).toBeTruthy();
+  });
+
+  it('clear all inputs needs a second tap', async () => {
+    await render(<App />);
+    await enter('field-length', ['2', '4']);
+    await fireEvent.press(screen.getByTestId('clear-match'));
+    expect(screen.getByLabelText('Spring length (relaxed): 24 in')).toBeTruthy();
+    expect(within(screen.getByTestId('clear-match')).getByText('Tap again to clear all')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('clear-match'));
+    expect(screen.getByLabelText('Spring length (relaxed): not entered')).toBeTruthy();
   });
 
   it('remembers the last inputs per tab', async () => {

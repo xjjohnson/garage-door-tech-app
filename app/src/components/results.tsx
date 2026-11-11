@@ -135,8 +135,9 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 12, borderWidth: 2, borderColor: colors.border, padding: 14, gap: 10 },
   cardTitle: { fontSize: type.value, fontWeight: '900', color: colors.text },
   stat: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
-  statLabel: { fontSize: type.body, fontWeight: '600', color: colors.muted, flexShrink: 1, paddingTop: 2 },
-  statRight: { alignItems: 'flex-end', flexShrink: 1 },
+  // The number never breaks across lines; the label wraps instead.
+  statLabel: { fontSize: type.body, fontWeight: '600', color: colors.muted, flex: 1, paddingTop: 2 },
+  statRight: { alignItems: 'flex-end', flexShrink: 0, maxWidth: '62%' },
   statValue: { fontSize: type.value, fontWeight: '800', color: colors.text, textAlign: 'right' },
   statSub: { fontSize: 15, color: colors.muted, textAlign: 'right' },
   spring: { gap: 6, paddingTop: 4 },

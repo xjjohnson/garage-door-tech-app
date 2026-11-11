@@ -81,13 +81,14 @@ export function Keypad({ visible, title, initial, unit, hint, allowFraction, all
           ))}
 
           <View style={styles.row}>
-            <Key label="Clear" onPress={() => press('clear')} testID="key-clear" />
+            <Key label="Clear" onPress={() => press('clear')} testID="key-clear" word />
             {allowFraction ? (
               <Key
                 label={sixteenths ? '8ths' : '16ths'}
                 a11y={sixteenths ? 'Show eighths' : 'Show sixteenths'}
                 onPress={() => setSixteenths((v) => !v)}
                 testID="key-toggle-16ths"
+                word
               />
             ) : null}
             <Pressable
@@ -105,7 +106,8 @@ export function Keypad({ visible, title, initial, unit, hint, allowFraction, all
   );
 }
 
-function Key({ label, onPress, small, testID, a11y }: { label: string; onPress: () => void; small?: boolean; testID?: string; a11y?: string }) {
+/** small: a fraction key. word: a key labelled with a word, set smaller so it fits a narrow phone. */
+function Key({ label, onPress, small, word, testID, a11y }: { label: string; onPress: () => void; small?: boolean; word?: boolean; testID?: string; a11y?: string }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.key, small && styles.fractionKey, pressed && styles.pressed]}
@@ -114,7 +116,9 @@ function Key({ label, onPress, small, testID, a11y }: { label: string; onPress: 
       accessibilityLabel={a11y ?? label}
       testID={testID}
     >
-      <Text style={[styles.keyText, small && styles.fractionText]}>{label}</Text>
+      <Text style={[styles.keyText, (small || word) && styles.fractionText]} numberOfLines={1} adjustsFontSizeToFit>
+        {label}
+      </Text>
     </Pressable>
   );
 }
