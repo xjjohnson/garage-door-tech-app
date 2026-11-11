@@ -184,7 +184,11 @@ change. The new APK then gets updates for 0.2.0, and phones still on the
 they can't run. JavaScript-only changes keep the same version. Version 0.3.0 is such a
 change: the move to Expo Router added native libraries (`expo-router`,
 `react-native-screens`, `expo-linking`, `expo-constants`), so phones need
-the 0.3.0 APK, and 0.2.0 APKs keep their last update.
+the 0.3.0 APK, and 0.2.0 APKs keep their last update. Version 0.4.0 added
+the camera, PDF and share sheet (`expo-image-picker`, `expo-print`,
+`expo-sharing`) and `react-native-svg` for signatures, so phones need the
+0.4.0 APK for those and for every update after it; 0.3.0 APKs keep their last
+update and show the new-APK banner.
 
 This policy was picked over Expo's automatic `fingerprint` policy because
 the APK is built with Gradle here, not EAS Build, and a fingerprint computed
@@ -311,7 +315,7 @@ price sheet: **Good** puts in 10,000-cycle springs (in Match old spring, the
 same size as the old one), **Better** 25,000 and **Best** 50,000, each with
 the spring labor, the service call and whichever add-ons the price sheet
 includes in that option. Sales tax is charged on parts (springs and
-add-ons), not labor. **Send to customer** shares the quote as plain text
+add-ons), not labor. **Send as text** shares the quote as plain text
 (text message, email, anything the phone offers), and **Customer picked**
 records the option and its total on the job, shown in the Jobs list. An
 option with no spring of that rating says so instead of a price, and a job
@@ -400,6 +404,22 @@ system keeps for a product (name, part number, on hand, reorder point, cost,
 vendor), so a later Odoo sync can map it (`src/lib/stock.ts`, AsyncStorage
 `stock/v1`, included in backups).
 
+**Photos, signatures and PDFs** (from version 0.4.0). A quote has **Take
+photos**, a page for that job's **Before**, **After** and **Other** photos,
+from the camera or the gallery, each with **Share** and **Delete**. Photos are
+copied into the app's own folder so they stay when the gallery is cleaned;
+they aren't in backups (only their list is saved). Once the customer picks an
+option, **Customer signs to approve** opens a pad to sign with a finger under
+"I approve the Better option for $X"; an invoice has **Customer signs** for
+"Work completed to my satisfaction." Signatures are saved as a few SVG
+strokes and go into backups. **Send as PDF** on a quote or an invoice makes
+a one-page PDF on the phone (business name and phone, the lines and totals,
+QR codes to pay by Cash App or Venmo, the Zelle handle, the warranty and the
+signature, or a line to sign) and opens the share sheet to text, email,
+print or save it (`src/lib/pdf.ts`, `src/lib/attachments.ts`,
+`src/lib/deviceMedia.ts`, AsyncStorage `attachments/v1`). **Send as text**
+still sends the plain-text version.
+
 **Safety check.** A job's **Safety check** (in its details, or on its quote)
 walks the door and opener: lift cables, drums, bottom brackets, springs and
 cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
@@ -422,7 +442,7 @@ so the invoice shows the email or phone to send to. **Record a payment** takes
 the method (Cash, Check, Cash App, Venmo, Zelle), the amount (it starts at
 what's still owed) and a check number or note; the invoice then shows UNPAID,
 PART PAID or PAID. Payments are removed, and invoices voided, only on a second
-tap. **Send to customer** shares the invoice as text with the payment links.
+tap. **Send as text** shares the invoice as text with the payment links.
 **Invoices** at the top of Jobs lists them, owed first, with the total owed;
 jobs and customer pages show their invoices and what's owed.
 
@@ -468,7 +488,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 
 | File | Address | What |
 |---|---|---|
-| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock), then a stack: the sections, with full pages on top |
+| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Springs: Match old, From door, Extension and High lift |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
@@ -488,6 +508,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `schedule.tsx` | `/schedule` | Booked visits by day; `?book=<customer id>` opens booking for them, a full page |
 | `time-log.tsx` | `/time-log` | Clock in and out, miles and the week's totals, a full page |
 | `stock.tsx` | `/stock` | Truck stock and orders to suppliers, a full page |
+| `photos/[id].tsx` | `/photos/<job id>` | One job's before and after photos, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

@@ -1,7 +1,11 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { SignatureSheet } from '../components/SignaturePad';
+import { photosFor, signatureFor } from '../lib/attachments';
 import { formatJobDate, Job, jobName } from '../lib/jobs';
+import { pdfName, quoteHtml } from '../lib/pdf';
+import { useAttachments } from '../lib/useAttachments';
 import { formatNumber } from '../lib/measure';
 import { formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
 import { buildQuote, QuoteOption, quoteText } from '../lib/quote';
@@ -23,7 +27,12 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
   const quote = useMemo(() => withRepairs(buildQuote(job, sheet), job.inspection, sheet), [job, sheet]);
   const repairs = repairLines(job.inspection);
   const priced = hasPrices(sheet);
-  const { invoices, create } = useInvoices();
+  const { invoices, create, business } = useInvoices();
+  const attachments = useAttachments();
+  const signature = signatureFor(attachments, 'quote', job.id);
+  const photoCount = photosFor(attachments, job.id).length;
+  const [signing, setSigning] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
   const invoice = invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
   const picked = job.accepted ? quote.options.find((o) => o.tier === job.accepted!.tier && o.available) : undefined;
 
@@ -55,6 +64,7 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
         onPress={() => router.push({ pathname: '/inspection/[id]', params: { id: job.id } })}
         testID="quote-inspection"
       />
+      <Action label={photoCount > 0 ? `Photos (${photoCount})` : 'Take photos'} onPress={() => router.push({ pathname: '/photos/[id]', params: { id: job.id } })} testID="quote-photos" />
 
       {quote.options.map((o) => (
         <OptionCard
@@ -66,9 +76,28 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
       ))}
 
       {job.accepted ? (
-        <Text style={styles.meta} testID="quote-accepted-note">
-          Customer picked {TIER_LABEL[job.accepted.tier]} at {formatMoney(job.accepted.total)} on {formatJobDate(job.accepted.at)}.
-        </Text>
+        <>
+          <Text style={styles.meta} testID="quote-accepted-note">
+            Customer picked {TIER_LABEL[job.accepted.tier]} at {formatMoney(job.accepted.total)} on {formatJobDate(job.accepted.at)}.
+          </Text>
+          {signature ? (
+            <Text style={styles.meta} testID="quote-signed">
+              Signed by {signature.name || 'the customer'} on {formatJobDate(signature.at)}.
+            </Text>
+          ) : null}
+          <Action label={signature ? 'Sign again' : 'Customer signs to approve'} onPress={() => setSigning(true)} testID="quote-sign" />
+          <SignatureSheet
+            visible={signing}
+            title="Approve the quote"
+            agreement={`I approve the ${TIER_LABEL[job.accepted.tier]} option for ${formatMoney(job.accepted.total)}.`}
+            initialName={job.customer}
+            onCancel={() => setSigning(false)}
+            onSave={(s) => {
+              attachments.sign({ for: 'quote', refId: job.id, ...s });
+              setSigning(false);
+            }}
+          />
+        </>
       ) : null}
 
       {invoice ? (
@@ -99,8 +128,19 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
 
       {quote.options.some((o) => o.available) ? (
         <>
+          {attachments.media ? (
+            <Action
+              label="Send as PDF"
+              onPress={() => {
+                setPdfError(false);
+                attachments.media!.sharePdf(quoteHtml(job, quote, business, signature), pdfName('Quote', job.customer)).catch(() => setPdfError(true));
+              }}
+              testID="quote-pdf"
+            />
+          ) : null}
+          {pdfError ? <Text style={styles.meta}>Couldn't make the PDF. Try again, or send it as text.</Text> : null}
           <Action
-            label="Send to customer"
+            label="Send as text"
             onPress={() => Share.share({ message: quoteText(quote, job.customer) }).catch(() => undefined)}
             testID="quote-share"
           />

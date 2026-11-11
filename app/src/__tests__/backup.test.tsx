@@ -10,6 +10,7 @@ import { CustomersProvider } from '../lib/useCustomers';
 import { FollowUpsProvider } from '../lib/useFollowUps';
 import { ScheduleProvider } from '../lib/useSchedule';
 import { StockProvider } from '../lib/useStock';
+import { AttachmentsProvider } from '../lib/useAttachments';
 import { WorkLogProvider } from '../lib/useWorkLog';
 import { InvoicesProvider } from '../lib/useInvoices';
 import { JobsProvider } from '../lib/useJobs';
@@ -90,7 +91,9 @@ const wrap = ({ children }: { children: ReactNode }) => (
           <FollowUpsProvider>
             <ScheduleProvider>
               <WorkLogProvider>
-                <StockProvider>{children}</StockProvider>
+                <StockProvider>
+                  <AttachmentsProvider media={null}>{children}</AttachmentsProvider>
+                </StockProvider>
               </WorkLogProvider>
             </ScheduleProvider>
           </FollowUpsProvider>
