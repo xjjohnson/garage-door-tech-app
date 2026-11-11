@@ -9,6 +9,7 @@ import { DEFAULT_PRICE_SHEET, parsePriceSheet, PRICE_SHEET_STORAGE_KEY, PriceShe
 import { CustomersProvider } from '../lib/useCustomers';
 import { FollowUpsProvider } from '../lib/useFollowUps';
 import { ScheduleProvider } from '../lib/useSchedule';
+import { StockProvider } from '../lib/useStock';
 import { WorkLogProvider } from '../lib/useWorkLog';
 import { InvoicesProvider } from '../lib/useInvoices';
 import { JobsProvider } from '../lib/useJobs';
@@ -88,7 +89,9 @@ const wrap = ({ children }: { children: ReactNode }) => (
         <InvoicesProvider>
           <FollowUpsProvider>
             <ScheduleProvider>
-              <WorkLogProvider>{children}</WorkLogProvider>
+              <WorkLogProvider>
+                <StockProvider>{children}</StockProvider>
+              </WorkLogProvider>
             </ScheduleProvider>
           </FollowUpsProvider>
         </InvoicesProvider>

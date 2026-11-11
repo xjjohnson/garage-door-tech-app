@@ -29,7 +29,7 @@ export function ClockButton({ now = Date.now }: { now?: () => number }) {
   useMinuteTick(now);
   const open = openShift(shifts);
   return (
-    <Pressable onPress={() => router.push('/time-log')} accessibilityRole="button" testID="open-time-log" style={({ pressed }) => [styles.button, open && styles.onClock, pressed && styles.pressed]}>
+    <Pressable onPress={() => router.push('/time-log')} accessibilityRole="button" testID="open-time-log" style={({ pressed }) => [styles.button, styles.grow, open && styles.onClock, pressed && styles.pressed]}>
       <Text style={[styles.buttonText, open && styles.onClockText]}>{open ? `On the clock ${formatHours(shiftMs(open, now()))}` : 'Time and miles'}</Text>
     </Pressable>
   );
