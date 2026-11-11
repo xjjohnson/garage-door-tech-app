@@ -6,12 +6,13 @@ import * as Updates from 'expo-updates';
 import { ApkUpdateBanner } from './src/components/ApkUpdateBanner';
 import { APK_MANIFEST_URL } from './src/config';
 import { formatBuildInfo } from './src/lib/buildInfo';
+import { DiagnoseScreen } from './src/screens/DiagnoseScreen';
 import { DoorScreen } from './src/screens/DoorScreen';
 import { ManualsScreen } from './src/screens/ManualsScreen';
 import { MatchScreen } from './src/screens/MatchScreen';
 import { colors, touch, type } from './src/theme';
 
-type Section = 'springs' | 'manuals';
+type Section = 'springs' | 'manuals' | 'diagnose';
 type Tab = 'match' | 'door';
 
 // Read once: what's running doesn't change until the app restarts.
@@ -26,6 +27,7 @@ const BUILD_INFO = formatBuildInfo({
 const SECTIONS: { id: Section; label: string; title: string; subtitle: string }[] = [
   { id: 'springs', label: 'Springs', title: 'Spring calculator', subtitle: 'Torsion, standard lift' },
   { id: 'manuals', label: 'Manuals', title: 'Manuals', subtitle: "Makers' install and owner's manuals" },
+  { id: 'diagnose', label: 'Diagnose', title: 'Diagnose', subtitle: 'Opener codes and symptoms, works offline' },
 ];
 
 const TABS: { id: Tab; label: string }[] = [
@@ -36,6 +38,10 @@ const TABS: { id: Tab; label: string }[] = [
 export default function App() {
   const [section, setSection] = useState<Section>('springs');
   const [tab, setTab] = useState<Tab>('match');
+  // Diagnose is drawn the first time it's opened, not at startup, so it adds
+  // nothing to launch time. After that it stays mounted and keeps its picks.
+  const [diagnoseOpened, setDiagnoseOpened] = useState(false);
+  if (section === 'diagnose' && !diagnoseOpened) setDiagnoseOpened(true);
   const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
   return (
     <SafeAreaProvider>
@@ -82,6 +88,11 @@ export default function App() {
         <ScrollView style={[styles.flex, styles.manuals, section !== 'manuals' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <ManualsScreen />
         </ScrollView>
+        {diagnoseOpened ? (
+          <ScrollView style={[styles.flex, styles.manuals, section !== 'diagnose' && styles.hidden]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <DiagnoseScreen />
+          </ScrollView>
+        ) : null}
         {/* The app's sections, at the bottom where a thumb reaches them. */}
         <View style={styles.nav} accessibilityRole="tablist">
           {SECTIONS.map((s) => {
