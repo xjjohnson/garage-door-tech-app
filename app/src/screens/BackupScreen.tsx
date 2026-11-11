@@ -7,6 +7,7 @@ import { Backup, backupFileName, LAST_BACKUP_KEY, makeBackup, mergeJobs, parseBa
 import { BackupFiles, deviceBackupFiles } from '../lib/backupFiles';
 import { formatJobDate } from '../lib/jobs';
 import { useCustomers } from '../lib/useCustomers';
+import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type } from '../theme';
@@ -31,6 +32,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
   const files = useMemo(() => (given === undefined ? deviceBackupFiles() : given), [given]);
   const { jobs, restore } = useJobs();
   const { customers, restore: restoreCustomers } = useCustomers();
+  const { invoices, business, restore: restoreInvoices } = useInvoices();
   const { sheet, update } = usePriceSheet();
   const [lastBackup, setLastBackup] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,11 +56,11 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     try {
       const at = now();
       const name = backupFileName(at);
-      const folder = await files.save(name, makeBackup({ jobs, customers, priceSheet: sheet }, at, Constants.expoConfig?.version));
+      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, priceSheet: sheet }, at, Constants.expoConfig?.version));
       if (folder !== null) {
         setLastBackup(at);
         AsyncStorage.setItem(LAST_BACKUP_KEY, String(at)).catch(() => undefined);
-        setNote({ kind: 'ok', text: `Saved ${name} to ${folder}: ${plural(jobs.length, 'job')}, ${plural(customers.length, 'customer')} and the price sheet.` });
+        setNote({ kind: 'ok', text: `Saved ${name} to ${folder}: ${plural(jobs.length, 'job')}, ${plural(customers.length, 'customer')}, ${plural(invoices.length, 'invoice')} and your prices.` });
       }
     } catch {
       setNote({ kind: 'error', text: "Couldn't save the backup there. Try another folder, such as Downloads." });
@@ -89,6 +91,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
   const confirm = () => {
     if (!pending) return;
     restoreCustomers(pending.customers);
+    restoreInvoices(pending.invoices, pending.business);
     const { added, updated } = restore(pending.jobs);
     if (pending.priceSheet) {
       const restored = pending.priceSheet;
@@ -96,6 +99,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     }
     setPending(null);
     const parts = [`${plural(added, 'job')} added`, `${plural(updated, 'job')} updated`];
+    if (pending.invoices.length > 0) parts.push(plural(pending.invoices.length, 'invoice'));
     if (pending.priceSheet) parts.push('price sheet restored');
     setNote({ kind: 'ok', text: `Restored: ${parts.join(', ')}.` });
   };
@@ -105,7 +109,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
   return (
     <View style={styles.stack} testID="backup">
       <Text style={styles.note}>
-        Jobs, customers and prices live only on this phone. A backup puts them in one file somewhere else, so a new phone or a reinstall doesn't lose them.
+        Jobs, customers, invoices and prices live only on this phone. A backup puts them in one file somewhere else, so a new phone or a reinstall doesn't lose them.
       </Text>
 
       {files === null ? (
