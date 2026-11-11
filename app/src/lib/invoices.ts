@@ -1,0 +1,264 @@
+/**
+ * Invoices and payments. An invoice is made from the quote option the
+ * customer picked: its lines and totals are copied in when it's made, so a
+ * later price change never alters an invoice already sent. Payments are
+ * recorded by how the customer paid (cash, check, Cash App, Venmo, Zelle).
+ * Kept free of React so it can be tested directly.
+ *
+ * The shape follows an accounting system's invoice (number, customer, lines,
+ * untaxed amount, tax, total, payments, amount due), so a later sync with
+ * Odoo or similar can map it one to one.
+ */
+import { formatJobDate } from './jobs';
+import { formatMoney, Tier, TIER_LABEL, TIERS } from './prices';
+import { QuoteLine, QuoteOption } from './quote';
+
+export const INVOICES_STORAGE_KEY = 'invoices/v1';
+export const BUSINESS_STORAGE_KEY = 'business/v1';
+
+export type PayMethod = 'cash' | 'check' | 'cashapp' | 'venmo' | 'zelle';
+export const PAY_METHODS: PayMethod[] = ['cash', 'check', 'cashapp', 'venmo', 'zelle'];
+export const PAY_LABEL: Record<PayMethod, string> = { cash: 'Cash', check: 'Check', cashapp: 'Cash App', venmo: 'Venmo', zelle: 'Zelle' };
+
+export interface Payment {
+  id: string;
+  method: PayMethod;
+  /** Cents. */
+  amount: number;
+  at: number;
+  /** Check number, or the app's confirmation, if noted. */
+  reference: string;
+}
+
+export interface Invoice {
+  id: string;
+  /** "1001", counting up on this phone. */
+  number: string;
+  jobId: string;
+  customerId?: string;
+  /** The customer's name and job address when the invoice was made. */
+  billTo: string;
+  address: string;
+  tier: Tier;
+  lines: QuoteLine[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  payments: Payment[];
+  createdAt: number;
+  updatedAt: number;
+  /** Set when cancelled; kept so the numbers stay in order. */
+  voidedAt?: number;
+}
+
+export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'void';
+
+/** The tech's own details, for invoices and payment links. */
+export interface Business {
+  name: string;
+  phone: string;
+  /** Cash App $cashtag, with or without the $. */
+  cashtag: string;
+  /** Venmo username, with or without the @. */
+  venmo: string;
+  /** The email or phone number Zelle payments go to. */
+  zelle: string;
+}
+
+export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '' };
+
+export function paid(inv: Pick<Invoice, 'payments'>): number {
+  return inv.payments.reduce((n, p) => n + p.amount, 0);
+}
+
+export function balance(inv: Pick<Invoice, 'payments' | 'total'>): number {
+  return Math.max(0, inv.total - paid(inv));
+}
+
+export function invoiceStatus(inv: Invoice): InvoiceStatus {
+  if (inv.voidedAt) return 'void';
+  const p = paid(inv);
+  if (p >= inv.total) return 'paid';
+  return p > 0 ? 'partial' : 'unpaid';
+}
+
+export const STATUS_LABEL: Record<InvoiceStatus, string> = { unpaid: 'UNPAID', partial: 'PART PAID', paid: 'PAID', void: 'VOID' };
+
+/** The next number after the highest on this phone, starting at 1001. */
+export function nextInvoiceNumber(invoices: Invoice[]): string {
+  const max = invoices.reduce((m, i) => Math.max(m, Number.parseInt(i.number, 10) || 0), 1000);
+  return String(max + 1);
+}
+
+export function newId(prefix: string, now: number, random: () => number = Math.random): string {
+  return `${prefix}-${now.toString(36)}-${Math.floor(random() * 1e9).toString(36)}`;
+}
+
+export function createInvoice(
+  job: { id: string; customerId?: string; customer: string; address: string },
+  option: QuoteOption,
+  existing: Invoice[],
+  now: number,
+  id: string = newId('i', now),
+): Invoice {
+  return {
+    id,
+    number: nextInvoiceNumber(existing),
+    jobId: job.id,
+    ...(job.customerId ? { customerId: job.customerId } : {}),
+    billTo: job.customer,
+    address: job.address,
+    tier: option.tier,
+    lines: option.lines.filter((l) => l.cents > 0).map((l) => ({ ...l })),
+    subtotal: option.subtotal,
+    tax: option.tax,
+    total: option.total,
+    payments: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/** Text the customer can read: what was done, what's owed, and how to pay. */
+export function invoiceText(inv: Invoice, business: Business): string {
+  const out: string[] = [];
+  out.push(`${business.name || 'Garage door service'}: invoice ${inv.number}`);
+  out.push(`${inv.billTo || 'Customer'}${inv.address ? `, ${inv.address}` : ''} · ${formatJobDate(inv.createdAt)}`);
+  out.push('');
+  for (const l of inv.lines) out.push(`- ${l.label}: ${formatMoney(l.cents)}`);
+  if (inv.tax > 0) out.push(`- Tax: ${formatMoney(inv.tax)}`);
+  out.push(`Total: ${formatMoney(inv.total)}`);
+  const p = paid(inv);
+  if (p > 0) out.push(`Paid: ${formatMoney(p)}`);
+  const due = balance(inv);
+  out.push(due > 0 ? `Amount due: ${formatMoney(due)}` : 'Paid in full. Thank you!');
+  if (due > 0) {
+    const ways = payLinks(business, due, `Invoice ${inv.number}`);
+    if (ways.length > 0) {
+      out.push('');
+      out.push('Pay by:');
+      for (const w of ways) out.push(`- ${w.label}: ${w.url ?? w.handle}`);
+      out.push('- Cash or check');
+    }
+  }
+  if (business.phone) out.push('', `Questions: ${business.phone}`);
+  return out.join('\n');
+}
+
+export interface PayLink {
+  method: PayMethod;
+  label: string;
+  /** What to show: "$cashtag", "@user", or the Zelle email or phone. */
+  handle: string;
+  /** A link that opens the app with the amount filled in, where the app has one. Zelle doesn't. */
+  url?: string;
+}
+
+const dollars = (c: number) => (c / 100).toFixed(2);
+
+/** The customer's ways to pay by app, from the tech's handles, with the amount in the link where the app allows it. */
+export function payLinks(b: Business, amountCents: number, note: string): PayLink[] {
+  const out: PayLink[] = [];
+  const tag = b.cashtag.trim().replace(/^\$/, '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (tag) out.push({ method: 'cashapp', label: 'Cash App', handle: `$${tag}`, url: `https://cash.app/$${tag}${amountCents > 0 ? `/${dollars(amountCents)}` : ''}` });
+  const user = b.venmo.trim().replace(/^@/, '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (user) {
+    const q = amountCents > 0 ? `?txn=pay&amount=${dollars(amountCents)}&note=${encodeURIComponent(note)}` : '';
+    out.push({ method: 'venmo', label: 'Venmo', handle: `@${user}`, url: `https://venmo.com/${user}${q}` });
+  }
+  const z = b.zelle.trim();
+  if (z) out.push({ method: 'zelle', label: 'Zelle', handle: z });
+  return out;
+}
+
+function str(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+function num(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+/** Reads saved invoices; anything that isn't an invoice is dropped. */
+export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
+  let data: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(data)) return [];
+  const out: Invoice[] = [];
+  for (const item of data) {
+    if (!item || typeof item !== 'object') continue;
+    const x = item as Record<string, unknown>;
+    if (typeof x.id !== 'string' || typeof x.jobId !== 'string') continue;
+    const lines = Array.isArray(x.lines)
+      ? x.lines.flatMap((l): QuoteLine[] => {
+          if (!l || typeof l !== 'object') return [];
+          const y = l as Record<string, unknown>;
+          return [{ label: str(y.label), cents: num(y.cents), taxable: y.taxable === true }];
+        })
+      : [];
+    const payments = Array.isArray(x.payments)
+      ? x.payments.flatMap((p): Payment[] => {
+          if (!p || typeof p !== 'object') return [];
+          const y = p as Record<string, unknown>;
+          if (!PAY_METHODS.includes(y.method as PayMethod) || num(y.amount) <= 0) return [];
+          return [{ id: str(y.id) || `p${num(y.at)}`, method: y.method as PayMethod, amount: num(y.amount), at: num(y.at), reference: str(y.reference) }];
+        })
+      : [];
+    const createdAt = num(x.createdAt);
+    out.push({
+      id: x.id,
+      number: str(x.number) || '?',
+      jobId: x.jobId,
+      ...(typeof x.customerId === 'string' && x.customerId ? { customerId: x.customerId } : {}),
+      billTo: str(x.billTo),
+      address: str(x.address),
+      tier: TIERS.includes(x.tier as Tier) ? (x.tier as Tier) : 'good',
+      lines,
+      subtotal: num(x.subtotal),
+      tax: num(x.tax),
+      total: num(x.total),
+      payments,
+      createdAt,
+      updatedAt: num(x.updatedAt) || createdAt,
+      ...(num(x.voidedAt) ? { voidedAt: num(x.voidedAt) } : {}),
+    });
+  }
+  return out;
+}
+
+export function parseBusiness(raw: string | null | object): Business {
+  let data: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return EMPTY_BUSINESS;
+    }
+  }
+  if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
+  const d = data as Record<string, unknown>;
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle) };
+}
+
+/** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */
+export function mergeInvoices(current: Invoice[], incoming: Invoice[]): Invoice[] {
+  const byId = new Map(current.map((i) => [i.id, i]));
+  for (const i of incoming) {
+    const mine = byId.get(i.id);
+    if (!mine || i.updatedAt > mine.updatedAt) byId.set(i.id, i);
+  }
+  return [...byId.values()];
+}
+
+/** Newest first, with unpaid ones before paid and void. */
+export function sortInvoices(list: Invoice[]): Invoice[] {
+  const rank: Record<InvoiceStatus, number> = { unpaid: 0, partial: 0, paid: 1, void: 2 };
+  return [...list].sort((a, b) => rank[invoiceStatus(a)] - rank[invoiceStatus(b)] || b.createdAt - a.createdAt);
+}
+
+export const tierLabel = (t: Tier) => TIER_LABEL[t];

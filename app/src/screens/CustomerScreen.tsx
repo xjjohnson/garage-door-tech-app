@@ -5,6 +5,8 @@ import { Customer, CustomerFields, customerName, emailLink, summarize } from '..
 import { formatJobDate, MODE_LABEL, phoneLink } from '../lib/jobs';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
+import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
+import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { colors, touch, type } from '../theme';
 
@@ -18,6 +20,9 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
   const s = summarize(customer, jobs);
   const tel = phoneLink(customer.phone);
   const mail = emailLink(customer.email);
+  const jobIds = new Set(s.jobs.map((j) => j.id));
+  const theirInvoices = useInvoices().invoices.filter((i) => i.customerId === customer.id || jobIds.has(i.jobId));
+  const owed = theirInvoices.filter((i) => invoiceStatus(i) !== 'void').reduce((n, i) => n + balance(i), 0);
 
   return (
     <View style={styles.stack} testID="customer">
@@ -32,6 +37,11 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
         {s.acceptedTotal > 0 ? `. ${formatMoney(s.acceptedTotal)} in accepted quotes` : ''}
         {`. Customer since ${formatJobDate(customer.createdAt)}.`}
       </Text>
+      {owed > 0 ? (
+        <Text style={styles.owed} testID="customer-owed">
+          Owes {formatMoney(owed)}
+        </Text>
+      ) : null}
 
       {tel ? <Action label={`Call ${customer.phone}`} primary onPress={() => Linking.openURL(tel).catch(() => undefined)} testID="customer-call" /> : null}
       {tel ? <Action label="Text" onPress={() => Linking.openURL(tel.replace('tel:', 'sms:')).catch(() => undefined)} testID="customer-text" /> : null}
@@ -60,6 +70,28 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
           {j.notes ? <Text style={styles.meta}>{j.notes}</Text> : null}
           <Text style={styles.meta}>
             {formatJobDate(j.savedAt)} · {j.status === 'done' ? 'Done' : 'Open'}
+          </Text>
+        </Pressable>
+      ))}
+
+      {theirInvoices.length > 0 ? (
+        <Text style={styles.section} accessibilityRole="header">
+          Invoices
+        </Text>
+      ) : null}
+      {theirInvoices.map((i) => (
+        <Pressable
+          key={i.id}
+          onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: i.id } })}
+          accessibilityRole="button"
+          testID={`customer-invoice-${i.id}`}
+          style={({ pressed }) => [styles.job, pressed && styles.pressed]}
+        >
+          <Text style={styles.jobTitle}>
+            Invoice {i.number} · {STATUS_LABEL[invoiceStatus(i)]}
+          </Text>
+          <Text style={styles.meta}>
+            {formatMoney(i.total)} · {formatJobDate(i.createdAt)}
           </Text>
         </Pressable>
       ))}
@@ -154,6 +186,7 @@ const styles = StyleSheet.create({
   name: { fontSize: type.big, fontWeight: '900', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  owed: { fontSize: type.value, fontWeight: '900', color: colors.stop },
   section: { fontSize: type.value, fontWeight: '900', color: colors.text, marginTop: 8 },
   job: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
   jobDone: { backgroundColor: colors.card },

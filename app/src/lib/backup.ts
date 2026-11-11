@@ -1,5 +1,6 @@
 /**
- * Backups: everything the tech has typed in (jobs, customers and the price sheet)
+ * Backups: everything the tech has typed in (jobs, customers, invoices, the price sheet
+ * and business details)
  * in one file they can keep somewhere other than the phone, and read back
  * after a reinstall or on a new phone. Kept free of React so it can be tested
  * directly.
@@ -10,6 +11,7 @@
  * instead of wiping the phone.
  */
 import { Customer, parseCustomers } from './customers';
+import { Business, Invoice, parseBusiness, parseInvoices } from './invoices';
 import { Job, parseJobs } from './jobs';
 import { parsePriceSheet, PriceSheet } from './prices';
 
@@ -23,11 +25,14 @@ export interface Backup {
   jobs: Job[];
   /** Empty in backups made before customers existed; they're rebuilt from the jobs. */
   customers: Customer[];
+  invoices: Invoice[];
+  /** The tech's business and payment details, if the backup has them. */
+  business?: Business;
   /** Missing when the file had none; restoring then leaves the phone's prices alone. */
   priceSheet?: PriceSheet;
 }
 
-export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; priceSheet: PriceSheet }, now: number, appVersion?: string): string {
+export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; invoices?: Invoice[]; business?: Business; priceSheet: PriceSheet }, now: number, appVersion?: string): string {
   const file = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -35,6 +40,8 @@ export function makeBackup(data: { jobs: Job[]; customers?: Customer[]; priceShe
     ...(appVersion ? { appVersion } : {}),
     jobs: data.jobs,
     customers: data.customers ?? [],
+    invoices: data.invoices ?? [],
+    ...(data.business ? { business: data.business } : {}),
     priceSheet: data.priceSheet,
   };
   return JSON.stringify(file, null, 1);
@@ -64,6 +71,8 @@ export function parseBackup(raw: string): ParsedBackup {
       exportedAt: Number.isNaN(at) ? 0 : at,
       jobs: Array.isArray(d.jobs) ? parseJobs(JSON.stringify(d.jobs)) : [],
       customers: Array.isArray(d.customers) ? parseCustomers(d.customers) : [],
+      invoices: Array.isArray(d.invoices) ? parseInvoices(d.invoices) : [],
+      ...(d.business && typeof d.business === 'object' ? { business: parseBusiness(d.business) } : {}),
       ...(priceSheet ? { priceSheet } : {}),
     },
   };

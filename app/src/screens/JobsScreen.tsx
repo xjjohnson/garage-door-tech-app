@@ -5,6 +5,8 @@ import { ChipOption, Segmented } from '../components/controls';
 import { JobDetailsSheet } from '../components/JobDetailsSheet';
 import { formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
+import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
+import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { colors, touch, type } from '../theme';
 
@@ -60,8 +62,16 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         <Pressable onPress={() => router.push('/customers')} accessibilityRole="button" testID="open-customers" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
           <Text style={styles.buttonText}>Customers</Text>
         </Pressable>
+        <Pressable onPress={() => router.push('/invoices')} accessibilityRole="button" testID="open-invoices" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
+          <Text style={styles.buttonText}>Invoices</Text>
+        </Pressable>
+      </View>
+      <View style={styles.row}>
         <Pressable onPress={() => router.push('/price-sheet')} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
           <Text style={styles.buttonText}>Price sheet</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/business')} accessibilityRole="button" testID="open-business" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
+          <Text style={styles.buttonText}>Your business</Text>
         </Pressable>
       </View>
       <Pressable onPress={() => router.push('/backup')} accessibilityRole="button" testID="open-backup" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
@@ -134,6 +144,7 @@ function JobCard({
 }) {
   const tel = phoneLink(job.phone);
   const name = jobName(job);
+  const invoice = useInvoices().invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
   return (
     <View style={[styles.item, job.status === 'done' && styles.itemDone]} testID={`job-${job.id}`}>
       <Pressable
@@ -156,6 +167,12 @@ function JobCard({
         {job.accepted ? (
           <Text style={styles.accepted} testID={`job-accepted-${job.id}`}>
             Picked {TIER_LABEL[job.accepted.tier]}, {formatMoney(job.accepted.total)}
+          </Text>
+        ) : null}
+        {invoice ? (
+          <Text style={styles.accepted} testID={`job-invoice-${job.id}`}>
+            Invoice {invoice.number}: {STATUS_LABEL[invoiceStatus(invoice)]}
+            {invoiceStatus(invoice) !== 'paid' ? `, ${formatMoney(balance(invoice))} owed` : ''}
           </Text>
         ) : null}
         <Text style={styles.meta}>

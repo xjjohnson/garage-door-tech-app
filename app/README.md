@@ -332,8 +332,33 @@ AsyncStorage `customers/v1`) and go into backups. Their fields (name, phone,
 email, street, notes) are the ones an accounting system such as Odoo keeps for
 a contact, so a later sync can map them directly.
 
+**Invoices.** Once the customer has picked an option on a quote, **Make
+invoice** turns it into an invoice, numbered from 1001 up, with the option's
+lines and totals copied in, so later price changes don't alter it. (If prices
+changed after the customer picked, the quote says so before the invoice is
+made.) The invoice page shows what's owed and, under **Scan to pay**, a QR code
+the customer scans with their phone camera: Cash App or Venmo opens with the
+amount (and, for Venmo, the invoice number) filled in. Zelle has no such link,
+so the invoice shows the email or phone to send to. **Record a payment** takes
+the method (Cash, Check, Cash App, Venmo, Zelle), the amount (it starts at
+what's still owed) and a check number or note; the invoice then shows UNPAID,
+PART PAID or PAID. Payments are removed, and invoices voided, only on a second
+tap. **Send to customer** shares the invoice as text with the payment links.
+**Invoices** at the top of Jobs lists them, owed first, with the total owed;
+jobs and customer pages show their invoices and what's owed.
+
+**Your business.** At the top of Jobs: business name and phone (on invoices),
+Cash App $cashtag, Venmo username and Zelle email or phone. It shows the QR
+codes so they can be checked with another phone. QR codes are drawn with
+plain views from `qrcode-generator` (plain JavaScript, so this shipped over
+the air). Invoices and business details are saved on the phone
+(`src/lib/invoices.ts`, `src/lib/useInvoices.tsx`, AsyncStorage `invoices/v1`,
+`business/v1`) and go into backups. An invoice keeps what an accounting
+system keeps (number, customer, lines, tax, total, payments, amount due), so
+a later Odoo sync can map it to an invoice there.
+
 **Back up and restore.** **Back up or restore** at the top of Jobs opens a
-page that saves every job, every customer and the price sheet to one file,
+page that saves every job, customer and invoice, the price sheet and the business details to one file,
 `garage-door-backup-YYYY-MM-DD.json`, in a folder the tech picks with the
 phone's own folder picker (Downloads, or Google Drive to keep it off the
 phone), and shows the day of the last backup. **Restore from a backup** picks
@@ -362,7 +387,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 
 | File | Address | What |
 |---|---|---|
-| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices), then a stack: the sections, with full pages on top |
+| `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header, update banners, the four sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Springs: Match old spring, Size from door and Extension |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
@@ -373,6 +398,9 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `backup.tsx` | `/backup` | Back up and restore jobs and prices, a full page |
 | `customers.tsx` | `/customers` | The customer list, a full page |
 | `customer/[id].tsx` | `/customer/<id>` | One customer and their jobs, a full page |
+| `invoices.tsx` | `/invoices` | Every invoice and the total owed, a full page |
+| `invoice/[id].tsx` | `/invoice/<id>` | One invoice: payments and QR codes to pay, a full page |
+| `business.tsx` | `/business` | Business name and payment handles, a full page |
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar

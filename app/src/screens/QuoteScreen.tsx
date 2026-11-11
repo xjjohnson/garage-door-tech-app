@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { formatJobDate, Job, jobName } from '../lib/jobs';
@@ -5,6 +6,8 @@ import { formatNumber } from '../lib/measure';
 import { formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
 import { buildQuote, QuoteOption, quoteText } from '../lib/quote';
 import { formatLife } from '../lib/springNames';
+import { invoiceStatus } from '../lib/invoices';
+import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type } from '../theme';
@@ -18,6 +21,9 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
   const { setAccepted } = useJobs();
   const quote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
   const priced = hasPrices(sheet);
+  const { invoices, create } = useInvoices();
+  const invoice = invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
+  const picked = job.accepted ? quote.options.find((o) => o.tier === job.accepted!.tier && o.available) : undefined;
 
   return (
     <View style={styles.stack} testID="quote">
@@ -55,6 +61,32 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
         <Text style={styles.meta} testID="quote-accepted-note">
           Customer picked {TIER_LABEL[job.accepted.tier]} at {formatMoney(job.accepted.total)} on {formatJobDate(job.accepted.at)}.
         </Text>
+      ) : null}
+
+      {invoice ? (
+        <Action
+          label={`Open invoice ${invoice.number}`}
+          primary
+          onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: invoice.id } })}
+          testID="quote-open-invoice"
+        />
+      ) : picked ? (
+        <>
+          {picked.total !== job.accepted!.total ? (
+            <Text style={styles.meta} testID="quote-price-changed">
+              Prices have changed since the customer picked {TIER_LABEL[picked.tier]}: the invoice will be {formatMoney(picked.total)}, not {formatMoney(job.accepted!.total)}.
+            </Text>
+          ) : null}
+          <Action
+            label={`Make invoice for ${formatMoney(picked.total)}`}
+            primary
+            onPress={() => {
+              const inv = create(job, picked);
+              router.push({ pathname: '/invoice/[id]', params: { id: inv.id } });
+            }}
+            testID="quote-make-invoice"
+          />
+        </>
       ) : null}
 
       {quote.options.some((o) => o.available) ? (
