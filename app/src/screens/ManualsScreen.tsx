@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ChipOption, ChipRow } from '../components/controls';
+import { ChipOption, ChipRow, Segmented } from '../components/controls';
 import { DOC_KIND_LABEL, MANUAL_LINKS, ManualLink, Market, MARKET_LABEL } from '../data/manuals';
 import { brandsFor, checkReach, formatChecked, linkMarkets, searchManuals } from '../lib/manualSearch';
 import { colors, touch, type } from '../theme';
@@ -76,7 +76,7 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Brand, model or series, e.g. 8500W"
+          placeholder="Brand or model number"
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -98,9 +98,9 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
         ) : null}
       </View>
 
-      <ChipRow options={MARKET_OPTIONS} value={market} onChange={setMarket} testID="manuals-market" />
+      <Segmented options={MARKET_OPTIONS} value={market} onChange={setMarket} testID="manuals-market" />
 
-      <ChipRow options={brandOptions} value={brandFilter ?? ALL} onChange={setBrand} testID="manuals-brands" />
+      <ChipRow options={brandOptions} value={brandFilter ?? ALL} onChange={setBrand} testID="manuals-brands" scroll />
 
       <Text style={styles.hint}>Manuals open from the maker's own website, so they need a signal.</Text>
 
@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', gap: 8 },
   search: {
     flex: 1,
+    minWidth: 0,
     minHeight: 64,
     borderRadius: 10,
     borderWidth: 3,
