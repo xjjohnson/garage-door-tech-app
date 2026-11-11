@@ -191,6 +191,27 @@ the camera, PDF and share sheet (`expo-image-picker`, `expo-print`,
 0.4.0 APK for those and for every update after it; 0.3.0 APKs keep their last
 update and show the new-APK banner.
 
+**Release numbers: every update gets one.** The number on the Settings
+button (and at the top of Settings) is the release, `extra.release` in
+`app.json`, not the APK's `version`. It goes up by one with every change
+that ships, so each over-the-air update has its own number:
+
+- **JavaScript-only change (over the air):** raise the last part of
+  `extra.release` by one (0.4.3 to 0.4.4). Leave `version` alone, or the
+  0.4.0 APKs stop getting it.
+- **Native change (new APK):** raise `version` as above (0.4.0 to 0.5.0) and
+  set `extra.release` to the same number (0.5.0).
+
+Settings shows both when they differ, such as "Version 0.4.3 · APK 0.4.0".
+Updates from before this was set up show the APK version (0.4.0). Counting
+from the 0.4.0 APK, the Odoo sign-in fix (#41) was 0.4.1 and the Field
+Service orders fix (#42) was 0.4.2; 0.4.3 is the first update that carries
+its number. The Tests job fails a pull request that changes what ships
+(`src/`, `assets/`, `app.json`, packages or `../spring-calc/src`) without
+raising the release (`scripts/check-release.mjs`), and
+`src/__tests__/buildInfo.test.ts` checks the release stays on the APK's
+`x.y`.
+
 This policy was picked over Expo's automatic `fingerprint` policy because
 the APK is built with Gradle here, not EAS Build, and a fingerprint computed
 on the build runner and on the update runner could differ in ways that can't
