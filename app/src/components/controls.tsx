@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, touch, type } from '../theme';
 import { Keypad } from './Keypad';
 
@@ -28,18 +28,59 @@ export function ChipRow<T extends string | number>({
   onChange,
   testID,
   compact,
+  scroll,
 }: {
   options: ChipOption<T>[];
   value: T;
   onChange: (v: T) => void;
   testID?: string;
   compact?: boolean;
+  /** One row that scrolls sideways, for long lists like makers. The cut-off chip at the edge shows there's more. */
+  scroll?: boolean;
 }) {
+  const chips = options.map((o) => (
+    <Chip key={String(o.value)} option={o} selected={o.value === value} onPress={() => onChange(o.value)} role="radio" compact={compact} inline={scroll} />
+  ));
+  if (scroll) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chipScrollContent}
+        testID={testID}
+        accessibilityRole="radiogroup"
+      >
+        {chips}
+      </ScrollView>
+    );
+  }
   return (
     <View style={styles.chips} testID={testID} accessibilityRole="radiogroup">
-      {options.map((o) => (
-        <Chip key={String(o.value)} option={o} selected={o.value === value} onPress={() => onChange(o.value)} role="radio" compact={compact} />
-      ))}
+      {chips}
+    </View>
+  );
+}
+
+/** A few choices joined into one bar, for a filter or a mode rather than a measurement. */
+export function Segmented<T extends string | number>({ options, value, onChange, testID }: { options: ChipOption<T>[]; value: T; onChange: (v: T) => void; testID?: string }) {
+  return (
+    <View style={styles.segments} testID={testID} accessibilityRole="radiogroup">
+      {options.map((o, i) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={String(o.value)}
+            onPress={() => onChange(o.value)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            style={({ pressed }) => [styles.segment, i > 0 && styles.segmentDivider, on && styles.chipOn, pressed && !on && styles.chipPressed]}
+          >
+            <Text style={[styles.segmentText, on && styles.chipTextOn]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -74,14 +115,28 @@ export function MultiChipRow<T extends string | number>({
   );
 }
 
-function Chip<T>({ option, selected, onPress, role, compact }: { option: ChipOption<T>; selected: boolean; onPress: () => void; role: 'radio' | 'checkbox'; compact?: boolean }) {
+function Chip<T>({
+  option,
+  selected,
+  onPress,
+  role,
+  compact,
+  inline,
+}: {
+  option: ChipOption<T>;
+  selected: boolean;
+  onPress: () => void;
+  role: 'radio' | 'checkbox';
+  compact?: boolean;
+  inline?: boolean;
+}) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole={role}
       accessibilityState={role === 'radio' ? { selected } : { checked: selected }}
       accessibilityLabel={option.sub ? `${option.label}, ${option.sub}` : option.label}
-      style={({ pressed }) => [styles.chip, compact && styles.chipCompact, selected && styles.chipOn, pressed && !selected && styles.chipPressed]}
+      style={({ pressed }) => [styles.chip, compact && styles.chipCompact, inline && styles.chipInline, selected && styles.chipOn, pressed && !selected && styles.chipPressed]}
     >
       <Text style={[styles.chipText, selected && styles.chipTextOn]}>{option.label}</Text>
       {option.sub ? <Text style={[styles.chipSub, selected && styles.chipTextOn]}>{option.sub}</Text> : null}
@@ -216,6 +271,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipCompact: { minWidth: 76, flexBasis: '22%' },
+  chipInline: { flexGrow: 0 },
+  // Runs to the screen edges (the screen has 16 px padding) so the row visibly continues.
+  chipScroll: { marginHorizontal: -16, flexGrow: 0 },
+  chipScrollContent: { gap: 8, paddingHorizontal: 16 },
+  segments: { flexDirection: 'row', borderWidth: 3, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
+  segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, backgroundColor: colors.bg },
+  segmentDivider: { borderLeftWidth: 3, borderLeftColor: colors.border },
+  segmentText: { fontSize: 16, fontWeight: '800', color: colors.text, textAlign: 'center' },
   chipOn: { backgroundColor: colors.selected },
   chipPressed: { backgroundColor: colors.safety },
   chipText: { fontSize: type.body, fontWeight: '800', color: colors.text },
