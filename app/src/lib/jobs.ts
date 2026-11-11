@@ -7,6 +7,7 @@
  * summary is stored too, so the list can show it without running the math.
  */
 import { DEFAULT_DOOR_FORM, DEFAULT_MATCH_FORM, DoorForm, MatchForm, restoreForm } from './forms';
+import { Tier, TIERS } from './prices';
 
 export const JOBS_STORAGE_KEY = 'jobs/v1';
 
@@ -31,6 +32,15 @@ interface JobBase extends JobDetails {
   /** The calculator's answer when saved, e.g. ".225 × 2" × 24"". */
   summaryTitle: string;
   summaryDetail: string;
+  /** The quote option the customer said yes to, with its total then. */
+  accepted?: AcceptedQuote;
+}
+
+export interface AcceptedQuote {
+  tier: Tier;
+  /** Total with tax, in cents, as quoted. */
+  total: number;
+  at: number;
 }
 
 export type Job = (JobBase & { mode: 'match'; form: MatchForm }) | (JobBase & { mode: 'door'; form: DoorForm });
@@ -148,6 +158,7 @@ export function parseJobs(raw: string | null): Job[] {
       notes: str(j.notes),
       summaryTitle: str(j.summaryTitle),
       summaryDetail: str(j.summaryDetail),
+      ...(parseAccepted(j.accepted) ? { accepted: parseAccepted(j.accepted) } : {}),
     };
     out.push(
       j.mode === 'match'
@@ -156,6 +167,13 @@ export function parseJobs(raw: string | null): Job[] {
     );
   }
   return out;
+}
+
+function parseAccepted(v: unknown): AcceptedQuote | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const a = v as Record<string, unknown>;
+  if (!TIERS.includes(a.tier as Tier) || typeof a.total !== 'number' || typeof a.at !== 'number') return undefined;
+  return { tier: a.tier as Tier, total: a.total, at: a.at };
 }
 
 /** A tel: link with only the characters a dialer understands, or nothing if there's no number. */

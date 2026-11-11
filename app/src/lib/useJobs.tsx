@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, parseJobs } from './jobs';
+import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, parseJobs } from './jobs';
 
 interface JobsApi {
   jobs: Job[];
@@ -10,6 +10,8 @@ interface JobsApi {
   updateInputs: (id: string, inputs: JobInputs, summary: { title: string; detail?: string }) => void;
   updateDetails: (id: string, details: JobDetails) => void;
   setStatus: (id: string, status: JobStatus) => void;
+  /** Records the option the customer picked, or clears it. */
+  setAccepted: (id: string, accepted: AcceptedQuote | undefined) => void;
   remove: (id: string) => void;
 }
 
@@ -80,9 +82,21 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
+  const setAccepted = useCallback<JobsApi['setAccepted']>(
+    (id, accepted) =>
+      change((prev) =>
+        prev.map((j) => {
+          if (j.id !== id) return j;
+          const { accepted: _old, ...rest } = j;
+          return (accepted ? { ...rest, accepted, updatedAt: Date.now() } : { ...rest, updatedAt: Date.now() }) as Job;
+        }),
+      ),
+    [change],
+  );
+
   const remove = useCallback<JobsApi['remove']>((id) => change((prev) => prev.filter((j) => j.id !== id)), [change]);
 
-  const api = useMemo(() => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, remove }), [jobs, loaded, add, updateInputs, updateDetails, setStatus, remove]);
+  const api = useMemo(() => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove }), [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove]);
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }
 

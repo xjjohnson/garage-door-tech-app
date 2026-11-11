@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { formatInches, formatNumber } from '../lib/measure';
-import { findWire, LifeEstimate, SpringSpec, Warning } from '../springCalc';
+import { formatLife, springName } from '../lib/springNames';
+import { findWire, SpringSpec, Warning } from '../springCalc';
 import { colors, type } from '../theme';
 
 export const SAFETY_TEXT =
@@ -82,16 +83,8 @@ export function Stat({ label, value, sub }: { label: string; value: string; sub?
   );
 }
 
-export function formatLife(life: LifeEstimate): string {
-  if (life.belowMinimum) return 'Under 10,000';
-  if (life.atOrAboveMaximum) return '100,000+';
-  return formatNumber(life.cycles);
-}
-
-/** ".225 × 2" × 24"" */
-export function springName(s: Pick<SpringSpec, 'wire' | 'insideDiameterIn' | 'lengthIn'>): string {
-  return `${s.wire} × ${formatInches(s.insideDiameterIn)} × ${formatInches(s.lengthIn)}`;
-}
+// Moved to lib so quotes can use them; kept exported here for the screens.
+export { formatLife, springName };
 
 export function wireColor(wireIn: number): string | undefined {
   return findWire(wireIn)?.color;

@@ -1,0 +1,115 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import App from '../../App';
+import { DEFAULT_DOOR_FORM, DEFAULT_MATCH_FORM } from '../lib/forms';
+import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
+import { cents, DEFAULT_PRICE_SHEET, formatMoney, parsePriceSheet, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
+import { buildQuote, quoteText } from '../lib/quote';
+
+/** .225 × 2" × 24" pair on a 7' door. */
+const MATCH = { mode: 'match' as const, form: { ...DEFAULT_MATCH_FORM, twentyCoil: '4 1/2', length: '24' } };
+
+const SHEET: PriceSheet = {
+  serviceCall: '89',
+  springLabor: '150',
+  spring: { good: '60', better: '85', best: '120' },
+  addOns: [
+    { id: 'c', name: 'Lift cables (pair)', price: '45', tiers: { good: false, better: true, best: true } },
+    { id: 'r', name: 'Rollers', price: '80', tiers: { good: false, better: false, best: true } },
+  ],
+  taxPercent: '8.25',
+};
+
+describe('prices and quotes (plain logic)', () => {
+  it('reads money as cents and writes it back', () => {
+    expect(cents('42.5')).toBe(4250);
+    expect(cents('')).toBe(0);
+    expect(cents('abc')).toBe(0);
+    expect(formatMoney(101260)).toBe('$1,012.60');
+    expect(formatMoney(97500)).toBe('$975');
+  });
+
+  it('prices good, better and best from the sheet, taxing parts only', () => {
+    const q = buildQuote(MATCH, SHEET);
+    expect(q.blocked).toBeUndefined();
+    expect(q.options.map((o) => o.available)).toEqual([true, true, true]);
+    const [good, better, best] = q.options;
+    // Good: 2 × $60 springs + $150 labor + $89 call; tax 8.25% on $120 = $9.90.
+    expect(good.lines[0].label).toBe('2 springs, .225 × 2" × 24"');
+    expect(good.subtotal).toBe(35900);
+    expect(good.tax).toBe(990);
+    expect(good.total).toBe(36890);
+    // Better adds cables; its springs are the 25k upgrade, not the old size.
+    expect(better.lines.map((l) => l.label)).toContain('Lift cables (pair)');
+    expect(better.spring!.life.cycles).toBeGreaterThanOrEqual(25_000);
+    expect(better.subtotal).toBe(2 * 8500 + 15000 + 8900 + 4500);
+    expect(best.lines.map((l) => l.label)).toEqual(expect.arrayContaining(['Lift cables (pair)', 'Rollers']));
+    expect(best.spring!.life.cycles).toBeGreaterThanOrEqual(50_000);
+  });
+
+  it('quotes a size-from-door job from the lightest spring at each rating', () => {
+    const q = buildQuote({ mode: 'door', form: { ...DEFAULT_DOOR_FORM, weight: '164' } }, SHEET);
+    expect(q.options.every((o) => o.available)).toBe(true);
+    expect(q.options[2].spring!.life.cycles).toBeGreaterThanOrEqual(50_000);
+  });
+
+  it('gives no quote while the calculator has a STOP or is missing inputs', () => {
+    expect(buildQuote({ mode: 'match', form: DEFAULT_MATCH_FORM }, SHEET).blocked).toMatch(/Missing/);
+    expect(buildQuote({ mode: 'match', form: { ...MATCH.form, twentyCoil: '4 7/16' } }, SHEET).blocked).toBeTruthy();
+  });
+
+  it('writes a plain-text quote to send', () => {
+    const text = quoteText(buildQuote(MATCH, SHEET), 'Pat Smith');
+    expect(text).toContain('for Pat Smith');
+    expect(text).toContain('GOOD: $368.90');
+    expect(text).toContain('- Rollers: $80');
+  });
+
+  it('reads back a saved sheet and falls back on junk', () => {
+    expect(parsePriceSheet(JSON.stringify(SHEET))).toEqual(SHEET);
+    expect(parsePriceSheet('nope')).toEqual(DEFAULT_PRICE_SHEET);
+    expect(parsePriceSheet(JSON.stringify({ serviceCall: 5, addOns: [{ id: 'x' }] }))).toMatchObject({ serviceCall: '', addOns: [] });
+  });
+});
+
+async function keypad(keys: string[]) {
+  const pad = screen.getByTestId('keypad');
+  for (const k of keys) await fireEvent.press(within(pad).getByTestId(`key-${k}`));
+  await fireEvent.press(within(pad).getByTestId('keypad-done'));
+}
+
+beforeEach(async () => {
+  await AsyncStorage.clear();
+});
+
+describe('quotes in the app', () => {
+  it('asks for prices, then quotes the job and records what the customer picked', async () => {
+    const job = createJob(MATCH, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: '.225 × 2" × 24"' }, 1000, 'j1');
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
+    await render(<App />);
+    await fireEvent.press(screen.getByTestId('section-jobs'));
+    await fireEvent.press(await screen.findByTestId('job-toggle-j1'));
+    await fireEvent.press(screen.getByTestId('job-quote-j1'));
+
+    expect(screen.getByTestId('quote-no-prices')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('quote-set-prices'));
+    expect(screen.getByTestId('price-sheet')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('price-spring-good'));
+    await keypad(['6', '0']);
+    await fireEvent.press(screen.getByTestId('price-labor'));
+    await keypad(['1', '5', '0']);
+    await waitFor(async () => expect(parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY)).springLabor).toBe('150'));
+    await fireEvent.press(screen.getByTestId('prices-sheet-close'));
+
+    await fireEvent.press(screen.getByTestId('job-quote-j1'));
+    expect(screen.queryByTestId('quote-no-prices')).toBeNull();
+    // 2 × $60 + $150 labor, no tax set.
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$270');
+    await fireEvent.press(screen.getByTestId('quote-accept-good'));
+    expect(screen.getByTestId('quote-accepted-note')).toHaveTextContent(/^Customer picked Good at \$270 on /);
+    await waitFor(async () => expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].accepted).toMatchObject({ tier: 'good', total: 27000 }));
+
+    await fireEvent.press(screen.getByTestId('quote-sheet-close'));
+    expect(screen.getByTestId('job-accepted-j1')).toHaveTextContent(/Picked Good, \$270/);
+  });
+});

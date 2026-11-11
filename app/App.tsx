@@ -9,6 +9,7 @@ import { APK_MANIFEST_URL } from './src/config';
 import { formatBuildInfo } from './src/lib/buildInfo';
 import { Job, OpenJobRequest } from './src/lib/jobs';
 import { JobsProvider } from './src/lib/useJobs';
+import { PriceSheetProvider } from './src/lib/usePriceSheet';
 import { DiagnoseScreen } from './src/screens/DiagnoseScreen';
 import { DoorScreen } from './src/screens/DoorScreen';
 import { JobsScreen } from './src/screens/JobsScreen';
@@ -43,7 +44,9 @@ const TABS: { id: Tab; label: string }[] = [
 export default function App() {
   return (
     <JobsProvider>
-      <Main />
+      <PriceSheetProvider>
+        <Main />
+      </PriceSheetProvider>
     </JobsProvider>
   );
 }
