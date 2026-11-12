@@ -11,6 +11,7 @@ import { OdooRef, parseRef } from './odooSales';
 import { Inspection, parseInspection, parseRepairs, Repair } from './inspection';
 import { DEFAULT_DOOR_FORM, DEFAULT_DRUMS_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, DrumsForm, ExtensionForm, MatchForm, restoreForm } from './forms';
 import { Tier, TIERS } from './prices';
+import { parseTicket, Ticket } from './ticket';
 
 export const JOBS_STORAGE_KEY = 'jobs/v1';
 
@@ -53,6 +54,8 @@ interface JobBase extends JobDetails {
   steps?: JobSteps;
   /** What the customer called about, from New job: "Broken spring", "Tune-up"... */
   what?: string;
+  /** The running list of services and materials for the job (src/lib/ticket.ts). */
+  ticket?: Ticket;
 }
 
 /** When the tech tapped On my way, Arrived and Work done, ms. */
@@ -205,6 +208,7 @@ export function parseJobs(raw: string | null): Job[] {
       ...(parseRepairs(j.quoteLines).length ? { quoteLines: parseRepairs(j.quoteLines) } : {}),
       ...(parseSteps(j.steps) ? { steps: parseSteps(j.steps) } : {}),
       ...(typeof j.what === 'string' && j.what ? { what: j.what } : {}),
+      ...(parseTicket(j.ticket) ? { ticket: parseTicket(j.ticket) } : {}),
     };
     out.push({ ...base, mode, form: restoreForm<object>(MODE_DEFAULTS[mode], j.form) } as Job);
   }

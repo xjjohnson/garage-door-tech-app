@@ -22,7 +22,7 @@ interface InvoicesApi {
   business: Business;
   setBusiness: (fn: (prev: Business) => Business) => void;
   /** Makes an invoice for a job from the option the customer picked. */
-  create: (job: { id: string; customerId?: string; customer: string; address: string }, option: QuoteOption) => Invoice;
+  create: (job: { id: string; customerId?: string; customer: string; address: string }, option: QuoteOption, source?: 'ticket') => Invoice;
   addPayment: (invoiceId: string, p: Omit<Payment, 'id' | 'at'>) => void;
   removePayment: (invoiceId: string, paymentId: string) => void;
   setVoid: (invoiceId: string, voided: boolean) => void;
@@ -85,8 +85,9 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   );
 
   const create = useCallback<InvoicesApi['create']>(
-    (job, option) => {
-      const inv = createInvoice(job, option, latest.current, Date.now());
+    (job, option, source) => {
+      const now = Date.now();
+      const inv = createInvoice(job, option, latest.current, now, undefined, source);
       change((prev) => [inv, ...prev]);
       return inv;
     },

@@ -8,7 +8,7 @@ import { SignatureSheet } from '../components/SignaturePad';
 import { signatureFor } from '../lib/attachments';
 import { invoiceHtml, pdfName } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
-import { balance, Invoice, invoiceStatus, invoiceText, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
+import { balance, Invoice, invoiceStatus, invoiceText, optionLabel, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { cents, formatMoney, TIER_LABEL } from '../lib/prices';
 import { textLink, warrantyFor } from '../lib/followups';
@@ -73,7 +73,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
         {invoice.address ? `, ${invoice.address}` : ''}
       </Text>
       <Text style={styles.meta}>
-        {formatJobDate(invoice.createdAt)} · {TIER_LABEL[invoice.tier]} option
+        {formatJobDate(invoice.createdAt)} · {optionLabel(invoice)}
       </Text>
       {status !== 'void' && (warranty.partsUntil || warranty.laborUntil) ? (
         <Text style={styles.meta} testID="invoice-warranty">

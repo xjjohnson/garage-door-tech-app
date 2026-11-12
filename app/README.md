@@ -491,6 +491,33 @@ its chatter, and the app reads Odoo's outgoing mail to say whether it was
 sent, is still queued, or failed and why (the contact needs an email address,
 and Odoo needs an outgoing mail server).
 
+**Price book** (from 0.5.15). Sales › **Price book** shows every product
+Odoo can sell, grouped by Odoo's product categories (the shared root such as
+"All" is left off), with search by name, internal reference, category or
+sales description. Each item shows Service or Material, its description and
+price. The star keeps an item in **Favorites**, which belong to each tech
+(saved per Odoo login on the phone). **Frequently used** is what sold most on
+the last 500 confirmed Odoo order lines. The book is saved on the phone so it
+opens with no signal, and refreshes from Odoo when it's over an hour old, or
+on **Update from Odoo**. Prices, categories and descriptions are edited in
+Odoo. It's the first step of the invoicing rework: later releases add items
+from it straight onto a job's ticket.
+
+**Job ticket** (from 0.5.15). On a job, the **Ticket** step (and the
+Ticket row) holds the job's services and materials: **+ Add a service** or
+**+ Add a material** opens the price book, tapping an item adds it (the same
+item again adds one to its count), and **Type a line by hand** adds anything
+else. Each line's count and price can be changed, or the line taken off,
+until the invoice is made. When signed in to Odoo with Sales, the ticket is
+kept as a draft quotation (the customer's Odoo contact is made if needed), a
+moment after each change, and the totals shown are Odoo's: Odoo applies tax
+(set on the products, parts only) and any discount. Offline the phone shows
+an estimate, taxing materials at the price sheet's rate. **Make the invoice**
+confirms that quotation and makes the job's invoice from the ticket (marked
+"Job ticket" instead of an option), which then signs, sends to Odoo and takes
+payments as before. Good / better / best is now **Estimate**, optional: once
+the customer picks an option, **Put … on the job ticket** adds its lines.
+
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
 and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
 customer invoice and credit note, not only the phone's: newest first, 40 at a
