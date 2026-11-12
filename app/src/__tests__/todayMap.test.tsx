@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 import WebView from 'react-native-webview';
-import { addressKey, cached, GEOCODE_STORAGE_KEY, GeoFetch, googleNavLink, googleRouteLink, lookUp, miles, MISS_RETRY_MS, nominatimUrl, parseCache, wazeNavLink } from '../lib/geocode';
+import { addressKey, addressParts, cached, geocodeAddress, geoQueries, GEOCODE_STORAGE_KEY, GeoFetch, googleNavLink, googleSearchLink, googleRouteLink, lookUp, miles, MISS_RETRY_MS, nominatimUrl, parseCache, wazeNavLink } from '../lib/geocode';
 import { INVOICES_STORAGE_KEY } from '../lib/invoices';
 import { mapHtml, parseMapMessage, setDataScript } from '../lib/mapHtml';
 import { SCHEDULE_STORAGE_KEY } from '../lib/schedule';
@@ -100,6 +100,51 @@ describe('geocoding and map links (plain logic)', () => {
   });
 });
 
+describe('finding addresses that are typed any which way', () => {
+  it('splits street, city and ZIP', () => {
+    expect(addressParts('400 Northern Flicker St, Austin 78640')).toEqual({ street: '400 Northern Flicker St', city: 'Austin', zip: '78640' });
+    expect(addressParts('1250 robert s light blvd, buda TX 78610-1234')).toEqual({ street: '1250 robert s light blvd', city: 'buda', zip: '78610' });
+    expect(addressParts('400 Northern Flicker St Kyle 78640')).toEqual({ street: '400 Northern Flicker St', city: 'Kyle', zip: '78640' });
+    expect(addressParts('12345 Main St')).toEqual({ street: '12345 Main St', city: '', zip: '' });
+    expect(addressParts('9 Oak Ave')).toEqual({ street: '9 Oak Ave', city: '', zip: '' });
+  });
+
+  it('asks the whole address, then street and ZIP, then street and city, then the ZIP for a rough pin', () => {
+    expect(geoQueries('400 Northern Flicker St, Austin 78640')).toEqual([
+      { params: { q: '400 Northern Flicker St, Austin 78640' }, approx: false },
+      { params: { street: '400 Northern Flicker St', postalcode: '78640' }, approx: false },
+      { params: { q: '400 Northern Flicker St, Austin' }, approx: false },
+      { params: { postalcode: '78640' }, approx: true },
+    ]);
+    expect(geoQueries('9 Oak Ave')).toEqual([{ params: { q: '9 Oak Ave' }, approx: false }]);
+    expect(nominatimUrl({ street: '400 Northern Flicker St', postalcode: '78640' })).toBe(
+      'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&street=400%20Northern%20Flicker%20St&postalcode=78640',
+    );
+    expect(googleSearchLink('400 Northern Flicker St')).toBe('https://www.google.com/maps/search/?api=1&query=400%20Northern%20Flicker%20St');
+  });
+
+  it('falls back until one finds it, waiting between tries, and marks a ZIP-only pin', async () => {
+    const asked: string[] = [];
+    let paced = 0;
+    const answer = (hit: (u: URLSearchParams) => boolean): GeoFetch => async (url) => {
+      const u = new URL(url).searchParams;
+      asked.push(u.toString());
+      return { ok: true, json: async () => (hit(u) ? [{ lat: '30.0', lon: '-97.8' }] : []) };
+    };
+    // A city that doesn't match the ZIP: found by street and ZIP.
+    const p = await geocodeAddress(answer((u) => u.get('street') !== null), '400 Northern Flicker St, Austin 78640', async () => {
+      paced++;
+    });
+    expect(p).toEqual({ lat: 30, lon: -97.8 });
+    expect(asked).toHaveLength(2);
+    expect(paced).toBe(1);
+    // A street OpenStreetMap doesn't have yet: the middle of the ZIP, marked rough.
+    expect(await geocodeAddress(answer((u) => u.get('postalcode') !== null && u.get('street') === null), '1 New Rd, Kyle 78640')).toEqual({ lat: 30, lon: -97.8, approx: true });
+    expect(await geocodeAddress(answer(() => false), '1 New Rd, Kyle 78640')).toBeNull();
+    expect(parseCache(JSON.stringify({ a: { p: { lat: 1, lon: 2, approx: true }, t: 1 } })).a.p).toEqual({ lat: 1, lon: 2, approx: true });
+  });
+});
+
 describe('Today › Map', () => {
   let reset: () => void;
   let openURL: jest.SpyInstance;
@@ -163,6 +208,31 @@ describe('Today › Map', () => {
     expect(saved['9 oak ave'].p).toEqual({ lat: 40.05, lon: -75.02 });
   });
 
+  it('lists addresses it could not place, with Google Maps and Try again', async () => {
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([{ ...visits()[0], address: '400 Northern Flicker St, Austin 78640', name: 'Kim' }]));
+    await renderApp();
+    await settle();
+    await fireEvent.press(within(screen.getByTestId('today-view')).getByText('Map'));
+    await settle();
+    // Nothing matches at all (not even the ZIP) in the pretend Nominatim.
+    expect(nominatim.asked).toEqual(['400 Northern Flicker St, Austin 78640', '', '400 Northern Flicker St, Austin', '']);
+    expect(screen.queryByTestId('map-problems')).toBeNull();
+    await fireEvent.press(screen.getByTestId('map-problems-toggle'));
+    expect(screen.getByTestId('map-problem-stop-v1')).toHaveTextContent(/Kim.*400 Northern Flicker St, Austin 78640 · not found/);
+    await fireEvent.press(screen.getByTestId('map-search-stop-v1'));
+    expect(openURL).toHaveBeenLastCalledWith('https://www.google.com/maps/search/?api=1&query=400%20Northern%20Flicker%20St%2C%20Austin%2078640');
+
+    // The street turns up in OpenStreetMap: Try again finds it.
+    PLACES['400 northern flicker st, austin'] = { lat: '30.0', lon: '-97.8' };
+    await fireEvent.press(screen.getByTestId('map-retry-stop-v1'));
+    await settle();
+    delete PLACES['400 northern flicker st, austin'];
+    expect(screen.queryByTestId('map-problems-toggle')).toBeNull();
+    await act(async () => screen.getByTestId('map-webview').props.webProps.onMessage({ nativeEvent: { data: '{"type":"ready"}' } }));
+    await settle();
+    expect(injected.at(-1)).toContain('"id":"stop-v1","lat":30,"lon":-97.8');
+  });
+
   it('opens the job from a pin', async () => {
     await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(visits()));
     const app = await renderApp();
@@ -188,7 +258,8 @@ describe('Today › Map', () => {
     await settle();
     expect(screen.getByTestId('map-row-owed-1001')).toHaveTextContent(/\$.*Kim Park owes \$250(?!\d)/);
     expect(screen.queryByTestId('map-row-owed-1002')).toBeNull();
-    expect(screen.getByTestId('map-status')).toHaveTextContent(/1 address not found.*1 nearby/);
+    expect(screen.getByTestId('map-status')).toHaveTextContent(/1 nearby/);
+    expect(screen.getByTestId('map-problems-toggle')).toHaveTextContent(/1 address not found/);
     await pickPin('owed-1001');
     expect(screen.getByTestId('map-selected')).toHaveTextContent(/Kim Park owes/);
     expect(screen.queryByTestId('map-open-job')).toBeNull();
