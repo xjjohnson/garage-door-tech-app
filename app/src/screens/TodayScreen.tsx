@@ -133,7 +133,7 @@ function Tile({ big, label, onPress, warn, testID }: { big: string; label: strin
   );
 }
 
-/** "Odoo up to date", or what's still waiting to send, or how to connect. */
+/** What's in Odoo (customers, quotes, invoices; jobs aren't sent yet), what's still waiting to send, or how to connect. */
 export function SyncLine() {
   const { status, client } = useOdoo();
   const pending = usePending();
@@ -148,7 +148,7 @@ export function SyncLine() {
   if (pending.total === 0) {
     return (
       <Text style={[styles.sync, styles.syncOk]} testID="today-sync">
-        ✓ Odoo up to date
+        ✓ Customers, quotes and invoices are in Odoo. Jobs and visits stay on this phone for now.
       </Text>
     );
   }
