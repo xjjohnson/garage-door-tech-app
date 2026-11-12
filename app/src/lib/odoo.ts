@@ -203,6 +203,7 @@ export class OdooClient {
     // The community (OCA) Field Service app keeps jobs as fsm.order, given to workers (fsm.person).
     const order = await fieldsOf('fsm.order');
     if (order) {
+      // A worker is a contact; the user's own contact is the worker when "Is a FS Worker" is ticked on it.
       const partnerId = Array.isArray(me[0]?.partner_id) ? (me[0]!.partner_id as number[])[0] : 0;
       const people = partnerId ? ((await probe.call('fsm.person', 'search_read', [[['partner_id', '=', partnerId]]], { fields: ['name'], limit: 1 })) as { id: number }[]) : [];
       const stage = await fieldsOf('fsm.stage');

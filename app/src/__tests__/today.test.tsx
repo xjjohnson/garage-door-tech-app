@@ -91,9 +91,9 @@ describe('hidden Developer screen and setup check', () => {
     expect(screen.getByTestId('setup-summary')).toHaveTextContent('1 missing.');
   });
 
-  it('Tools links to the setup check', async () => {
-    const app = await renderApp('/tools');
-    await fireEvent.press(screen.getByTestId('tools-setup'));
+  it('Developer links to the setup check', async () => {
+    const app = await renderApp('/developer');
+    await fireEvent.press(screen.getByTestId('dev-setup'));
     expect(app.getPathname()).toBe('/setup');
   });
 });

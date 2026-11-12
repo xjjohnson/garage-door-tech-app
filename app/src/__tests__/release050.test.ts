@@ -155,7 +155,7 @@ describe('Odoo setup check', () => {
     const r = await runSetupCheck(fake({ me: 0, apps: { products: true, sales: true, invoicing: false } }, { 'sale.order.template': 0, 'ir.mail_server': new Error('Access denied') }));
     const by = Object.fromEntries(r.map((x) => [x.id, x]));
     expect(by.worker.state).toBe('missing');
-    expect(by.worker.fix).toMatch(/Workers/);
+    expect(by.worker.fix).toMatch(/Is a FS Worker/);
     expect(by.templates.state).toBe('warn');
     expect(by.invoicing.state).toBe('missing');
     expect(by.truck.state).toBe('warn');
@@ -163,3 +163,4 @@ describe('Odoo setup check', () => {
     expect(setupSummary(r)).toBe('2 missing, 3 to look at.');
   });
 });
+

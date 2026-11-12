@@ -253,9 +253,9 @@ Today makes one from three answers: who, what's wrong, and now or later.
 **Sales** has follow-ups, the price sheet, accepted quotes still to invoice,
 and the invoices. **Tools** holds the spring calculator, door weight,
 Diagnose, Manuals, truck stock, time and miles, the schedule, business
-numbers, the Odoo team page, the Odoo setup check and Settings.
+numbers, the Odoo team page and Settings.
 
-**Odoo setup check** (`/setup`). Reads Odoo and marks each thing this
+**Odoo setup check** (`/setup`, opened from the Developer screen). Reads Odoo and marks each thing this
 version needs as found or missing, with how to fix it: signed in, Field
 Service, you as a Field Service worker, Sales and quotation templates,
 Invoicing, a truck stock location and outgoing email. It changes nothing.

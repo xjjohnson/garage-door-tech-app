@@ -20,7 +20,6 @@ export function ToolsScreen() {
       <SectionTitle>Business</SectionTitle>
       <NavRow label="Business numbers" detail="Sales, close rate, average ticket" href="/stats" testID="tools-stats" />
       <NavRow label="Team (Odoo)" detail="Jobs from Odoo, dispatch" href="/team" testID="tools-team" />
-      <NavRow label="Odoo setup check" detail="What Odoo needs for this version" href="/setup" testID="tools-setup" />
       <NavRow label="Settings" detail="Version, business details, backups" href="/settings" testID="tools-settings" />
     </View>
   );
