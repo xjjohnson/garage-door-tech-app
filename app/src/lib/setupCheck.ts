@@ -54,7 +54,7 @@ export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[
     out.push(
       s.me > 0
         ? { id: 'worker', label: 'You are a Field Service worker', state: 'ok', detail: 'Jobs can be given to you.' }
-        : { id: 'worker', label: 'You are a Field Service worker', state: 'missing', detail: 'Your user has no worker record.', fix: 'Field Service > Configuration > Workers > New, and pick your contact.' },
+        : { id: 'worker', label: 'You are a Field Service worker', state: 'missing', detail: 'Your user has no worker record.', fix: 'Field Service > Workers: give your worker the same email as your Odoo login, or make one with New.' },
     );
   }
 

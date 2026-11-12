@@ -51,6 +51,8 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
   const entries = useLog(logger);
   const [filter, setFilter] = useState<Filter>('all');
   const [note, setNote] = useState<string | null>(null);
+  /** Notes about updates, shown under the update buttons rather than by the log. */
+  const [updateNote, setUpdateNote] = useState<string | null>(null);
   const [ping, setPing] = useState<string | null>(null);
   const [beta, setBetaOn] = useState<boolean | null>(null);
   const [needsRestart, setNeedsRestart] = useState(false);
@@ -85,16 +87,16 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
   };
 
   const checkUpdate = async () => {
-    setNote('Checking...');
+    setUpdateNote('Checking...');
     const r = await checkAndFetchOta(updates);
     logger.info('update', `manual check: ${r}`);
-    setNote(CHECK_NOTE[r]);
+    setUpdateNote(CHECK_NOTE[r]);
   };
 
   const toggleBeta = async (on: boolean) => {
     const ok = await setBeta(on, updates);
     if (!ok) {
-      setNote("This build can't switch update channels (Expo Go or a test build).");
+      setUpdateNote("This build can't switch update channels (Expo Go or a test build).");
       return;
     }
     logger.info('update', `beta updates ${on ? 'on' : 'off'}`);
@@ -129,10 +131,27 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
         <Switch value={!!beta} onValueChange={toggleBeta} accessibilityLabel="Beta updates" testID="dev-beta" trackColor={{ true: colors.brand, false: colors.info }} thumbColor={colors.bg} style={styles.switch} />
       </View>
       <Text style={styles.meta}>New releases reach this phone as soon as they're merged. Everyone else gets them once they're promoted.</Text>
-      {needsRestart ? <Action label="Restart to switch" primary onPress={() => restart().catch(() => setNote('Close and reopen the app to switch.'))} testID="dev-restart" /> : null}
+      {needsRestart ? (
+        <Action
+          label="Restart to switch"
+          primary
+          onPress={() =>
+            restart().catch((e) => {
+              logger.warn('update', `restart failed: ${e instanceof Error ? e.message : String(e)}`);
+              setUpdateNote("Couldn't restart from here. Swipe the app away and open it again to switch.");
+            })
+          }
+          testID="dev-restart"
+        />
+      ) : null}
       <View style={styles.row}>
         <Action label="Check for update" grow onPress={checkUpdate} testID="dev-check-update" />
       </View>
+      {updateNote ? (
+        <Text style={styles.note} testID="dev-update-note" accessibilityLiveRegion="polite">
+          {updateNote}
+        </Text>
+      ) : null}
 
       <SectionTitle>Odoo</SectionTitle>
       <View style={styles.row}>

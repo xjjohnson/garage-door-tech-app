@@ -4,6 +4,7 @@ import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { Invoice } from '../lib/invoices';
 import { jobSteps, nextStep, onSiteFor, smsLink } from '../lib/jobSteps';
 import { createJob, Job } from '../lib/jobs';
+import { findWorker } from '../lib/odoo';
 import { formatLog, KEEP_MS, Logger, LogStore, memoryStore, redact } from '../lib/log';
 import { describePending, pendingSync } from '../lib/pending';
 import { CheckClient, runSetupCheck, setupSummary } from '../lib/setupCheck';
@@ -161,5 +162,32 @@ describe('Odoo setup check', () => {
     expect(by.truck.state).toBe('warn');
     expect(by.email.detail).toMatch(/admin/);
     expect(setupSummary(r)).toBe('2 missing, 3 to look at.');
+  });
+});
+
+describe('finding your Field Service worker', () => {
+  const people = [
+    { id: 40, partner_id: 90, email: 'Justin.D@shop.test', active: true },
+    { id: 41, partner_id: 91, email: 'sam@shop.test', active: true },
+  ];
+  const fake = (list: typeof people) => ({
+    call: async (_m: string, _x: string, args: unknown[], kw?: Record<string, unknown>) => {
+      const [[f, op, v]] = args[0] as [string, string, unknown][];
+      const hit = list.filter((p) => (f === 'partner_id' ? p.partner_id === v : f === 'email' ? op === '=ilike' && p.email.toLowerCase() === String(v).toLowerCase() : p.active));
+      return hit.slice(0, (kw?.limit as number) ?? 80).map((p) => ({ id: p.id, name: '' }));
+    },
+  });
+
+  it("uses the user's own contact first", async () => {
+    expect(await findWorker(fake(people), { partner_id: [91, 'Sam'] }, 'x@y.test')).toBe(41);
+  });
+
+  it('falls back to the same email, ignoring case', async () => {
+    expect(await findWorker(fake(people), { partner_id: [5, 'Justin'], email: false, login: 'justin.d@shop.test' }, 'justin.d@shop.test')).toBe(40);
+  });
+
+  it("takes the only worker when there's just one, and none when it can't tell", async () => {
+    expect(await findWorker(fake([people[0]]), { partner_id: [5, 'Justin'], login: 'other@x.test' }, 'other@x.test')).toBe(40);
+    expect(await findWorker(fake(people), { partner_id: [5, 'Justin'], login: 'other@x.test' }, 'other@x.test')).toBe(0);
   });
 });
