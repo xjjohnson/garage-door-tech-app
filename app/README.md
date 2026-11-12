@@ -558,7 +558,11 @@ a CSV with a row a day and a total, for taxes or an accountant
 **Truck stock.** **Truck stock** at the top of Jobs (outlined, with a count,
 when something is low) lists what's on the truck by Springs, Parts, and
 Openers and remotes, each with big **−** and **+** buttons. **Add common
-items** starts a torsion-truck list at 0 to fill in. An item has a reorder
+items** starts a torsion-truck list at 0 to fill in. Signed in to Odoo (from
+0.5.13), **Add a part from Odoo** lists Odoo's products by category with a
+search (name, part number or barcode); picking one asks how many are on the
+truck, and **Not in Odoo? Make a new part** is the last row
+(`src/components/ProductPicker.tsx`). An item has a reorder
 point and a fill-to count, a supplier, an optional part number and cost.
 **To order** groups low items by supplier with the quantity to get back to
 the fill-to count, and **Text order** or **Email order** opens a ready message
