@@ -491,6 +491,18 @@ its chatter, and the app reads Odoo's outgoing mail to say whether it was
 sent, is still queued, or failed and why (the contact needs an email address,
 and Odoo needs an outgoing mail server).
 
+**Price book** (from 0.5.15). Sales › **Price book** shows every product
+Odoo can sell, grouped by Odoo's product categories (the shared root such as
+"All" is left off), with search by name, internal reference, category or
+sales description. Each item shows Service or Material, its description and
+price. The star keeps an item in **Favorites**, which belong to each tech
+(saved per Odoo login on the phone). **Frequently used** is what sold most on
+the last 500 confirmed Odoo order lines. The book is saved on the phone so it
+opens with no signal, and refreshes from Odoo when it's over an hour old, or
+on **Update from Odoo**. Prices, categories and descriptions are edited in
+Odoo. It's the first step of the invoicing rework: later releases add items
+from it straight onto a job's ticket.
+
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
 and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
 customer invoice and credit note, not only the phone's: newest first, 40 at a

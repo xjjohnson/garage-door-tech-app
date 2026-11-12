@@ -30,6 +30,7 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
   return (
     <View style={styles.stack} testID="sales">
       <NavRow label="Follow-ups" detail="Invoice and quote reminders, texted by you" badge={due ? `${due} due` : undefined} href="/follow-ups" testID="sales-followups" />
+      <NavRow label="Price book" detail="Odoo's products and prices, by category" href="/price-book" testID="sales-price-book" />
       <NavRow label="Price sheet" detail="Parts and labor for quotes" href="/price-sheet" testID="sales-price-sheet" />
       {odoo?.sales ? <NavRow label="Odoo quotations" detail="Every quotation and sales order in Odoo" href="/odoo-list/quotations" testID="sales-odoo-quotations" /> : null}
       {odoo?.invoicing ? <NavRow label="Odoo invoices" detail="Every invoice in Odoo, paid and not" href="/odoo-list/invoices" testID="sales-odoo-invoices" /> : null}
