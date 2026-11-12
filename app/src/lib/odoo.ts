@@ -162,9 +162,9 @@ export function toOdooTime(ms: number): string {
 }
 
 const TASK_OPTIONAL = ['planned_date_begin', 'date_deadline', 'description', 'partner_phone', 'fsm_done'];
-const PARTNER_OPTIONAL = ['customer_rank', 'mobile'];
+const PARTNER_OPTIONAL = ['customer_rank', 'mobile', 'partner_latitude', 'partner_longitude'];
 const PRODUCT_OPTIONAL = ['sale_ok', 'default_code'];
-const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end'];
+const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end', 'scheduled_duration'];
 
 export class OdooClient {
   constructor(
@@ -301,20 +301,24 @@ export class OdooClient {
     return s.assignField === 'user_ids' ? ['user_ids', 'in', [id]] : ['user_id', '=', id];
   }
 
-  private async readJobs(who: number | false): Promise<OdooTask[]> {
+  private readJobs(who: number | false): Promise<OdooTask[]> {
+    return this.readWhere([this.assignedTo(who), ...this.open()]);
+  }
+
+  private async readWhere(domain: unknown[]): Promise<OdooTask[]> {
     const s = this.session;
     if (s.kind === 'none') return [];
     if (s.kind === 'oca') {
       const fields = ['name', 'location_id', 'person_id', ...s.fields];
       const order = this.has('scheduled_date_start') ? 'scheduled_date_start asc, id asc' : 'id asc';
-      const rows = (await this.call('fsm.order', 'search_read', [[this.assignedTo(who), ...this.open()]], { fields, limit: 200, order })) as Record<string, unknown>[];
+      const rows = (await this.call('fsm.order', 'search_read', [domain], { fields, limit: 200, order })) as Record<string, unknown>[];
       const locIds = [...new Set(rows.map((r) => (Array.isArray(r.location_id) ? (r.location_id[0] as number) : 0)).filter(Boolean))];
       const locs = locIds.length ? ((await this.call('fsm.location', 'read', [locIds], { fields: ['name', 'phone', 'mobile', 'street', 'city', 'zip'] })) as Record<string, unknown>[]) : [];
       return rows.map((r) => orderToTask(r, locs));
     }
     const fields = ['name', 'partner_id', 'stage_id', s.assignField, ...s.fields];
     const order = this.has('planned_date_begin') ? 'planned_date_begin asc, id asc' : this.has('date_deadline') ? 'date_deadline asc, id asc' : 'id asc';
-    const rows = (await this.call('project.task', 'search_read', [[this.assignedTo(who), ...this.open()]], { fields, limit: 200, order })) as Record<string, unknown>[];
+    const rows = (await this.call('project.task', 'search_read', [domain], { fields, limit: 200, order })) as Record<string, unknown>[];
     const partnerIds = [...new Set(rows.map((r) => (Array.isArray(r.partner_id) ? (r.partner_id[0] as number) : 0)).filter(Boolean))];
     const partners = partnerIds.length
       ? ((await this.call('res.partner', 'read', [partnerIds], { fields: ['name', 'phone', 'mobile', 'street', 'city', 'zip'] })) as Record<string, unknown>[])
@@ -353,6 +357,129 @@ export class OdooClient {
     return this.call('project.task', 'write', [[taskId], { [s.assignField]: value }]);
   }
 
+  /** The field that holds a job's planned start, if this Odoo has one. */
+  private get startField(): string | undefined {
+    const s = this.session;
+    if (s.kind === 'oca') return this.has('scheduled_date_start') ? 'scheduled_date_start' : undefined;
+    if (s.kind === 'task') return this.has('planned_date_begin') ? 'planned_date_begin' : undefined;
+    return undefined;
+  }
+
+  /** Whether a job's planned start can be set from the phone. */
+  get canSchedule(): boolean {
+    return !!this.startField;
+  }
+
+  /** Open jobs given to anyone and planned to start between two times (ms), for the dispatch board. */
+  jobsBetween(from: number, to: number): Promise<OdooTask[]> {
+    const f = this.startField;
+    if (!f) return Promise.resolve([]);
+    const s = this.session;
+    const given = s.kind === 'oca' ? ['person_id', '!=', false] : [s.assignField, '!=', false];
+    return this.readWhere([given, [f, '>=', toOdooTime(from)], [f, '<', toOdooTime(to)], ...this.open()]);
+  }
+
+  /** Gives a job to a tech and, when a time is given and this Odoo has the field, sets when it starts. */
+  scheduleJob(taskId: number, techId: number, start?: number): Promise<unknown> {
+    const s = this.session;
+    const f = this.startField;
+    const when = start !== undefined && f ? { [f]: toOdooTime(start) } : {};
+    if (s.kind === 'oca') return this.call('fsm.order', 'write', [[taskId], { person_id: techId, ...when }]);
+    const value = s.assignField === 'user_ids' ? [[6, 0, [techId]]] : techId;
+    return this.call('project.task', 'write', [[taskId], { [s.assignField]: value, ...when }]);
+  }
+
+  private dispatchCache: Promise<boolean> | null = null;
+
+  /**
+   * Whether this user may hand out jobs: a Field Service Dispatcher or
+   * Manager (or a Project Manager when jobs are tasks), or an Odoo
+   * administrator. Anything that goes wrong asking means no.
+   */
+  canDispatch(): Promise<boolean> {
+    if (!this.dispatchCache) {
+      const s = this.session;
+      const groups = s.kind === 'oca' ? ['fieldservice.group_fsm_dispatcher', 'fieldservice.group_fsm_manager'] : s.kind === 'task' ? ['project.group_project_manager'] : [];
+      this.dispatchCache = (async () => {
+        if (s.kind === 'none') return false;
+        const all = [...groups, 'base.group_system'];
+        for (const g of all) if (await this.inGroup(g)) return true;
+        // has_group can be refused over RPC: look at the user's groups instead.
+        return this.inGroupsByRecord(all);
+      })();
+    }
+    return this.dispatchCache;
+  }
+
+  private async inGroup(xmlid: string): Promise<boolean> {
+    try {
+      // Odoo 17 and later call it on the user record.
+      return (await this.call('res.users', 'has_group', [[this.session.uid], xmlid])) === true;
+    } catch {
+      try {
+        // Odoo 16 and older ask about the signed-in user.
+        return (await this.call('res.users', 'has_group', [xmlid])) === true;
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  /** Whether the user's own record lists any of these groups (by their xml ids). */
+  private async inGroupsByRecord(xmlids: string[]): Promise<boolean> {
+    try {
+      const names = xmlids.map((x) => x.split('.'));
+      const domain = [['model', '=', 'res.groups'], ['module', 'in', [...new Set(names.map((n) => n[0]))]], ['name', 'in', names.map((n) => n[1])]];
+      const rows = (await this.call('ir.model.data', 'search_read', [domain], { fields: ['module', 'name', 'res_id'] })) as { module?: string; name?: string; res_id?: number }[];
+      const wanted = rows.filter((r) => xmlids.includes(`${r.module}.${r.name}`)).map((r) => r.res_id);
+      if (!wanted.length) return false;
+      // Odoo 19 calls the field group_ids; older ones groups_id.
+      for (const field of ['group_ids', 'groups_id']) {
+        try {
+          const [me] = (await this.call('res.users', 'read', [[this.session.uid]], { fields: [field] })) as Record<string, unknown>[];
+          const ids = Array.isArray(me?.[field]) ? (me[field] as number[]) : [];
+          return wanted.some((id) => ids.includes(id as number));
+        } catch {
+          // Try the other name.
+        }
+      }
+    } catch {
+      // Can't tell: no.
+    }
+    return false;
+  }
+
+  private async places(rows: Record<string, unknown>[], make: (r: Record<string, unknown>) => Omit<OdooPlace, 'customer' | 'address' | 'phone' | 'lat' | 'lon' | 'partnerId'>): Promise<OdooPlace[]> {
+    const ids = [...new Set(rows.map((r) => (Array.isArray(r.partner_id) ? (r.partner_id[0] as number) : 0)).filter(Boolean))];
+    if (!ids.length) return [];
+    const pf = await this.partnerFields();
+    const geo = pf.includes('partner_latitude') && pf.includes('partner_longitude') ? ['partner_latitude', 'partner_longitude'] : [];
+    const partners = (await this.call('res.partner', 'read', [ids], { fields: ['name', 'phone', 'street', 'street2', 'city', 'zip', ...geo] })) as Record<string, unknown>[];
+    return rows.flatMap((r) => {
+      const pid = Array.isArray(r.partner_id) ? (r.partner_id[0] as number) : 0;
+      const p = partners.find((x) => x.id === pid);
+      if (!p) return [];
+      const lat = typeof p.partner_latitude === 'number' && p.partner_latitude ? p.partner_latitude : undefined;
+      const lon = typeof p.partner_longitude === 'number' && p.partner_longitude ? p.partner_longitude : undefined;
+      return [{ ...make(r), partnerId: pid, customer: str(p.name), address: toPartner(p).address, phone: str(p.phone), ...(lat !== undefined && lon !== undefined ? { lat, lon } : {}) }];
+    });
+  }
+
+  /** Quotations not yet confirmed (draft or sent), with where the customer is, for the map. */
+  async openQuotes(): Promise<OdooPlace[]> {
+    if (!this.session.apps.sales) return [];
+    const rows = (await this.call('sale.order', 'search_read', [[['state', 'in', ['draft', 'sent']]]], { fields: ['name', 'partner_id', 'amount_total'], limit: 200, order: 'id desc' })) as Record<string, unknown>[];
+    return this.places(rows, (r) => ({ kind: 'quote', id: r.id as number, ref: str(r.name), cents: toCents(r.amount_total) }));
+  }
+
+  /** Posted customer invoices with money still owed, with where the customer is, for the map. */
+  async owedInvoices(): Promise<OdooPlace[]> {
+    if (!this.session.apps.invoicing) return [];
+    const domain = [['move_type', '=', 'out_invoice'], ['state', '=', 'posted'], ['payment_state', 'in', ['not_paid', 'partial']]];
+    const rows = (await this.call('account.move', 'search_read', [domain], { fields: ['name', 'partner_id', 'amount_residual'], limit: 200, order: 'id desc' })) as Record<string, unknown>[];
+    return this.places(rows, (r) => ({ kind: 'owed', id: r.id as number, ref: str(r.name), cents: toCents(r.amount_residual) }));
+  }
+
   /** Marks a job done the way Odoo's own button does. */
   async markDone(taskId: number): Promise<void> {
     const s = this.session;
@@ -373,6 +500,24 @@ export interface OdooUser {
   login: string;
 }
 
+/** A customer to show on the map: one with an open quote, or one who owes on an invoice. */
+export interface OdooPlace {
+  kind: 'quote' | 'owed';
+  /** The sale.order or account.move id. */
+  id: number;
+  /** "S00042" or "INV/2026/00007". */
+  ref: string;
+  partnerId: number;
+  customer: string;
+  address: string;
+  phone: string;
+  /** Quote total, or what's still owed, in cents. */
+  cents: number;
+  /** Where Odoo has the contact pinned, if it does. */
+  lat?: number;
+  lon?: number;
+}
+
 export interface OdooTask {
   id: number;
   name: string;
@@ -387,9 +532,12 @@ export interface OdooTask {
   stage: string;
   notes: string;
   assignees: number[];
+  /** How long it's planned to take, if Odoo says. */
+  minutes?: number;
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
+const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0);
 
 const escapeHtml = (t: string) =>
   `<p>${t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
@@ -474,6 +622,7 @@ function orderToTask(r: Record<string, unknown>, locs: Record<string, unknown>[]
     stage: Array.isArray(r.stage_id) ? str(r.stage_id[1]) : '',
     notes: plainText(notes),
     assignees: Array.isArray(r.person_id) ? [r.person_id[0] as number] : [],
+    ...(typeof r.scheduled_duration === 'number' && r.scheduled_duration > 0 ? { minutes: Math.round(r.scheduled_duration * 60) } : {}),
   };
 }
 

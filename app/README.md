@@ -243,6 +243,20 @@ Navigate and Start job, jobs under way, the rest of today's visits, and tiles
 for money owed and follow-ups due. If the app closed on an error last time, a
 notice offers to share the log.
 
+**Today › Map** (from 0.5.3). **List | Map** at the top of Today. The map is
+Leaflet with OpenStreetMap tiles in a WebView (`src/lib/mapHtml.ts`, no
+Google key): today's visits as numbered pins in time order, joined by a line,
+the next one in green and finished ones grey. **Show nearby** adds customers
+within 10 miles of the route who owe money (**$**, from the phone's invoices
+and, signed in, Odoo's unpaid posted invoices) or have an open quote (**Q**,
+Odoo quotations in draft or sent). Tap a pin or a row for **Google Maps**,
+**Waze**, and **Start job** / **Open job**; **Whole day in Google Maps** opens
+the rest of the day as one route. Addresses are looked up with OpenStreetMap
+Nominatim, one a second as its rules ask, and kept on the phone
+(AsyncStorage `geocode/v1`; a miss is asked again after a week); contacts
+Odoo already has pinned skip the lookup. The map needs signal (Leaflet and
+the tiles load over the internet); the list under it works without.
+
 **Job hub** (`/job/<id>`). One page per job with its steps: On my way (opens
 the messages app with an on-my-way text, sent by hand), Arrived, Inspect,
 Quote, Work and Paid, each worked out from what's saved on the job and its
@@ -553,6 +567,17 @@ and ordinary Project tasks otherwise; Odoo 16+ (`user_ids`) and older
 (`src/lib/odoo.ts`, `src/lib/useOdoo.tsx`, sign-in details in AsyncStorage
 `odoo/v1`). Needs the 0.4.0 APK for the keystore.
 
+**Jobs › Team (dispatch)** (from 0.5.3). For an Odoo Field Service
+Dispatcher or Manager, or an Odoo admin (checked with `has_group` at
+sign-in; techs never see it), Jobs gets a **Mine | Team** switch. Team is a
+board for one day (‹ › to change it): **Not assigned** lists open Field
+Service orders with no worker, then a lane per worker with that day's jobs
+and when they're free. **Assign**, or tapping a job in a lane, opens a sheet
+to pick the worker and a start time (half hours, 7 to 6); it writes
+`person_id` and `scheduled_date_start` on the `fsm.order` straight away.
+**Assign and text the customer** also opens the phone's messages app with
+the booking filled in, to send by hand (`src/screens/DispatchScreen.tsx`).
+
 **Inspection.** A job's **Inspection** (in its details, or on its quote) is
 the checklist that replaces SafetyCulture. Each **door** gets its maker, size,
 year, spring date code and cycles, and 18 items (balance, springs and cables,
@@ -631,8 +656,8 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 |---|---|---|
 | `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures, Odoo team), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header (with the house mark, Settings button and version), update banners, the sections and the bottom bar |
-| `(tabs)/index.tsx` | `/` | Today |
-| `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
+| `(tabs)/index.tsx` | `/` | Today, as a list or a map |
+| `(tabs)/jobs.tsx` | `/jobs` | Saved jobs; Mine / Team (dispatch board) for dispatchers |
 | `(tabs)/sales.tsx` | `/sales` | Follow-ups, price sheet, quotes to invoice, invoices |
 | `(tabs)/customers.tsx` | `/customers` | The customer list |
 | `(tabs)/tools.tsx` | `/tools` | Every tool and setting |
