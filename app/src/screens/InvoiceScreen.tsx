@@ -95,7 +95,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
         {paid(invoice) > 0 ? <Line label="Paid" value={formatMoney(paid(invoice))} /> : null}
         <Line label="Amount due" value={formatMoney(due)} bold testID="invoice-due" />
       </View>
-      <OdooInvoiceSync invoice={invoice} />
+      <OdooInvoiceSync invoice={invoice} warranty={warrantyNote} />
 
       {invoice.payments.length > 0 ? (
         <>

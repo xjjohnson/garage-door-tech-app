@@ -476,6 +476,24 @@ sends new payments and reads back Odoo's paid status, amount owed and total
 (Odoo adds its own product taxes). Lines use their linked Odoo product, or a
 "Garage door service" product (`GDT-SERVICE`, no tax) made the first time
 it's needed. A customer without an Odoo contact gets one on the first send.
+The sales order's customer reference starts with the tier ("Better · 12 Elm
+St"), so reports can tell which option sold. Once an invoice is in Odoo,
+**Email the invoice and inspection report** makes both PDFs on the phone,
+attaches them to the Odoo invoice and posts them to the customer's contact,
+which Odoo sends by email (the contact needs an email address, and Odoo needs
+an outgoing mail server).
+
+**Quotation templates** (`src/lib/odooTemplates.ts`). Odoo quotation
+templates named "Job type · Good", "· Better" and "· Best" (a dash or colon
+works too) price jobs the spring calculator can't, like openers and tune-ups:
+a job whose "What's wrong" is Opener gets its options from the "Opener ·"
+templates, with each line's Odoo product, price and tax. They're saved on the
+phone (`odoo-templates/v1`) and refreshed from Odoo every 10 minutes while
+signed in. Spring jobs keep using the price sheet.
+
+**Inspection add-ons.** Repairs added from the inspection (from Poor, Safety
+risk, Fair and other items) show on the quote with that item's photos. Each
+is on every option until the customer says no; tapping it takes it off.
 
 **Business numbers.** The top of Jobs shows open jobs, what you're owed and
 what was collected this week; tapping it opens **Business numbers**: the

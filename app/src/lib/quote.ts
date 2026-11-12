@@ -20,10 +20,14 @@ export interface QuoteLine {
   key?: string;
   /** How many, when the line is a price each times a count (springs). */
   qty?: number;
+  /** The Odoo product, when the line came from an Odoo quotation template. */
+  productId?: number;
 }
 
 export interface QuoteOption {
   tier: Tier;
+  /** Shown instead of the tier name ("Repairs"). */
+  title?: string;
   /** False when no spring of this rating fits; the reason says why. */
   available: boolean;
   reason?: string;
@@ -153,13 +157,24 @@ export function buildQuote(inputs: JobInputs, sheet: PriceSheet): Quote {
   return { options };
 }
 
+/**
+ * One option for a job with no spring answer: the service call and the
+ * inspection repairs. So a repair-only visit can still be quoted and invoiced.
+ */
+export function repairQuote(repairs: QuoteLine[], sheet: PriceSheet): Quote {
+  const lines: QuoteLine[] = [{ label: 'Service call', cents: cents(sheet.serviceCall), taxable: false, key: 'serviceCall' }, ...repairs];
+  const subtotal = lines.reduce((n, l) => n + l.cents, 0);
+  const tax = taxOf(lines, sheet);
+  return { options: [{ tier: 'good', title: 'Repairs', available: true, springCount: 0, lines, subtotal, tax, total: subtotal + tax }] };
+}
+
 /** Plain text to send the customer: each option with its lines and total. */
 export function quoteText(quote: Quote, customer: string): string {
   const parts: string[] = [];
   parts.push(`Garage door spring quote${customer ? ` for ${customer}` : ''}`);
   for (const o of quote.options.filter((x) => x.available)) {
     parts.push('');
-    parts.push(`${TIER_LABEL[o.tier].toUpperCase()}: ${formatMoney(o.total)}`);
+    parts.push(`${(o.title ?? TIER_LABEL[o.tier]).toUpperCase()}: ${formatMoney(o.total)}`);
     if (o.spring) parts.push(`Springs rated ${formatLife(o.spring.life)} cycles`);
     for (const l of o.lines) if (l.cents > 0) parts.push(`- ${l.label}: ${formatMoney(l.cents)}`);
     if (o.tax > 0) parts.push(`- Tax: ${formatMoney(o.tax)}`);
