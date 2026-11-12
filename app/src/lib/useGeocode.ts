@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
 import { pretendOffline } from './devFlags';
-import { addressKey, cached, GAP_MS, GEOCODE_STORAGE_KEY, GeoCache, GeoFetch, lookUp, parseCache, Point } from './geocode';
+import { addressKey, cached, GAP_MS, GEOCODE_STORAGE_KEY, GeoCache, GeoFetch, geocodeAddress, parseCache, Point } from './geocode';
 import { log } from './log';
 
 /**
@@ -58,11 +58,15 @@ async function run() {
     while (queue.length) {
       const address = queue[0];
       if (cached(c, address, deps.now()) === undefined && !pretendOffline()) {
-        const wait = lastCall + GAP_MS - deps.now();
-        if (wait > 0) await deps.sleep(wait);
-        lastCall = deps.now();
+        // One lookup a second, however many tries an address takes.
+        const pace = async () => {
+          const wait = lastCall + GAP_MS - deps.now();
+          if (wait > 0) await deps.sleep(wait);
+          lastCall = deps.now();
+        };
         try {
-          const p = await lookUp(deps.fetchFn, address);
+          await pace();
+          const p = await geocodeAddress(deps.fetchFn, address, pace);
           c[addressKey(address)] = { p, t: deps.now() };
           AsyncStorage.setItem(GEOCODE_STORAGE_KEY, JSON.stringify(c)).catch(() => undefined);
         } catch (e) {
@@ -79,6 +83,17 @@ async function run() {
   } finally {
     running = false;
   }
+}
+
+/** Forgets what was found for an address (or that nothing was) and looks it up again. */
+export function retryGeocode(address: string) {
+  load().then((c) => {
+    delete c[addressKey(address)];
+    AsyncStorage.setItem(GEOCODE_STORAGE_KEY, JSON.stringify(c)).catch(() => undefined);
+    if (!queue.includes(address.trim())) queue.push(address.trim());
+    notify();
+    run();
+  });
 }
 
 /**

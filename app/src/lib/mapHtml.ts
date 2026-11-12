@@ -15,6 +15,8 @@ export interface MapPin {
   /** "1", "$" or "Q". */
   label: string;
   kind: PinKind;
+  /** Placed by ZIP only: drawn dashed. */
+  approx?: boolean;
 }
 
 export interface MapData {
@@ -62,6 +64,7 @@ html,body,#map{margin:0;height:100%;background:#E9EDE6;font-family:system-ui,san
 .pin.done{background:#E3E3E3;color:#0B0B0B;font-size:16px;border-color:#0B0B0B}
 .pin.owed{background:#FFD000;color:#0B0B0B;font-size:15px;border-color:#0B0B0B}
 .pin.quote{background:#fff;color:#0B0B0B;font-size:15px;border-color:#0B0B0B}
+.pin.approx{border-style:dashed;opacity:.8}
 .pin.sel{outline:4px solid #FFD000;outline-offset:2px}
 #off{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:18px;font-weight:800;color:#0B0B0B}
 </style>
@@ -79,7 +82,7 @@ html,body,#map{margin:0;height:100%;background:#E9EDE6;font-family:system-ui,san
   function icon(p, sel){
     var big = p.kind === 'next' ? 44 : p.kind === 'owed' || p.kind === 'quote' ? 34 : 40;
     var el = document.createElement('div');
-    el.className = 'pin ' + p.kind + (sel ? ' sel' : '');
+    el.className = 'pin ' + p.kind + (p.approx ? ' approx' : '') + (sel ? ' sel' : '');
     el.style.width = big + 'px'; el.style.height = big + 'px';
     el.textContent = p.label;
     return L.divIcon({ html: el.outerHTML, className: '', iconSize: [big, big], iconAnchor: [big/2, big/2] });

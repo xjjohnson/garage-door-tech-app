@@ -3,14 +3,14 @@ import { ComponentType, Ref, useCallback, useEffect, useMemo, useRef, useState }
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import RNWebView, { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { Action } from '../components/Buttons';
-import { formatMiles, googleNavLink, googleRouteLink, miles, Point, wazeNavLink } from '../lib/geocode';
+import { formatMiles, googleNavLink, googleRouteLink, googleSearchLink, miles, Point, wazeNavLink } from '../lib/geocode';
 import { balance, invoiceStatus } from '../lib/invoices';
 import { phoneLink } from '../lib/jobs';
 import { MapData, mapHtml, MapPin, parseMapMessage, PinKind, setDataScript } from '../lib/mapHtml';
 import { OdooError, OdooPlace } from '../lib/odoo';
 import { formatMoney } from '../lib/prices';
 import { Appointment, formatTime, onDay } from '../lib/schedule';
-import { useGeocode } from '../lib/useGeocode';
+import { retryGeocode, useGeocode } from '../lib/useGeocode';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
@@ -135,7 +135,14 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
     return stopPoints.length === 0 || stopPoints.some((s) => miles(s, p) <= NEARBY_MILES);
   });
   const all: Place[] = [...stops, ...shownExtras];
-  const notFound = addresses.filter((a) => a.trim() && points[a.trim()] === null).length;
+  // Addresses the map couldn't place exactly: not found at all, or only by ZIP.
+  const problems = [...stops, ...extras.filter((e) => !e.at)].flatMap((p) => {
+    const v = p.address.trim() ? points[p.address.trim()] : undefined;
+    return v === null ? [{ p, missing: true }] : v?.approx ? [{ p, missing: false }] : [];
+  });
+  const notFound = new Set(problems.filter((x) => x.missing).map((x) => x.p.address.trim())).size;
+  const approx = new Set(problems.filter((x) => !x.missing).map((x) => x.p.address.trim())).size;
+  const [showProblems, setShowProblems] = useState(false);
   const noAddress = stops.filter((s) => !s.address.trim()).length;
 
   // The page gets new pins without reloading; it re-fits only when the set of pins changes.
@@ -143,7 +150,7 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
   const [ready, setReady] = useState(false);
   const pins: MapPin[] = all.flatMap((p) => {
     const at = pointOf(p);
-    return at ? [{ id: p.id, lat: at.lat, lon: at.lon, label: p.label, kind: p.kind }] : [];
+    return at ? [{ id: p.id, lat: at.lat, lon: at.lon, label: p.label, kind: p.kind, ...(at.approx ? { approx: true } : {}) }] : [];
   });
   const pinKey = pins.map((p) => p.id).join(',');
   const lastFit = useRef('');
@@ -200,11 +207,44 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
       <Text style={styles.meta} testID="map-status">
         {offline ? 'No map without internet. ' : ''}
         {waiting > 0 ? `Finding ${waiting} address${waiting === 1 ? '' : 'es'} on the map... ` : ''}
-        {notFound > 0 ? `${notFound} address${notFound === 1 ? '' : 'es'} not found. ` : ''}
         {noAddress > 0 ? `${noAddress} stop${noAddress === 1 ? ' has' : 's have'} no address. ` : ''}
         {nearby ? (shownExtras.length ? `${shownExtras.length} nearby: $ owes money, Q open quote.` : waiting ? '' : `Nobody who owes or has an open quote within ${NEARBY_MILES} mi.`) : ''}
         {odooError ? ` ${odooError}` : ''}
       </Text>
+
+      {problems.length > 0 ? (
+        <Pressable
+          onPress={() => setShowProblems((v) => !v)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showProblems }}
+          testID="map-problems-toggle"
+          style={({ pressed }) => [styles.problemBar, pressed && styles.pressed]}
+        >
+          <Text style={[styles.problemText, styles.grow]}>
+            {[notFound ? `${notFound} address${notFound === 1 ? '' : 'es'} not found` : '', approx ? `${approx} placed by ZIP only` : ''].filter(Boolean).join(' · ')}
+          </Text>
+          <Text style={styles.problemText}>{showProblems ? 'Hide' : 'See which'}</Text>
+        </Pressable>
+      ) : null}
+      {showProblems && problems.length > 0 ? (
+        <View style={styles.problems} testID="map-problems">
+          <Text style={styles.note}>
+            Usually the city doesn't match the ZIP, or the street is new or misspelled. Check it in Google Maps, fix it where it was typed (Odoo jobs on the contact in Odoo, other visits in the schedule), then tap Try again.
+          </Text>
+          {problems.map(({ p, missing }) => (
+            <View key={p.id} style={styles.problem} testID={`map-problem-${p.id}`}>
+              <Text style={styles.lineTitle}>{p.title}</Text>
+              <Text style={styles.lineSub}>
+                {p.address} · {missing ? 'not found' : 'pin is at the middle of the ZIP, not the house'}
+              </Text>
+              <View style={styles.row}>
+                <Action label="Try again" grow onPress={() => retryGeocode(p.address)} testID={`map-retry-${p.id}`} />
+                <Action label="Google Maps" grow onPress={() => open(googleSearchLink(p.address))} testID={`map-search-${p.id}`} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {sel ? (
         <View style={styles.card} testID="map-selected">
@@ -273,6 +313,10 @@ const styles = StyleSheet.create({
   dotText: { fontSize: 16, fontWeight: '900', color: colors.text },
   dotTextLight: { color: colors.onSelected },
   pressed: { backgroundColor: colors.safety },
+  problemBar: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.safety },
+  problemText: { fontSize: 16, fontWeight: '900', color: colors.text },
+  problems: { gap: 10 },
+  problem: { gap: 6, padding: 12, borderRadius: 12, borderWidth: 2, borderColor: colors.border },
   credit: { fontSize: 13, fontWeight: '600', color: colors.muted },
 });
 

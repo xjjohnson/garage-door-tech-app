@@ -65,8 +65,13 @@ function sample(): Inspection {
 describe('inspection (plain logic)', () => {
   it('lists each door, its motors, then the gate', () => {
     const i = { ...EMPTY_INSPECTION(1), gate: { type: 'swing' as const, answers: {} } };
-    expect(sections(i).map((s) => s.title)).toEqual(['Door 1', 'Door 1 · Motor 1', 'Gate · UL 325', 'Gate · ASTM F2200']);
+    expect(sections(i).map((s) => s.title)).toEqual(['Door 1', 'Door 1 · Motor 1', 'Gate · UL 325', 'Gate · Swing gate', 'Gate · ASTM F2200']);
     expect(sections(EMPTY_INSPECTION(1, true)).map((s) => s.title)).toEqual(['Gate · UL 325', 'Gate · ASTM F2200']);
+    const slide = sections({ ...EMPTY_INSPECTION(1, true), gate: { type: 'slide', answers: {} } });
+    expect(slide.map((s) => s.title)).toEqual(['Gate · UL 325', 'Gate · Slide gate', 'Gate · ASTM F2200']);
+    expect(slide[1].items.map((x) => x.key)).toContain('g:slide-roller-covers');
+    const swing = sections({ ...EMPTY_INSPECTION(1, true), gate: { type: 'swing', answers: {} } });
+    expect(swing[1].items.map((x) => x.def.id)).toEqual(['swing-pivot', 'swing-wall']);
   });
 
   it('scores, flags and counts actions, leaving out N/A', () => {
@@ -163,11 +168,11 @@ describe('inspection (plain logic)', () => {
   });
 
   it('sends the report to the Field Service order, else the sales order, else the customer', async () => {
-    const customers = [{ id: 'c1', odooId: 77 }];
+    const customers = [{ id: 'c1', odooId: 77, name: 'John Smith' }];
     const j = { id: 'j1', customerId: 'c1', odooOrder: undefined };
-    expect(reportTarget(j, [{ id: 'odoo-12', jobId: 'j1' }], customers, 'fsm.order')).toEqual({ model: 'fsm.order', id: 12, label: 'Field Service order' });
-    expect(reportTarget({ ...j, odooOrder: { id: 41, name: 'S00041' } } as never, [{ id: 'local-1', jobId: 'j1' }], customers, 'fsm.order')).toEqual({ model: 'sale.order', id: 41, label: 'sales order S00041' });
-    expect(reportTarget(j, [], customers, null)).toEqual({ model: 'res.partner', id: 77, label: 'customer' });
+    expect(reportTarget(j, [{ id: 'odoo-12', jobId: 'j1' }], customers, 'fsm.order')).toEqual({ model: 'fsm.order', id: 12, label: 'the Field Service order' });
+    expect(reportTarget({ ...j, odooOrder: { id: 41, name: 'S00041' } } as never, [{ id: 'local-1', jobId: 'j1' }], customers, 'fsm.order')).toEqual({ model: 'sale.order', id: 41, label: 'the sales order S00041' });
+    expect(reportTarget(j, [], customers, null)).toEqual({ model: 'res.partner', id: 77, label: "John Smith's contact" });
     expect(reportTarget({ ...j, customerId: undefined } as never, [], customers, null)).toBeNull();
 
     const calls: unknown[][] = [];
@@ -257,6 +262,10 @@ describe('inspection in the app', () => {
     expect(insp.gate).toEqual({ type: '', answers: {} });
     expect(insp.lubricated).toBe(true);
     expect(screen.getByTestId('item-g:ul-signs')).toBeTruthy();
+    expect(screen.queryByTestId('item-g:swing-pivot')).toBeNull();
+    await fireEvent.press(within(screen.getByTestId('gate-type')).getByText('Swing'));
+    expect(screen.getByTestId('item-g:swing-pivot')).toBeTruthy();
+    expect(screen.queryByTestId('item-g:slide-stops')).toBeNull();
     expect(screen.getByTestId('voice-notes')).toHaveTextContent('No voice notes.');
 
     // A door with answers needs a second tap to remove; an empty one goes at once.

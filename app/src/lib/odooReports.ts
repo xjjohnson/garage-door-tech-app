@@ -11,17 +11,17 @@ import type { Appointment } from './schedule';
 export interface ReportTarget {
   model: string;
   id: number;
-  /** For the button and the log: "Field Service order", "sales order S00041", "customer". */
+  /** Where it goes, for the button: "the Field Service order", "the sales order S00041", "John Smith's contact". */
   label: string;
 }
 
 /** Where a job's report goes in Odoo, or null when Odoo has nothing for it yet. */
-export function reportTarget(job: Pick<Job, 'id' | 'customerId' | 'odooOrder'>, appointments: Pick<Appointment, 'id' | 'jobId'>[], customers: Pick<Customer, 'id' | 'odooId'>[], jobsModel: 'fsm.order' | 'project.task' | null): ReportTarget | null {
+export function reportTarget(job: Pick<Job, 'id' | 'customerId' | 'odooOrder'>, appointments: Pick<Appointment, 'id' | 'jobId'>[], customers: Pick<Customer, 'id' | 'odooId' | 'name'>[], jobsModel: 'fsm.order' | 'project.task' | null): ReportTarget | null {
   const visit = appointments.find((a) => a.jobId === job.id && /^odoo-\d+$/.test(a.id));
-  if (visit && jobsModel) return { model: jobsModel, id: Number(visit.id.slice(5)), label: jobsModel === 'fsm.order' ? 'Field Service order' : 'Odoo task' };
-  if (job.odooOrder) return { model: 'sale.order', id: job.odooOrder.id, label: `sales order ${job.odooOrder.name}`.trim() };
+  if (visit && jobsModel) return { model: jobsModel, id: Number(visit.id.slice(5)), label: jobsModel === 'fsm.order' ? 'the Field Service order' : 'the Odoo task' };
+  if (job.odooOrder) return { model: 'sale.order', id: job.odooOrder.id, label: `the sales order ${job.odooOrder.name}`.trim() };
   const c = job.customerId ? customers.find((x) => x.id === job.customerId) : undefined;
-  if (c?.odooId) return { model: 'res.partner', id: c.odooId, label: 'customer' };
+  if (c?.odooId) return { model: 'res.partner', id: c.odooId, label: c.name.trim() ? `${c.name.trim()}'s contact` : "the customer's contact" };
   return null;
 }
 
@@ -40,4 +40,32 @@ export async function sendReport(client: Pick<OdooClient, 'call'>, target: Repor
     // The attachment is there even if the chatter note fails (a record without chatter).
   }
   return id;
+}
+
+export interface PdfFile {
+  name: string;
+  base64: string;
+}
+
+/**
+ * Emails PDFs to the customer from Odoo: they're attached to the record (an
+ * invoice) and posted as a message to the customer's contact, which Odoo
+ * sends by email. Returns the address it went to.
+ */
+/** The customer's email in Odoo; throws when the contact has none. */
+export async function partnerEmail(client: Pick<OdooClient, 'call'>, partnerId: number): Promise<string> {
+  const [p] = (await client.call('res.partner', 'read', [[partnerId]], { fields: ['email'] })) as { email?: string | false }[];
+  const email = typeof p?.email === 'string' ? p.email.trim() : '';
+  if (!email) throw new Error('This customer has no email in Odoo. Add one on their contact, then try again.');
+  return email;
+}
+
+export async function emailCustomer(client: Pick<OdooClient, 'call'>, model: string, id: number, partnerId: number, files: PdfFile[], body: string): Promise<string> {
+  const email = await partnerEmail(client, partnerId);
+  const ids: number[] = [];
+  for (const f of files) {
+    ids.push((await client.call('ir.attachment', 'create', [{ name: f.name, type: 'binary', datas: f.base64, res_model: model, res_id: id, mimetype: 'application/pdf' }])) as number);
+  }
+  await client.call(model, 'message_post', [[id]], { body, partner_ids: [partnerId], attachment_ids: ids, message_type: 'comment', subtype_xmlid: 'mail.mt_comment' });
+  return email;
 }

@@ -253,8 +253,13 @@ Odoo quotations in draft or sent). Tap a pin or a row for **Google Maps**,
 **Waze**, and **Start job** / **Open job**; **Whole day in Google Maps** opens
 the rest of the day as one route. Addresses are looked up with OpenStreetMap
 Nominatim, one a second as its rules ask, and kept on the phone
-(AsyncStorage `geocode/v1`; a miss is asked again after a week); contacts
-Odoo already has pinned skip the lookup. The map needs signal (Leaflet and
+(AsyncStorage `geocode/v1`; a miss is asked again after a day); contacts
+Odoo already has pinned skip the lookup. An address that misses as typed is
+tried again as street + ZIP (a city that doesn't match the ZIP is the usual
+cause), then street + city, then the ZIP alone, which gives a dashed pin in
+the middle of the ZIP. The yellow bar under the map says how many weren't
+found or were placed by ZIP only; tap it to see which, with **Google Maps**
+to check the address and **Try again** once it's fixed (from 0.5.7). The map needs signal (Leaflet and
 the tiles load over the internet); the list under it works without.
 
 **Job hub** (`/job/<id>`). One page per job with its steps: On my way (opens
@@ -476,6 +481,24 @@ sends new payments and reads back Odoo's paid status, amount owed and total
 (Odoo adds its own product taxes). Lines use their linked Odoo product, or a
 "Garage door service" product (`GDT-SERVICE`, no tax) made the first time
 it's needed. A customer without an Odoo contact gets one on the first send.
+The sales order's customer reference starts with the tier ("Better · 12 Elm
+St"), so reports can tell which option sold. Once an invoice is in Odoo,
+**Email the invoice and inspection report** makes both PDFs on the phone,
+attaches them to the Odoo invoice and posts them to the customer's contact,
+which Odoo sends by email (the contact needs an email address, and Odoo needs
+an outgoing mail server).
+
+**Quotation templates** (`src/lib/odooTemplates.ts`). Odoo quotation
+templates named "Job type · Good", "· Better" and "· Best" (a dash or colon
+works too) price jobs the spring calculator can't, like openers and tune-ups:
+a job whose "What's wrong" is Opener gets its options from the "Opener ·"
+templates, with each line's Odoo product, price and tax. They're saved on the
+phone (`odoo-templates/v1`) and refreshed from Odoo every 10 minutes while
+signed in. Spring jobs keep using the price sheet.
+
+**Inspection add-ons.** Repairs added from the inspection (from Poor, Safety
+risk, Fair and other items) show on the quote with that item's photos. Each
+is on every option until the customer says no; tapping it takes it off.
 
 **Business numbers.** The top of Jobs shows open jobs, what you're owed and
 what was collected this week; tapping it opens **Business numbers**: the

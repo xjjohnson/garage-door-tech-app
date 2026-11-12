@@ -90,6 +90,21 @@ export const GATE_UL_ITEMS: ItemDef[] = [
   { id: 'ul-other', label: 'Other entrapment areas', scale: 'compliance' },
 ];
 
+/** Shown after Gate type, only for a slide gate (UL 325, from SafetyCulture). */
+export const GATE_SLIDE_ITEMS: ItemDef[] = [
+  { id: 'slide-roller-covers', label: 'Roller covers on wheels', scale: 'compliance' },
+  { id: 'slide-mesh', label: 'Meshing installed up to 6 ft above grade if pickets are spaced 2 1/4" or more apart', scale: 'compliance' },
+  { id: 'slide-post-gap', label: 'Gap between gate and fence post less than 2 1/4" and protected with a safety device', scale: 'compliance' },
+  { id: 'slide-stops', label: 'Positive stops at both the fully open and fully closed positions', scale: 'compliance' },
+  { id: 'slide-receiver', label: 'Receiver guides recessed behind the receiver post (for receiver guides under 8 ft)', scale: 'compliance' },
+];
+
+/** Shown after Gate type, only for a swing gate. */
+export const GATE_SWING_ITEMS: ItemDef[] = [
+  { id: 'swing-pivot', label: 'Distance from pivot point to column edge less than 4"', scale: 'compliance' },
+  { id: 'swing-wall', label: 'Distance from open gate to wall or column more than 16", or external entrapment protection provided', scale: 'compliance' },
+];
+
 export const GATE_ASTM_ITEMS: ItemDef[] = [
   { id: 'astm-edges', label: 'Smooth bottom edges; no protrusion over 1/2" beyond the base of the gate', scale: 'compliance' },
   { id: 'astm-controls', label: 'All access controls at least 6 ft from the gate', scale: 'compliance' },
@@ -150,6 +165,10 @@ export interface Repair {
   /** As typed on the keypad, like the price sheet: "45" or "42.50". */
   price: string;
   taxable: boolean;
+  /** The checklist item it came from, so the quote can show that item's photos. */
+  item?: AnswerKey;
+  /** The customer said no to this add-on; it stays listed but off the quote. */
+  declined?: boolean;
 }
 
 export interface Inspection {
@@ -207,6 +226,8 @@ export function sections(insp: Inspection): Section[] {
   });
   if (insp.gate) {
     out.push({ key: 'gate-ul', title: 'Gate · UL 325', items: GATE_UL_ITEMS.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
+    const typed = insp.gate.type === 'slide' ? GATE_SLIDE_ITEMS : insp.gate.type === 'swing' ? GATE_SWING_ITEMS : null;
+    if (typed) out.push({ key: 'gate-type', title: insp.gate.type === 'slide' ? 'Gate · Slide gate' : 'Gate · Swing gate', items: typed.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
     out.push({ key: 'gate-astm', title: 'Gate · ASTM F2200', items: GATE_ASTM_ITEMS.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
   }
   return out;
@@ -283,13 +304,13 @@ export function checkCounts(insp: Inspection | undefined): { done: number; fix: 
 }
 
 /** A flagged item as a repair to price: its action, or "Rollers: repair". */
-export function repairFromFlag(f: Pick<Flag, 'label' | 'action'>, now: number, n: number): Repair {
-  return { id: uid('r', now, n), label: f.action.trim() || `${f.label}: repair`, price: '', taxable: true };
+export function repairFromFlag(f: Pick<Flag, 'label' | 'action'> & { key?: AnswerKey }, now: number, n: number): Repair {
+  return { id: uid('r', now, n), label: f.action.trim() || `${f.label}: repair`, price: '', taxable: true, ...(f.key ? { item: f.key } : {}) };
 }
 
 /** The job's repairs as quote lines; ones with no name or price are left off. */
 export function repairLines(insp: Inspection | undefined): QuoteLine[] {
-  return (insp?.repairs ?? []).filter((r) => r.label.trim() !== '' && cents(r.price) > 0).map((r) => ({ label: r.label.trim(), cents: cents(r.price), taxable: r.taxable }));
+  return (insp?.repairs ?? []).filter((r) => !r.declined && r.label.trim() !== '' && cents(r.price) > 0).map((r) => ({ label: r.label.trim(), cents: cents(r.price), taxable: r.taxable }));
 }
 
 /** The quote with the repairs added to every option that can be priced, totals and tax worked out again. */
@@ -413,7 +434,7 @@ export function parseInspection(v: unknown): Inspection | undefined {
     ? d.repairs.flatMap((r): Repair[] => {
         const x = r as Record<string, unknown> | null;
         if (!x || typeof x.id !== 'string') return [];
-        return [{ id: x.id, label: str(x.label), price: str(x.price), taxable: x.taxable !== false }];
+        return [{ id: x.id, label: str(x.label), price: str(x.price), taxable: x.taxable !== false, ...(str(x.item) ? { item: str(x.item) } : {}), ...(x.declined === true ? { declined: true } : {}) }];
       })
     : [];
   const doors = Array.isArray(d.doors)
