@@ -608,12 +608,19 @@ to pick the worker and a start time (half hours, 7 to 6); it writes
 **Assign and text the customer** also opens the phone's messages app with
 the booking filled in, to send by hand (`src/screens/DispatchScreen.tsx`).
 
-**Phone jobs in Odoo** (from 0.5.9). While signed in, every open job made on
-the phone (with a customer or address) becomes a Field Service order, or a
-Project task without OCA Field Service, so it shows on Jobs › Team (under
-**Not assigned** when it has no worker). The order gets the customer's Field
-Service location (made on their contact if they have none) and the job type
-and notes as its description. A job with a booked visit is given to you;
+**Phone jobs in Odoo** (from 0.5.9). While signed in, every open job saved
+on the phone (with a customer or address) from the first time 0.5.9 ran
+(`odoo-jobs/since/v1`) becomes a Field Service order, or a Project task
+without OCA Field Service, so it shows on Jobs › Team (under **Not
+assigned** when it has no worker). Older open jobs are never sent on their
+own: Today shows "N older jobs not in Odoo", which opens a list to tick the
+ones to send; the rest stay on the phone (`sendToOdoo` on the job). The
+order gets the customer's Field Service location (made on their contact if
+they have none) and the job type and notes as its description, with a last
+line "App job <id>": before making an order the app searches for that line,
+so a retry after the app was closed mid-send finds the order instead of
+making a second. A job with no customer record uses the Odoo contact with
+the same phone number, then the same name, before making a new contact. A job with a booked visit is given to you;
 the visit then takes the order's id (`odoo-<id>`). Booking or moving the
 visit on the phone (the job's **Visit** row, or **Later** on New job, opens
 the Schedule for that job) writes `scheduled_date_start` and

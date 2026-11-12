@@ -28,6 +28,8 @@ interface JobsApi {
   /** Remembers the sales order made in Odoo for this job. */
   setOdooOrder: (id: string, order: OdooRef) => void;
   setOdooJob: (id: string, ref: OdooJobRef) => void;
+  /** Picks older jobs to send to Odoo (true) or keep on the phone (false). Not counted as a change to the job. */
+  setSendToOdoo: (picks: Record<string, boolean>) => void;
   /** Saves the lines typed on the job's quote. */
   setQuoteLines: (id: string, lines: Repair[]) => void;
   /** Records a job hub step (On my way, Arrived, Work done), or clears it with undefined. */
@@ -152,6 +154,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
+  const setSendToOdoo = useCallback<JobsApi['setSendToOdoo']>((picks) => change((prev) => prev.map((j) => (j.id in picks ? { ...j, sendToOdoo: picks[j.id] } : j))), [change]);
+
   const setQuoteLines = useCallback<JobsApi['setQuoteLines']>(
     (id, lines) =>
       change((prev) =>
@@ -183,8 +187,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setStep }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setStep],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setSendToOdoo, setStep }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setSendToOdoo, setStep],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }

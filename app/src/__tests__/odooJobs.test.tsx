@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { OdooJobSync } from '../components/OdooJobSync';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, Job, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, ODOO_STORAGE_KEY, OdooClient, toOdooTime } from '../lib/odoo';
-import { applyState, createOdooJob, readJobStates, writeVisit } from '../lib/odooJobs';
+import { applyState, createOdooJob, JOBS_SINCE_KEY, olderJobs, partnerFor, readJobStates, shouldSend, writeVisit } from '../lib/odooJobs';
+import { resetJobsSince } from '../lib/useJobsSince';
+import { renderApp } from '../testing/renderApp';
 import { pendingSync } from '../lib/pending';
 import { Appointment, parseSchedule, SCHEDULE_STORAGE_KEY } from '../lib/schedule';
 import { CustomersProvider } from '../lib/useCustomers';
@@ -42,6 +44,11 @@ function fakeOdoo() {
     }
     if (model === 'res.users') return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
     if (model === 'fsm.person') return reply([{ id: 40, name: 'Justin' }]);
+    if (model === 'res.partner' && method === 'search_read') return reply(partners);
+    if (model === 'fsm.order' && method === 'search_read') {
+      const [[[, , text]]] = args as [[[string, string, string]]];
+      return reply(orders.filter((o) => String(o.description ?? '').toLowerCase().includes(text.toLowerCase())).map((o) => ({ id: o.id, name: o.name })));
+    }
     if (model === 'res.partner' && method === 'create') {
       partners.push({ id: 100 + partners.length, ...(args[0] as Row) });
       return reply(100 + partners.length - 1);
@@ -84,12 +91,12 @@ describe('jobs in Odoo (logic)', () => {
   it('makes an order at the customer’s location, given to me when it has a visit', async () => {
     const o = fakeOdoo();
     const c = await OdooClient.signIn(o.fetchFn, login, 'k');
-    const ref = await createOdooJob(c, 7, { customer: 'Pat', address: '1 Oak', phone: '', what: 'Tune-up', notes: 'Dog in yard' }, { start: at(9, 1), minutes: 90 });
+    const ref = await createOdooJob(c, 7, { jobId: 'j1', customer: 'Pat', address: '1 Oak', phone: '', what: 'Tune-up', notes: 'Dog in yard' }, { start: at(9, 1), minutes: 90 });
     expect(ref).toEqual({ model: 'fsm.order', id: 500, name: 'FSO500' });
-    expect(o.orders[0]).toMatchObject({ location_id: 70, person_id: 40, description: 'Tune-up\nDog in yard', scheduled_date_start: toOdooTime(at(9, 1)), scheduled_duration: 1.5 });
+    expect(o.orders[0]).toMatchObject({ location_id: 70, person_id: 40, description: 'Tune-up\nDog in yard\nApp job j1', scheduled_date_start: toOdooTime(at(9, 1)), scheduled_duration: 1.5 });
 
     // No visit, and a customer with no location yet: a new location, and nobody assigned.
-    await createOdooJob(c, 8, { customer: 'Lee', address: '2 Elm', phone: '', what: 'Opener', notes: '' });
+    await createOdooJob(c, 8, { jobId: 'j2', customer: 'Lee', address: '2 Elm', phone: '', what: 'Opener', notes: '' });
     expect(o.locations.at(-1)).toMatchObject({ partner_id: 8, owner_id: 8 });
     expect(o.orders[1]).toMatchObject({ location_id: o.locations.at(-1)!.id, person_id: false, scheduled_date_start: false });
   });
@@ -97,7 +104,7 @@ describe('jobs in Odoo (logic)', () => {
   it('moves the order, and reads back time, worker and done', async () => {
     const o = fakeOdoo();
     const c = await OdooClient.signIn(o.fetchFn, login, 'k');
-    const ref = await createOdooJob(c, 7, { customer: 'Pat', address: '', phone: '', what: '', notes: '' });
+    const ref = await createOdooJob(c, 7, { jobId: 'j1', customer: 'Pat', address: '', phone: '', what: '', notes: '' });
     await writeVisit(c, ref, { start: at(14), minutes: 60 });
     expect(o.orders[0]).toMatchObject({ scheduled_date_start: toOdooTime(at(14)), scheduled_duration: 1 });
     o.orders[0].person_id = 41;
@@ -117,6 +124,33 @@ describe('jobs in Odoo (logic)', () => {
     const j = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat', address: '', phone: '', notes: '' }, { title: '' }, 1, 'j1');
     expect(pendingSync([], [j], []).jobs).toBe(1);
     expect(pendingSync([], [{ ...j, status: 'done' }], []).jobs).toBe(0);
+    // Saved before sending started: not counted (or sent) until picked.
+    expect(pendingSync([], [j], [], 5).jobs).toBe(0);
+    expect(pendingSync([], [{ ...j, sendToOdoo: true }], [], 5).jobs).toBe(1);
+    expect(olderJobs([j, { ...j, id: 'j2', sendToOdoo: false }], 5).map((x) => x.id)).toEqual(['j1']);
+    expect(shouldSend(j, null)).toBe(false);
+  });
+
+  it('finds the order already made for a phone job instead of making another', async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    const job = { jobId: 'j-abc', customer: 'Pat', address: '', phone: '', what: 'Opener', notes: '' };
+    const first = await createOdooJob(c, 7, job);
+    // The phone lost the answer (killed before saving): the next try finds it.
+    expect(await createOdooJob(c, 7, job)).toEqual(first);
+    expect(o.orders).toHaveLength(1);
+    expect(o.orders[0].description).toBe('Opener\nApp job j-abc');
+  });
+
+  it('uses the Odoo contact with the same phone, then the same name, before making one', async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    o.partners.push({ id: 7, name: 'Pat Smith', phone: '(512) 555-0101', customer_rank: 1 }, { id: 8, name: 'Lee Park', phone: false, customer_rank: 1 });
+    const f = (name: string, phone: string) => ({ name, phone, email: '', address: '', notes: '' });
+    expect(await partnerFor(c, f('P. Smith', '1-512-555-0101'))).toBe(7);
+    expect(await partnerFor(c, f(' lee park ', ''))).toBe(8);
+    expect(await partnerFor(c, f('Kim Ortega', '512 555 0199'))).toBe(102);
+    expect(o.partners.map((p) => p.name)).toEqual(['Pat Smith', 'Lee Park', 'Kim Ortega']);
   });
 });
 
@@ -148,8 +182,11 @@ describe('job sync in the background', () => {
   const base = (id: string, over: Partial<Job> = {}): Job => ({ ...createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat Smith', address: '1 Oak St', phone: '555', notes: '' }, { title: '' }, 1000, id), what: 'Tune-up', ...over }) as Job;
 
   beforeEach(async () => {
+    resetJobsSince();
     await AsyncStorage.clear();
     await AsyncStorage.setItem(ODOO_STORAGE_KEY, JSON.stringify(login));
+    // Sending started before these tests' jobs were saved (savedAt 1000).
+    await AsyncStorage.setItem(JOBS_SINCE_KEY, '500');
   });
 
   // Stop the sync and let anything it started finish before the next test's storage.
@@ -175,6 +212,16 @@ describe('job sync in the background', () => {
     expect(o.partners.map((p) => p.name)).toEqual(['Pat Smith', 'Lee Park']);
     const visits = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(visits.map((v) => [v.id, v.jobId])).toEqual([['odoo-500', 'j1']]);
+  });
+
+  it('leaves jobs from before sending started on the phone until they are picked', async () => {
+    await AsyncStorage.setItem(JOBS_SINCE_KEY, '5000');
+    const o = fakeOdoo();
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([base('j1'), base('j2', { customer: 'Lee Park', sendToOdoo: true }), base('j3', { customer: 'Kim', sendToOdoo: false })]));
+    await renderSync(o.fetchFn);
+    await settle();
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY)).map((j) => j.odooJob?.id)).toEqual([undefined, 500, undefined]);
+    expect(o.orders).toHaveLength(1);
   });
 
   it('brings a time and worker set in Odoo back to the phone', async () => {
@@ -204,5 +251,33 @@ describe('job sync in the background', () => {
     const [v] = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(v.start).toBe(at(16, 1));
     expect(v.syncedAt).toBe(5);
+  });
+});
+
+describe('picking older jobs to send', () => {
+  // renderApp runs on fake timers, so this waits on promises only.
+  const settle = async (n = 10) => {
+    for (let i = 0; i < n; i++) await act(async () => undefined);
+  };
+
+  beforeEach(async () => {
+    resetJobsSince();
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(JOBS_SINCE_KEY, '5000');
+  });
+
+  it('sends the ticked ones and keeps the rest on the phone', async () => {
+    const job = (id: string, customer: string) => createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer, address: '1 Oak St', phone: '', notes: '' }, { title: '' }, 1000, id);
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job('j1', 'Pat Smith'), job('j2', 'john smith'), job('j3', 'Atx')]));
+    await renderApp('/odoo-older-jobs');
+    await settle(5);
+    expect(screen.getByTestId('older-done')).toHaveTextContent('Keep them all on the phone');
+    await fireEvent.press(screen.getByTestId('older-j1'));
+    expect(screen.getByTestId('older-done')).toHaveTextContent('Send 1 to Odoo, keep 2 on the phone');
+    await fireEvent.press(screen.getByTestId('older-done'));
+    await settle(5);
+    const saved = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
+    expect(saved.map((j) => j.sendToOdoo)).toEqual([true, false, false]);
+    expect(olderJobs(saved, 5000)).toEqual([]);
   });
 });

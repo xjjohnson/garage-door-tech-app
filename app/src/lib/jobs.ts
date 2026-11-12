@@ -47,6 +47,8 @@ interface JobBase extends JobDetails {
   odooJob?: OdooJobRef;
   /** Lines typed on the quote by hand ("Opener install", $150), added to every option. */
   quoteLines?: Repair[];
+  /** For a job saved before the phone sent jobs to Odoo: true when the tech picked it to send, false when kept on the phone. */
+  sendToOdoo?: boolean;
   /** The job hub's steps (src/lib/jobSteps.ts): when each was tapped. */
   steps?: JobSteps;
   /** What the customer called about, from New job: "Broken spring", "Tune-up"... */
@@ -199,6 +201,7 @@ export function parseJobs(raw: string | null): Job[] {
       ...(parseInspection(j.inspection) ? { inspection: parseInspection(j.inspection) } : {}),
       ...(parseRef(j.odooOrder) ? { odooOrder: parseRef(j.odooOrder) } : {}),
       ...(parseJobRef(j.odooJob) ? { odooJob: parseJobRef(j.odooJob) } : {}),
+      ...(typeof j.sendToOdoo === 'boolean' ? { sendToOdoo: j.sendToOdoo } : {}),
       ...(parseRepairs(j.quoteLines).length ? { quoteLines: parseRepairs(j.quoteLines) } : {}),
       ...(parseSteps(j.steps) ? { steps: parseSteps(j.steps) } : {}),
       ...(typeof j.what === 'string' && j.what ? { what: j.what } : {}),

@@ -8,11 +8,13 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { log } from '../lib/log';
-import { applyState, canSendJobs, createOdooJob, myId, readJobStates, visitId, writeVisit } from '../lib/odooJobs';
+import type { OdooPartner } from '../lib/customerSync';
+import { applyState, canSendJobs, createOdooJob, myId, partnerFor, readJobStates, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
 import { Appointment } from '../lib/schedule';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useCustomers } from '../lib/useCustomers';
 import { useJobs } from '../lib/useJobs';
+import { useJobsSince } from '../lib/useJobsSince';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
 
@@ -30,23 +32,26 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
   const jobsApi = useJobs();
   const schedule = useSchedule();
   const customersApi = useCustomers();
-  const latest = useRef({ jobsApi, schedule, customersApi });
-  latest.current = { jobsApi, schedule, customersApi };
+  const since = useJobsSince(now);
+  const latest = useRef({ jobsApi, schedule, customersApi, since });
+  latest.current = { jobsApi, schedule, customersApi, since };
   const running = useRef(false);
   const failed = useRef(new Map<string, number>());
 
-  const online = status === 'signedIn' && !!client && canSendJobs(client) && jobsApi.loaded && schedule.loaded;
+  const online = status === 'signedIn' && !!client && canSendJobs(client) && jobsApi.loaded && schedule.loaded && since !== null;
 
   const pass = useCallback(async () => {
     if (!client || running.current) return;
     running.current = true;
     try {
-      const { jobsApi: J, schedule: S, customersApi: C } = latest.current;
+      const { jobsApi: J, schedule: S, customersApi: C, since: from } = latest.current;
       const visits: Appointment[] = [...S.appointments];
       const bookedFor = (jobId: string) => visits.find((a) => a.jobId === jobId && a.status === 'booked');
 
-      // 1. New jobs become Odoo jobs.
-      const toSend = J.jobs.filter((j) => j.status === 'open' && !j.odooJob && (j.customer.trim() || j.address.trim()) && now() - (failed.current.get(j.id) ?? 0) > RETRY_MS).slice(0, BATCH);
+      // 1. New jobs (and older ones the tech picked) become Odoo jobs.
+      const toSend = J.jobs.filter((j) => shouldSend(j, from) && now() - (failed.current.get(j.id) ?? 0) > RETRY_MS).slice(0, BATCH);
+      // Odoo's contacts, read once a pass and only when a job needs one.
+      let known: Promise<OdooPartner[]> | undefined;
       for (const job of toSend) {
         // Started from a visit that came from Odoo: it's that Odoo job already.
         const fromOdoo = visits.find((a) => a.jobId === job.id && /^odoo-\d+$/.test(a.id));
@@ -58,11 +63,12 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
           const c = C.customers.find((x) => x.id === job.customerId);
           let partnerId = c?.odooId;
           if (!partnerId) {
-            partnerId = await client.createPartner(c ?? { name: job.customer.trim() || job.address.trim(), phone: job.phone, email: '', address: job.address, notes: '' });
+            known ??= client.partners();
+            partnerId = await partnerFor(client, c ?? { name: job.customer.trim() || job.address.trim(), phone: job.phone, email: '', address: job.address, notes: '' }, known);
             if (c) C.apply((prev) => prev.map((x) => (x.id === c.id ? { ...x, odooId: partnerId, syncedAt: x.updatedAt } : x)));
           }
           const visit = bookedFor(job.id);
-          const ref = await createOdooJob(client, partnerId, { customer: job.customer, address: job.address, phone: job.phone, what: job.what ?? '', notes: job.notes }, visit);
+          const ref = await createOdooJob(client, partnerId, { jobId: job.id, customer: job.customer, address: job.address, phone: job.phone, what: job.what ?? '', notes: job.notes }, visit);
           J.setOdooJob(job.id, ref);
           if (visit) {
             const t = now();

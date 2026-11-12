@@ -5,11 +5,29 @@
  * as set by whoever dispatches, come back to the phone's visit. Kept free of
  * React; the client is passed in, so tests use a fake.
  */
+import type { OdooPartner } from './customerSync';
+import type { CustomerFields } from './customers';
+import { phoneKey } from './customers';
+import type { Job } from './jobs';
 import type { OdooClient } from './odoo';
 import { odooTime, toOdooTime } from './odoo';
 import type { Appointment } from './schedule';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
+
+/** When this phone started sending its jobs to Odoo. Jobs saved before then go only when the tech picks them. */
+export const JOBS_SINCE_KEY = 'odoo-jobs/since/v1';
+
+const sendable = (j: Job) => j.status === 'open' && !j.odooJob && !!(j.customer.trim() || j.address.trim());
+
+/** Whether the background sync sends this job: saved since sending started, or picked to send. */
+export const shouldSend = (j: Job, since: number | null) => sendable(j) && since !== null && (j.savedAt >= since || j.sendToOdoo === true);
+
+/** Open jobs from before sending started that the tech hasn't decided about yet. */
+export const olderJobs = (jobs: Job[], since: number | null) => (since === null ? [] : jobs.filter((j) => sendable(j) && j.savedAt < since && j.sendToOdoo === undefined));
+
+/** The line on the Odoo job that says which phone job it is, so a retry finds it instead of making another. */
+export const jobMarker = (jobId: string) => `App job ${jobId}`;
 
 /** The Odoo record a phone job is. */
 export interface OdooJobRef {
@@ -20,6 +38,8 @@ export interface OdooJobRef {
 }
 
 export interface JobForOdoo {
+  /** The phone's job id, written on the order (see jobMarker). */
+  jobId: string;
   customer: string;
   address: string;
   phone: string;
@@ -70,7 +90,7 @@ const visitVals = (c: Client, visit: Pick<Appointment, 'start' | 'minutes'> | un
   return has(c, 'planned_date_begin') ? { planned_date_begin: toOdooTime(visit.start) } : {};
 };
 
-const describe = (job: JobForOdoo) => [job.what, job.notes.trim()].filter(Boolean).join('\n');
+const describe = (job: JobForOdoo) => [job.what, job.notes.trim(), jobMarker(job.jobId)].filter(Boolean).join('\n');
 
 /**
  * Makes the Odoo job for a phone job. A job with a booked visit is given to
@@ -79,6 +99,8 @@ const describe = (job: JobForOdoo) => [job.what, job.notes.trim()].filter(Boolea
  */
 export async function createOdooJob(c: Client, partnerId: number, job: JobForOdoo, visit?: Pick<Appointment, 'start' | 'minutes'>): Promise<OdooJobRef> {
   const s = c.session;
+  const found = await findOdooJob(c, job.jobId);
+  if (found) return found;
   if (s.kind === 'oca') {
     const location_id = await locationFor(c, partnerId, job);
     const vals: Record<string, unknown> = { location_id, ...visitVals(c, visit) };
@@ -91,7 +113,7 @@ export async function createOdooJob(c: Client, partnerId: number, job: JobForOdo
   if (s.kind === 'task') {
     const name = [job.what || 'Job', job.customer].filter(Boolean).join(' · ');
     const vals: Record<string, unknown> = { name, partner_id: partnerId, ...visitVals(c, visit) };
-    if (has(c, 'description') && job.notes.trim()) vals.description = job.notes.trim();
+    if (has(c, 'description')) vals.description = [job.notes.trim(), jobMarker(job.jobId)].filter(Boolean).join('\n');
     if (s.fsm) {
       const [project] = (await c.call('project.project', 'search', [[['is_fsm', '=', true]]], { limit: 1 })) as number[];
       if (project) vals.project_id = project;
@@ -101,6 +123,26 @@ export async function createOdooJob(c: Client, partnerId: number, job: JobForOdo
     return { model: 'project.task', id, name };
   }
   throw new Error('Odoo has no Field Service or Project app to keep jobs in.');
+}
+
+/** The Odoo job already made for a phone job, found by its marker line; none when Odoo has no description to search. */
+export async function findOdooJob(c: Client, jobId: string): Promise<OdooJobRef | undefined> {
+  const model = c.session.kind === 'oca' ? 'fsm.order' : c.session.kind === 'task' ? 'project.task' : null;
+  if (!model || !has(c, 'description')) return undefined;
+  const rows = (await c.call(model, 'search_read', [[['description', 'ilike', jobMarker(jobId)]]], { fields: ['name'], limit: 1 })) as { id: number; name?: string }[];
+  return rows[0] ? { model, id: rows[0].id, name: rows[0].name || `#${rows[0].id}` } : undefined;
+}
+
+/**
+ * The Odoo contact for a job with no customer record on the phone: one with
+ * the same phone number, then one with exactly the same name, before making a new one.
+ */
+export async function partnerFor(c: Pick<OdooClient, 'partners' | 'createPartner'>, f: CustomerFields, known?: Promise<OdooPartner[]>): Promise<number> {
+  const all = await (known ?? c.partners());
+  const phone = phoneKey(f.phone);
+  const name = f.name.trim().toLowerCase();
+  const match = (phone.length >= 7 ? all.find((p) => phoneKey(p.phone) === phone) : undefined) ?? (name ? all.find((p) => p.name.trim().toLowerCase() === name) : undefined);
+  return match ? match.id : c.createPartner(f);
 }
 
 /** Sends a changed visit time to the Odoo job. */

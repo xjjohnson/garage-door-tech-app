@@ -6,6 +6,7 @@
 import type { Customer } from './customers';
 import type { Invoice } from './invoices';
 import type { Job } from './jobs';
+import { shouldSend } from './odooJobs';
 
 export interface Pending {
   /** Customers new on the phone, or changed since the last sync. */
@@ -21,13 +22,14 @@ export interface Pending {
   total: number;
 }
 
-export function pendingSync(customers: Customer[], jobs: Job[], invoices: Invoice[]): Pending {
+/** `since`: when the phone started sending jobs (src/lib/useJobsSince.ts); older jobs count only once picked. */
+export function pendingSync(customers: Customer[], jobs: Job[], invoices: Invoice[], since: number | null = 0): Pending {
   const c = customers.filter((x) => !x.odooId || x.updatedAt > (x.syncedAt ?? 0)).length;
   const q = jobs.filter((j) => j.accepted && !j.odooOrder).length;
   const live = invoices.filter((i) => !i.voidedAt);
   const inv = live.filter((i) => !i.odoo).length;
   const pay = live.reduce((n, i) => n + (i.odoo ? i.payments.filter((p) => !i.odoo!.sentPayments.includes(p.id)).length : 0), 0);
-  const j = jobs.filter((x) => x.status === 'open' && !x.odooJob && (x.customer.trim() || x.address.trim())).length;
+  const j = jobs.filter((x) => shouldSend(x, since)).length;
   return { customers: c, jobs: j, quotes: q, invoices: inv, payments: pay, total: c + j + q + inv + pay };
 }
 
