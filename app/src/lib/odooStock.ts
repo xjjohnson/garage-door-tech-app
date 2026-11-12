@@ -199,17 +199,17 @@ async function matchProduct(client: OdooClient, i: StockItem): Promise<number | 
  * packages, shelves under the truck); only the difference is applied, added
  * to the first one or taken from them in turn, so the total comes out right.
  */
-/** A product Odoo doesn't track stock for (a consumable or a service), that the app couldn't switch on. */
+/** A product Odoo doesn't track stock for (a consumable or a service), so it can't be counted on the truck. */
 export class UntrackedError extends Error {
   constructor(readonly product: string) {
-    super(`${product} isn't tracked in Odoo, so it can't be counted on the truck. In Odoo open the product and tick Track Inventory (or make it a Storable product), then sync.`);
+    super(`${product} isn't tracked in Odoo. In Odoo open the product and tick Track Inventory, then sync.`);
   }
 }
 
 /**
- * Makes sure Odoo keeps stock of a product, so it can sit on the truck: on
- * Odoo 18 and later a consumable gets "Track inventory" (is_storable), on
- * older ones it becomes a Storable product. Services are left alone.
+ * Checks that Odoo keeps stock of a product, so it can sit on the truck:
+ * "Track inventory" (is_storable) on Odoo 18 and later, a Storable product on
+ * older ones. The app doesn't change the product; the owner ticks it in Odoo.
  */
 export async function ensureTracked(client: OdooClient, productId: number): Promise<void> {
   const [p] = (await client.call('product.product', 'read', [[productId]], { fields: ['product_tmpl_id', 'display_name'] })) as Record<string, unknown>[];
@@ -220,13 +220,7 @@ export async function ensureTracked(client: OdooClient, productId: number): Prom
   const storable = 'is_storable' in f;
   const [t] = (await client.call('product.template', 'read', [[tmpl]], { fields: storable ? ['type', 'is_storable'] : ['type'] })) as Record<string, unknown>[];
   if (storable ? t?.is_storable === true : t?.type === 'product') return;
-  if (t?.type === 'service') throw new UntrackedError(name);
-  try {
-    await client.call('product.template', 'write', [[tmpl], storable ? { is_storable: true } : { type: 'product' }]);
-  } catch (e) {
-    if (e instanceof OdooError && e.kind === 'network') throw e;
-    throw new UntrackedError(name);
-  }
+  throw new UntrackedError(name);
 }
 
 export async function setTruckQty(client: OdooClient, locationId: number, productId: number, qty: number): Promise<void> {
@@ -242,7 +236,7 @@ export async function setTruckQty(client: OdooClient, locationId: number, produc
   };
   if (diff > 0) {
     if (quants[0]) return set(quants[0].id, quants[0].qty + diff);
-    // Odoo makes no quant for a consumable: switch on stock tracking first.
+    // Odoo makes no quant for a consumable: say which part needs Track Inventory, instead of Odoo's error.
     await ensureTracked(client, productId);
     const id = (await client.call('stock.quant', 'create', [{ product_id: productId, location_id: locationId, inventory_quantity: qty }], { context: INVENTORY })) as number;
     await client.call('stock.quant', 'action_apply_inventory', [[id]], { context: INVENTORY });
