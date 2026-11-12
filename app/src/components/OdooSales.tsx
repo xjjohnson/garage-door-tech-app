@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { signatureFor } from '../lib/attachments';
 import { Invoice, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
-import { emailCustomer, partnerEmail, PdfFile } from '../lib/odooReports';
-import { escapeHtml, invoiceHtml, pdfName } from '../lib/pdf';
+import { EmailResult, emailInvoice, partnerEmail, PdfFile } from '../lib/odooReports';
+import { pdfName } from '../lib/pdf';
 import { inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
 import { Job } from '../lib/jobs';
@@ -77,7 +76,7 @@ export function OdooQuoteSend({ job, option }: { job: Job; option: QuoteOption }
 }
 
 /** On an invoice: send it to Odoo (posted, with the payments taken), then keep its paid status in step. */
-export function OdooInvoiceSync({ invoice, warranty, now = Date.now }: { invoice: Invoice; warranty?: string; now?: () => number }) {
+export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice; warranty?: string; now?: () => number }) {
   const { status, client } = useOdoo();
   const partner = usePartner();
   const { sheet } = usePriceSheet();
@@ -85,7 +84,7 @@ export function OdooInvoiceSync({ invoice, warranty, now = Date.now }: { invoice
   const { setOdoo } = useInvoices();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [emailed, setEmailed] = useState<string | null>(null);
+  const [emailed, setEmailed] = useState<EmailResult | null>(null);
   /** Asked before anything is sent: who it goes to. */
   const [confirm, setConfirm] = useState<{ pid: number; email: string } | null>(null);
   const attachments = useAttachments();
@@ -139,20 +138,20 @@ export function OdooInvoiceSync({ invoice, warranty, now = Date.now }: { invoice
   };
 
   const email = async () => {
-    if (!client || !o || !media?.pdfBase64 || !confirm) return;
+    if (!client || !o || !confirm) return;
     const { pid } = confirm;
     setConfirm(null);
     setBusy(true);
     try {
-      const files: PdfFile[] = [{ name: pdfName(`Invoice ${invoice.number}`, invoice.billTo), base64: await media.pdfBase64(invoiceHtml(invoice, business, signatureFor(attachments, 'invoice', invoice.id), { warranty })) }];
-      if (job?.inspection) {
+      // Odoo makes and attaches its own invoice PDF; the inspection report goes with it.
+      const files: PdfFile[] = [];
+      if (job?.inspection && media?.pdfBase64) {
         const html = await inspectionReportHtml(job, attachments, media, business, { reference: o.name, inspector: client.session.name || business.name });
         files.push({ name: pdfName('Inspection', invoice.billTo), base64: await media.pdfBase64(html) });
       }
-      const from = business.name.trim() || 'us';
-      const body = `<p>Hi ${escapeHtml(invoice.billTo)},</p><p>Thank you for choosing ${escapeHtml(from)}. Your invoice ${escapeHtml(invoice.number)}${job?.inspection ? ' and the inspection report are' : ' is'} attached.</p>`;
-      setEmailed(await emailCustomer(client, 'account.move', o.id, pid, files, body));
-      log.info('odoo', `invoice ${invoice.number} emailed with ${files.length} file(s)`);
+      const r = await emailInvoice(client, o.id, pid, files);
+      setEmailed(r);
+      log.info('odoo', `invoice ${o.name} email: ${r.state}${r.reason ? ` (${r.reason})` : ''}, ${files.length} extra file(s)`);
     } catch (e) {
       setError(message(e));
     } finally {
@@ -175,27 +174,34 @@ export function OdooInvoiceSync({ invoice, warranty, now = Date.now }: { invoice
       {o && o.total !== invoice.total ? <Text style={styles.meta}>Odoo’s total differs from this phone’s because Odoo adds its own taxes.</Text> : null}
       {invoice.voidedAt && o ? <Text style={styles.meta}>Voided on the phone; cancel it in Odoo with a credit note.</Text> : null}
       {online ? <Button label={busy ? 'Working...' : o ? 'Sync with Odoo' : 'Send to Odoo'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
-      {online && o && !invoice.voidedAt && media?.pdfBase64 ? (
+      {online && o && !invoice.voidedAt ? (
         confirm ? (
           <View style={styles.stack} testID="invoice-odoo-email-confirm">
             <Text style={styles.detail}>
-              Email {confirm.email} invoice {invoice.number} ({formatMoney(invoice.total)}){job?.inspection ? ' and the inspection report' : ''}?
+              Email {confirm.email} Odoo's invoice {o.name} ({formatMoney(o.total)}){job?.inspection && media?.pdfBase64 ? ', with the inspection report attached' : ''}?
             </Text>
             <Button label={`Send to ${confirm.email}`} disabled={busy} onPress={email} testID="invoice-odoo-email-send" />
             <Button label="Cancel" onPress={() => setConfirm(null)} testID="invoice-odoo-email-cancel" />
           </View>
         ) : (
-          <Button label={job?.inspection ? 'Email the invoice and inspection report' : 'Email the invoice'} disabled={busy} onPress={askEmail} testID="invoice-odoo-email" />
+          <Button label={job?.inspection && media?.pdfBase64 ? `Email Odoo's invoice ${o.name} and the inspection report` : `Email Odoo's invoice ${o.name}`} disabled={busy} onPress={askEmail} testID="invoice-odoo-email" />
         )
       ) : null}
       {emailed ? (
-        <Text style={styles.detail} testID="invoice-odoo-emailed">
-          Emailed to {emailed}.
+        <Text style={emailed.state === 'failed' ? styles.error : styles.detail} testID="invoice-odoo-emailed">
+          {emailedText(emailed)}
         </Text>
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
+}
+
+function emailedText(r: EmailResult): string {
+  if (r.state === 'sent') return `Odoo sent the email to ${r.to}.`;
+  if (r.state === 'queued') return `Odoo has the email to ${r.to} in its outgoing mail; it goes out within a few minutes.`;
+  if (r.state === 'failed') return `Odoo couldn't email ${r.to}: ${r.reason}`;
+  return `Posted for ${r.to}. Check the invoice in Odoo to see whether the email went out.`;
 }
 
 function Button({ label, onPress, disabled, testID }: { label: string; onPress: () => void; disabled?: boolean; testID: string }) {

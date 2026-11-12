@@ -483,10 +483,13 @@ sends new payments and reads back Odoo's paid status, amount owed and total
 it's needed. A customer without an Odoo contact gets one on the first send.
 The sales order's customer reference starts with the tier ("Better · 12 Elm
 St"), so reports can tell which option sold. Once an invoice is in Odoo,
-**Email the invoice and inspection report** makes both PDFs on the phone,
-attaches them to the Odoo invoice and posts them to the customer's contact,
-which Odoo sends by email (the contact needs an email address, and Odoo needs
-an outgoing mail server).
+**Email Odoo's invoice** (from 0.5.9) sends it the way Odoo's own Send
+button does: Odoo's "Invoice: Send by email" template, with the invoice PDF
+Odoo makes, plus the inspection report (made on the phone) as an extra
+attachment when the job has one. The invoice is marked sent with a note in
+its chatter, and the app reads Odoo's outgoing mail to say whether it was
+sent, is still queued, or failed and why (the contact needs an email address,
+and Odoo needs an outgoing mail server).
 
 **Quotation templates** (`src/lib/odooTemplates.ts`). Odoo quotation
 templates named "Job type · Good", "· Better" and "· Best" (a dash or colon
