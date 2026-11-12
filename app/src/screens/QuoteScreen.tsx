@@ -1,17 +1,19 @@
 import { OdooQuoteSend } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { SignatureSheet } from '../components/SignaturePad';
 import { photosFor, signatureFor } from '../lib/attachments';
 import { formatJobDate, Job, jobName } from '../lib/jobs';
 import { pdfName, quoteHtml } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
 import { formatNumber } from '../lib/measure';
-import { formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
+import { cents, formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
 import { buildQuote, QuoteOption, quoteText } from '../lib/quote';
 import { formatLife } from '../lib/springNames';
-import { repairLines, withRepairs } from '../lib/inspection';
+import { Repair, repairLines, withRepairs } from '../lib/inspection';
+import { templateQuote, templatesFor } from '../lib/odooTemplates';
+import { useQuoteTemplates } from '../lib/useQuoteTemplates';
 import { invoiceStatus } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -24,14 +26,28 @@ import { colors, touch, type } from '../theme';
  */
 export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () => void }) {
   const { sheet } = usePriceSheet();
-  const { setAccepted } = useJobs();
-  const quote = useMemo(() => withRepairs(buildQuote(job, sheet), job.inspection, sheet), [job, sheet]);
+  const { setAccepted, setInspection } = useJobs();
+  const templates = useQuoteTemplates();
+  const set = templatesFor(templates, job.what);
+  const springQuote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
+  // Jobs the spring calculator can't price (openers, tune-ups) use the job type's Odoo templates.
+  const fromTemplates = !!set && !!springQuote.blocked;
+  const quote = useMemo(
+    () => (fromTemplates && set ? templateQuote(set, sheet, repairLines(job.inspection)) : withRepairs(springQuote, job.inspection, sheet)),
+    [fromTemplates, set, springQuote, job.inspection, sheet],
+  );
+  const addOns = job.inspection?.repairs.filter((r) => r.label.trim()) ?? [];
+  const toggleAddOn = (r: Repair) => {
+    if (!job.inspection) return;
+    setInspection(job.id, { ...job.inspection, repairs: job.inspection.repairs.map((x) => (x.id === r.id ? { ...x, declined: !x.declined || undefined } : x)) });
+  };
   const repairs = repairLines(job.inspection);
   const priced = hasPrices(sheet);
   const { invoices, create, business } = useInvoices();
   const attachments = useAttachments();
   const signature = signatureFor(attachments, 'quote', job.id);
-  const photoCount = photosFor(attachments, job.id).length;
+  const jobPhotos = photosFor(attachments, job.id);
+  const photoCount = jobPhotos.length;
   const [signing, setSigning] = useState(false);
   const [pdfError, setPdfError] = useState(false);
   const invoice = invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
@@ -45,12 +61,18 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
       </Text>
       <Text style={styles.meta}>{job.summaryTitle}</Text>
 
-      {!priced ? (
+      {!priced && !fromTemplates ? (
         <View style={styles.notice} testID="quote-no-prices">
           <Text style={styles.noticeTitle}>Set your prices first</Text>
           <Text style={styles.noticeBody}>The options below show $0 until the price sheet has your prices.</Text>
           <Action label="Open the price sheet" primary onPress={onSetPrices} testID="quote-set-prices" />
         </View>
+      ) : null}
+
+      {fromTemplates && set ? (
+        <Text style={styles.meta} testID="quote-from-templates">
+          From your Odoo quotation templates for {set.type}.
+        </Text>
       ) : null}
 
       {quote.blocked ? (
@@ -66,6 +88,42 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
         testID="quote-inspection"
       />
       <Action label={photoCount > 0 ? `Photos (${photoCount})` : 'Take photos'} onPress={() => router.push({ pathname: '/photos/[id]', params: { id: job.id } })} testID="quote-photos" />
+
+      {addOns.length > 0 ? (
+        <View style={styles.stack} testID="quote-addons">
+          <Text style={styles.tier}>Add-ons from the inspection</Text>
+          <Text style={styles.meta}>Each one the customer wants goes on every option. Tap to take one off.</Text>
+          {addOns.map((r) => {
+            const shots = r.item ? jobPhotos.filter((p) => p.item === r.item).slice(0, 3) : [];
+            const priceless = cents(r.price) <= 0;
+            return (
+              <Pressable
+                key={r.id}
+                onPress={() => toggleAddOn(r)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: !r.declined }}
+                testID={`quote-addon-${r.id}`}
+                style={({ pressed }) => [styles.card, !r.declined && styles.cardOn, r.declined && styles.cardOff, pressed && styles.pressed]}
+              >
+                <View style={styles.top}>
+                  <Text style={styles.lineLabel}>
+                    {r.declined ? '☐' : '☑'} {r.label}
+                  </Text>
+                  <Text style={styles.lineValue}>{priceless ? 'No price yet' : formatMoney(cents(r.price))}</Text>
+                </View>
+                {shots.length > 0 ? (
+                  <View style={styles.thumbs}>
+                    {shots.map((p) => (
+                      <Image key={p.id} source={{ uri: p.uri }} style={styles.thumb} accessibilityLabel={`Photo for ${r.label}`} />
+                    ))}
+                  </View>
+                ) : null}
+                {r.declined ? <Text style={styles.meta}>Customer said no</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       {quote.options.map((o) => (
         <OptionCard
@@ -173,7 +231,7 @@ function OptionCard({ option, accepted, onAccept }: { option: QuoteOption; accep
       </View>
       {option.extension ? (
         <Text style={styles.meta}>Extension springs, the same size on every option</Text>
-      ) : (
+      ) : option.springCount === 0 ? null : (
         <Text style={styles.meta}>
           For {formatNumber(TIER_CYCLES[option.tier])}+ cycles · these springs are rated {option.spring ? formatLife(option.spring.life) : '?'}
         </Text>
@@ -231,4 +289,6 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.safety },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
+  thumbs: { flexDirection: 'row', gap: 8 },
+  thumb: { width: 88, height: 88, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
 });

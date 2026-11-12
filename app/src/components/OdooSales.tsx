@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { signatureFor } from '../lib/attachments';
 import { Invoice, PAY_LABEL } from '../lib/invoices';
+import { log } from '../lib/log';
+import { emailCustomer, PdfFile } from '../lib/odooReports';
+import { escapeHtml, invoiceHtml, pdfName } from '../lib/pdf';
+import { inspectionReportHtml } from '../lib/reportFiles';
+import { useAttachments } from '../lib/useAttachments';
 import { Job } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
-import { odooPaymentLabel, readInvoice, sendInvoice, sendOrder, sendPayments } from '../lib/odooSales';
-import { formatMoney } from '../lib/prices';
+import { odooPaymentLabel, orderRef, readInvoice, sendInvoice, sendOrder, sendPayments } from '../lib/odooSales';
+import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { QuoteOption } from '../lib/quote';
 import { useCustomers } from '../lib/useCustomers';
 import { useJobs } from '../lib/useJobs';
@@ -55,7 +61,7 @@ export function OdooQuoteSend({ job, option }: { job: Job; option: QuoteOption }
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-      setOdooOrder(job.id, await sendOrder(client, pid, option.lines, sheet.odoo, job.address));
+      setOdooOrder(job.id, await sendOrder(client, pid, option.lines, sheet.odoo, orderRef(TIER_LABEL[option.tier], job.address)));
     } catch (e) {
       setError(message(e));
     } finally {
@@ -71,7 +77,7 @@ export function OdooQuoteSend({ job, option }: { job: Job; option: QuoteOption }
 }
 
 /** On an invoice: send it to Odoo (posted, with the payments taken), then keep its paid status in step. */
-export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice; now?: () => number }) {
+export function OdooInvoiceSync({ invoice, warranty, now = Date.now }: { invoice: Invoice; warranty?: string; now?: () => number }) {
   const { status, client } = useOdoo();
   const partner = usePartner();
   const { sheet } = usePriceSheet();
@@ -79,7 +85,12 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
   const { setOdoo } = useInvoices();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailed, setEmailed] = useState<string | null>(null);
+  const attachments = useAttachments();
+  const { business } = useInvoices();
   const online = status === 'signedIn' && client && client.session.apps.invoicing;
+  const job = jobs.find((j) => j.id === invoice.jobId);
+  const media = attachments.media;
   const o = invoice.odoo;
   if (!o && (!online || invoice.voidedAt)) return null;
 
@@ -110,6 +121,29 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
     }
   };
 
+  const email = async () => {
+    if (!client || !o || !media?.pdfBase64) return;
+    setBusy(true);
+    setError(null);
+    setEmailed(null);
+    try {
+      const pid = await partner(client, invoice.customerId ?? job?.customerId, { name: invoice.billTo, phone: job?.phone ?? '', address: invoice.address });
+      const files: PdfFile[] = [{ name: pdfName(`Invoice ${invoice.number}`, invoice.billTo), base64: await media.pdfBase64(invoiceHtml(invoice, business, signatureFor(attachments, 'invoice', invoice.id), { warranty })) }];
+      if (job?.inspection) {
+        const html = await inspectionReportHtml(job, attachments, media, business, { reference: o.name, inspector: client.session.name || business.name });
+        files.push({ name: pdfName('Inspection', invoice.billTo), base64: await media.pdfBase64(html) });
+      }
+      const from = business.name.trim() || 'us';
+      const body = `<p>Hi ${escapeHtml(invoice.billTo)},</p><p>Thank you for choosing ${escapeHtml(from)}. Your invoice ${escapeHtml(invoice.number)}${job?.inspection ? ' and the inspection report are' : ' is'} attached.</p>`;
+      setEmailed(await emailCustomer(client, 'account.move', o.id, pid, files, body));
+      log.info('odoo', `invoice ${invoice.number} emailed with ${files.length} file(s)`);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const pending = o ? invoice.payments.filter((p) => !o.sentPayments.includes(p.id)).length : 0;
   return (
     <View style={styles.box} testID="invoice-odoo">
@@ -125,6 +159,14 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
       {o && o.total !== invoice.total ? <Text style={styles.meta}>Odoo’s total differs from this phone’s because Odoo adds its own taxes.</Text> : null}
       {invoice.voidedAt && o ? <Text style={styles.meta}>Voided on the phone; cancel it in Odoo with a credit note.</Text> : null}
       {online ? <Button label={busy ? 'Working...' : o ? 'Sync with Odoo' : 'Send to Odoo'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
+      {online && o && !invoice.voidedAt && media?.pdfBase64 ? (
+        <Button label={job?.inspection ? 'Email the invoice and inspection report' : 'Email the invoice'} disabled={busy} onPress={email} testID="invoice-odoo-email" />
+      ) : null}
+      {emailed ? (
+        <Text style={styles.detail} testID="invoice-odoo-emailed">
+          Emailed to {emailed}.
+        </Text>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );

@@ -20,6 +20,8 @@ export interface QuoteLine {
   key?: string;
   /** How many, when the line is a price each times a count (springs). */
   qty?: number;
+  /** The Odoo product, when the line came from an Odoo quotation template. */
+  productId?: number;
 }
 
 export interface QuoteOption {

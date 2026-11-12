@@ -5,7 +5,6 @@ import { Action } from '../components/Buttons';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { SignatureSheet } from '../components/SignaturePad';
 import { VoiceNotes } from '../components/VoiceNotes';
-import { LOGO_DATA_URL } from '../data/logoPng';
 import { photosFor, signatureFor } from '../lib/attachments';
 import {
   Answer,
@@ -30,7 +29,7 @@ import {
   setAnswer,
   summary,
 } from '../lib/inspection';
-import { inspectionHtml, ReportPhoto } from '../lib/inspectionReport';
+import { inspectionReportHtml } from '../lib/reportFiles';
 import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { jobsModel, reportTarget, sendReport } from '../lib/odooReports';
@@ -51,8 +50,6 @@ const GATE_TYPES = [
   { label: 'Swing', value: 'swing' as const },
   { label: 'Slide', value: 'slide' as const },
 ];
-/** Photos in one report, so the PDF stays small enough to email. */
-const MAX_REPORT_PHOTOS = 12;
 /** Odoo's upload limit is often 25 MB; stay under it after base64. */
 const MAX_ODOO_PDF_BASE64 = 20_000_000;
 
@@ -100,16 +97,11 @@ export function InspectionScreen({ job }: { job: Job }) {
     if (uri) attachments.addPhotos(job.id, [uri], 'other', key);
   };
 
-  const reportHtml = async () => {
-    const shots = photos.filter((p) => p.item).slice(0, MAX_REPORT_PHOTOS);
-    const imgs: ReportPhoto[] = [];
-    for (const p of shots) {
-      const src = await media?.photoDataUrl?.(p.uri);
-      if (src) imgs.push({ item: p.item, src });
-    }
-    const info = { customer: job.customer, address: job.address, reference: target?.model === 'fsm.order' ? undefined : job.odooOrder?.name, inspector: odoo.client?.session.name || business.name };
-    return inspectionHtml(insp, info, business, LOGO_DATA_URL, imgs, signature);
-  };
+  const reportHtml = () =>
+    inspectionReportHtml({ ...job, inspection: insp }, attachments, media, business, {
+      reference: target?.model === 'fsm.order' ? undefined : job.odooOrder?.name,
+      inspector: odoo.client?.session.name || business.name,
+    });
 
   const sharePdf = async () => {
     if (!media) return;
@@ -327,7 +319,7 @@ function SectionItems({
           hasRepair={insp.repairs.some((r) => r.label === (i.answer?.action.trim() || `${i.def.label}: repair`))}
           onAnswer={(patch) => onAnswer(i.key, patch)}
           onPhoto={onPhoto ? () => onPhoto(i.key) : undefined}
-          onRepair={() => onRepair(repairFromFlag({ label: i.def.label, action: i.answer?.action ?? '' }, Date.now(), insp.repairs.length))}
+          onRepair={() => onRepair(repairFromFlag({ key: i.key, label: i.def.label, action: i.answer?.action ?? '' }, Date.now(), insp.repairs.length))}
         />
       ))}
       {open > 0 && open < section.items.length ? <Action label={`Mark the other ${open} as good`} onPress={onRestGood} testID={`rest-good-${sectionKey}`} /> : null}
@@ -356,7 +348,8 @@ function ItemRow({
 }) {
   const [more, setMore] = useState(false);
   const flagged = isFlagged(answer?.rating);
-  const showMore = flagged || more || !!answer?.note || !!answer?.action;
+  // Fair items open too, so they can be offered as add-ons.
+  const showMore = flagged || answer?.rating === 'fair' || more || !!answer?.note || !!answer?.action;
   return (
     <View style={[styles.item, flagged && styles.itemFlag]} testID={`item-${itemKey}`}>
       <Text style={styles.itemTitle}>

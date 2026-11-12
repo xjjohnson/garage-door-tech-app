@@ -150,6 +150,10 @@ export interface Repair {
   /** As typed on the keypad, like the price sheet: "45" or "42.50". */
   price: string;
   taxable: boolean;
+  /** The checklist item it came from, so the quote can show that item's photos. */
+  item?: AnswerKey;
+  /** The customer said no to this add-on; it stays listed but off the quote. */
+  declined?: boolean;
 }
 
 export interface Inspection {
@@ -283,13 +287,13 @@ export function checkCounts(insp: Inspection | undefined): { done: number; fix: 
 }
 
 /** A flagged item as a repair to price: its action, or "Rollers: repair". */
-export function repairFromFlag(f: Pick<Flag, 'label' | 'action'>, now: number, n: number): Repair {
-  return { id: uid('r', now, n), label: f.action.trim() || `${f.label}: repair`, price: '', taxable: true };
+export function repairFromFlag(f: Pick<Flag, 'label' | 'action'> & { key?: AnswerKey }, now: number, n: number): Repair {
+  return { id: uid('r', now, n), label: f.action.trim() || `${f.label}: repair`, price: '', taxable: true, ...(f.key ? { item: f.key } : {}) };
 }
 
 /** The job's repairs as quote lines; ones with no name or price are left off. */
 export function repairLines(insp: Inspection | undefined): QuoteLine[] {
-  return (insp?.repairs ?? []).filter((r) => r.label.trim() !== '' && cents(r.price) > 0).map((r) => ({ label: r.label.trim(), cents: cents(r.price), taxable: r.taxable }));
+  return (insp?.repairs ?? []).filter((r) => !r.declined && r.label.trim() !== '' && cents(r.price) > 0).map((r) => ({ label: r.label.trim(), cents: cents(r.price), taxable: r.taxable }));
 }
 
 /** The quote with the repairs added to every option that can be priced, totals and tax worked out again. */
@@ -413,7 +417,7 @@ export function parseInspection(v: unknown): Inspection | undefined {
     ? d.repairs.flatMap((r): Repair[] => {
         const x = r as Record<string, unknown> | null;
         if (!x || typeof x.id !== 'string') return [];
-        return [{ id: x.id, label: str(x.label), price: str(x.price), taxable: x.taxable !== false }];
+        return [{ id: x.id, label: str(x.label), price: str(x.price), taxable: x.taxable !== false, ...(str(x.item) ? { item: str(x.item) } : {}), ...(x.declined === true ? { declined: true } : {}) }];
       })
     : [];
   const doors = Array.isArray(d.doors)

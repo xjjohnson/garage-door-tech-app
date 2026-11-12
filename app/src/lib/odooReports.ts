@@ -41,3 +41,25 @@ export async function sendReport(client: Pick<OdooClient, 'call'>, target: Repor
   }
   return id;
 }
+
+export interface PdfFile {
+  name: string;
+  base64: string;
+}
+
+/**
+ * Emails PDFs to the customer from Odoo: they're attached to the record (an
+ * invoice) and posted as a message to the customer's contact, which Odoo
+ * sends by email. Returns the address it went to.
+ */
+export async function emailCustomer(client: Pick<OdooClient, 'call'>, model: string, id: number, partnerId: number, files: PdfFile[], body: string): Promise<string> {
+  const [p] = (await client.call('res.partner', 'read', [[partnerId]], { fields: ['email'] })) as { email?: string | false }[];
+  const email = typeof p?.email === 'string' ? p.email.trim() : '';
+  if (!email) throw new Error('This customer has no email in Odoo. Add one on their contact, then try again.');
+  const ids: number[] = [];
+  for (const f of files) {
+    ids.push((await client.call('ir.attachment', 'create', [{ name: f.name, type: 'binary', datas: f.base64, res_model: model, res_id: id, mimetype: 'application/pdf' }])) as number);
+  }
+  await client.call(model, 'message_post', [[id]], { body, partner_ids: [partnerId], attachment_ids: ids, message_type: 'comment', subtype_xmlid: 'mail.mt_comment' });
+  return email;
+}

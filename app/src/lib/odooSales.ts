@@ -49,14 +49,14 @@ export function lineValues(lines: QuoteLine[], links: Record<string, OdooLink>, 
   return lines
     .filter((l) => l.cents > 0)
     .map((l) => {
-      const linked = l.key ? links[l.key] : undefined;
+      const linked = l.key ? links[l.key]?.id : undefined;
       const qty = l.qty && l.qty > 0 ? l.qty : 1;
-      return { product_id: linked ? linked.id : serviceProduct(), name: l.label, [qtyField]: qty, price_unit: l.cents / qty / 100 };
+      return { product_id: linked ?? l.productId ?? serviceProduct(), name: l.label, [qtyField]: qty, price_unit: l.cents / qty / 100 };
     });
 }
 
 /** Lines that need the fallback service product. */
-const needsService = (lines: QuoteLine[], links: Record<string, OdooLink>) => lines.some((l) => l.cents > 0 && !(l.key && links[l.key]));
+const needsService = (lines: QuoteLine[], links: Record<string, OdooLink>) => lines.some((l) => l.cents > 0 && !(l.key && links[l.key]) && !l.productId);
 
 /** Finds, or makes the first time, the service product for lines that aren't linked to an Odoo product. */
 export async function serviceProduct(client: OdooClient): Promise<number> {
@@ -69,6 +69,9 @@ async function prepare(client: OdooClient, lines: QuoteLine[], links: Record<str
   const service = needsService(lines, links) ? await serviceProduct(client) : 0;
   return lineValues(lines, links, () => service, qtyField);
 }
+
+/** The order's customer reference: the tier first ("Better · 12 Elm St"), so reports can tell which option sold. */
+export const orderRef = (tierLabel: string, address: string) => [tierLabel, address.trim()].filter(Boolean).join(' · ');
 
 /** Sends the option the customer picked as a confirmed sales order. */
 export async function sendOrder(client: OdooClient, partnerId: number, lines: QuoteLine[], links: Record<string, OdooLink>, ref: string): Promise<OdooRef> {
