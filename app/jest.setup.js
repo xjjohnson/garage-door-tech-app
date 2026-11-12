@@ -16,3 +16,17 @@ jest.mock('./src/lib/secrets', () => {
   const none = { get: async () => null, set: async () => undefined, remove: async () => undefined };
   return { NO_SECRETS: none, deviceSecrets: () => none };
 });
+
+// There's no WebView in tests: a plain view that keeps its props, so tests
+// can read the page it was given, send it messages, and see what the app ran in it.
+jest.mock('react-native-webview', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const injected = [];
+  const WebView = React.forwardRef((props, ref) => {
+    React.useImperativeHandle(ref, () => ({ injectJavaScript: (js) => injected.push(js), reload: () => undefined }));
+    return React.createElement(View, { testID: props.testID ?? 'webview', webProps: props });
+  });
+  WebView.injected = injected;
+  return { __esModule: true, default: WebView, WebView };
+});

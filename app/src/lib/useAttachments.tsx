@@ -7,7 +7,7 @@ interface AttachmentsApi extends Attachments {
   loaded: boolean;
   /** The phone's camera and PDF maker; null where there are none (web). */
   media: DeviceMedia | null;
-  addPhotos: (jobId: string, uris: string[], kind: PhotoKind) => void;
+  addPhotos: (jobId: string, uris: string[], kind: PhotoKind, item?: string) => void;
   setPhotoKind: (id: string, kind: PhotoKind) => void;
   removePhoto: (id: string) => void;
   sign: (s: Omit<Signature, 'id' | 'at'>) => void;
@@ -50,8 +50,8 @@ export function AttachmentsProvider({ children, media: given }: { children: Reac
   }, []);
 
   const addPhotos = useCallback(
-    (jobId: string, uris: string[], kind: PhotoKind) =>
-      change((s) => ({ ...s, photos: [...s.photos, ...uris.map((uri, k): JobPhoto => ({ id: `${newId('ph')}-${k}`, jobId, uri, kind, at: Date.now() + k }))] })),
+    (jobId: string, uris: string[], kind: PhotoKind, item?: string) =>
+      change((s) => ({ ...s, photos: [...s.photos, ...uris.map((uri, k): JobPhoto => ({ id: `${newId('ph')}-${k}`, jobId, uri, kind, at: Date.now() + k, ...(item ? { item } : {}) }))] })),
     [change],
   );
   const setPhotoKind = useCallback((id: string, kind: PhotoKind) => change((s) => ({ ...s, photos: s.photos.map((p) => (p.id === id ? { ...p, kind } : p)) })), [change]);

@@ -114,7 +114,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       <SectionTitle>The job</SectionTitle>
       <NavRow
         label="Inspection"
-        detail={job.inspection ? `${checkCounts(job.inspection).done} of ${checkCounts(job.inspection).total} checked · ${checkCounts(job.inspection).fix} to fix` : 'Safety check, photos and signature'}
+        detail={job.inspection ? `${checkCounts(job.inspection).done} of ${checkCounts(job.inspection).total} checked · ${checkCounts(job.inspection).fix} flagged` : 'Checklist, photos and signature'}
         href={{ pathname: '/inspection/[id]', params: { id: job.id } }}
         testID="job-open-inspection"
       />

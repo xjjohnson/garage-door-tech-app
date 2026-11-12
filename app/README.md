@@ -243,6 +243,20 @@ Navigate and Start job, jobs under way, the rest of today's visits, and tiles
 for money owed and follow-ups due. If the app closed on an error last time, a
 notice offers to share the log.
 
+**Today › Map** (from 0.5.3). **List | Map** at the top of Today. The map is
+Leaflet with OpenStreetMap tiles in a WebView (`src/lib/mapHtml.ts`, no
+Google key): today's visits as numbered pins in time order, joined by a line,
+the next one in green and finished ones grey. **Show nearby** adds customers
+within 10 miles of the route who owe money (**$**, from the phone's invoices
+and, signed in, Odoo's unpaid posted invoices) or have an open quote (**Q**,
+Odoo quotations in draft or sent). Tap a pin or a row for **Google Maps**,
+**Waze**, and **Start job** / **Open job**; **Whole day in Google Maps** opens
+the rest of the day as one route. Addresses are looked up with OpenStreetMap
+Nominatim, one a second as its rules ask, and kept on the phone
+(AsyncStorage `geocode/v1`; a miss is asked again after a week); contacts
+Odoo already has pinned skip the lookup. The map needs signal (Leaflet and
+the tiles load over the internet); the list under it works without.
+
 **Job hub** (`/job/<id>`). One page per job with its steps: On my way (opens
 the messages app with an on-my-way text, sent by hand), Arrived, Inspect,
 Quote, Work and Paid, each worked out from what's saved on the job and its
@@ -553,16 +567,35 @@ and ordinary Project tasks otherwise; Odoo 16+ (`user_ids`) and older
 (`src/lib/odoo.ts`, `src/lib/useOdoo.tsx`, sign-in details in AsyncStorage
 `odoo/v1`). Needs the 0.4.0 APK for the keystore.
 
-**Safety check.** A job's **Safety check** (in its details, or on its quote)
-walks the door and opener: lift cables, drums, bottom brackets, springs and
-cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
-eyes, auto-reverse (a 1½" board) and the emergency release. Each is marked
-**OK**, **Needs work** or **N/A**, with a note. Items under spring tension are
-marked PRO. **Mark the other … OK** finishes the rest in one tap. A problem
-becomes a **repair** with a name, a price on the keypad, and taxed (parts) or not
-(labor). Repairs with a price go onto every option of the job's quote, and so
-onto its invoice. **Send report to customer** shares what was checked, what
-needs work and the repairs as text. It's saved with the job (`src/lib/inspection.ts`).
+**Jobs › Team (dispatch)** (from 0.5.3). For an Odoo Field Service
+Dispatcher or Manager, or an Odoo admin (checked with `has_group` at
+sign-in; techs never see it), Jobs gets a **Mine | Team** switch. Team is a
+board for one day (‹ › to change it): **Not assigned** lists open Field
+Service orders with no worker, then a lane per worker with that day's jobs
+and when they're free. **Assign**, or tapping a job in a lane, opens a sheet
+to pick the worker and a start time (half hours, 7 to 6); it writes
+`person_id` and `scheduled_date_start` on the `fsm.order` straight away.
+**Assign and text the customer** also opens the phone's messages app with
+the booking filled in, to send by hand (`src/screens/DispatchScreen.tsx`).
+
+**Inspection.** A job's **Inspection** (in its details, or on its quote) is
+the checklist that replaces SafetyCulture. Each **door** gets its maker, size,
+year, spring date code and cycles, and 18 items (balance, springs and cables,
+bearings, hinges, fixtures, rollers, track, panels, seal...) rated **Good**,
+**Fair**, **Poor**, **Safety risk** or **N/A**. Each door has one or more
+**motors** (drive, force and limits, safety eyes, logic board, keypad,
+remotes, wall button), rated Compliant / Non-compliant or Pass / Fail. A
+**gate** adds the UL 325 and ASTM F2200 items. Poor, Safety risk,
+Non-compliant and Fail are **flagged** and open a note, an action, photos
+for that item and **Add as repair**. The score is the share of points
+available, N/A left out. Voice notes are recorded on the phone (expo-audio).
+The customer signs, then **Share PDF report** makes the report (logo, score,
+flagged items first, every section, photos, signature), and **Save report to
+Odoo** attaches the PDF to the job's Field Service order, else its sales
+order, else the customer, with a note in the chatter
+(`src/lib/inspection.ts`, `src/lib/inspectionReport.ts`, `src/lib/odooReports.ts`).
+A 0.4 safety check opens as Door 1 and Motor 1. Repairs with a price go onto
+every option of the job's quote, and so onto its invoice.
 
 **Invoices.** Once the customer has picked an option on a quote, **Make
 invoice** turns it into an invoice, numbered from 1001 up, with the option's
@@ -623,8 +656,8 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 |---|---|---|
 | `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures, Odoo team), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header (with the house mark, Settings button and version), update banners, the sections and the bottom bar |
-| `(tabs)/index.tsx` | `/` | Today |
-| `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
+| `(tabs)/index.tsx` | `/` | Today, as a list or a map |
+| `(tabs)/jobs.tsx` | `/jobs` | Saved jobs; Mine / Team (dispatch board) for dispatchers |
 | `(tabs)/sales.tsx` | `/sales` | Follow-ups, price sheet, quotes to invoice, invoices |
 | `(tabs)/customers.tsx` | `/customers` | The customer list |
 | `(tabs)/tools.tsx` | `/tools` | Every tool and setting |
@@ -643,7 +676,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `invoices.tsx` | `/invoices` | Every invoice and the total owed, a full page |
 | `invoice/[id].tsx` | `/invoice/<id>` | One invoice: payments and QR codes to pay, a full page |
 | `business.tsx` | `/business` | Business name and payment handles, a full page |
-| `inspection/[id].tsx` | `/inspection/<job id>` | One job's safety check and repairs, a full page |
+| `inspection/[id].tsx` | `/inspection/<job id>` | One job's inspection, report and repairs, a full page |
 | `stats.tsx` | `/stats` | Business numbers, a full page |
 | `follow-ups.tsx` | `/follow-ups` | Tune-ups, worn springs and warranty ends due, a full page |
 | `schedule.tsx` | `/schedule` | Booked visits by day; `?book=<customer id>` opens booking for them, a full page |
