@@ -16,7 +16,8 @@ const at = (h: number, m = 0, dayOffset = 0) => {
 };
 
 /** A pretend Odoo with OCA Field Service: two workers, two orders on today, one nobody has. */
-function fakeOdoo({ groups = ['fieldservice.group_fsm_dispatcher'], legacyHasGroup = false } = {}) {
+function fakeOdoo({ groups = ['fieldservice.group_fsm_dispatcher'], legacyHasGroup = false, noHasGroup = false, groupField = 'group_ids' } = {}) {
+  const GROUP_IDS: Record<string, number> = { 'fieldservice.group_fsm_dispatcher': 31, 'fieldservice.group_fsm_manager': 32, 'base.group_system': 4 };
   const orders: Order[] = [
     { id: 601, name: 'Broken spring', location_id: [70, 'Pat Smith'], person_id: [40, 'Justin'], scheduled_date_start: toOdooTime(at(9)), scheduled_duration: 1.5, stage_id: [1, 'Scheduled'] },
     { id: 602, name: 'Tune-up', location_id: [71, 'Lee Park'], person_id: [41, 'Sam Ruiz'], scheduled_date_start: toOdooTime(at(13)), scheduled_duration: 1, stage_id: [1, 'Scheduled'] },
@@ -45,7 +46,16 @@ function fakeOdoo({ groups = ['fieldservice.group_fsm_dispatcher'], legacyHasGro
         { id: 7, name: 'Pat Smith', phone: '555-1', street: '1 Oak St', street2: false, city: 'Springfield', zip: '12345', partner_latitude: 40.1, partner_longitude: -75.1 },
         { id: 8, name: 'Lee Park', phone: '', street: '2 Elm St', street2: false, city: '', zip: '', partner_latitude: 0, partner_longitude: 0 },
       ]);
-    if (model === 'res.users' && method === 'read') return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
+    if (model === 'res.users' && method === 'read') {
+      const kw = params.args[6] as { fields: string[] };
+      if (kw.fields[0] === 'group_ids' || kw.fields[0] === 'groups_id') {
+        if (kw.fields[0] !== groupField) return error(`Invalid field '${kw.fields[0]}' on model 'res.users'`);
+        return reply([{ id: 2, [groupField]: groups.map((g) => GROUP_IDS[g]) }]);
+      }
+      return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
+    }
+    if (model === 'ir.model.data') return reply(Object.entries(GROUP_IDS).map(([x, res_id]) => ({ module: x.split('.')[0], name: x.split('.')[1], res_id })));
+    if (model === 'res.users' && method === 'has_group' && noHasGroup) return error('Private methods (such as has_group) cannot be called remotely.');
     if (model === 'res.users' && method === 'has_group') {
       const [first, second] = args as [unknown, unknown];
       if (legacyHasGroup) return Array.isArray(first) ? error('has_group() takes 2 positional arguments') : reply(groups.includes(first as string));
@@ -106,6 +116,10 @@ describe('dispatch (Odoo logic)', () => {
     expect(await (await OdooClient.signIn(fakeOdoo({ groups: ['base.group_system'] }).fetchFn, login, 'k')).canDispatch()).toBe(true);
     expect(await (await OdooClient.signIn(fakeOdoo({ groups: ['base.group_system'], legacyHasGroup: true }).fetchFn, login, 'k')).canDispatch()).toBe(true);
     expect(await (await OdooClient.signIn(fakeOdoo({ groups: [] }).fetchFn, login, 'k')).canDispatch()).toBe(false);
+    // When has_group is refused over RPC, the user's own groups decide (group_ids on Odoo 19, groups_id before).
+    expect(await (await OdooClient.signIn(fakeOdoo({ noHasGroup: true }).fetchFn, login, 'k')).canDispatch()).toBe(true);
+    expect(await (await OdooClient.signIn(fakeOdoo({ noHasGroup: true, groupField: 'groups_id', groups: ['base.group_system'] }).fetchFn, login, 'k')).canDispatch()).toBe(true);
+    expect(await (await OdooClient.signIn(fakeOdoo({ noHasGroup: true, groups: [] }).fetchFn, login, 'k')).canDispatch()).toBe(false);
   });
 
   it('reads open quotes and money owed with where the customer is', async () => {

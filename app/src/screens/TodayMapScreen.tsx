@@ -82,9 +82,13 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
     }
     let alive = true;
     setOdooError(null);
-    Promise.all([client.owedInvoices(), client.openQuotes()])
-      .then(([owed, quotes]) => alive && setOdooPlaces([...owed, ...quotes]))
-      .catch((e) => alive && setOdooError(e instanceof OdooError ? e.message : "Couldn't read Odoo."));
+    // Each layer on its own: a tech who can't read invoices still sees quotes, and the other way round.
+    Promise.allSettled([client.owedInvoices(), client.openQuotes()]).then((res) => {
+      if (!alive) return;
+      setOdooPlaces(res.flatMap((r) => (r.status === 'fulfilled' ? r.value : [])));
+      const failed = res.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (failed.length === res.length) setOdooError(failed[0].reason instanceof OdooError ? failed[0].reason.message : "Couldn't read Odoo.");
+    });
     return () => {
       alive = false;
     };

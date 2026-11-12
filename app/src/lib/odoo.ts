@@ -402,8 +402,10 @@ export class OdooClient {
       const groups = s.kind === 'oca' ? ['fieldservice.group_fsm_dispatcher', 'fieldservice.group_fsm_manager'] : s.kind === 'task' ? ['project.group_project_manager'] : [];
       this.dispatchCache = (async () => {
         if (s.kind === 'none') return false;
-        for (const g of [...groups, 'base.group_system']) if (await this.inGroup(g)) return true;
-        return false;
+        const all = [...groups, 'base.group_system'];
+        for (const g of all) if (await this.inGroup(g)) return true;
+        // has_group can be refused over RPC: look at the user's groups instead.
+        return this.inGroupsByRecord(all);
       })();
     }
     return this.dispatchCache;
@@ -421,6 +423,30 @@ export class OdooClient {
         return false;
       }
     }
+  }
+
+  /** Whether the user's own record lists any of these groups (by their xml ids). */
+  private async inGroupsByRecord(xmlids: string[]): Promise<boolean> {
+    try {
+      const names = xmlids.map((x) => x.split('.'));
+      const domain = [['model', '=', 'res.groups'], ['module', 'in', [...new Set(names.map((n) => n[0]))]], ['name', 'in', names.map((n) => n[1])]];
+      const rows = (await this.call('ir.model.data', 'search_read', [domain], { fields: ['module', 'name', 'res_id'] })) as { module?: string; name?: string; res_id?: number }[];
+      const wanted = rows.filter((r) => xmlids.includes(`${r.module}.${r.name}`)).map((r) => r.res_id);
+      if (!wanted.length) return false;
+      // Odoo 19 calls the field group_ids; older ones groups_id.
+      for (const field of ['group_ids', 'groups_id']) {
+        try {
+          const [me] = (await this.call('res.users', 'read', [[this.session.uid]], { fields: [field] })) as Record<string, unknown>[];
+          const ids = Array.isArray(me?.[field]) ? (me[field] as number[]) : [];
+          return wanted.some((id) => ids.includes(id as number));
+        } catch {
+          // Try the other name.
+        }
+      }
+    } catch {
+      // Can't tell: no.
+    }
+    return false;
   }
 
   private async places(rows: Record<string, unknown>[], make: (r: Record<string, unknown>) => Omit<OdooPlace, 'customer' | 'address' | 'phone' | 'lat' | 'lon' | 'partnerId'>): Promise<OdooPlace[]> {
