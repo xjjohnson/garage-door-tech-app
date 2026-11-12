@@ -1,0 +1,343 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, fireEvent, screen } from '@testing-library/react-native';
+import { DEFAULT_MATCH_FORM } from '../lib/forms';
+import { daySummary, dayText, DAY_CLOSE_STORAGE_KEY, parseClosedDays } from '../lib/endOfDay';
+import { Invoice } from '../lib/invoices';
+import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
+import type { OdooClient } from '../lib/odoo';
+import { findProductByCode, receivePurchaseOrder, sendPurchaseOrder, syncTruck } from '../lib/odooStock';
+import { matchItem, pickList, springSize } from '../lib/pickList';
+import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
+import { Appointment } from '../lib/schedule';
+import { phoneScoreData, scorecard, tierIn } from '../lib/scorecard';
+import { findByCode, onOrder, orders, parseStock, STOCK_STORAGE_KEY, StockItem, StockStore, usedTotals } from '../lib/stock';
+import { renderApp } from '../testing/renderApp';
+
+const DAY = 86_400_000;
+const item = (id: string, extra: Partial<StockItem> = {}): StockItem => ({ id, name: id, sku: '', category: 'parts', onHand: 0, min: 1, par: 3, supplier: '', costCents: 0, updatedAt: 1, ...extra });
+
+type Call = { model: string; method: string; args: unknown[]; kw: Record<string, unknown> };
+
+/** A pretend Odoo 19 with Inventory and Purchase: a Truck 1 location (id 7) and a few products. */
+function fakeStockOdoo() {
+  const calls: Call[] = [];
+  const products = [
+    { id: 11, name: 'Nylon rollers (10)', default_code: 'ROL-10', barcode: '0123456789012', standard_price: 18.5, product_tmpl_id: [111, 'Rollers'] },
+    { id: 12, name: '.250 x 2" x 30" torsion spring', default_code: 'SPR-250-30', barcode: '', standard_price: 24, product_tmpl_id: [112, 'Spring'] },
+    { id: 13, name: 'Safety sensors (pair)', default_code: '', barcode: '777', standard_price: 0, product_tmpl_id: [113, 'Sensors'] },
+  ];
+  const quants: { id: number; product: number; qty: number; pending?: number }[] = [{ id: 1, product: 11, qty: 5 }];
+  const pickings: Record<number, { state: string; dest: number; lines: { product: number; qty: number }[] }> = {};
+  let nextId = 100;
+  const call = async (model: string, method: string, args: unknown[] = [], kw: Record<string, unknown> = {}) => {
+    calls.push({ model, method, args, kw });
+    const key = `${model}.${method}`;
+    const pname = (id: number) => products.find((p) => p.id === id)!.name;
+    switch (key) {
+      case 'stock.location.search_read':
+        return [{ id: 7, name: 'Truck 1', complete_name: 'WH/Truck 1' }];
+      case 'stock.quant.search_read':
+        return quants.map((q) => ({ id: q.id, product_id: [q.product, pname(q.product)], quantity: q.qty }));
+      case 'stock.warehouse.orderpoint.search_read':
+        return [{ id: 1, product_id: [11, pname(11)], product_min_qty: 2, product_max_qty: 6 }];
+      case 'product.product.read':
+        return (args[0] as number[]).map((id) => products.find((p) => p.id === id)).filter(Boolean);
+      case 'product.supplierinfo.search_read':
+        return [{ id: 1, partner_id: [55, 'DDM Garage Doors'], product_tmpl_id: [111, 'Rollers'], product_id: false, product_code: 'D-ROL', price: 17 }];
+      case 'product.product.search': {
+        const d = JSON.stringify(args[0]);
+        const hit = products.find((p) => (p.barcode && d.includes(`"${p.barcode}"`)) || (p.default_code && d.toLowerCase().includes(`"${p.default_code.toLowerCase()}"`)) || d.toLowerCase().includes(`"${p.name.toLowerCase().replace(/"/g, '\\"')}"`));
+        return hit ? [hit.id] : [];
+      }
+      case 'stock.quant.search': {
+        const pid = ((args[0] as unknown[][])[0] as unknown[])[2] as number;
+        return quants.filter((q) => q.product === pid).map((q) => q.id);
+      }
+      case 'stock.quant.write': {
+        const q = quants.find((x) => x.id === (args[0] as number[])[0])!;
+        q.pending = (args[1] as { inventory_quantity: number }).inventory_quantity;
+        return true;
+      }
+      case 'stock.quant.create': {
+        const v = args[0] as { product_id: number; inventory_quantity: number };
+        const id = nextId++;
+        quants.push({ id, product: v.product_id, qty: 0, pending: v.inventory_quantity });
+        return id;
+      }
+      case 'stock.quant.action_apply_inventory': {
+        const q = quants.find((x) => x.id === (args[0] as number[])[0])!;
+        q.qty = q.pending ?? q.qty;
+        delete q.pending;
+        return true;
+      }
+      case 'res.partner.search':
+        return [];
+      case 'res.partner.create':
+        return 56;
+      case 'purchase.order.create': {
+        const v = args[0] as { order_line: [number, number, { product_id: number; product_qty: number }][] };
+        pickings[400] = { state: 'assigned', dest: 8, lines: v.order_line.map(([, , l]) => ({ product: l.product_id, qty: l.product_qty })) };
+        return 300;
+      }
+      case 'purchase.order.button_confirm':
+        return true;
+      case 'purchase.order.read':
+        return [{ id: 300, name: 'P00012', picking_ids: [400] }];
+      case 'stock.picking.write':
+        pickings[400].dest = (args[1] as { location_dest_id: number }).location_dest_id;
+        return true;
+      case 'purchase.order.action_rfq_send':
+        return { type: 'ir.actions.act_window', context: { default_model: 'purchase.order', default_res_ids: [300], default_template_id: 9 } };
+      case 'mail.compose.message.create':
+        return 600;
+      case 'mail.compose.message.action_send_mail':
+        return true;
+      case 'stock.picking.read':
+        return [{ id: 400, state: pickings[400].state }];
+      case 'stock.picking.button_validate': {
+        const p = pickings[400];
+        p.state = 'done';
+        if (p.dest === 7)
+          for (const l of p.lines) {
+            const q = quants.find((x) => x.product === l.product);
+            if (q) q.qty += l.qty;
+            else quants.push({ id: nextId++, product: l.product, qty: l.qty });
+          }
+        return true;
+      }
+    }
+    throw new Error(`fake Odoo has no ${key}`);
+  };
+  const client = { session: { uid: 2, kind: 'oca', fields: [], apps: { products: true, sales: true, invoicing: true } }, call } as unknown as OdooClient;
+  return { client, calls, quants, pickings };
+}
+
+describe('truck stock with Odoo Inventory (plain logic)', () => {
+  it('links phone items, sends phone changes as a difference, and takes Odoo numbers back', async () => {
+    const o = fakeStockOdoo();
+    // Phone: rollers by name (5 in Odoo), a spring with a count Odoo doesn't have, and a phone-only item.
+    const store: StockStore = { items: [item('r', { name: 'Nylon rollers (10)', onHand: 3 }), item('s', { name: 'Spring', sku: 'SPR-250-30', onHand: 4 }), item('x', { name: 'Shop rags', onHand: 9 })], suppliers: [] };
+    let n = 0;
+    const first = await syncTruck(o.client, store, 1000, 'Truck 1', () => `new${++n}`);
+    expect(first.linked).toBe(2);
+    expect(first.phoneOnly).toEqual(['Shop rags']);
+    // Odoo already had rollers, so Odoo wins; the spring wasn't there, so the phone's 4 goes up.
+    expect(first.sent).toBe(1);
+    expect(o.quants.find((q) => q.product === 12)?.qty).toBe(4);
+    const r = first.store.items.find((i) => i.id === 'r')!;
+    expect(r).toMatchObject({ odooId: 11, onHand: 5, syncedOnHand: 5, min: 2, par: 6, sku: 'ROL-10', barcode: '0123456789012', costCents: 1850, supplier: 'DDM Garage Doors' });
+    expect(first.store.suppliers).toEqual([{ name: 'DDM Garage Doors', phone: '', email: '', odooId: 55 }]);
+    expect(first.store.truck).toEqual({ locationId: 7, name: 'WH/Truck 1', syncedAt: 1000 });
+
+    // Two rollers used on the phone while someone in Odoo added 3 (a receipt): 5 + 3 - 2 = 6.
+    o.quants.find((q) => q.product === 11)!.qty = 8;
+    const used = { ...first.store, items: first.store.items.map((i) => (i.id === 'r' ? { ...i, onHand: 3 } : i)) };
+    const second = await syncTruck(o.client, used, 2000);
+    expect(second.sent).toBe(1);
+    expect(o.quants.find((q) => q.product === 11)?.qty).toBe(6);
+    expect(second.store.items.find((i) => i.id === 'r')).toMatchObject({ onHand: 6, syncedOnHand: 6 });
+    // The inventory adjustment is applied the way Odoo's Physical Inventory does it.
+    const apply = o.calls.filter((c) => c.method === 'action_apply_inventory');
+    expect(apply.every((c) => (c.kw.context as { inventory_mode?: boolean }).inventory_mode)).toBe(true);
+
+    // A product Odoo puts on the truck shows up on the phone.
+    o.quants.push({ id: 50, product: 13, qty: 2 });
+    const third = await syncTruck(o.client, second.store, 3000, 'Truck 1', () => 'new-sensors');
+    expect(third.added).toBe(1);
+    expect(third.store.items.find((i) => i.id === 'new-sensors')).toMatchObject({ name: 'Safety sensors (pair)', category: 'openers', onHand: 2, odooId: 13, barcode: '777' });
+  });
+
+  it('finds a product by barcode, and sends, emails and receives a purchase order onto the truck', async () => {
+    const o = fakeStockOdoo();
+    expect(await findProductByCode(o.client, '0123456789012')).toMatchObject({ id: 11, name: 'Nylon rollers (10)', vendor: { id: 55, name: 'DDM Garage Doors' } });
+    expect(await findProductByCode(o.client, 'nope')).toBeNull();
+
+    const po = await sendPurchaseOrder(o.client, { name: 'ABC Supply', phone: '', email: 'x@abc.test' }, [{ productId: 12, name: 'Spring', qty: 3, priceCents: 2400 }], { locationId: 7, name: 'Truck 1', syncedAt: 0 }, 'Truck 1');
+    expect(po).toEqual({ odooId: 300, name: 'P00012', vendorId: 56, emailed: true });
+    const create = o.calls.find((c) => c.model === 'purchase.order' && c.method === 'create')!;
+    expect(create.args[0]).toEqual({ partner_id: 56, origin: 'Truck 1', order_line: [[0, 0, { product_id: 12, name: 'Spring', product_qty: 3, price_unit: 24 }]] });
+    expect(o.calls.find((c) => c.model === 'mail.compose.message' && c.method === 'action_send_mail')?.kw.context).toMatchObject({ default_template_id: 9 });
+    expect(o.pickings[400].dest).toBe(7);
+
+    expect(await receivePurchaseOrder(o.client, 300)).toBe(true);
+    expect(o.quants.find((q) => q.product === 12)?.qty).toBe(3);
+  });
+
+  it('leaves items already on order off the next order, and adds up parts used', () => {
+    const items = [item('a', { onHand: 0, supplier: 'DDM' }), item('b', { onHand: 0, supplier: 'DDM' })];
+    const ordered = onOrder([{ id: 'p', supplier: 'DDM', odooId: 1, name: 'P1', lines: [{ itemId: 'a', qty: 3 }], at: 1, emailed: true }]);
+    expect(orders(items, ordered)[0].lines.map((l) => l.item.id)).toEqual(['b']);
+    expect(usedTotals([{ id: '1', itemId: 'a', name: 'A', qty: 1, at: 10, jobId: 'j' }, { id: '2', itemId: 'a', name: 'A', qty: 2, at: 20 }, { id: '3', itemId: 'b', name: 'B', qty: 1, at: 5 }], { from: 8 })).toEqual([{ itemId: 'a', name: 'A', qty: 3 }]);
+    expect(findByCode([item('a', { barcode: '123' }), item('b', { sku: 'ABC' })], 'abc')?.id).toBe('b');
+    const round = parseStock(JSON.stringify({ items: [item('a', { barcode: '1', odooId: 4, syncedOnHand: 2 })], suppliers: [{ name: 'DDM', odooId: 55 }], used: [{ id: 'u', itemId: 'a', name: 'A', qty: 1, at: 3 }], truck: { locationId: 7, name: 'T', syncedAt: 1 } }));
+    expect(round.items[0]).toMatchObject({ barcode: '1', odooId: 4, syncedOnHand: 2 });
+    expect(round.suppliers[0].odooId).toBe(55);
+    expect(round.used).toHaveLength(1);
+    expect(round.truck?.locationId).toBe(7);
+  });
+});
+
+const MATCH = { mode: 'match' as const, form: { ...DEFAULT_MATCH_FORM, twentyCoil: '4 1/2', length: '24' } };
+const SHEET: PriceSheet = { ...DEFAULT_PRICE_SHEET, spring: { good: '60', better: '85', best: '120' }, serviceCall: '89', addOns: DEFAULT_PRICE_SHEET.addOns.map((a) => (a.id === 'rollers' ? { ...a, price: '40' } : a)) };
+
+describe("tomorrow's pick list", () => {
+  it('reads spring sizes written either way', () => {
+    expect(springSize('2 springs, .243 × 1 3/4" × 30"')).toBe(springSize('.243 x 1¾" x 30" torsion spring'));
+    expect(matchItem({ label: 'Nylon rollers (set)', cents: 1, taxable: true, key: 'addOn.rollers' }, [item('r', { name: 'Nylon rollers (set)' })], SHEET)?.id).toBe('r');
+  });
+
+  it("lists the picked option's parts for tomorrow's visits, short ones first", () => {
+    const now = new Date(2026, 10, 12, 17).getTime();
+    const job = { ...createJob(MATCH, { customer: 'Ortega', address: '1 Elm', phone: '', notes: '' }, { title: 'x' }, now, 'j1'), accepted: { tier: 'best' as const, total: 1, at: now } };
+    const other = createJob(MATCH, { customer: 'Lee', address: '', phone: '', notes: '' }, { title: 'x' }, now, 'j2');
+    const at = new Date(2026, 10, 13, 9).getTime();
+    const appt = (id: string, jobId: string, name: string): Appointment => ({ id, start: at, minutes: 60, jobId, name, address: '', phone: '', what: '', status: 'booked', createdAt: 0, updatedAt: 0 });
+    const list = pickList([appt('a1', 'j1', 'Ortega'), appt('a2', 'j2', 'Lee')], [job, other], [item('rol', { name: 'Nylon rollers (set)', onHand: 3 })], SHEET, now);
+    expect(list.visits).toBe(2);
+    expect(list.unknown).toEqual(['Lee']);
+    expect(list.onTruck.map((n) => n.label)).toEqual(['Nylon rollers (set)']);
+    // The spring isn't on the truck; best also includes end bearings and lift cables, which aren't either.
+    expect(list.short.map((n) => [n.label.replace(/,.*/, ''), n.have])).toEqual(expect.arrayContaining([['End bearings (pair)', 0], ['Lift cables (pair)', 0]]));
+    expect(list.short.some((n) => /spring/.test(n.label) && n.forWho.includes('Ortega'))).toBe(true);
+    expect(list.short.some((n) => /Tune-up/.test(n.label))).toBe(false);
+  });
+});
+
+const inv = (id: string, at: number, total: number, payments: Invoice['payments'] = []): Invoice =>
+  ({ id, number: id, jobId: 'j', billTo: '', address: '', tier: 'good', lines: [], subtotal: total, tax: 0, total, payments, createdAt: at, updatedAt: at }) as Invoice;
+
+describe('end of day (plain logic)', () => {
+  it('adds up jobs, money by method, owed, hours and miles for today only', () => {
+    const now = new Date(2026, 10, 12, 18).getTime();
+    const morning = new Date(2026, 10, 12, 8).getTime();
+    const done = { ...createJob(MATCH, { customer: 'A', address: '', phone: '', notes: '' }, { title: '' }, morning, 'a'), steps: { arrivedAt: morning, workDoneAt: morning + 3600_000 } } as Job;
+    const open = { ...createJob(MATCH, { customer: 'B', address: '', phone: '', notes: '' }, { title: '' }, morning, 'b'), steps: { arrivedAt: morning + 7200_000 } } as Job;
+    const old = createJob(MATCH, { customer: 'C', address: '', phone: '', notes: '' }, { title: '' }, morning - 3 * DAY, 'c');
+    const invoices = [
+      inv('1', morning, 50000, [
+        { id: 'p1', method: 'cash', amount: 20000, at: morning, reference: '' },
+        { id: 'p2', method: 'check', amount: 10000, at: morning, reference: '101' },
+      ]),
+      inv('2', morning, 30000, [{ id: 'p3', method: 'zelle', amount: 30000, at: morning, reference: '' }]),
+      inv('3', morning - DAY, 9999, [{ id: 'p4', method: 'cash', amount: 9999, at: morning - DAY, reference: '' }]),
+    ];
+    const shifts = [{ id: 's', start: morning, end: morning + 7.5 * 3600_000, odoStart: 1000, odoEnd: 1064, note: '', updatedAt: 0 }];
+    const s = daySummary({ jobs: [done, open, old], invoices, shifts, appointments: [], stock: { items: [item('x', { onHand: 0 })], suppliers: [], used: [{ id: 'u', itemId: 'x', name: 'X', qty: 2, at: morning }] } }, now);
+    expect(s).toMatchObject({ jobs: 2, jobsDone: 1, billed: 80000, checks: 1, taken: 60000, owed: 20000, ms: 7.5 * 3600_000, miles: 64, toOrder: 1, partsUsed: 2, onClock: false });
+    expect(s.byMethod).toEqual({ cash: 20000, check: 10000, cashapp: 0, venmo: 0, zelle: 30000 });
+    const text = dayText(s, 'Johnsons');
+    expect(text).toMatch(/Jobs: 1 of 2 done/);
+    expect(text).toMatch(/To deposit: \$300(\.00)?/);
+    expect(text).toMatch(/Miles: 64/);
+  });
+});
+
+describe('tech scorecard (plain logic)', () => {
+  it('works out quotes won, ticket, callbacks and Better or Best per tech', () => {
+    const t0 = new Date(2026, 10, 1).getTime();
+    const p = { start: t0, end: t0 + 30 * DAY };
+    const s = scorecard(
+      {
+        visits: [
+          { tech: 'Justin', place: 'l:1', at: t0 - 10 * DAY },
+          { tech: 'Sam', place: 'l:1', at: t0 + 2 * DAY },
+          { tech: 'Sam', place: 'l:2', at: t0 + 3 * DAY },
+          { tech: 'Justin', place: 'l:2', at: t0 + 50 * DAY },
+        ],
+        quotes: [
+          { tech: 'Justin', at: t0 + DAY, won: true, tier: 'best' },
+          { tech: 'Justin', at: t0 + DAY, won: true, tier: 'good' },
+          { tech: 'Justin', at: t0 + DAY, won: false },
+          { tech: 'Sam', at: t0 + DAY, won: true },
+        ],
+        tickets: [
+          { tech: 'Justin', at: t0 + DAY, cents: 40000 },
+          { tech: 'Justin', at: t0 + DAY, cents: 50000 },
+        ],
+      },
+      p,
+    );
+    const j = s.find((x) => x.tech === 'Justin')!;
+    // The job at place 1 twelve days after Justin's counts as his callback.
+    expect(j).toMatchObject({ quotes: 3, won: 2, averageTicket: 45000, callbacks: 1, betterBest: 0.5 });
+    expect(j.winRate).toBeCloseTo(2 / 3);
+    expect(s.find((x) => x.tech === 'Sam')).toMatchObject({ jobs: 2, callbacks: 0, averageTicket: null, betterBest: null });
+    expect(tierIn('Better · 12 Elm St')).toBe('better');
+    const phone = phoneScoreData([{ ...createJob(MATCH, { customer: 'A', address: '1 Elm', phone: '', notes: '' }, { title: '' }, t0, 'a'), accepted: { tier: 'better', total: 1, at: t0 } }], [], 'Me');
+    expect(scorecard(phone, p)[0]).toMatchObject({ tech: 'Me', won: 1, betterBest: 1 });
+  });
+});
+
+describe('truck, job parts, wrap-up and scorecard screens', () => {
+  const settle = async (n = 5) => {
+    for (let k = 0; k < n; k++) await act(async () => undefined);
+  };
+
+  it('counts an item by typing its barcode, and a job takes parts off the truck', async () => {
+    await AsyncStorage.clear();
+    const job = createJob(MATCH, { customer: 'Ortega', address: '', phone: '', notes: '' }, { title: 'x' }, Date.now(), 'j1');
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
+    await AsyncStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify({ items: [item('rol', { name: 'Nylon rollers', barcode: '0123', onHand: 4, min: 1, par: 6 })], suppliers: [] }));
+    await renderApp('/stock');
+    await settle();
+    await fireEvent.press(screen.getByTestId('stock-scan'));
+    await fireEvent.changeText(screen.getByTestId('scanner-typed'), '0123');
+    await fireEvent.press(screen.getByTestId('scanner-use'));
+    expect(screen.getByTestId('count-sheet')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('count-plus'));
+    await fireEvent.press(screen.getByTestId('count-save'));
+    expect(screen.getByTestId('stock-count-rol')).toHaveTextContent('5');
+
+    // An unknown code (not signed in to Odoo) opens a new item with the barcode filled in.
+    await fireEvent.press(screen.getByTestId('stock-scan'));
+    await fireEvent.changeText(screen.getByTestId('scanner-typed'), '999');
+    await fireEvent.press(screen.getByTestId('scanner-use'));
+    expect(screen.getByTestId('stock-field-barcode').props.value).toBe('999');
+    await fireEvent.press(screen.getByTestId('stock-sheet-cancel'));
+
+    await renderApp('/job/j1');
+    await settle();
+    await fireEvent.press(screen.getByTestId('job-parts-pick'));
+    await fireEvent.press(screen.getByTestId('truck-pick-rol'));
+    expect(screen.getByTestId('job-parts')).toHaveTextContent(/1 x Nylon rollers/);
+    await fireEvent.press(screen.getByTestId('job-parts-scan'));
+    await fireEvent.changeText(screen.getByTestId('scanner-typed'), '0123');
+    await fireEvent.press(screen.getByTestId('scanner-use'));
+    await settle(3);
+    const saved = parseStock(await AsyncStorage.getItem(STOCK_STORAGE_KEY));
+    expect(saved.items[0].onHand).toBe(3);
+    expect(saved.used?.map((u) => [u.jobId, u.qty])).toEqual([
+      ['j1', 1],
+      ['j1', 1],
+    ]);
+    await fireEvent.press(screen.getByTestId(`job-part-undo-${saved.used![0].id}`));
+    await settle(3);
+    expect(parseStock(await AsyncStorage.getItem(STOCK_STORAGE_KEY)).items[0].onHand).toBe(4);
+  });
+
+  it('wraps up the day from Today and closes it', async () => {
+    await AsyncStorage.clear();
+    const app = await renderApp('/');
+    await settle();
+    await fireEvent.press(screen.getByTestId('today-wrap-up'));
+    expect(app.getPathname()).toBe('/end-of-day');
+    expect(screen.getByTestId('eod-jobs')).toHaveTextContent(/no jobs today/);
+    expect(screen.getByTestId('eod-pending')).toHaveTextContent(/Everything is in Odoo/);
+    await fireEvent.press(screen.getByTestId('eod-close'));
+    await settle(3);
+    expect(screen.getByTestId('eod-closed')).toHaveTextContent(/Day closed at/);
+    expect(parseClosedDays(await AsyncStorage.getItem(DAY_CLOSE_STORAGE_KEY))).toHaveLength(1);
+  });
+
+  it("shows this phone's scorecard when not signed in to Odoo", async () => {
+    await AsyncStorage.clear();
+    const now = Date.now();
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...createJob(MATCH, { customer: 'A', address: '1 Elm', phone: '', notes: '' }, { title: '' }, now, 'a'), accepted: { tier: 'best', total: 1, at: now } }]));
+    await renderApp('/tools');
+    await settle();
+    await fireEvent.press(screen.getByTestId('tools-scorecard'));
+    await settle();
+    expect(screen.getByTestId('scorecard')).toHaveTextContent(/This phone only/);
+    expect(screen.getByTestId('score-You')).toHaveTextContent(/100%/);
+  });
+});

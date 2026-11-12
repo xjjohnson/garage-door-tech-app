@@ -100,6 +100,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
         <Tile big={formatMoney(owedTotal)} label={owed.length ? `Owed · ${owed.length} invoice${owed.length === 1 ? '' : 's'}` : 'Nothing owed'} warn={owed.length > 0} onPress={() => router.navigate('/sales')} testID="today-owed" />
         <Tile big={String(due)} label={due === 1 ? 'Follow-up due' : 'Follow-ups due'} onPress={() => router.push('/follow-ups')} testID="today-followups" />
       </View>
+      <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" />
     </View>
   );
 }

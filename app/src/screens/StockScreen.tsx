@@ -1,10 +1,18 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BarcodeScanner } from '../components/BarcodeScanner';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
+import { findProductByCode } from '../lib/odooStock';
+import { pickList } from '../lib/pickList';
 import { cents, formatMoney } from '../lib/prices';
-import { CATEGORY_LABEL, findSupplier, isLow, orderLinks, orders, orderText, STOCK_CATEGORIES, StockItem, supplierNames } from '../lib/stock';
+import { startOfDay } from '../lib/schedule';
+import { CATEGORY_LABEL, findByCode, findSupplier, guessCategory, isLow, onOrder, openPurchases, orderLinks, orders, orderText, STOCK_CATEGORIES, StockItem, supplierNames, unsyncedItems, usedTotals } from '../lib/stock';
 import { useInvoices } from '../lib/useInvoices';
+import { useJobs } from '../lib/useJobs';
+import { useOdoo } from '../lib/useOdoo';
+import { usePriceSheet } from '../lib/usePriceSheet';
+import { useSchedule } from '../lib/useSchedule';
 import { NewStockItem, useStock } from '../lib/useStock';
 import { colors, touch, type } from '../theme';
 
@@ -21,33 +29,177 @@ export function StockButton() {
 
 const blank = (): NewStockItem => ({ name: '', sku: '', category: 'parts', onHand: 0, min: 1, par: 2, supplier: '', costCents: 0 });
 
+const ago = (ms: number, now: number) => {
+  const m = Math.round((now - ms) / 60_000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
+};
+
 /**
  * What's on the truck, with + and - for each item, and an order for each
- * supplier when things run low, ready to text or email.
+ * supplier when things run low: a purchase order in Odoo, or a text or email.
+ * Signed in to Odoo, the truck is its "Truck 1" Inventory location, synced
+ * both ways. A barcode scan counts an item or adds a new one.
  */
 export function StockScreen() {
   const store = useStock();
   const { items, suppliers, add, update, adjust, remove, addStarter, received, setSupplier } = store;
   const { business } = useInvoices();
+  const { client } = useOdoo();
+  const { appointments } = useSchedule();
+  const { jobs } = useJobs();
+  const { sheet } = usePriceSheet();
   const [editing, setEditing] = useState<{ id?: string; item: NewStockItem } | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<string | null>(null);
-  const due = orders(items);
+  const [scanning, setScanning] = useState(false);
+  const [counting, setCounting] = useState<StockItem | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; bad?: boolean } | null>(null);
+  const ordered = onOrder(store.purchases);
+  const due = orders(items, ordered);
+  const open = openPurchases(store.purchases);
   const names = supplierNames(store);
+  const now = Date.now();
+  const today = startOfDay(now);
+  const usedToday = usedTotals(store.used, { from: today });
+  const pick = pickList(appointments, jobs, items, sheet, now);
+  const unsynced = unsyncedItems(store).length;
+
+  const run = async (key: string, fn: () => Promise<string>) => {
+    setBusy(key);
+    setMessage(null);
+    try {
+      setMessage({ text: await fn() });
+    } catch (e) {
+      setMessage({ text: e instanceof Error ? e.message : String(e), bad: true });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const syncNow = () =>
+    client &&
+    run('sync', async () => {
+      const r = await store.sync(client);
+      const bits = [r.sent ? `${r.sent} count${r.sent === 1 ? '' : 's'} sent` : '', r.added ? `${r.added} new from Odoo` : '', r.linked ? `${r.linked} linked` : ''].filter(Boolean);
+      const left = r.phoneOnly.length ? ` Not in Odoo yet: ${r.phoneOnly.slice(0, 3).join(', ')}${r.phoneOnly.length > 3 ? '…' : ''}.` : '';
+      return `Truck synced${bits.length ? `: ${bits.join(', ')}` : ''}.${left}`;
+    });
+
+  const scanned = (code: string) => {
+    setScanning(false);
+    const found = findByCode(items, code);
+    if (found) {
+      setCounting(found);
+      return;
+    }
+    if (!client) {
+      setEditing({ item: { ...blank(), barcode: code } });
+      return;
+    }
+    run('scan', async () => {
+      const p = await findProductByCode(client, code);
+      if (!p) {
+        setEditing({ item: { ...blank(), barcode: code } });
+        return `No Odoo product has the code ${code}. Add it here, and set the barcode on the product in Odoo too.`;
+      }
+      setEditing({ item: { ...blank(), name: p.name, sku: p.code, barcode: p.barcode || code, odooId: p.id, category: guessCategory(p.name), supplier: p.vendor?.name ?? '', costCents: p.costCents || p.vendor?.priceCents || 0 } });
+      return `Found ${p.name} in Odoo.`;
+    });
+  };
 
   return (
     <View style={styles.stack} testID="stock">
+      {client ? (
+        <View style={styles.syncCard} testID="stock-odoo">
+          <Text style={styles.name}>{store.truck ? store.truck.name : 'Truck 1 in Odoo'}</Text>
+          <Text style={styles.meta}>
+            {store.truck ? `Synced ${ago(store.truck.syncedAt, now)}` : 'Not synced yet'}
+            {unsynced ? ` · ${unsynced} count${unsynced === 1 ? '' : 's'} to send` : ''}
+          </Text>
+          <Action label={busy === 'sync' ? 'Syncing…' : 'Sync with Odoo'} primary onPress={() => !busy && syncNow()} testID="stock-sync" />
+        </View>
+      ) : null}
+      {message ? (
+        <Text style={[styles.message, message.bad && styles.bad]} testID="stock-message">
+          {message.text}
+        </Text>
+      ) : null}
+
+      <Action label="Scan a barcode" onPress={() => setScanning(true)} testID="stock-scan" />
+
       {items.length === 0 ? (
         <View style={styles.empty} testID="stock-empty">
           <Text style={styles.emptyTitle}>Nothing on the truck yet</Text>
-          <Text style={styles.emptyBody}>Start with a list of common springs and parts, then set how many you have, or add your own.</Text>
+          <Text style={styles.emptyBody}>{client ? 'Sync to bring in what Odoo has on the truck, or start with a list of common springs and parts.' : 'Start with a list of common springs and parts, then set how many you have, or add your own.'}</Text>
           <Action label="Add common items" primary onPress={addStarter} testID="stock-starter" />
         </View>
       ) : null}
 
-      {due.length > 0 ? <SectionTitle first>To order</SectionTitle> : null}
+      {usedToday.length > 0 ? (
+        <View style={styles.stack} testID="stock-used-today">
+          <SectionTitle first>Used today</SectionTitle>
+          {usedToday.map((u) => (
+            <View key={u.itemId} style={styles.line}>
+              <Text style={styles.detail}>{u.name}</Text>
+              <Text style={styles.detail}>{u.qty}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {pick.visits > 0 ? (
+        <View style={styles.pick} testID="stock-tomorrow">
+          <Text style={styles.label}>TOMORROW NEEDS</Text>
+          <Text style={styles.meta}>
+            {pick.visits} visit{pick.visits === 1 ? '' : 's'} booked{pick.unknown.length ? ` · ${pick.unknown.length} with no quote picked yet` : ''}
+          </Text>
+          {pick.short.map((n) => (
+            <Text key={n.label} style={styles.detail} testID="stock-short">
+              {n.qty} x {n.label} for {n.forWho.join(', ')} · {n.item ? `only ${n.have} on the truck` : 'not on the truck'}
+            </Text>
+          ))}
+          {pick.onTruck.map((n) => (
+            <Text key={n.label} style={styles.meta}>
+              {n.qty} x {n.label}: on the truck ({n.item?.onHand})
+            </Text>
+          ))}
+          {pick.short.length ? <Text style={styles.meta}>Grab these from the shop before you head out.</Text> : pick.onTruck.length ? <Text style={styles.meta}>Everything picked is on the truck.</Text> : null}
+        </View>
+      ) : null}
+
+      {open.length > 0 ? <SectionTitle first={usedToday.length === 0 && pick.visits === 0}>On order</SectionTitle> : null}
+      {open.map((po) => (
+        <View key={po.id} style={styles.item} testID={`po-${po.name}`}>
+          <Text style={styles.name}>
+            {po.name} · {po.supplier}
+          </Text>
+          {po.lines.map((l) => (
+            <Text key={l.itemId} style={styles.detail}>
+              {l.qty} x {items.find((i) => i.id === l.itemId)?.name ?? 'Removed item'}
+            </Text>
+          ))}
+          <Text style={styles.meta}>{po.emailed ? 'Emailed to the supplier from Odoo' : "Made in Odoo, not emailed: text or email it below"}</Text>
+          <Action
+            label={busy === po.id ? 'Receiving…' : 'Parts are in, add to the truck'}
+            onPress={() =>
+              !busy &&
+              (client
+                ? run(po.id, async () => ((await store.receiveOrder(client, po.id)) ? `${po.name} received in Odoo and the truck synced.` : `Odoo wants ${po.name} finished there (a backorder or a missing quantity). Validate the receipt in Odoo, then sync.`))
+                : setMessage({ text: 'Sign in to Odoo (Team) to receive a purchase order.', bad: true }))
+            }
+            testID={`po-received-${po.name}`}
+          />
+        </View>
+      ))}
+
+      {due.length > 0 ? <SectionTitle first={usedToday.length === 0 && pick.visits === 0 && open.length === 0}>To order</SectionTitle> : null}
       {due.map((o) => {
         const links = orderLinks(o, suppliers, business.name);
         const key = o.supplier || 'none';
+        const linked = o.lines.filter((l) => l.item.odooId !== undefined).length;
         return (
           <View key={key} style={[styles.item, styles.order]} testID={`order-${key}`}>
             <Text style={styles.name}>{o.supplier || 'No supplier set'}</Text>
@@ -57,8 +209,26 @@ export function StockScreen() {
               </Text>
             ))}
             {o.costCents > 0 ? <Text style={styles.meta}>About {formatMoney(o.costCents)}</Text> : null}
+            {client && o.supplier && linked > 0 ? (
+              <>
+                <Action
+                  label={busy === `po-${key}` ? 'Sending…' : `Send PO to supplier · ${linked} item${linked === 1 ? '' : 's'}`}
+                  primary
+                  onPress={() =>
+                    !busy &&
+                    run(`po-${key}`, async () => {
+                      const po = await store.sendOrder(client, o);
+                      const skipped = o.lines.length - linked;
+                      return `${po.name} made in Odoo${po.emailed ? ' and emailed to the supplier' : '. Odoo could not email it, so text or email it'}.${skipped ? ` ${skipped} item${skipped === 1 ? ' is' : 's are'} not in Odoo and left off.` : ''}`;
+                    })
+                  }
+                  testID={`order-po-${key}`}
+                />
+                <Text style={styles.meta}>Makes a purchase order in Odoo and emails it to the vendor</Text>
+              </>
+            ) : null}
             <View style={styles.row}>
-              {links.sms ? <Action label="Text order" grow primary onPress={() => Linking.openURL(links.sms!).catch(() => undefined)} testID={`order-text-${key}`} /> : null}
+              {links.sms ? <Action label="Text order" grow primary={!client} onPress={() => Linking.openURL(links.sms!).catch(() => undefined)} testID={`order-text-${key}`} /> : null}
               {links.email ? <Action label="Email order" grow onPress={() => Linking.openURL(links.email!).catch(() => undefined)} testID={`order-email-${key}`} /> : null}
               {!links.sms && !links.email ? <Action label="Share order" grow onPress={() => Share.share({ message: orderText(o, business.name) }).catch(() => undefined)} testID={`order-share-${key}`} /> : null}
             </View>
@@ -95,6 +265,15 @@ export function StockScreen() {
         </>
       ) : null}
 
+      <BarcodeScanner visible={scanning} title="Scan a part" hint="Point at the barcode on the box or label. A part on the truck opens its count; a new one is looked up in Odoo." onCode={scanned} onClose={() => setScanning(false)} />
+      <CountSheet
+        item={counting}
+        onCancel={() => setCounting(null)}
+        onSave={(n) => {
+          if (counting) update(counting.id, { onHand: n });
+          setCounting(null);
+        }}
+      />
       <ItemSheet
         value={editing?.item ?? null}
         isNew={!editing?.id}
@@ -120,6 +299,40 @@ export function StockScreen() {
         }}
       />
     </View>
+  );
+}
+
+/** Sets an item's count after a scan: type it, or step it with - and +. */
+function CountSheet({ item, onSave, onCancel }: { item: StockItem | null; onSave: (n: number) => void; onCancel: () => void }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (item) setN(item.onHand);
+  }, [item]);
+  if (!item) return null;
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
+      <View style={styles.backdrop}>
+        <View style={styles.sheet} testID="count-sheet">
+          <View style={styles.titleRow}>
+            <Text style={styles.sheetTitle}>{item.name}</Text>
+            <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" testID="count-cancel">
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.meta}>How many are on the truck? The app had {item.onHand}.</Text>
+          <View style={styles.row}>
+            <Action label="−" grow onPress={() => setN((x) => Math.max(0, x - 1))} testID="count-minus" accessibilityLabel="One less" />
+            <Text style={styles.count} testID="count-value">
+              {n}
+            </Text>
+            <Action label="+" grow onPress={() => setN((x) => x + 1)} testID="count-plus" accessibilityLabel="One more" />
+          </View>
+          <Pressable onPress={() => onSave(n)} accessibilityRole="button" testID="count-save" style={({ pressed }) => [styles.save, pressed && styles.pressed]}>
+            <Text style={styles.saveText}>Save count</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -189,6 +402,8 @@ function ItemSheet({
             <TextField label="Supplier" value={f.supplier} onChange={(supplier) => set({ supplier })} placeholder="Who you buy it from" testID="stock-field-supplier" />
             {suppliers.length > 0 ? <ChipRow options={suppliers.map((s) => ({ label: s, value: s }))} value={f.supplier} onChange={(supplier) => set({ supplier })} scroll testID="stock-field-suppliers" /> : null}
             <TextField label="Part number" value={f.sku} onChange={(sku) => set({ sku })} placeholder="Optional, goes on the order" testID="stock-field-sku" />
+            <TextField label="Barcode" value={f.barcode ?? ''} onChange={(barcode) => set({ barcode })} placeholder="Optional, for scanning" testID="stock-field-barcode" />
+            {f.odooId ? <Text style={styles.meta}>Linked to an Odoo product</Text> : null}
             <MeasureField label="Cost each" value={cost} onChange={setCost} unit="$" allowFraction={false} testID="stock-field-cost" />
             {!isNew ? <Action label="Delete this item" onPress={onDelete} testID="stock-delete" /> : null}
           </ScrollView>
@@ -266,6 +481,11 @@ function Action({ label, onPress, primary, grow, testID, accessibilityLabel }: {
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
+  syncCard: { padding: 12, gap: 6, borderRadius: 12, backgroundColor: colors.card },
+  message: { fontSize: 16, fontWeight: '800', color: colors.text },
+  bad: { color: colors.stop },
+  line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44, borderBottomWidth: 2, borderBottomColor: colors.info },
+  pick: { padding: 12, gap: 4, borderRadius: 14, backgroundColor: colors.card },
   empty: { padding: 12, borderRadius: 10, backgroundColor: colors.card, gap: 8 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },

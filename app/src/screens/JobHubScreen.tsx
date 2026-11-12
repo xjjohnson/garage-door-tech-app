@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
+import { JobParts } from '../components/JobParts';
 import { checkCounts } from '../lib/inspection';
 import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { Job, jobName, MODE_LABEL, phoneLink } from '../lib/jobs';
@@ -133,6 +134,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         testID="job-open-quote"
       />
       <NavRow label="Photos" detail="Before and after" href={{ pathname: '/photos/[id]', params: { id: job.id } }} testID="job-open-photos" />
+      <JobParts jobId={job.id} />
       {inv ? (
         <NavRow
           label={`Invoice ${inv.number}`}
