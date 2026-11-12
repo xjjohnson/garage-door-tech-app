@@ -1,7 +1,7 @@
 import * as Updates from 'expo-updates';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Switch, Text, View } from 'react-native';
-import { Action } from '../components/Buttons';
+import { Action, NavRow } from '../components/Buttons';
 import { ChipRow, SectionTitle } from '../components/controls';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { onDevFlags, pretendOffline, setPretendOffline } from '../lib/devFlags';
@@ -157,6 +157,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       <View style={styles.row}>
         <Action label="Test Odoo" grow onPress={testOdoo} testID="dev-test-odoo" />
       </View>
+      <NavRow label="Odoo setup check" detail="What Odoo needs for this version" href="/setup" testID="dev-setup" />
       {ping ? (
         <Text style={styles.note} testID="dev-ping">
           {ping}
