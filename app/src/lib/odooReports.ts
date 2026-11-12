@@ -11,17 +11,17 @@ import type { Appointment } from './schedule';
 export interface ReportTarget {
   model: string;
   id: number;
-  /** For the button and the log: "Field Service order", "sales order S00041", "customer". */
+  /** Where it goes, for the button: "the Field Service order", "the sales order S00041", "John Smith's contact". */
   label: string;
 }
 
 /** Where a job's report goes in Odoo, or null when Odoo has nothing for it yet. */
-export function reportTarget(job: Pick<Job, 'id' | 'customerId' | 'odooOrder'>, appointments: Pick<Appointment, 'id' | 'jobId'>[], customers: Pick<Customer, 'id' | 'odooId'>[], jobsModel: 'fsm.order' | 'project.task' | null): ReportTarget | null {
+export function reportTarget(job: Pick<Job, 'id' | 'customerId' | 'odooOrder'>, appointments: Pick<Appointment, 'id' | 'jobId'>[], customers: Pick<Customer, 'id' | 'odooId' | 'name'>[], jobsModel: 'fsm.order' | 'project.task' | null): ReportTarget | null {
   const visit = appointments.find((a) => a.jobId === job.id && /^odoo-\d+$/.test(a.id));
-  if (visit && jobsModel) return { model: jobsModel, id: Number(visit.id.slice(5)), label: jobsModel === 'fsm.order' ? 'Field Service order' : 'Odoo task' };
-  if (job.odooOrder) return { model: 'sale.order', id: job.odooOrder.id, label: `sales order ${job.odooOrder.name}`.trim() };
+  if (visit && jobsModel) return { model: jobsModel, id: Number(visit.id.slice(5)), label: jobsModel === 'fsm.order' ? 'the Field Service order' : 'the Odoo task' };
+  if (job.odooOrder) return { model: 'sale.order', id: job.odooOrder.id, label: `the sales order ${job.odooOrder.name}`.trim() };
   const c = job.customerId ? customers.find((x) => x.id === job.customerId) : undefined;
-  if (c?.odooId) return { model: 'res.partner', id: c.odooId, label: 'customer' };
+  if (c?.odooId) return { model: 'res.partner', id: c.odooId, label: c.name.trim() ? `${c.name.trim()}'s contact` : "the customer's contact" };
   return null;
 }
 

@@ -131,7 +131,7 @@ export function InspectionScreen({ job }: { job: Job }) {
       await sendReport(odoo.client, target, pdfName('Inspection', job.customer), pdf, `Inspection report: ${s.score === null ? 'not scored' : `score ${s.score}%`}, ${s.flagged} flagged.`);
       log.info('inspect', `report sent to ${target.model} ${target.id}`);
       save((i) => ({ ...i, sent: { at: Date.now(), to: target.label } }));
-      setNote(`Sent to the ${target.label} in Odoo.`);
+      setNote(`Sent to ${target.label} in Odoo.`);
     } catch (e) {
       log.error('inspect', e);
       setNote("Couldn't send it to Odoo. Check the signal and try again.");
@@ -214,6 +214,12 @@ export function InspectionScreen({ job }: { job: Job }) {
       {insp.gate ? (
         <View style={styles.stack}>
           <ChipRow options={GATE_TYPES} value={insp.gate.type as 'swing' | 'slide'} onChange={(t) => save((i) => ({ ...i, gate: { ...i.gate!, type: t } }))} testID="gate-type" />
+          {insp.gate.type ? (
+            <>
+              <Text style={styles.subTitle}>{insp.gate.type === 'slide' ? 'Slide gate' : 'Swing gate'}</Text>
+              <SectionItems insp={insp} sectionKey="gate-type" job={job} photos={photos.map((p) => p.item ?? '')} onAnswer={answer} onPhoto={media ? takePhoto : undefined} onRepair={addRepair} onRestGood={() => save((i) => restGood(i, 'gate-type'))} />
+            </>
+          ) : null}
           <NavRow label="Gate safety guide" onPress={() => router.push('/manuals')} />
           <Text style={styles.subTitle}>UL 325</Text>
           <SectionItems insp={insp} sectionKey="gate-ul" job={job} photos={photos.map((p) => p.item ?? '')} onAnswer={answer} onPhoto={media ? takePhoto : undefined} onRepair={addRepair} onRestGood={() => save((i) => restGood(i, 'gate-ul'))} />
@@ -267,7 +273,7 @@ export function InspectionScreen({ job }: { job: Job }) {
       {media ? <Action label={busy === 'pdf' ? 'Making the PDF...' : 'Share PDF report'} primary disabled={!!busy} onPress={sharePdf} testID="inspection-pdf" /> : null}
       {odoo.client ? (
         target ? (
-          <Action label={busy === 'odoo' ? 'Sending...' : insp.sent ? `Send to Odoo again (sent to ${insp.sent.to})` : `Save report to the ${target.label} in Odoo`} disabled={!!busy || !media?.pdfBase64} onPress={sendToOdoo} testID="inspection-odoo" />
+          <Action label={busy === 'odoo' ? 'Sending...' : insp.sent ? `Send to Odoo again (sent to ${insp.sent.to})` : `Save report to ${target.label} in Odoo`} disabled={!!busy || !media?.pdfBase64} onPress={sendToOdoo} testID="inspection-odoo" />
         ) : (
           <Text style={styles.note} testID="inspection-odoo-none">
             To save the report in Odoo, link this job to an Odoo customer first.
