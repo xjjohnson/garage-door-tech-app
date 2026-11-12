@@ -181,7 +181,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
         throw e;
       }
       apply(result.store);
-      log.info('stock', `truck sync: ${result.sent} sent, ${result.added} new, ${result.linked} linked, ${result.removed.length} not in Odoo removed`);
+      log.info('stock', `truck sync: ${result.sent} sent, ${result.added} new, ${result.linked} linked, ${result.removed.length} removed, ${result.created.length} made in Odoo`);
       return result;
     }
   };

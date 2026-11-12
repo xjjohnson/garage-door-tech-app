@@ -14,7 +14,7 @@
  * passed in, so tests use a fake server.
  */
 import type { OdooClient } from './odoo';
-import { DEFAULT_TRUCK, guessCategory, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
+import { DEFAULT_TRUCK, guessCategory, STARTER_ITEMS, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
 
 /** A product as truck stock needs it. */
 export interface StockProduct {
@@ -251,9 +251,15 @@ export interface SyncResult {
   added: number;
   /** Phone items linked to an Odoo product this time. */
   linked: number;
-  /** Phone items with no Odoo product, taken off the list: Odoo is the truck's record. */
+  /** Sample items with no Odoo product, and second items for one product, taken off the list: Odoo is the truck's record. */
   removed: string[];
+  /** Parts typed in on the phone that Odoo didn't have: made there as new products. */
+  created: string[];
 }
+
+const SAMPLE_NAMES = new Set(STARTER_ITEMS.map((s) => s.name.toLowerCase()));
+/** Still one of the "Add common items" samples, untouched apart from the count. */
+const isSample = (i: StockItem) => SAMPLE_NAMES.has(i.name.trim().toLowerCase()) && !i.sku.trim() && !i.barcode && !i.supplier.trim();
 
 /**
  * Two-way truck sync, with Odoo as the record of what's on the truck. Phone
@@ -261,8 +267,10 @@ export interface SyncResult {
  * of what Odoo has now, so a receipt done in Odoo meanwhile still counts;
  * then every item takes Odoo's number. Products Odoo has on the truck that
  * the phone doesn't are added. A phone item that matches an Odoo product for
- * the first time takes Odoo's count (nothing is sent), and one with no Odoo
- * product at all is taken off the list.
+ * the first time takes Odoo's count (nothing is sent). A sample item with
+ * no Odoo product is taken off the list; a part the tech typed in that Odoo
+ * doesn't have is made there, and its count sent. Two phone items for one
+ * product become one, keeping both items' unsent changes.
  */
 export async function syncTruck(client: OdooClient, given: StockStore, now: number, newId: () => string = () => `i-${now.toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`): Promise<SyncResult> {
   let store = given;
@@ -278,23 +286,47 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
   let sent = 0;
   let linked = 0;
   const removed: string[] = [];
-  const items: StockItem[] = [];
+  const created: string[] = [];
+  // Link every phone item to its Odoo product first.
+  const linkedItems: StockItem[] = [];
   for (const item of store.items) {
     let i = item;
     if (i.odooId === undefined) {
       const pid = await matchProduct(client, i);
-      if (!pid) {
+      if (pid) {
+        i = { ...i, odooId: pid };
+        linked++;
+      } else if (isSample(i)) {
         removed.push(i.name);
         continue;
+      } else {
+        // Typed in on the phone (signed out, or Odoo was unreachable): make it in Odoo, and its count goes up as new stock.
+        const id = await createProduct(client, { name: i.name, sku: i.sku, barcode: i.barcode, costCents: i.costCents });
+        i = { ...i, odooId: id, syncedOnHand: 0 };
+        created.push(i.name);
       }
-      i = { ...i, odooId: pid };
-      linked++;
     }
-    // Two phone items for one Odoo product would show two different counts: keep the first.
-    if (items.some((x) => x.odooId === i.odooId)) {
-      removed.push(i.name);
+    linkedItems.push(i);
+  }
+  // Two phone items for one Odoo product would show two counts: keep the first, with the other's unsent change folded in.
+  const merged: StockItem[] = [];
+  for (const i of linkedItems) {
+    const at = merged.findIndex((x) => x.odooId === i.odooId);
+    if (at < 0) {
+      merged.push(i);
       continue;
     }
+    removed.push(i.name);
+    const delta = i.syncedOnHand !== undefined ? i.onHand - i.syncedOnHand : 0;
+    if (!delta) continue;
+    const k = merged[at];
+    const base = k.syncedOnHand ?? odoo.get(k.odooId!)?.qty ?? 0;
+    const kOnHand = k.syncedOnHand === undefined ? base : k.onHand;
+    merged[at] = { ...k, syncedOnHand: base, onHand: Math.max(0, kOnHand + delta) };
+  }
+  const items: StockItem[] = [];
+  for (const item of merged) {
+    let i = item;
     const have = odoo.get(i.odooId!)?.qty;
     let target: number | undefined;
     if (i.syncedOnHand !== undefined && i.onHand !== i.syncedOnHand) target = Math.max(0, (have ?? 0) + i.onHand - i.syncedOnHand);
@@ -304,7 +336,8 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       } catch (e) {
         // Keep what Odoo already took: those items now match Odoo, the rest are untouched.
         const done = new Map(items.map((x) => [x.id, x]));
-        const partial = store.items.map((x) => done.get(x.id) ?? x);
+        // Linked, made and merged items keep that, so nothing is made or sent twice.
+        const partial = merged.map((x) => done.get(x.id) ?? x);
         const why = e instanceof Error ? e.message : String(e);
         throw new PartialSyncError(`The sync stopped after ${sent} count${sent === 1 ? '' : 's'}: ${why}`, { ...store, items: partial, truck }, sent);
       }
@@ -367,7 +400,7 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       updatedAt: now,
     });
   }
-  return { store: { ...store, items: out, suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, removed };
+  return { store: { ...store, items: out, suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, removed, created };
 }
 
 /** The supplier's contact in Odoo: the one linked, else one by that name, else a new vendor. */

@@ -71,7 +71,7 @@ export function StockScreen() {
   const unsynced = unsyncedItems(store).length;
   // Signed in, Odoo is the record of the truck: it syncs on open and after each change.
   const auto = useTruckSync({
-    onDone: (r) => r.removed.length && setMessage({ text: syncDone(r) }),
+    onDone: (r) => (r.removed.length || r.created.length ? setMessage({ text: syncDone(r) }) : undefined),
     onError: (e) => {
       setMessage({ text: e instanceof Error ? e.message : String(e), bad: true });
       if (e instanceof NoTruckError && client) listTrucks(client).then(setTrucks, () => undefined);
@@ -99,8 +99,8 @@ export function StockScreen() {
     });
 
   function syncDone(r: SyncResult) {
-    const bits = [r.sent ? `${r.sent} count${r.sent === 1 ? '' : 's'} sent` : '', r.added ? `${r.added} new from Odoo` : '', r.linked ? `${r.linked} linked` : ''].filter(Boolean);
-    const left = r.removed.length ? ` Taken off (not on this truck in Odoo): ${r.removed.slice(0, 3).join(', ')}${r.removed.length > 3 ? '…' : ''}.` : '';
+    const bits = [r.sent ? `${r.sent} count${r.sent === 1 ? '' : 's'} sent` : '', r.added ? `${r.added} new from Odoo` : '', r.linked ? `${r.linked} linked` : '', r.created.length ? `${r.created.length} new in Odoo` : ''].filter(Boolean);
+    const left = r.removed.length ? ` Taken off the list: ${r.removed.slice(0, 3).join(', ')}${r.removed.length > 3 ? '…' : ''}.` : '';
     return `${r.store.truck?.name ?? 'Truck'} synced${bits.length ? `: ${bits.join(', ')}` : ''}.${left}`;
   }
 

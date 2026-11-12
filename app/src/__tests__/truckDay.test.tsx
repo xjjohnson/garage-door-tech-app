@@ -138,15 +138,19 @@ function fakeStockOdoo() {
 describe('truck stock with Odoo Inventory (plain logic)', () => {
   it('links phone items, sends phone changes as a difference, and takes Odoo numbers back', async () => {
     const o = fakeStockOdoo();
-    // Phone: rollers by name (5 in Odoo), a spring with a count Odoo doesn't have, and a phone-only item.
-    const store: StockStore = { items: [item('r', { name: 'Nylon rollers (10)', onHand: 3 }), item('s', { name: 'Spring', sku: 'SPR-250-30', onHand: 4 }), item('x', { name: 'Shop rags', onHand: 9 })], suppliers: [] };
+    // Phone: rollers by name (5 in Odoo), a spring with a count Odoo doesn't have, a part typed in that Odoo doesn't have, and an old sample.
+    const sample = item('t', { name: '.243 x 1¾" x 30" torsion spring', category: 'springs', onHand: 2 });
+    const store: StockStore = { items: [item('r', { name: 'Nylon rollers (10)', onHand: 3 }), item('s', { name: 'Spring', sku: 'SPR-250-30', onHand: 4 }), item('x', { name: 'Shop rags', onHand: 9 }), sample], suppliers: [] };
     let n = 0;
     const first = await syncTruck(o.client, store, 1000, () => `new${++n}`);
     expect(first.linked).toBe(2);
-    expect(first.removed).toEqual(['Shop rags']);
-    // Odoo is the record: on first link nothing is sent and every count is Odoo's (no spring on the truck there).
-    expect(first.sent).toBe(0);
-    expect(first.store.items.map((i) => i.id)).toEqual(['r', 's']);
+    expect(first.removed).toEqual([sample.name]);
+    // The typed-in part is made in Odoo and its count goes up as new stock.
+    expect(first.created).toEqual(['Shop rags']);
+    expect(first.sent).toBe(1);
+    expect(first.store.items.find((i) => i.id === 'x')).toMatchObject({ odooId: 100, onHand: 9, syncedOnHand: 9 });
+    // Odoo is the record: a first link sends nothing and takes Odoo's count (no spring on the truck there).
+    expect(first.store.items.map((i) => i.id)).toEqual(['r', 's', 'x']);
     expect(first.store.items.find((i) => i.id === 's')).toMatchObject({ odooId: 12, onHand: 0, syncedOnHand: 0 });
     const r = first.store.items.find((i) => i.id === 'r')!;
     expect(r).toMatchObject({ odooId: 11, onHand: 5, syncedOnHand: 5, min: 2, par: 6, sku: 'ROL-10', barcode: '0123456789012', costCents: 1850, supplier: 'DDM Garage Doors' });
@@ -261,6 +265,11 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     const r = await syncTruck(o.client, { items: [item('a', { odooId: 11, onHand: 5, syncedOnHand: 5 }), item('b', { name: 'Nylon rollers (10)', onHand: 6 })], suppliers: [], truck: { locationId: 7, name: 'Truck 1', syncedAt: 1 } }, 10);
     expect(r.store.items.map((i) => [i.id, i.onHand])).toEqual([['a', 5]]);
     expect(r.removed).toEqual(['Nylon rollers (10)']);
+
+    // A second item's unsent change (2 used) isn't lost: it's folded into the one kept and sent.
+    const sent = await syncTruck(o.client, { items: [item('a', { odooId: 11, onHand: 5, syncedOnHand: 5 }), item('c', { odooId: 11, onHand: 3, syncedOnHand: 5 })], suppliers: [], truck: { locationId: 7, name: 'Truck 1', syncedAt: 1 } }, 20);
+    expect(sent.store.items.map((i) => [i.id, i.onHand])).toEqual([['a', 3]]);
+    expect(o.quants.find((q) => q.product === 11)?.qty).toBe(3);
   });
 
   it('leaves items already on order off the next order, and adds up parts used', () => {
