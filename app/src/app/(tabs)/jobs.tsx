@@ -10,7 +10,7 @@ export default function JobsRoute() {
       <JobsScreen
         onOpen={(job) => {
           requestOpen(job);
-          router.navigate('/');
+          router.navigate('/springs');
         }}
       />
     </SectionScroll>

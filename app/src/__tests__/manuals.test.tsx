@@ -284,9 +284,10 @@ describe('Manuals screen', () => {
     expect(screen.getByText('0 links')).toBeTruthy();
   });
 
-  it('is reachable from the app header', async () => {
+  it('is reachable from the Tools tab', async () => {
     await renderApp();
-    await fireEvent.press(screen.getByTestId('section-manuals'));
+    await fireEvent.press(screen.getByTestId('section-tools'));
+    await fireEvent.press(screen.getByTestId('tools-manuals'));
     expect(screen.getByTestId('manuals-search')).toBeTruthy();
     expect(screen.getAllByText('Manuals').length).toBeGreaterThan(0);
   });

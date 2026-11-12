@@ -74,7 +74,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         ) : null}
       </View>
       <View style={styles.row}>
-        <Pressable onPress={() => router.push('/customers')} accessibilityRole="button" testID="open-customers" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
+        <Pressable onPress={() => router.navigate('/customers')} accessibilityRole="button" testID="open-customers" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
           <Text style={styles.buttonText}>Customers</Text>
         </Pressable>
         <Pressable onPress={() => router.push('/invoices')} accessibilityRole="button" testID="open-invoices" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
@@ -205,7 +205,8 @@ function JobCard({
         <View style={styles.actions}>
           {job.phone ? <Text style={styles.detail}>Phone: {job.phone}</Text> : null}
           {job.notes ? <Text style={styles.detail}>{job.notes}</Text> : null}
-          <Action label="Quote" primary onPress={onQuote} testID={`job-quote-${job.id}`} />
+          <Action label="Open job" primary onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })} testID={`job-hub-${job.id}`} />
+          <Action label="Quote" onPress={onQuote} testID={`job-quote-${job.id}`} />
           <Action label={job.inspection ? `Safety check (${checkCounts(job.inspection).fix} need work)` : 'Safety check'} onPress={() => router.push({ pathname: '/inspection/[id]', params: { id: job.id } })} testID={`job-inspection-${job.id}`} />
           <Action label="Open in calculator" onPress={onOpen} testID={`job-open-${job.id}`} />
           {job.customerId ? (

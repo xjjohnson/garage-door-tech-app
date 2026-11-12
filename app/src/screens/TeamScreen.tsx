@@ -46,14 +46,14 @@ function SignInForm() {
         setUrl(v);
         if (!db) setDb(guessDb(v));
       }} placeholder="yourcompany.odoo.com" keyboard="url" testID="team-url" />
-      <Field label="Database" hint="For yourcompany.odoo.com it's usually yourcompany." value={db} onChange={setDb} placeholder="yourcompany" testID="team-db" />
+      <Field label="Database" hint="For yourcompany.odoo.com it's usually yourcompany. To test against a copy, put the copy's database name here." value={db} onChange={setDb} placeholder="yourcompany" testID="team-db" />
       <Field label="Email" value={login} onChange={setLogin} placeholder="you@yourcompany.com" keyboard="email-address" testID="team-login" />
       <Field
-        label="Password or API key"
-        hint="An API key is safer: in Odoo, your name > My Preferences > Account Security > New API Key. It's kept in the phone's keystore."
+        label="API key (or password)"
+        hint="Use an API key: in Odoo, your name > My Preferences > Account Security > New API Key. It's kept in the phone's keystore."
         value={secret}
         onChange={setSecret}
-        placeholder="Password or API key"
+        placeholder="API key"
         secure
         testID="team-secret"
       />

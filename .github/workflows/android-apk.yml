@@ -12,6 +12,12 @@
 # publish an over-the-air update with EAS Update (job "ota"), which reaches
 # phones that already have an APK with the same runtime version.
 #
+# Updates go to beta first: a push to main publishes to the "beta" channel,
+# which only phones with Settings > Developer > Beta updates turned on get.
+# To give an update to everyone, run this workflow by hand on main with
+# "Send the update to" set to everyone (production). The APK on the Latest APK
+# release is built as usual either way.
+#
 # The APK is signed with the app's own private key, never Expo's public debug
 # key. The key comes from two repo secrets, ANDROID_KEYSTORE_BASE64 and
 # ANDROID_KEYSTORE_PASSWORD (see app/README.md, "Signing key"). Without them
@@ -31,6 +37,12 @@ on:
       - 'spring-calc/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
+    inputs:
+      ota_channel:
+        description: 'Send the update to (beta = phones with Beta updates on; production = everyone)'
+        type: choice
+        options: [beta, production]
+        default: beta
 
 concurrency:
   group: android-apk-${{ github.ref }}
@@ -248,6 +260,8 @@ jobs:
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+      # Pushes go to beta; a manual run picks beta or production.
+      OTA_CHANNEL: ${{ github.event.inputs.ota_channel || 'beta' }}
     steps:
       - name: Skip when the EXPO_TOKEN secret isn't set
         if: env.EXPO_TOKEN == ''
@@ -274,16 +288,21 @@ jobs:
         working-directory: app
         run: npm ci
 
-      # The app asks the "production" channel for updates (app.json). The
-      # channel is created once; after that this step just reports it exists.
-      - name: Make sure the production channel exists
+      # The APK asks the "production" channel for updates (app.json); the Beta
+      # updates switch makes it ask "beta" instead. Each channel is created
+      # once (pointing at the branch of the same name); after that these
+      # steps just report it exists.
+      - name: Make sure the channels exist
         if: env.EXPO_TOKEN != ''
         working-directory: app
-        run: eas channel:create production --non-interactive || echo "Channel already exists."
+        run: |
+          eas channel:create production --non-interactive || echo "Channel production already exists."
+          eas channel:create beta --non-interactive || echo "Channel beta already exists."
 
       - name: Publish the update
         if: env.EXPO_TOKEN != ''
         working-directory: app
         run: |
           MESSAGE="$(printf '%s' "${COMMIT_MESSAGE:-Manual run}" | head -n 1)"
-          eas update --branch production --platform android --message "$MESSAGE" --non-interactive
+          echo "Publishing to the $OTA_CHANNEL channel."
+          eas update --branch "$OTA_CHANNEL" --platform android --message "$MESSAGE" --non-interactive

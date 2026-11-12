@@ -42,6 +42,17 @@ interface JobBase extends JobDetails {
   inspection?: Inspection;
   /** The sales order made in Odoo from the accepted option (src/lib/odooSales.ts). */
   odooOrder?: OdooRef;
+  /** The job hub's steps (src/lib/jobSteps.ts): when each was tapped. */
+  steps?: JobSteps;
+  /** What the customer called about, from New job: "Broken spring", "Tune-up"... */
+  what?: string;
+}
+
+/** When the tech tapped On my way, Arrived and Work done, ms. */
+export interface JobSteps {
+  onMyWayAt?: number;
+  arrivedAt?: number;
+  workDoneAt?: number;
 }
 
 export interface AcceptedQuote {
@@ -182,10 +193,20 @@ export function parseJobs(raw: string | null): Job[] {
       ...(typeof j.customerId === 'string' && j.customerId ? { customerId: j.customerId } : {}),
       ...(parseInspection(j.inspection) ? { inspection: parseInspection(j.inspection) } : {}),
       ...(parseRef(j.odooOrder) ? { odooOrder: parseRef(j.odooOrder) } : {}),
+      ...(parseSteps(j.steps) ? { steps: parseSteps(j.steps) } : {}),
+      ...(typeof j.what === 'string' && j.what ? { what: j.what } : {}),
     };
     out.push({ ...base, mode, form: restoreForm<object>(MODE_DEFAULTS[mode], j.form) } as Job);
   }
   return out;
+}
+
+function parseSteps(v: unknown): JobSteps | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const r = v as Record<string, unknown>;
+  const out: JobSteps = {};
+  for (const k of ['onMyWayAt', 'arrivedAt', 'workDoneAt'] as const) if (typeof r[k] === 'number') out[k] = r[k] as number;
+  return Object.keys(out).length ? out : undefined;
 }
 
 function parseAccepted(v: unknown): AcceptedQuote | undefined {

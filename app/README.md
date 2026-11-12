@@ -1,8 +1,11 @@
-# Spring Calc app (Expo)
+# Johnsons app (Expo)
 
-The phone app for the torsion spring calculator. It is a screen on top of the
-tested math in `../spring-calc`, which it uses unchanged. Everything runs on
-the phone; there is no server and no network call.
+The field app for Johnson's garage door work, from release 0.5.0 called
+**Johnsons** on the phone. It started as the torsion spring calculator (the
+tested math in `../spring-calc`, used unchanged) and is becoming the tech's
+replacement for the Odoo web UI in the field: today's visits, jobs with their
+steps, quotes, invoices and customers, synced with Odoo over JSON-RPC.
+Everything works on the phone without signal and sends to Odoo when it can.
 
 ## Try it on your phone
 
@@ -142,8 +145,18 @@ version it has, offline.
 **How it's wired.** `app.json` points the app at Expo's update server for
 this project (`updates.url`) and asks for the `production` channel. On every
 push to main, the workflow's "Publish OTA update" job runs
-`eas update --branch production`, which uploads the new JavaScript. The APK
-job still runs too, so a fresh APK is always on the Releases page.
+`eas update --branch beta`, which uploads the new JavaScript to the **beta**
+channel. The APK job still runs too, so a fresh APK is always on the Releases
+page.
+
+**Beta updates (from 0.5.0).** Updates reach beta phones first. On the phone,
+open Settings, tap the version 7 times to open the Developer screen, and turn
+on **Beta updates**, then tap **Restart to switch**. That phone now asks the
+`beta` channel (`src/lib/updateChannel.ts` sets the `expo-channel-name`
+header; turning it off goes back to `production`). When an update has been
+tried and is good, give it to everyone: in GitHub, Actions, Android APK, Run
+workflow on main, set **Send the update to** to `production`. Both channels
+are created by the workflow on first use.
 
 **One-time setup (yours).**
 
@@ -189,7 +202,10 @@ the camera, PDF and share sheet (`expo-image-picker`, `expo-print`,
 `expo-sharing`), `react-native-svg` for signatures and `expo-secure-store`
 (for a future Odoo sign-in), so phones need the
 0.4.0 APK for those and for every update after it; 0.3.0 APKs keep their last
-update and show the new-APK banner.
+update and show the new-APK banner. Version 0.5.0 added the local database
+(`expo-sqlite`), the camera barcode scanner (`expo-camera`), voice notes
+(`expo-audio`) and a web view for maps (`react-native-webview`), plus the new
+name and icon, so phones need the 0.5.0 APK.
 
 **Release numbers: every update gets one.** The number on the Settings
 button (and at the top of Settings) is the release, `extra.release` in
@@ -219,7 +235,42 @@ be tested ahead of time. A version you set by hand always matches.
 
 ## What's on screen
 
-Sections in the bar at the bottom: **Springs**, **Jobs**, **Manuals** and **Diagnose**. Springs has four tabs: **Match old** and **From door** for torsion springs, **Extension**, and **High lift** for drums and cables.
+Sections in the bar at the bottom (from 0.5.0): **Today**, **Jobs**, **Sales**, **Customers** and **Tools**.
+
+**Today.** A line at the top says whether Odoo has everything (or what's
+not in Odoo yet, which opens the Developer screen), then the next visit with
+Navigate and Start job, jobs under way, the rest of today's visits, and tiles
+for money owed and follow-ups due. If the app closed on an error last time, a
+notice offers to share the log.
+
+**Job hub** (`/job/<id>`). One page per job with its steps: On my way (opens
+the messages app with an on-my-way text, sent by hand), Arrived, Inspect,
+Quote, Work and Paid, each worked out from what's saved on the job and its
+invoice. The big button is always the next step. Below are the inspection,
+spring calculator, quote, photos, invoice and customer. **+ New job** on
+Today makes one from three answers: who, what's wrong, and now or later.
+
+**Sales** has follow-ups, the price sheet, accepted quotes still to invoice,
+and the invoices. **Tools** holds the spring calculator, door weight,
+Diagnose, Manuals, truck stock, time and miles, the schedule, business
+numbers, the Odoo team page, the Odoo setup check and Settings.
+
+**Odoo setup check** (`/setup`). Reads Odoo and marks each thing this
+version needs as found or missing, with how to fix it: signed in, Field
+Service, you as a Field Service worker, Sales and quotation templates,
+Invoicing, a truck stock location and outgoing email. It changes nothing.
+
+**Developer screen** (`/developer`, owner only: tap the version in Settings 7
+times). What's running, the Odoo connection, what's waiting to send, Beta
+updates, Check for update, Test Odoo, a Pretend offline switch, and the app's
+log. The log (`src/lib/log.ts`) is kept on the phone for 7 days in the local
+database, records each Odoo call by model and method (never what was sent),
+and blanks out passwords, API keys and tokens before anything is kept.
+**Share log** sends it as a text file. Errors nobody caught are logged as
+crashes (`src/lib/crash.ts`); a crash inside Android itself leaves no line
+(that would need a crash service such as Sentry).
+
+**Spring calculator** (Tools, `/springs`) has four tabs: **Match old** and **From door** for torsion springs, **Extension**, and **High lift** for drums and cables.
 
 **Match old spring.** Wire by 20-coil length, caliper, or picked from the
 list (with the color code); inside diameter; relaxed length; wind; one spring
@@ -571,16 +622,23 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | File | Address | What |
 |---|---|---|
 | `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures, Odoo team), then a stack: the sections, with full pages on top |
-| `(tabs)/_layout.tsx` | | Header (with the Settings button and version), update banners, the four sections and the bottom bar |
-| `(tabs)/index.tsx` | `/` | Springs: Match old, From door, Extension and High lift |
+| `(tabs)/_layout.tsx` | | Header (with the house mark, Settings button and version), update banners, the sections and the bottom bar |
+| `(tabs)/index.tsx` | `/` | Today |
 | `(tabs)/jobs.tsx` | `/jobs` | Saved jobs |
-| `(tabs)/manuals.tsx` | `/manuals` | Manuals |
-| `(tabs)/diagnose.tsx` | `/diagnose` | Diagnose |
+| `(tabs)/sales.tsx` | `/sales` | Follow-ups, price sheet, quotes to invoice, invoices |
+| `(tabs)/customers.tsx` | `/customers` | The customer list |
+| `(tabs)/tools.tsx` | `/tools` | Every tool and setting |
+| `(tabs)/springs.tsx` | `/springs` | Springs: Match old, From door, Extension and High lift (Tools stays lit) |
+| `(tabs)/manuals.tsx` | `/manuals` | Manuals (Tools stays lit) |
+| `(tabs)/diagnose.tsx` | `/diagnose` | Diagnose (Tools stays lit) |
+| `job/[id].tsx` | `/job/<job id>` | The job hub |
+| `new-job.tsx` | `/new-job` | A new job in three answers |
+| `setup.tsx` | `/setup` | Odoo setup check |
+| `developer.tsx` | `/developer` | Developer screen (7 taps on the version) |
 | `price-sheet.tsx` | `/price-sheet` | The price sheet, a full page |
 | `odoo-product.tsx` | `/odoo-product?line=…` | Pick the Odoo product a price-sheet line follows |
 | `quote/[id].tsx` | `/quote/<job id>` | One job's quote, a full page |
 | `backup.tsx` | `/backup` | Back up and restore jobs and prices, a full page |
-| `customers.tsx` | `/customers` | The customer list, a full page |
 | `customer/[id].tsx` | `/customer/<id>` | One customer and their jobs, a full page |
 | `invoices.tsx` | `/invoices` | Every invoice and the total owed, a full page |
 | `invoice/[id].tsx` | `/invoice/<id>` | One invoice: payments and QR codes to pay, a full page |
@@ -597,7 +655,8 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 
 A section stays mounted once opened, so switching keeps its inputs and
 search; Manuals and Diagnose aren't drawn until first opened. The bottom bar
-and header are the app's own (`src/lib/sections.ts` lists the sections); the
+and header are the app's own (`src/lib/sections.ts` lists the sections and
+the tool pages that keep Tools lit, with a "‹ Tools" back button); the
 navigator's tab bar is hidden. Full pages have a Close button that goes back.
 
 **Adding a screen.** Put what it draws in `src/screens/`, then a thin route

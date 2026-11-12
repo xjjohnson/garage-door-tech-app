@@ -55,7 +55,7 @@ beforeEach(async () => {
 
 describe('high lift tab in the app', () => {
   it('works out turns for a high-lift door', async () => {
-    await renderApp();
+    await renderApp('/springs');
     await fireEvent.press(screen.getByTestId('tab-drums'));
     await fireEvent.press(screen.getByTestId('field-drums-high-lift'));
     await keypad(['3', '6']);

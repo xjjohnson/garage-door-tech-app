@@ -12,17 +12,34 @@ describe('screens and routes', () => {
   it('each bottom button opens its section at its own address, with its title', async () => {
     const app = await renderApp();
     expect(app.getPathname()).toBe('/');
-    expect(screen.getByText('Spring calculator')).toBeTruthy();
+    expect(screen.getByTestId('section-today')).toBeSelected();
     for (const [id, path, title] of [
       ['jobs', '/jobs', 'Jobs'],
-      ['manuals', '/manuals', 'Manuals'],
-      ['diagnose', '/diagnose', 'Diagnose'],
-      ['springs', '/', 'Spring calculator'],
+      ['sales', '/sales', 'Sales'],
+      ['customers', '/customers', 'Customers'],
+      ['tools', '/tools', 'Tools'],
+      ['today', '/', 'Today'],
     ] as const) {
       await fireEvent.press(screen.getByTestId(`section-${id}`));
       expect(app.getPathname()).toBe(path);
       expect(screen.getByTestId(`section-${id}`)).toBeSelected();
       expect(screen.getByRole('header', { name: title })).toBeTruthy();
+    }
+  });
+
+  it('opens tool pages from Tools, keeps Tools lit, and goes back to Tools', async () => {
+    const app = await renderApp('/tools');
+    for (const [id, path, title] of [
+      ['springs', '/springs', 'Spring calculator'],
+      ['manuals', '/manuals', 'Manuals'],
+      ['diagnose', '/diagnose', 'Diagnose'],
+    ] as const) {
+      await fireEvent.press(screen.getByTestId(`tools-${id}`));
+      expect(app.getPathname()).toBe(path);
+      expect(screen.getByTestId('section-tools')).toBeSelected();
+      expect(screen.getByRole('header', { name: title })).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('back-to-tools'));
+      expect(app.getPathname()).toBe('/tools');
     }
   });
 

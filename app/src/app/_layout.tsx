@@ -1,4 +1,7 @@
-import { Stack } from 'expo-router';
+import { ErrorBoundaryProps, Stack } from 'expo-router';
+import * as Updates from 'expo-updates';
+import { useEffect } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AttachmentsProvider } from '../lib/useAttachments';
@@ -12,7 +15,13 @@ import { PriceSheetProvider } from '../lib/usePriceSheet';
 import { ScheduleProvider } from '../lib/useSchedule';
 import { StockProvider } from '../lib/useStock';
 import { WorkLogProvider } from '../lib/useWorkLog';
-import { colors } from '../theme';
+import { BUILD_INFO } from '../lib/appVersion';
+import { installCrashHandler } from '../lib/crash';
+import { describeError, log } from '../lib/log';
+import { colors, touch, type } from '../theme';
+
+// Errors nobody caught go to the log before anything else runs.
+installCrashHandler(log);
 
 /**
  * The whole app: saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures, Odoo team), then a stack with the four
@@ -20,6 +29,10 @@ import { colors } from '../theme';
  * Routes live in this folder; see app/README.md, "Screens and routes".
  */
 export default function RootLayout() {
+  useEffect(() => {
+    log.prune();
+    log.info('app', `started · ${BUILD_INFO}`);
+  }, []);
   return (
     <SafeAreaProvider>
       <JobsProvider>
@@ -40,7 +53,6 @@ export default function RootLayout() {
                               <Stack.Screen name="odoo-product" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="quote/[id]" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="backup" options={{ presentation: 'modal' }} />
-                              <Stack.Screen name="customers" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="customer/[id]" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="invoices" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="invoice/[id]" options={{ presentation: 'modal' }} />
@@ -55,6 +67,10 @@ export default function RootLayout() {
                               <Stack.Screen name="team" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="door-weight" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="developer" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="setup" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="new-job" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="job/[id]" />
                             </Stack>
                           </CalculatorLinkProvider>
                         </OdooProvider>
@@ -70,3 +86,38 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+/**
+ * Shown instead of a screen that hit an error while drawing, rather than a
+ * blank page. The error is in the log (Settings, tap the version 7 times).
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    log.error('crash', `Screen error: ${describeError(error, 12)}`);
+  }, [error]);
+  return (
+    <View style={styles.fail} testID="error-screen">
+      <Text style={styles.failTitle} accessibilityRole="header">
+        Something went wrong
+      </Text>
+      <Text style={styles.failBody}>The app hit an error on this screen. It's saved in the log, so it can be fixed. Your saved jobs and invoices are safe.</Text>
+      <Pressable onPress={retry} accessibilityRole="button" style={({ pressed }) => [styles.failButton, pressed && styles.failPressed]}>
+        <Text style={styles.failButtonText}>Try again</Text>
+      </Pressable>
+      <Pressable onPress={() => Updates.reloadAsync().catch(() => undefined)} accessibilityRole="button" style={({ pressed }) => [styles.failButton, styles.failSecondary, pressed && styles.failPressed]}>
+        <Text style={[styles.failButtonText, styles.failSecondaryText]}>Restart the app</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  fail: { flex: 1, backgroundColor: colors.bg, padding: 24, justifyContent: 'center', gap: 16 },
+  failTitle: { fontSize: type.big, fontWeight: '900', color: colors.text },
+  failBody: { fontSize: type.body, fontWeight: '600', color: colors.muted, lineHeight: 26 },
+  failButton: { minHeight: touch.min, borderRadius: 12, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
+  failSecondary: { backgroundColor: colors.bg, borderWidth: 2, borderColor: colors.border },
+  failPressed: { backgroundColor: colors.safety },
+  failButtonText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
+  failSecondaryText: { color: colors.text },
+});
