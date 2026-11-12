@@ -491,6 +491,17 @@ its chatter, and the app reads Odoo's outgoing mail to say whether it was
 sent, is still queued, or failed and why (the contact needs an email address,
 and Odoo needs an outgoing mail server).
 
+**Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
+and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
+customer invoice and credit note, not only the phone's: newest first, 40 at a
+time, searched by number or customer, filtered (Quotations / Sales orders;
+Not paid / Paid / Draft), with Overdue marked. Tapping one shows its lines,
+tax, total and what's still owed, **Email the quotation / invoice** (Odoo's
+own Send template, as above, and a quotation is marked sent), and **Open in
+Odoo**. The last full list is kept (`odoo-lists/v1`) so it shows with no
+signal (`src/lib/odooLists.ts`, `src/screens/OdooListScreen.tsx`,
+`src/screens/OdooRecordScreen.tsx`).
+
 **Quotation templates** (`src/lib/odooTemplates.ts`). Odoo quotation
 templates named "Job type · Good", "· Better" and "· Best" (a dash or colon
 works too) price jobs the spring calculator can't, like openers and tune-ups:

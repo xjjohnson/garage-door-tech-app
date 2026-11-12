@@ -90,14 +90,23 @@ describe('inspection add-ons', () => {
 
 describe('emailing the invoice from Odoo', () => {
   /** A pretend Odoo; `mail` is what mail.mail holds for the sent email. */
-  function fake(mail: unknown[] = []) {
+  /** `pdf`: the invoice's PDF id in Odoo now (false: none yet); `wizard`: which Send wizard this Odoo has. */
+  function fake(mail: unknown[] = [], { pdf = [500, 'INV_2026_00003.pdf'] as unknown, wizard = 'account.move.send.wizard' as string | null } = {}) {
     const calls: unknown[][] = [];
     let n = 100;
+    let made = pdf;
     const client = {
       call: jest.fn(async (...a: unknown[]) => {
         calls.push(a);
         const [model, method] = a as [string, string];
         if (model === 'res.partner') return [{ email: 'pat@example.com' }];
+        if (model === 'account.move' && method === 'fields_get') return { name: {}, invoice_pdf_report_id: {} };
+        if (model === 'account.move' && method === 'read') return [{ id: 5, invoice_pdf_report_id: made }];
+        if (model.startsWith('account.move.send')) {
+          if (model !== wizard) throw new Error(`Object ${model} doesn't exist.`);
+          if (method === 'action_send_and_print') made = [501, 'INV.pdf'];
+          return 9;
+        }
         if (model === 'ir.attachment') return ++n;
         if (model === 'ir.model.data') return [{ res_id: 12 }];
         if (model === 'mail.template' && method === 'send_mail') return 77;
@@ -120,11 +129,31 @@ describe('emailing the invoice from Odoo', () => {
     const r = await emailInvoice(client, 5, 7, [{ name: 'Inspection.pdf', base64: 'B' }]);
     expect(r).toEqual({ to: 'pat@example.com', state: 'sent' });
     expect(calls.filter((c) => c[0] === 'ir.attachment')).toHaveLength(1);
-    expect(calls.find((c) => c[1] === 'send_mail')).toEqual(['mail.template', 'send_mail', [[12], 5], { force_send: true, email_values: { attachment_ids: [101] } }]);
+    // Odoo's own invoice PDF first, then the inspection report.
+    expect(calls.find((c) => c[1] === 'send_mail')).toEqual(['mail.template', 'send_mail', [[12], 5], { force_send: true, email_values: { attachment_ids: [500, 101] } }]);
+    expect(calls.some((c) => String(c[0]).startsWith('account.move.send'))).toBe(false);
     expect(calls.find((c) => c[0] === 'mail.mail')).toEqual(['mail.mail', 'search_read', [[['id', '=', 77]]], { fields: ['state', 'failure_reason'] }]);
     expect(calls.find((c) => c[1] === 'message_post')![3]).toMatchObject({ body: 'Invoice emailed to pat@example.com from the app, with Inspection.pdf.', subtype_xmlid: 'mail.mt_note' });
     // No phone-made invoice PDF, and no HTML body for Odoo to escape.
     expect(calls.some((c) => c[1] === 'message_post' && (c[3] as { partner_ids?: unknown }).partner_ids)).toBe(false);
+  });
+
+  it('has Odoo make its invoice PDF first when there is none yet (Odoo 18/19, then 17)', async () => {
+    const a = fake([], { pdf: false });
+    await emailInvoice(a.client, 5, 7, []);
+    expect(a.calls.find((c) => c[0] === 'account.move.send.wizard' && c[1] === 'create')).toEqual(['account.move.send.wizard', 'create', [{ move_id: 5, sending_methods: [] }], { context: { active_model: 'account.move', active_ids: [5], active_id: 5 } }]);
+    expect(a.calls.find((c) => c[1] === 'send_mail')![3]).toEqual({ force_send: true, email_values: { attachment_ids: [501] } });
+
+    const b = fake([], { pdf: false, wizard: 'account.move.send' });
+    await emailInvoice(b.client, 5, 7, []);
+    expect(b.calls.find((c) => c[0] === 'account.move.send' && c[1] === 'create')![2]).toEqual([{ checkbox_send_mail: false, checkbox_download: true }]);
+    expect(b.calls.find((c) => c[1] === 'send_mail')![3]).toEqual({ force_send: true, email_values: { attachment_ids: [501] } });
+  });
+
+  it('sends nothing when Odoo can’t make the invoice PDF', async () => {
+    const c = fake([], { pdf: false, wizard: null });
+    await expect(emailInvoice(c.client, 5, 7, [{ name: 'Inspection.pdf', base64: 'B' }])).rejects.toThrow(/didn't make the invoice PDF, so nothing was emailed/);
+    expect(c.calls.some((x) => x[1] === 'send_mail')).toBe(false);
   });
 
   it('reports mail still queued, or why Odoo couldn’t send it', async () => {
