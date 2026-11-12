@@ -17,9 +17,11 @@ export interface JobPhoto {
   uri: string;
   kind: PhotoKind;
   at: number;
+  /** The inspection item it shows ("d:<door>:rollers"), when taken from the inspection. */
+  item?: string;
 }
 
-export type SignedFor = 'quote' | 'invoice';
+export type SignedFor = 'quote' | 'invoice' | 'inspection';
 
 export interface Signature {
   id: string;
@@ -89,11 +91,11 @@ export function parseAttachments(raw: string | null | unknown): Attachments {
   const photos = (Array.isArray(d.photos) ? d.photos : []).flatMap((x): JobPhoto[] => {
     const p = (x ?? {}) as Record<string, unknown>;
     if (typeof p.id !== 'string' || typeof p.jobId !== 'string' || typeof p.uri !== 'string' || !p.uri) return [];
-    return [{ id: p.id, jobId: p.jobId, uri: p.uri, kind: PHOTO_KINDS.includes(p.kind as PhotoKind) ? (p.kind as PhotoKind) : 'other', at: n0(p.at) }];
+    return [{ id: p.id, jobId: p.jobId, uri: p.uri, kind: PHOTO_KINDS.includes(p.kind as PhotoKind) ? (p.kind as PhotoKind) : 'other', at: n0(p.at), ...(typeof p.item === 'string' && p.item ? { item: p.item } : {}) }];
   });
   const signatures = (Array.isArray(d.signatures) ? d.signatures : []).flatMap((x): Signature[] => {
     const s = (x ?? {}) as Record<string, unknown>;
-    if (typeof s.id !== 'string' || typeof s.refId !== 'string' || (s.for !== 'quote' && s.for !== 'invoice') || !Array.isArray(s.paths)) return [];
+    if (typeof s.id !== 'string' || typeof s.refId !== 'string' || (s.for !== 'quote' && s.for !== 'invoice' && s.for !== 'inspection') || !Array.isArray(s.paths)) return [];
     const paths = s.paths.filter((p): p is string => typeof p === 'string' && p !== '');
     if (paths.length === 0) return [];
     return [{ id: s.id, for: s.for, refId: s.refId, name: s0(s.name), paths, w: n0(s.w) || 300, h: n0(s.h) || 150, at: n0(s.at) }];

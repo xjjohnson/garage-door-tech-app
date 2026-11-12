@@ -61,7 +61,7 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
       ) : null}
 
       <Action
-        label={job.inspection ? 'Safety check' + (repairs.length > 0 ? ` (${repairs.length} repair${repairs.length === 1 ? '' : 's'} added)` : '') : 'Do a safety check'}
+        label={job.inspection ? 'Inspection' + (repairs.length > 0 ? ` (${repairs.length} repair${repairs.length === 1 ? '' : 's'} added)` : '') : 'Do an inspection'}
         onPress={() => router.push({ pathname: '/inspection/[id]', params: { id: job.id } })}
         testID="quote-inspection"
       />
