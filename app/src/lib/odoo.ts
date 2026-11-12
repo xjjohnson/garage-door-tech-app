@@ -166,31 +166,6 @@ const PARTNER_OPTIONAL = ['customer_rank', 'mobile'];
 const PRODUCT_OPTIONAL = ['sale_ok', 'default_code'];
 const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end'];
 
-type Caller = Pick<OdooClient, 'call'>;
-
-/**
- * The Field Service worker (fsm.person) this user is. Odoo doesn't link the
- * two directly: a worker is a contact, and a worker made from Field Service >
- * Workers > New gets a contact of its own rather than the user's. So it tries,
- * in order: the user's own contact, the same email (the user's email or
- * login), and, when Odoo has just one worker, that one. 0 when none fits.
- */
-export async function findWorker(c: Caller, user: { partner_id?: unknown; email?: unknown; login?: unknown }, login: string): Promise<number> {
-  const find = async (domain: unknown[], limit = 1) => (await c.call('fsm.person', 'search_read', [domain], { fields: ['name'], limit })) as { id: number }[];
-  const partnerId = Array.isArray(user.partner_id) ? (user.partner_id as number[])[0] : 0;
-  if (partnerId) {
-    const byPartner = await find([['partner_id', '=', partnerId]]);
-    if (byPartner[0]) return byPartner[0].id;
-  }
-  const emails = [...new Set([user.email, user.login, login].filter((e): e is string => typeof e === 'string' && e.includes('@')).map((e) => e.trim().toLowerCase()))];
-  for (const e of emails) {
-    const byEmail = await find([['email', '=ilike', e]]);
-    if (byEmail[0]) return byEmail[0].id;
-  }
-  const all = await find([['active', '=', true]], 2);
-  return all.length === 1 ? all[0].id : 0;
-}
-
 export class OdooClient {
   constructor(
     private readonly fetchFn: Fetch,
@@ -208,7 +183,7 @@ export class OdooClient {
     const base = { url, db: login.db.trim(), login: login.login.trim(), uid };
     const blank: OdooSession = { ...base, name: '', kind: 'none', me: uid, fsm: false, assignField: 'user_ids', fields: [], apps: NO_APPS, productFields: [] };
     const probe = new OdooClient(fetchFn, blank, secret, now);
-    const me = (await probe.call('res.users', 'read', [[uid]], { fields: ['name', 'partner_id', 'email', 'login'] })) as { name?: string; partner_id?: unknown; email?: unknown; login?: unknown }[];
+    const me = (await probe.call('res.users', 'read', [[uid]], { fields: ['name', 'partner_id'] })) as { name?: string; partner_id?: unknown }[];
     const name = me[0]?.name ?? login.login;
     const fieldsOf = async (model: string) => {
       try {
@@ -228,9 +203,11 @@ export class OdooClient {
     // The community (OCA) Field Service app keeps jobs as fsm.order, given to workers (fsm.person).
     const order = await fieldsOf('fsm.order');
     if (order) {
-      const worker = await findWorker(probe, me[0] ?? {}, login.login.trim());
+      // A worker is a contact; the user's own contact is the worker when "Is a FS Worker" is ticked on it.
+      const partnerId = Array.isArray(me[0]?.partner_id) ? (me[0]!.partner_id as number[])[0] : 0;
+      const people = partnerId ? ((await probe.call('fsm.person', 'search_read', [[['partner_id', '=', partnerId]]], { fields: ['name'], limit: 1 })) as { id: number }[]) : [];
       const stage = await fieldsOf('fsm.stage');
-      return make({ kind: 'oca', me: worker, fields: ORDER_OPTIONAL.filter((f) => f in order), closedStage: !!stage && 'is_closed' in stage });
+      return make({ kind: 'oca', me: people[0]?.id ?? 0, fields: ORDER_OPTIONAL.filter((f) => f in order), closedStage: !!stage && 'is_closed' in stage });
     }
     const task = await fieldsOf('project.task');
     if (!task) return make({ kind: 'none' });
