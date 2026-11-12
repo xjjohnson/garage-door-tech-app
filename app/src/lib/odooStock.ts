@@ -39,6 +39,9 @@ const many2one = (v: unknown): [number, string] | undefined => (Array.isArray(v)
 const cents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0);
 const INVENTORY = { inventory_mode: true };
 
+/** Text for an exact, case-blind =ilike match: % and _ in it are taken literally, not as wildcards. */
+export const likeExact = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
+
 /** Whether this Odoo has Inventory and this user can read stock. */
 export async function hasInventory(client: OdooClient): Promise<boolean> {
   try {
@@ -52,7 +55,7 @@ export async function hasInventory(client: OdooClient): Promise<boolean> {
 /** The truck's location, by name ("Truck 1" or "WH/Truck 1"). */
 export async function findTruck(client: OdooClient, name = DEFAULT_TRUCK): Promise<TruckLink | null> {
   const n = name.trim() || DEFAULT_TRUCK;
-  const rows = (await client.call('stock.location', 'search_read', [[['usage', '=', 'internal'], '|', ['name', '=ilike', n], ['complete_name', '=ilike', n]]], { fields: ['name', 'complete_name'], limit: 1 })) as Record<string, unknown>[];
+  const rows = (await client.call('stock.location', 'search_read', [[['usage', '=', 'internal'], '|', ['name', '=ilike', likeExact(n)], ['complete_name', '=ilike', likeExact(n)]]], { fields: ['name', 'complete_name'], limit: 1 })) as Record<string, unknown>[];
   const r = rows[0];
   return r ? { locationId: r.id as number, name: str(r.complete_name) || str(r.name), syncedAt: 0 } : null;
 }
@@ -113,7 +116,7 @@ export async function readTruck(client: OdooClient, locationId: number): Promise
 export async function findProductByCode(client: OdooClient, code: string): Promise<StockProduct | null> {
   const c = code.trim();
   if (!c) return null;
-  const ids = (await client.call('product.product', 'search', [['|', ['barcode', '=', c], ['default_code', '=ilike', c]]], { limit: 1 })) as number[];
+  const ids = (await client.call('product.product', 'search', [['|', ['barcode', '=', c], ['default_code', '=ilike', likeExact(c)]]], { limit: 1 })) as number[];
   if (!ids[0]) return null;
   return (await readProducts(client, [ids[0]]))[0] ?? null;
 }
@@ -122,8 +125,8 @@ export async function findProductByCode(client: OdooClient, code: string): Promi
 async function matchProduct(client: OdooClient, i: StockItem): Promise<number | undefined> {
   const tries: unknown[][] = [];
   if (i.barcode) tries.push([['barcode', '=', i.barcode]]);
-  if (i.sku) tries.push([['default_code', '=ilike', i.sku]]);
-  tries.push([['name', '=ilike', i.name]]);
+  if (i.sku) tries.push([['default_code', '=ilike', likeExact(i.sku)]]);
+  tries.push([['name', '=ilike', likeExact(i.name)]]);
   for (const domain of tries) {
     const ids = (await client.call('product.product', 'search', [domain], { limit: 1 })) as number[];
     if (ids[0]) return ids[0];
@@ -131,13 +134,47 @@ async function matchProduct(client: OdooClient, i: StockItem): Promise<number | 
   return undefined;
 }
 
-/** Sets how many of a product are on the truck, the way Odoo's Physical Inventory does. */
+/**
+ * Sets how many of a product are on the truck, the way Odoo's Physical
+ * Inventory does. The truck can hold a product in more than one quant (lots,
+ * packages, shelves under the truck); only the difference is applied, added
+ * to the first one or taken from them in turn, so the total comes out right.
+ */
 export async function setTruckQty(client: OdooClient, locationId: number, productId: number, qty: number): Promise<void> {
-  const found = (await client.call('stock.quant', 'search', [[['product_id', '=', productId], ['location_id', '=', locationId]]], { limit: 1, context: INVENTORY })) as number[];
-  let id = found[0];
-  if (id) await client.call('stock.quant', 'write', [[id], { inventory_quantity: qty }], { context: INVENTORY });
-  else id = (await client.call('stock.quant', 'create', [{ product_id: productId, location_id: locationId, inventory_quantity: qty }], { context: INVENTORY })) as number;
-  await client.call('stock.quant', 'action_apply_inventory', [[id]], { context: INVENTORY });
+  const rows = (await client.call('stock.quant', 'search_read', [[['product_id', '=', productId], ['location_id', 'child_of', locationId]]], { fields: ['quantity', 'location_id'], context: INVENTORY })) as Record<string, unknown>[];
+  const quants = rows
+    .map((r) => ({ id: r.id as number, qty: typeof r.quantity === 'number' ? r.quantity : 0, here: many2one(r.location_id)?.[0] === locationId }))
+    .sort((a, b) => Number(b.here) - Number(a.here) || a.id - b.id);
+  let diff = qty - quants.reduce((n, q) => n + q.qty, 0);
+  if (diff === 0) return;
+  const set = async (id: number, to: number) => {
+    await client.call('stock.quant', 'write', [[id], { inventory_quantity: to }], { context: INVENTORY });
+    await client.call('stock.quant', 'action_apply_inventory', [[id]], { context: INVENTORY });
+  };
+  if (diff > 0) {
+    if (quants[0]) return set(quants[0].id, quants[0].qty + diff);
+    const id = (await client.call('stock.quant', 'create', [{ product_id: productId, location_id: locationId, inventory_quantity: qty }], { context: INVENTORY })) as number;
+    await client.call('stock.quant', 'action_apply_inventory', [[id]], { context: INVENTORY });
+    return;
+  }
+  for (const q of quants) {
+    if (diff === 0) break;
+    const take = Math.min(q.qty, -diff);
+    if (take <= 0) continue;
+    await set(q.id, q.qty - take);
+    diff += take;
+  }
+}
+
+/** A sync that stopped partway (lost signal): `store` has every count Odoo took before it stopped, so none is sent twice. */
+export class PartialSyncError extends Error {
+  constructor(
+    message: string,
+    readonly store: StockStore,
+    readonly sent: number,
+  ) {
+    super(message);
+  }
 }
 
 export interface SyncResult {
@@ -185,8 +222,17 @@ export async function syncTruck(client: OdooClient, store: StockStore, now: numb
     if (i.syncedOnHand === undefined) target = have === undefined || have === 0 ? i.onHand : undefined;
     else if (i.onHand !== i.syncedOnHand) target = Math.max(0, (have ?? 0) + i.onHand - i.syncedOnHand);
     if (target !== undefined && target !== (have ?? 0)) {
-      await setTruckQty(client, truck.locationId, i.odooId!, target);
+      try {
+        await setTruckQty(client, truck.locationId, i.odooId!, target);
+      } catch (e) {
+        // Keep what Odoo already took: those items now match Odoo, the rest are untouched.
+        const done = new Map(items.map((x) => [x.id, x]));
+        const partial = store.items.map((x) => done.get(x.id) ?? x);
+        const why = e instanceof Error ? e.message : String(e);
+        throw new PartialSyncError(`The sync stopped after ${sent} count${sent === 1 ? '' : 's'}: ${why}`, { ...store, items: partial, truck }, sent);
+      }
       sent++;
+      i = { ...i, onHand: target, syncedOnHand: target };
     }
     items.push(i);
   }

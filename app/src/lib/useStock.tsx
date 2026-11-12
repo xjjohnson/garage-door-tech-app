@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { log } from './log';
 import type { OdooClient } from './odoo';
-import { receivePurchaseOrder, sendPurchaseOrder, syncTruck, SyncResult } from './odooStock';
+import { PartialSyncError, receivePurchaseOrder, sendPurchaseOrder, syncTruck, SyncResult } from './odooStock';
 import { EMPTY_STOCK, findSupplier, mergeStock, parseStock, PartUse, PurchaseOrder, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, StockStore, Supplier, SupplierOrder } from './stock';
 
 export type NewStockItem = Omit<StockItem, 'id' | 'updatedAt'>;
@@ -126,18 +126,29 @@ export function StockProvider({ children }: { children: ReactNode }) {
   const sync = useCallback(
     async (client: OdooClient) => {
       const before = latest.current;
-      const result = await syncTruck(client, before, Date.now());
       // Counts changed on the phone while the sync ran are kept on top of Odoo's.
-      change((cur) => {
-        const was = new Map(before.items.map((i) => [i.id, i.onHand]));
-        const items = result.store.items.map((i) => {
-          const now = cur.items.find((x) => x.id === i.id);
-          const delta = now && was.has(i.id) ? now.onHand - was.get(i.id)! : 0;
-          return delta ? { ...i, onHand: Math.max(0, i.onHand + delta) } : i;
+      const apply = (next: StockStore) =>
+        change((cur) => {
+          const was = new Map(before.items.map((i) => [i.id, i.onHand]));
+          const items = next.items.map((i) => {
+            const now = cur.items.find((x) => x.id === i.id);
+            const delta = now && was.has(i.id) ? now.onHand - was.get(i.id)! : 0;
+            return delta ? { ...i, onHand: Math.max(0, i.onHand + delta) } : i;
+          });
+          const extra = cur.items.filter((i) => !was.has(i.id));
+          return { ...next, items: [...items, ...extra], used: cur.used, purchases: cur.purchases };
         });
-        const extra = cur.items.filter((i) => !was.has(i.id));
-        return { ...result.store, items: [...items, ...extra], used: cur.used, purchases: cur.purchases };
-      });
+      let result: SyncResult;
+      try {
+        result = await syncTruck(client, before, Date.now());
+      } catch (e) {
+        if (e instanceof PartialSyncError) {
+          apply(e.store);
+          log.warn('stock', `truck sync stopped after ${e.sent} sent: ${e.message}`);
+        }
+        throw e;
+      }
+      apply(result.store);
       log.info('stock', `truck sync: ${result.sent} sent, ${result.added} new, ${result.linked} linked, ${result.phoneOnly.length} phone only`);
       return result;
     },

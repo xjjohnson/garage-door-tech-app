@@ -7,7 +7,7 @@ import { findProductByCode } from '../lib/odooStock';
 import { pickList } from '../lib/pickList';
 import { cents, formatMoney } from '../lib/prices';
 import { startOfDay } from '../lib/schedule';
-import { CATEGORY_LABEL, findByCode, findSupplier, guessCategory, isLow, onOrder, openPurchases, orderLinks, orders, orderText, STOCK_CATEGORIES, StockItem, supplierNames, unsyncedItems, usedTotals } from '../lib/stock';
+import { CATEGORY_LABEL, findByCode, findSupplier, guessCategory, isLow, onOrder, openPurchases, orderLinks, orders, orderText, STOCK_CATEGORIES, StockItem, SupplierOrder, supplierNames, unsyncedItems, usedTotals } from '../lib/stock';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
@@ -55,6 +55,7 @@ export function StockScreen() {
   const [editingSupplier, setEditingSupplier] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [counting, setCounting] = useState<StockItem | null>(null);
+  const [confirming, setConfirming] = useState<SupplierOrder | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; bad?: boolean } | null>(null);
   const ordered = onOrder(store.purchases);
@@ -214,14 +215,7 @@ export function StockScreen() {
                 <Action
                   label={busy === `po-${key}` ? 'Sending…' : `Send PO to supplier · ${linked} item${linked === 1 ? '' : 's'}`}
                   primary
-                  onPress={() =>
-                    !busy &&
-                    run(`po-${key}`, async () => {
-                      const po = await store.sendOrder(client, o);
-                      const skipped = o.lines.length - linked;
-                      return `${po.name} made in Odoo${po.emailed ? ' and emailed to the supplier' : '. Odoo could not email it, so text or email it'}.${skipped ? ` ${skipped} item${skipped === 1 ? ' is' : 's are'} not in Odoo and left off.` : ''}`;
-                    })
-                  }
+                  onPress={() => !busy && setConfirming(o)}
                   testID={`order-po-${key}`}
                 />
                 <Text style={styles.meta}>Makes a purchase order in Odoo and emails it to the vendor</Text>
@@ -266,6 +260,22 @@ export function StockScreen() {
       ) : null}
 
       <BarcodeScanner visible={scanning} title="Scan a part" hint="Point at the barcode on the box or label. A part on the truck opens its count; a new one is looked up in Odoo." onCode={scanned} onClose={() => setScanning(false)} />
+      <ConfirmOrderSheet
+        order={confirming}
+        email={confirming ? findSupplier(suppliers, confirming.supplier)?.email : undefined}
+        onCancel={() => setConfirming(null)}
+        onSend={(o) => {
+          setConfirming(null);
+          if (!client) return;
+          const key = o.supplier || 'none';
+          const linked = o.lines.filter((l) => l.item.odooId !== undefined).length;
+          run(`po-${key}`, async () => {
+            const po = await store.sendOrder(client, o);
+            const skipped = o.lines.length - linked;
+            return `${po.name} made in Odoo${po.emailed ? ' and emailed to the supplier' : '. Odoo could not email it, so text or email it'}.${skipped ? ` ${skipped} item${skipped === 1 ? ' is' : 's are'} not in Odoo and left off.` : ''}`;
+          });
+        }}
+      />
       <CountSheet
         item={counting}
         onCancel={() => setCounting(null)}
@@ -299,6 +309,40 @@ export function StockScreen() {
         }}
       />
     </View>
+  );
+}
+
+/** A purchase order is a real order to a supplier, so it's checked once before it goes. */
+function ConfirmOrderSheet({ order, email, onSend, onCancel }: { order: SupplierOrder | null; email?: string; onSend: (o: SupplierOrder) => void; onCancel: () => void }) {
+  if (!order) return null;
+  const lines = order.lines.filter((l) => l.item.odooId !== undefined);
+  const left = order.lines.length - lines.length;
+  const total = lines.reduce((n, l) => n + l.qty * l.item.costCents, 0);
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
+      <View style={styles.backdrop}>
+        <View style={styles.sheet} testID="po-confirm">
+          <View style={styles.titleRow}>
+            <Text style={styles.sheetTitle}>Order from {order.supplier}?</Text>
+            <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" testID="po-confirm-cancel">
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+          {lines.map((l) => (
+            <Text key={l.item.id} style={styles.detail}>
+              {l.qty} x {l.item.name}
+              {l.item.costCents > 0 ? ` · ${formatMoney(l.qty * l.item.costCents)}` : ''}
+            </Text>
+          ))}
+          {total > 0 ? <Text style={styles.name}>About {formatMoney(total)}</Text> : null}
+          {left ? <Text style={styles.meta}>{left} item{left === 1 ? ' is' : 's are'} not in Odoo and won't be on it.</Text> : null}
+          <Text style={styles.meta}>Odoo makes and confirms the purchase order, then emails it to {email || 'the vendor on file in Odoo'}.</Text>
+          <Pressable onPress={() => onSend(order)} accessibilityRole="button" testID="po-confirm-send" style={({ pressed }) => [styles.save, pressed && styles.pressed]}>
+            <Text style={styles.saveText}>Send the order</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 

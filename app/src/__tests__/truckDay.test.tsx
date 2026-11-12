@@ -5,7 +5,7 @@ import { daySummary, dayText, DAY_CLOSE_STORAGE_KEY, parseClosedDays } from '../
 import { Invoice } from '../lib/invoices';
 import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
 import type { OdooClient } from '../lib/odoo';
-import { findProductByCode, receivePurchaseOrder, sendPurchaseOrder, syncTruck } from '../lib/odooStock';
+import { findProductByCode, likeExact, PartialSyncError, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
 import { Appointment } from '../lib/schedule';
@@ -26,7 +26,8 @@ function fakeStockOdoo() {
     { id: 12, name: '.250 x 2" x 30" torsion spring', default_code: 'SPR-250-30', barcode: '', standard_price: 24, product_tmpl_id: [112, 'Spring'] },
     { id: 13, name: 'Safety sensors (pair)', default_code: '', barcode: '777', standard_price: 0, product_tmpl_id: [113, 'Sensors'] },
   ];
-  const quants: { id: number; product: number; qty: number; pending?: number }[] = [{ id: 1, product: 11, qty: 5 }];
+  const failOn: { writes?: number } = {};
+  const quants: { id: number; product: number; qty: number; pending?: number; loc?: number }[] = [{ id: 1, product: 11, qty: 5 }];
   const pickings: Record<number, { state: string; dest: number; lines: { product: number; qty: number }[] }> = {};
   let nextId = 100;
   const call = async (model: string, method: string, args: unknown[] = [], kw: Record<string, unknown> = {}) => {
@@ -36,8 +37,12 @@ function fakeStockOdoo() {
     switch (key) {
       case 'stock.location.search_read':
         return [{ id: 7, name: 'Truck 1', complete_name: 'WH/Truck 1' }];
-      case 'stock.quant.search_read':
-        return quants.map((q) => ({ id: q.id, product_id: [q.product, pname(q.product)], quantity: q.qty }));
+      case 'stock.quant.search_read': {
+        const d = args[0] as unknown[][];
+        const pid = d.find((x) => x[0] === 'product_id')?.[2];
+        if (pid !== undefined && failOn.writes !== undefined && failOn.writes-- === 0) throw new Error('Network request failed');
+        return quants.filter((q) => pid === undefined || q.product === pid).map((q) => ({ id: q.id, product_id: [q.product, pname(q.product)], location_id: [q.loc ?? 7, 'Truck'], quantity: q.qty }));
+      }
       case 'stock.warehouse.orderpoint.search_read':
         return [{ id: 1, product_id: [11, pname(11)], product_min_qty: 2, product_max_qty: 6 }];
       case 'product.product.read':
@@ -48,10 +53,6 @@ function fakeStockOdoo() {
         const d = JSON.stringify(args[0]);
         const hit = products.find((p) => (p.barcode && d.includes(`"${p.barcode}"`)) || (p.default_code && d.toLowerCase().includes(`"${p.default_code.toLowerCase()}"`)) || d.toLowerCase().includes(`"${p.name.toLowerCase().replace(/"/g, '\\"')}"`));
         return hit ? [hit.id] : [];
-      }
-      case 'stock.quant.search': {
-        const pid = ((args[0] as unknown[][])[0] as unknown[])[2] as number;
-        return quants.filter((q) => q.product === pid).map((q) => q.id);
       }
       case 'stock.quant.write': {
         const q = quants.find((x) => x.id === (args[0] as number[])[0])!;
@@ -109,7 +110,7 @@ function fakeStockOdoo() {
     throw new Error(`fake Odoo has no ${key}`);
   };
   const client = { session: { uid: 2, kind: 'oca', fields: [], apps: { products: true, sales: true, invoicing: true } }, call } as unknown as OdooClient;
-  return { client, calls, quants, pickings };
+  return { client, calls, quants, pickings, failOn };
 }
 
 describe('truck stock with Odoo Inventory (plain logic)', () => {
@@ -145,6 +146,39 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     const third = await syncTruck(o.client, second.store, 3000, 'Truck 1', () => 'new-sensors');
     expect(third.added).toBe(1);
     expect(third.store.items.find((i) => i.id === 'new-sensors')).toMatchObject({ name: 'Safety sensors (pair)', category: 'openers', onHand: 2, odooId: 13, barcode: '777' });
+  });
+
+  it('keeps the counts Odoo took when a sync stops partway, so none is sent twice', async () => {
+    const o = fakeStockOdoo();
+    o.quants.push({ id: 2, product: 12, qty: 10 });
+    const store: StockStore = {
+      items: [item('r', { odooId: 11, onHand: 3, syncedOnHand: 5 }), item('s', { odooId: 12, onHand: 7, syncedOnHand: 10 })],
+      suppliers: [],
+      truck: { locationId: 7, name: 'Truck 1', syncedAt: 1 },
+    };
+    o.failOn.writes = 1; // The first count goes through, the second loses signal.
+    const err = await syncTruck(o.client, store, 2000).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PartialSyncError);
+    const partial = (err as PartialSyncError).store;
+    expect(o.quants.find((q) => q.product === 11)?.qty).toBe(3);
+    expect(partial.items.find((i) => i.id === 'r')).toMatchObject({ onHand: 3, syncedOnHand: 3 });
+    expect(partial.items.find((i) => i.id === 's')).toMatchObject({ onHand: 7, syncedOnHand: 10 });
+    // Signal's back: rollers aren't sent again, the spring's -3 goes up once.
+    const again = await syncTruck(o.client, partial, 3000);
+    expect(again.sent).toBe(1);
+    expect(o.quants.find((q) => q.product === 11)?.qty).toBe(3);
+    expect(o.quants.find((q) => q.product === 12)?.qty).toBe(7);
+  });
+
+  it('spreads a count over several quants of one product, and matches names literally', async () => {
+    const o = fakeStockOdoo();
+    o.quants.push({ id: 3, product: 11, qty: 4, loc: 9 });
+    // 5 + 4 = 9 on the truck; set it to 2: take 5 from the first, 2 from the shelf.
+    await setTruckQty(o.client, 7, 11, 2);
+    expect(o.quants.filter((q) => q.product === 11).map((q) => q.qty)).toEqual([0, 2]);
+    await setTruckQty(o.client, 7, 11, 6);
+    expect(o.quants.filter((q) => q.product === 11).reduce((n, q) => n + q.qty, 0)).toBe(6);
+    expect(likeExact('50% off_x')).toBe('50\\% off\\_x');
   });
 
   it('finds a product by barcode, and sends, emails and receives a purchase order onto the truck', async () => {
