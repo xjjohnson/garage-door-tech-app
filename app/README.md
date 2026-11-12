@@ -253,8 +253,13 @@ Odoo quotations in draft or sent). Tap a pin or a row for **Google Maps**,
 **Waze**, and **Start job** / **Open job**; **Whole day in Google Maps** opens
 the rest of the day as one route. Addresses are looked up with OpenStreetMap
 Nominatim, one a second as its rules ask, and kept on the phone
-(AsyncStorage `geocode/v1`; a miss is asked again after a week); contacts
-Odoo already has pinned skip the lookup. The map needs signal (Leaflet and
+(AsyncStorage `geocode/v1`; a miss is asked again after a day); contacts
+Odoo already has pinned skip the lookup. An address that misses as typed is
+tried again as street + ZIP (a city that doesn't match the ZIP is the usual
+cause), then street + city, then the ZIP alone, which gives a dashed pin in
+the middle of the ZIP. The yellow bar under the map says how many weren't
+found or were placed by ZIP only; tap it to see which, with **Google Maps**
+to check the address and **Try again** once it's fixed (from 0.5.7). The map needs signal (Leaflet and
 the tiles load over the internet); the list under it works without.
 
 **Job hub** (`/job/<id>`). One page per job with its steps: On my way (opens
