@@ -71,18 +71,19 @@ export function StockScreen() {
   const unsynced = unsyncedItems(store).length;
   // Signed in, Odoo is the record of the truck: it syncs on open and after each change.
   const auto = useTruckSync({
-    onDone: (r) => (r.removed.length || r.created.length ? setMessage({ text: syncDone(r) }) : undefined),
+    onDone: (r) => (r.removed.length || r.created.length || r.problems.length ? setMessage(syncMessage(r)) : undefined),
     onError: (e) => {
       setMessage({ text: e instanceof Error ? e.message : String(e), bad: true });
       if (e instanceof NoTruckError && client) listTrucks(client).then(setTrucks, () => undefined);
     },
   });
 
-  const run = async (key: string, fn: () => Promise<string>) => {
+  const run = async (key: string, fn: () => Promise<string | { text: string; bad?: boolean }>) => {
     setBusy(key);
     setMessage(null);
     try {
-      setMessage({ text: await fn() });
+      const m = await fn();
+      setMessage(typeof m === 'string' ? { text: m } : m);
     } catch (e) {
       setMessage({ text: e instanceof Error ? e.message : String(e), bad: true });
     } finally {
@@ -98,17 +99,21 @@ export function StockScreen() {
       return list.length ? 'Pick the Odoo location that is your truck.' : 'Odoo has no Inventory locations to pick. Make one in Inventory › Configuration › Locations.';
     });
 
+  function syncMessage(r: SyncResult) {
+    return { text: syncDone(r), bad: r.problems.length > 0 };
+  }
   function syncDone(r: SyncResult) {
     const bits = [r.sent ? `${r.sent} count${r.sent === 1 ? '' : 's'} sent` : '', r.added ? `${r.added} new from Odoo` : '', r.linked ? `${r.linked} linked` : '', r.created.length ? `${r.created.length} new in Odoo` : ''].filter(Boolean);
     const left = r.removed.length ? ` Taken off the list: ${r.removed.slice(0, 3).join(', ')}${r.removed.length > 3 ? '…' : ''}.` : '';
-    return `${r.store.truck?.name ?? 'Truck'} synced${bits.length ? `: ${bits.join(', ')}` : ''}.${left}`;
+    const bad = r.problems.length ? ` ${r.problems.map((p) => p.why).join(' ')}` : '';
+    return `${r.store.truck?.name ?? 'Truck'} synced${bits.length ? `: ${bits.join(', ')}` : ''}.${left}${bad}`;
   }
 
   const syncNow = () =>
     client &&
     run('sync', async () => {
       try {
-        return syncDone(await store.sync(client));
+        return syncMessage(await store.sync(client));
       } catch (e) {
         // No truck is named for this tech: let them pick one.
         if (e instanceof NoTruckError) setTrucks(await listTrucks(client).catch(() => []));
@@ -307,7 +312,7 @@ export function StockScreen() {
         onCancel={() => setTrucks(null)}
         onPick={(t) => {
           setTrucks(null);
-          if (client) run('sync', async () => syncDone(await store.chooseTruck(client, t)));
+          if (client) run('sync', async () => syncMessage(await store.chooseTruck(client, t)));
         }}
       />
       <ConfirmOrderSheet

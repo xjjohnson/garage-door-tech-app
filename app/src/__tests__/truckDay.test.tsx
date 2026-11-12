@@ -4,7 +4,7 @@ import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { daySummary, dayText, DAY_CLOSE_STORAGE_KEY, parseClosedDays } from '../lib/endOfDay';
 import { Invoice } from '../lib/invoices';
 import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
-import type { OdooClient } from '../lib/odoo';
+import { OdooClient, OdooError } from '../lib/odoo';
 import { createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
@@ -28,6 +28,9 @@ function fakeStockOdoo() {
     { id: 13, name: 'Safety sensors (pair)', default_code: '', barcode: '777', standard_price: 0, product_tmpl_id: [113, 'Sensors'] },
   ];
   const failOn: { writes?: number } = {};
+  /** Templates Odoo keeps no stock of: a consumable (Track Inventory off) or a service. */
+  const untracked: Record<number, 'consu' | 'service'> = {};
+  const tmplOf = (pid: number) => (products.find((p) => p.id === pid)?.product_tmpl_id[0] as number) ?? 0;
   const locations = [
     { id: 7, name: 'Truck 1', complete_name: 'WH/Truck 1' },
     { id: 8, name: 'Truck - Sam Ortiz', complete_name: 'WH/Truck - Sam Ortiz' },
@@ -74,6 +77,7 @@ function fakeStockOdoo() {
       }
       case 'stock.quant.create': {
         const v = args[0] as { product_id: number; inventory_quantity: number };
+        if (untracked[tmplOf(v.product_id)]) throw new OdooError('Quants cannot be created for consumables or services.', 'server');
         const id = nextId++;
         quants.push({ id, product: v.product_id, qty: 0, pending: v.inventory_quantity, loc: (v as { location_id?: number }).location_id });
         return id;
@@ -86,6 +90,8 @@ function fakeStockOdoo() {
       }
       case 'product.template.fields_get':
         return { type: {}, is_storable: {} };
+      case 'product.template.read':
+        return (args[0] as number[]).map((id) => ({ id, type: untracked[id] ?? 'consu', is_storable: !untracked[id] }));
       case 'product.product.create': {
         const v = args[0] as { name: string; default_code: string | false; barcode: string | false; standard_price?: number };
         const id = nextId++;
@@ -132,7 +138,7 @@ function fakeStockOdoo() {
   };
   const session = { uid: 2, name: 'Justin Johnson', kind: 'oca', fields: [], apps: { products: true, sales: true, invoicing: true } };
   const client = { session, call } as unknown as OdooClient;
-  return { client, calls, quants, pickings, failOn, session, locations, products };
+  return { client, calls, quants, pickings, failOn, session, locations, products, untracked };
 }
 
 describe('truck stock with Odoo Inventory (plain logic)', () => {
@@ -251,6 +257,28 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
 
     expect(await receivePurchaseOrder(o.client, 300)).toBe(true);
     expect(o.quants.find((q) => q.product === 12)?.qty).toBe(3);
+  });
+
+  it("asks for Track Inventory on a consumable, and one part Odoo refuses doesn't stop the rest", async () => {
+    const o = fakeStockOdoo();
+    const truck = { locationId: 7, name: 'Truck 1', syncedAt: 1, uid: 2 };
+    // Sensors (template 113) are a consumable in Odoo: that part waits with the phone's count, and the rollers still go.
+    o.untracked[113] = 'consu';
+    const r = await syncTruck(o.client, { items: [item('e', { name: 'Genie belt', odooId: 13, onHand: 2, syncedOnHand: 0 }), item('r', { odooId: 11, onHand: 4, syncedOnHand: 5 })], suppliers: [], truck }, 20);
+    expect(r.sent).toBe(1);
+    expect(o.quants.find((q) => q.product === 11)?.qty).toBe(4);
+    expect(r.problems).toHaveLength(1);
+    expect(r.problems[0].why).toMatch(/isn't tracked in Odoo\. In Odoo open the product and tick Track Inventory, then sync\./);
+    expect(r.store.items.find((i) => i.id === 'e')).toMatchObject({ onHand: 2, syncedOnHand: 0 });
+    expect(r.store.items.find((i) => i.id === 'r')).toMatchObject({ onHand: 4, syncedOnHand: 4 });
+    // The app never changes the product itself.
+    expect(o.calls.some((c) => c.model === 'product.template' && c.method === 'write')).toBe(false);
+
+    // Once the owner ticks Track Inventory in Odoo, the next sync sends it.
+    delete o.untracked[113];
+    const next = await syncTruck(o.client, r.store, 30);
+    expect(next.problems).toEqual([]);
+    expect(o.quants.find((q) => q.product === 13)?.qty).toBe(2);
   });
 
   it('makes a new stocked product, finds products by what is typed, and keeps one item per product', async () => {
