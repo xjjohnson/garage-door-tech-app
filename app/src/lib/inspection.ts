@@ -308,14 +308,14 @@ export function repairFromFlag(f: Pick<Flag, 'label' | 'action'> & { key?: Answe
   return { id: uid('r', now, n), label: f.action.trim() || `${f.label}: repair`, price: '', taxable: true, ...(f.key ? { item: f.key } : {}) };
 }
 
-/** The job's repairs as quote lines; ones with no name or price are left off. */
-export function repairLines(insp: Inspection | undefined): QuoteLine[] {
-  return (insp?.repairs ?? []).filter((r) => !r.declined && r.label.trim() !== '' && cents(r.price) > 0).map((r) => ({ label: r.label.trim(), cents: cents(r.price), taxable: r.taxable }));
+/** The job's repairs as quote lines, then any typed on the quote; ones with no name or price are left off. */
+export function repairLines(insp: Inspection | undefined, typed: Repair[] = []): QuoteLine[] {
+  return [...(insp?.repairs ?? []), ...typed].filter((r) => !r.declined && r.label.trim() !== '' && cents(r.price) > 0).map((r) => ({ label: r.label.trim(), cents: cents(r.price), taxable: r.taxable }));
 }
 
 /** The quote with the repairs added to every option that can be priced, totals and tax worked out again. */
-export function withRepairs(quote: Quote, insp: Inspection | undefined, sheet: PriceSheet): Quote {
-  const extra = repairLines(insp);
+export function withRepairs(quote: Quote, insp: Inspection | undefined, sheet: PriceSheet, typed: Repair[] = []): Quote {
+  const extra = repairLines(insp, typed);
   if (extra.length === 0 || quote.blocked) return quote;
   const taxRate = cents(sheet.taxPercent) / 10_000;
   return {
@@ -425,18 +425,22 @@ function fromLegacy(results: Record<string, unknown>, at: number): Door {
   return door;
 }
 
+/** Reads saved repair lines (an inspection's, or the ones typed on a job's quote). */
+export function parseRepairs(v: unknown): Repair[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((r): Repair[] => {
+    const x = r as Record<string, unknown> | null;
+    if (!x || typeof x.id !== 'string') return [];
+    return [{ id: x.id, label: str(x.label), price: str(x.price), taxable: x.taxable !== false, ...(str(x.item) ? { item: str(x.item) } : {}), ...(x.declined === true ? { declined: true } : {}) }];
+  });
+}
+
 /** Reads a saved inspection, new or from the 0.4 safety check; anything the wrong shape is dropped. */
 export function parseInspection(v: unknown): Inspection | undefined {
   if (!v || typeof v !== 'object') return undefined;
   const d = v as Record<string, unknown>;
   const at = typeof d.at === 'number' ? d.at : 0;
-  const repairs = Array.isArray(d.repairs)
-    ? d.repairs.flatMap((r): Repair[] => {
-        const x = r as Record<string, unknown> | null;
-        if (!x || typeof x.id !== 'string') return [];
-        return [{ id: x.id, label: str(x.label), price: str(x.price), taxable: x.taxable !== false, ...(str(x.item) ? { item: str(x.item) } : {}), ...(x.declined === true ? { declined: true } : {}) }];
-      })
-    : [];
+  const repairs = parseRepairs(d.repairs);
   const doors = Array.isArray(d.doors)
     ? d.doors.map(parseDoor).filter((x): x is Door => !!x)
     : d.results && typeof d.results === 'object'

@@ -8,6 +8,7 @@ import { balance, invoiceStatus } from '../lib/invoices';
 import { jobName } from '../lib/jobs';
 import { jobSteps, nextStep, STEP_LABEL } from '../lib/jobSteps';
 import { log } from '../lib/log';
+import { canSendJobs, olderJobs } from '../lib/odooJobs';
 import { describePending } from '../lib/pending';
 import { formatMoney } from '../lib/prices';
 import { Appointment, formatTime, mapsLink, onDay } from '../lib/schedule';
@@ -16,6 +17,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useLog } from '../lib/useLog';
 import { useOdoo } from '../lib/useOdoo';
+import { useJobsSince } from '../lib/useJobsSince';
 import { usePending } from '../lib/usePending';
 import { useSchedule } from '../lib/useSchedule';
 import { useStartJob } from '../lib/useStartJob';
@@ -49,6 +51,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   return (
     <View style={styles.stack} testID="today">
       <SyncLine />
+      <OlderJobsLine />
       <CrashNotice />
       <View style={styles.row}>
         <Text style={[styles.count, styles.grow]} testID="today-count">
@@ -149,13 +152,29 @@ export function SyncLine() {
   if (pending.total === 0) {
     return (
       <Text style={[styles.sync, styles.syncOk]} testID="today-sync">
-        ✓ Customers, quotes and invoices are in Odoo. Jobs and visits stay on this phone for now.
+        ✓ Odoo up to date: jobs, visits, customers, quotes and invoices
       </Text>
     );
   }
   return (
     <Pressable onPress={() => router.push('/developer')} accessibilityRole="button" testID="today-sync" style={({ pressed }) => [styles.syncPill, styles.syncWarn, pressed && styles.pressed]}>
       <Text style={styles.sync}>Not in Odoo yet: {describePending(pending)}</Text>
+    </Pressable>
+  );
+}
+
+/** Open jobs from before jobs went to Odoo: none are sent until the tech picks them. */
+function OlderJobsLine() {
+  const { status, client } = useOdoo();
+  const { jobs } = useJobs();
+  const since = useJobsSince();
+  const n = olderJobs(jobs, since).length;
+  if (status !== 'signedIn' || !client || !canSendJobs(client) || n === 0) return null;
+  return (
+    <Pressable onPress={() => router.push('/odoo-older-jobs')} accessibilityRole="button" testID="today-older-jobs" style={({ pressed }) => [styles.syncPill, pressed && styles.pressed]}>
+      <Text style={styles.sync}>
+        {n} older job{n === 1 ? '' : 's'} not in Odoo · pick which to send
+      </Text>
     </Pressable>
   );
 }

@@ -3,7 +3,7 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { EMPTY_INSPECTION, Inspection, parseInspection, repairFromFlag, repairLines } from '../lib/inspection';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
-import { emailCustomer } from '../lib/odooReports';
+import { emailInvoice } from '../lib/odooReports';
 import { lineValues, orderRef } from '../lib/odooSales';
 import { fetchTemplates, parseTemplates, templateQuote, TemplateSets, TEMPLATES_STORAGE_KEY, tierFromName } from '../lib/odooTemplates';
 import { DEFAULT_PRICE_SHEET, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
@@ -89,27 +89,47 @@ describe('inspection add-ons', () => {
 });
 
 describe('emailing the invoice from Odoo', () => {
-  it('needs an email on the contact', async () => {
-    const client = { call: jest.fn(async () => [{ email: false }]) };
-    await expect(emailCustomer(client, 'account.move', 5, 7, [], 'Hi')).rejects.toThrow(/no email/);
-    expect(client.call).toHaveBeenCalledTimes(1);
-  });
-
-  it('attaches each PDF and posts a message to the customer', async () => {
+  /** A pretend Odoo; `mail` is what mail.mail holds for the sent email. */
+  function fake(mail: unknown[] = []) {
     const calls: unknown[][] = [];
     let n = 100;
     const client = {
       call: jest.fn(async (...a: unknown[]) => {
         calls.push(a);
-        if (a[0] === 'res.partner') return [{ email: 'pat@example.com' }];
-        if (a[0] === 'ir.attachment') return ++n;
+        const [model, method] = a as [string, string];
+        if (model === 'res.partner') return [{ email: 'pat@example.com' }];
+        if (model === 'ir.attachment') return ++n;
+        if (model === 'ir.model.data') return [{ res_id: 12 }];
+        if (model === 'mail.template' && method === 'send_mail') return 77;
+        if (model === 'mail.mail') return mail;
         return true;
       }),
     };
-    const to = await emailCustomer(client, 'account.move', 5, 7, [{ name: 'Invoice.pdf', base64: 'A' }, { name: 'Inspection.pdf', base64: 'B' }], '<p>Hi</p>');
-    expect(to).toBe('pat@example.com');
-    expect(calls.filter((c) => c[0] === 'ir.attachment')).toHaveLength(2);
-    expect(calls.at(-1)).toEqual(['account.move', 'message_post', [[5]], { body: '<p>Hi</p>', partner_ids: [7], attachment_ids: [101, 102], message_type: 'comment', subtype_xmlid: 'mail.mt_comment' }]);
+    return { client, calls };
+  }
+
+  it('needs an email on the contact', async () => {
+    const { client } = fake();
+    client.call.mockImplementationOnce(async () => [{ email: false }]);
+    await expect(emailInvoice(client, 5, 7, [])).rejects.toThrow(/no email/);
+    expect(client.call).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends Odoo’s own invoice email with the inspection report added, and says Odoo sent it', async () => {
+    const { client, calls } = fake();
+    const r = await emailInvoice(client, 5, 7, [{ name: 'Inspection.pdf', base64: 'B' }]);
+    expect(r).toEqual({ to: 'pat@example.com', state: 'sent' });
+    expect(calls.filter((c) => c[0] === 'ir.attachment')).toHaveLength(1);
+    expect(calls.find((c) => c[1] === 'send_mail')).toEqual(['mail.template', 'send_mail', [[12], 5], { force_send: true, email_values: { attachment_ids: [101] } }]);
+    expect(calls.find((c) => c[0] === 'mail.mail')).toEqual(['mail.mail', 'search_read', [[['id', '=', 77]]], { fields: ['state', 'failure_reason'] }]);
+    expect(calls.find((c) => c[1] === 'message_post')![3]).toMatchObject({ body: 'Invoice emailed to pat@example.com from the app, with Inspection.pdf.', subtype_xmlid: 'mail.mt_note' });
+    // No phone-made invoice PDF, and no HTML body for Odoo to escape.
+    expect(calls.some((c) => c[1] === 'message_post' && (c[3] as { partner_ids?: unknown }).partner_ids)).toBe(false);
+  });
+
+  it('reports mail still queued, or why Odoo couldn’t send it', async () => {
+    expect((await emailInvoice(fake([{ state: 'outgoing', failure_reason: false }]).client, 5, 7, [])).state).toBe('queued');
+    expect(await emailInvoice(fake([{ state: 'exception', failure_reason: 'No outgoing mail server' }]).client, 5, 7, [])).toEqual({ to: 'pat@example.com', state: 'failed', reason: 'No outgoing mail server' });
   });
 });
 
@@ -167,7 +187,7 @@ describe('repair-only quote', () => {
     await renderApp('/quote/j1');
     await settle();
     expect(screen.queryByTestId('quote-blocked')).toBeNull();
-    expect(screen.getByTestId('quote-repairs-only')).toBeTruthy();
+    expect(screen.getByTestId('quote-no-templates')).toHaveTextContent(/"Tune-up · Good", "Tune-up · Better" and "Tune-up · Best"/);
     expect(screen.getByTestId('quote-good')).toHaveTextContent(/Repairs/);
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$149');
     expect(screen.queryByTestId('quote-better')).toBeNull();
@@ -176,10 +196,31 @@ describe('repair-only quote', () => {
     expect(screen.getByTestId('quote-make-invoice')).toHaveTextContent('Make invoice for $149');
   });
 
-  it('still says what is missing when there is nothing to quote', async () => {
+  it('still says what is missing on a spring job, and can be quoted by hand', async () => {
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
     await renderApp('/quote/j1');
     await settle();
-    expect(screen.getByTestId('quote-blocked')).toHaveTextContent(/Missing/);
+    expect(screen.getByTestId('quote-blocked')).toHaveTextContent(/Missing.*add a line below/);
+    await fireEvent.press(screen.getByTestId('quote-line-add'));
+    const [line] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines!;
+    await fireEvent.changeText(screen.getByTestId(`quote-line-name-${line.id}`), 'Cable replacement');
+    await settle();
+    expect(screen.queryByTestId('quote-blocked')).toBeNull();
+    expect(screen.getByTestId('quote-repairs-only')).toBeTruthy();
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
+  });
+
+  it('never lists spring measurements for an opener with no templates', async () => {
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Opener', quoteLines: [{ id: 'q1', label: 'Opener install', price: '150', taxable: false }] }]));
+    await renderApp('/quote/j1');
+    await settle();
+    expect(screen.queryByTestId('quote-blocked')).toBeNull();
+    expect(screen.queryByText(/coils|Spring length/)).toBeNull();
+    expect(screen.getByTestId('quote-no-templates')).toHaveTextContent(/No Opener templates in Odoo/);
+    expect(screen.getByTestId('quote-good')).toHaveTextContent(/Opener install/);
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$239');
+    await fireEvent.press(screen.getByTestId('quote-line-remove-q1'));
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines).toBeUndefined();
   });
 });

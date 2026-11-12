@@ -12,6 +12,10 @@ interface ScheduleApi {
   setStatus: (id: string, status: VisitStatus) => void;
   remove: (id: string) => void;
   restore: (incoming: Appointment[]) => void;
+  /** Swaps visits wholesale (ids may change), without the newer-wins check: for the Odoo job sync. */
+  replace: (removeIds: string[], add: Appointment[]) => void;
+  /** Notes that a visit's time is now in Odoo, without counting it as a change. */
+  markSynced: (id: string, at: number) => void;
 }
 
 const Ctx = createContext<ScheduleApi | null>(null);
@@ -60,8 +64,16 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const setStatus = useCallback<ScheduleApi['setStatus']>((id, status) => change((p) => p.map((a) => (a.id === id ? { ...a, status, updatedAt: Date.now() } : a))), [change]);
   const remove = useCallback((id: string) => change((p) => p.filter((a) => a.id !== id)), [change]);
   const restore = useCallback((incoming: Appointment[]) => change((p) => mergeSchedule(p, incoming)), [change]);
+  const replace = useCallback<ScheduleApi['replace']>(
+    (removeIds, added) => change((p) => [...p.filter((a) => !removeIds.includes(a.id) && !added.some((x) => x.id === a.id)), ...added]),
+    [change],
+  );
+  const markSynced = useCallback<ScheduleApi['markSynced']>((id, at) => change((p) => p.map((a) => (a.id === id ? { ...a, syncedAt: at } : a))), [change]);
 
-  const api = useMemo(() => ({ appointments, loaded, add, update, setStatus, remove, restore }), [appointments, loaded, add, update, setStatus, remove, restore]);
+  const api = useMemo(
+    () => ({ appointments, loaded, add, update, setStatus, remove, restore, replace, markSynced }),
+    [appointments, loaded, add, update, setStatus, remove, restore, replace, markSynced],
+  );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 

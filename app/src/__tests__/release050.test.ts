@@ -105,8 +105,9 @@ describe('not synced yet', () => {
       invoice({ id: 'i3', payments: [{ id: 'p1', method: 'cash', amount: 100, at: 2, reference: '' }], odoo: { sentPayments: [] } as unknown as Invoice['odoo'] }),
     ];
     const p = pendingSync(customers, jobs, invoices);
-    expect(p).toEqual({ customers: 2, quotes: 1, invoices: 1, payments: 1, total: 5 });
-    expect(describePending(p)).toBe('2 customers, 1 quote, 1 invoice, 1 payment');
+    expect(p).toEqual({ customers: 2, jobs: 1, quotes: 1, invoices: 1, payments: 1, total: 6 });
+    expect(describePending(p)).toBe('2 customers, 1 job, 1 quote, 1 invoice, 1 payment');
+    expect(pendingSync([], [job({ odooJob: { model: 'fsm.order', id: 3, name: 'FSO3' } })], []).jobs).toBe(0);
   });
 });
 

@@ -483,10 +483,13 @@ sends new payments and reads back Odoo's paid status, amount owed and total
 it's needed. A customer without an Odoo contact gets one on the first send.
 The sales order's customer reference starts with the tier ("Better · 12 Elm
 St"), so reports can tell which option sold. Once an invoice is in Odoo,
-**Email the invoice and inspection report** makes both PDFs on the phone,
-attaches them to the Odoo invoice and posts them to the customer's contact,
-which Odoo sends by email (the contact needs an email address, and Odoo needs
-an outgoing mail server).
+**Email Odoo's invoice** (from 0.5.9) sends it the way Odoo's own Send
+button does: Odoo's "Invoice: Send by email" template, with the invoice PDF
+Odoo makes, plus the inspection report (made on the phone) as an extra
+attachment when the job has one. The invoice is marked sent with a note in
+its chatter, and the app reads Odoo's outgoing mail to say whether it was
+sent, is still queued, or failed and why (the contact needs an email address,
+and Odoo needs an outgoing mail server).
 
 **Quotation templates** (`src/lib/odooTemplates.ts`). Odoo quotation
 templates named "Job type · Good", "· Better" and "· Best" (a dash or colon
@@ -494,7 +497,14 @@ works too) price jobs the spring calculator can't, like openers and tune-ups:
 a job whose "What's wrong" is Opener gets its options from the "Opener ·"
 templates, with each line's Odoo product, price and tax. They're saved on the
 phone (`odoo-templates/v1`) and refreshed from Odoo every 10 minutes while
-signed in. Spring jobs keep using the price sheet.
+signed in. Spring jobs keep using the price sheet. A job that isn't about
+springs (anything but Broken spring, New door or no type) and has no templates
+never asks for spring measurements: the quote says which template names to
+make in Odoo and, until then, is the service call plus the inspection's
+repairs. **Add a line by hand** on any quote adds a typed line with a price
+(taxed as a part, or not, as labor) to every option, so a job can always be
+quoted; on a spring job missing its measurements, a named line turns the
+quote into that service-call-and-lines quote (`quoteLines` on the job).
 
 **Inspection add-ons.** Repairs added from the inspection (from Poor, Safety
 risk, Fair and other items) show on the quote with that item's photos. Each
@@ -610,6 +620,29 @@ to pick the worker and a start time (half hours, 7 to 6); it writes
 `person_id` and `scheduled_date_start` on the `fsm.order` straight away.
 **Assign and text the customer** also opens the phone's messages app with
 the booking filled in, to send by hand (`src/screens/DispatchScreen.tsx`).
+
+**Phone jobs in Odoo** (from 0.5.9). While signed in, every open job saved
+on the phone (with a customer or address) from the first time 0.5.9 ran
+(`odoo-jobs/since/v1`) becomes a Field Service order, or a Project task
+without OCA Field Service, so it shows on Jobs › Team (under **Not
+assigned** when it has no worker). Older open jobs are never sent on their
+own: Today shows "N older jobs not in Odoo", which opens a list to tick the
+ones to send; the rest stay on the phone (`sendToOdoo` on the job). The
+order gets the customer's Field Service location (made on their contact if
+they have none) and the job type and notes as its description, with a last
+line "App job <id>": before making an order the app searches for that line,
+so a retry after the app was closed mid-send finds the order instead of
+making a second. A job with no customer record uses the Odoo contact with
+the same phone number, then the same name, before making a new contact. A job with a booked visit is given to you;
+the visit then takes the order's id (`odoo-<id>`). Booking or moving the
+visit on the phone (the job's **Visit** row, or **Later** on New job, opens
+the Schedule for that job) writes `scheduled_date_start` and
+`scheduled_duration`; a time or worker set in Odoo (Jobs › Team) comes back
+to the phone's visit, and a job given to someone else leaves this phone's
+schedule. It runs in the background shortly after a change, when the app
+comes back, and every 3 minutes (`src/lib/odooJobs.ts`,
+`src/components/OdooJobSync.tsx`). Jobs not sent yet count in the Today
+"waiting to go to Odoo" line.
 
 **Inspection.** A job's **Inspection** (in its details, or on its quote) is
 the checklist that replaces SafetyCulture. Each **door** gets its maker, size,

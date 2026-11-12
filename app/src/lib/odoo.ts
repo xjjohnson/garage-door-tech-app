@@ -644,6 +644,7 @@ export function taskToAppointment(t: OdooTask, now: number, existing?: Appointme
     start,
     minutes: existing?.minutes ?? 60,
     ...(existing?.customerId ? { customerId: existing.customerId } : {}),
+    ...(existing?.jobId ? { jobId: existing.jobId } : {}),
     name: t.customer || t.name,
     address: t.address,
     phone: t.phone,

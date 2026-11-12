@@ -6,8 +6,9 @@
  * math again (and shows any warnings a newer version adds). The one-line
  * summary is stored too, so the list can show it without running the math.
  */
+import { OdooJobRef, parseJobRef } from './odooJobs';
 import { OdooRef, parseRef } from './odooSales';
-import { Inspection, parseInspection } from './inspection';
+import { Inspection, parseInspection, parseRepairs, Repair } from './inspection';
 import { DEFAULT_DOOR_FORM, DEFAULT_DRUMS_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, DrumsForm, ExtensionForm, MatchForm, restoreForm } from './forms';
 import { Tier, TIERS } from './prices';
 
@@ -42,6 +43,12 @@ interface JobBase extends JobDetails {
   inspection?: Inspection;
   /** The sales order made in Odoo from the accepted option (src/lib/odooSales.ts). */
   odooOrder?: OdooRef;
+  /** The Field Service order (or task) this job is in Odoo (src/lib/odooJobs.ts). */
+  odooJob?: OdooJobRef;
+  /** Lines typed on the quote by hand ("Opener install", $150), added to every option. */
+  quoteLines?: Repair[];
+  /** For a job saved before the phone sent jobs to Odoo: true when the tech picked it to send, false when kept on the phone. */
+  sendToOdoo?: boolean;
   /** The job hub's steps (src/lib/jobSteps.ts): when each was tapped. */
   steps?: JobSteps;
   /** What the customer called about, from New job: "Broken spring", "Tune-up"... */
@@ -193,6 +200,9 @@ export function parseJobs(raw: string | null): Job[] {
       ...(typeof j.customerId === 'string' && j.customerId ? { customerId: j.customerId } : {}),
       ...(parseInspection(j.inspection) ? { inspection: parseInspection(j.inspection) } : {}),
       ...(parseRef(j.odooOrder) ? { odooOrder: parseRef(j.odooOrder) } : {}),
+      ...(parseJobRef(j.odooJob) ? { odooJob: parseJobRef(j.odooJob) } : {}),
+      ...(typeof j.sendToOdoo === 'boolean' ? { sendToOdoo: j.sendToOdoo } : {}),
+      ...(parseRepairs(j.quoteLines).length ? { quoteLines: parseRepairs(j.quoteLines) } : {}),
       ...(parseSteps(j.steps) ? { steps: parseSteps(j.steps) } : {}),
       ...(typeof j.what === 'string' && j.what ? { what: j.what } : {}),
     };
