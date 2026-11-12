@@ -234,7 +234,7 @@ describe('Ticket screen', () => {
     expect(screen.queryByTestId('ticket-make-invoice')).toBeNull();
   });
 
-  it('asks Odoo for the tax and total, and confirms the quotation with the invoice', async () => {
+  async function signedIn(fail: { write?: boolean } = {}) {
     await seed();
     const calls: { model: string; method: string; args: unknown[] }[] = [];
     let state = 'draft';
@@ -247,6 +247,7 @@ describe('Ticket screen', () => {
       if (model === 'res.users') return [{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }];
       if (model === 'res.partner' && method === 'create') return 55;
       if (model === 'sale.order' && method === 'create') return 70;
+      if (model === 'sale.order' && method === 'write' && fail.write) throw new Error('Wrong value for product_id');
       if (model === 'sale.order' && method === 'action_confirm') {
         state = 'sale';
         return true;
@@ -280,6 +281,11 @@ describe('Ticket screen', () => {
     await fireEvent.press(screen.getByTestId('team-signin-go'));
     await settle();
 
+    return { calls, setState: (v: string) => (state = v) };
+  }
+
+  it('asks Odoo for the tax and total, and confirms the quotation with the invoice', async () => {
+    const { calls } = await signedIn();
     await act(async () => router.navigate('/ticket/j1'));
     await settle();
     await fireEvent.press(screen.getByTestId('ticket-add-material'));
@@ -309,5 +315,35 @@ describe('Ticket screen', () => {
     expect((await saved()).odooOrder).toEqual({ id: 70, name: 'S00070' });
     const [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
     expect(inv).toMatchObject({ source: 'ticket', tax: 1889, total: 44789 });
+  });
+
+  it("doesn't confirm the old quotation when Odoo can't take the changed lines", async () => {
+    const o = await signedIn({ write: true });
+    await act(async () => router.navigate('/ticket/j1'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('ticket-add-material'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-cat-Openers'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-pick-1'));
+    await settle();
+    await act(async () => jest.advanceTimersByTime(1600));
+    await settle(20);
+    expect((await saved()).ticket?.order).toEqual({ id: 70, name: 'S00070' });
+
+    // Change a line and finish before the totals come back; Odoo refuses the new lines.
+    const line = (await saved()).ticket!.lines[0]!;
+    await fireEvent.press(screen.getByTestId(`ticket-more-${line.id}`));
+    await settle();
+    await fireEvent.press(screen.getByTestId('ticket-make-invoice'));
+    await settle(20);
+    expect(o.calls.some((c) => c.method === 'action_confirm')).toBe(false);
+    expect((await saved()).odooOrder).toBeUndefined();
+    const [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
+    // Two openers at $229, tax 8.25% estimated on the phone.
+    expect(inv).toMatchObject({ source: 'ticket', subtotal: 45800, tax: 3779, total: 49579 });
+    await act(async () => router.back());
+    await settle();
+    expect(screen.getByTestId('ticket-error')).toHaveTextContent(/phone's lines and estimate.*S00070.*left as it is/);
   });
 });

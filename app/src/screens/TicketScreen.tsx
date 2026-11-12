@@ -6,6 +6,7 @@ import { SectionTitle, Segmented } from '../components/controls';
 import { usePartner, useSalesOdoo } from '../components/OdooSales';
 import { invoiceStatus } from '../lib/invoices';
 import { Job, jobName } from '../lib/jobs';
+import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
 import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption } from '../lib/ticket';
@@ -73,11 +74,21 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     setError(null);
     try {
       // Odoo's totals for the lines as they are now, if it can be reached.
-      const t = (client && !odooTotals ? await sync() : undefined) ?? ticket;
-      if (client && t.order) {
-        await confirmTicket(client, t.order);
-        if (!job.odooOrder) setOdooOrder(job.id, t.order);
+      const synced = client && !odooTotals ? await sync() : undefined;
+      const t = synced ?? ticket;
+      // Only a quotation Odoo priced with exactly these lines is confirmed and tied to the invoice.
+      // Otherwise (Odoo unreachable, or it refused a line) the invoice is made from the phone's lines alone.
+      let tied = false;
+      if (client && t.order && currentTotals(t)) {
+        try {
+          await confirmTicket(client, t.order);
+          if (!job.odooOrder) setOdooOrder(job.id, t.order);
+          tied = true;
+        } catch (e) {
+          log.warn('ticket', `${job.id}: couldn't confirm ${t.order.name}: ${message(e)}`);
+        }
       }
+      if (t.order && !tied) setError(`Made the invoice from the phone's lines and estimate. Quotation ${t.order.name} in Odoo was left as it is.`);
       const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket');
       router.push({ pathname: '/invoice/[id]', params: { id: inv.id } });
     } catch (e) {
