@@ -151,3 +151,35 @@ describe('quote screen', () => {
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$505');
   });
 });
+
+describe('repair-only quote', () => {
+  const job = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: '' }, 1000, 'j1');
+
+  beforeEach(async () => {
+    resetQuoteTemplates();
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify({ ...SHEET, serviceCall: '89' }));
+  });
+
+  it('quotes the service call and inspection repairs when there are no spring measurements', async () => {
+    const insp: Inspection = { ...EMPTY_INSPECTION(1000), repairs: [{ id: 'r1', label: 'Top fixture', price: '60', taxable: false }] };
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Tune-up', inspection: insp }]));
+    await renderApp('/quote/j1');
+    await settle();
+    expect(screen.queryByTestId('quote-blocked')).toBeNull();
+    expect(screen.getByTestId('quote-repairs-only')).toBeTruthy();
+    expect(screen.getByTestId('quote-good')).toHaveTextContent(/Repairs/);
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$149');
+    expect(screen.queryByTestId('quote-better')).toBeNull();
+    await fireEvent.press(screen.getByTestId('quote-accept-good'));
+    expect(screen.getByTestId('quote-accepted-note')).toHaveTextContent(/Customer picked Repairs/);
+    expect(screen.getByTestId('quote-make-invoice')).toHaveTextContent('Make invoice for $149');
+  });
+
+  it('still says what is missing when there is nothing to quote', async () => {
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
+    await renderApp('/quote/j1');
+    await settle();
+    expect(screen.getByTestId('quote-blocked')).toHaveTextContent(/Missing/);
+  });
+});

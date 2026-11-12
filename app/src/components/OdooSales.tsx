@@ -61,7 +61,7 @@ export function OdooQuoteSend({ job, option }: { job: Job; option: QuoteOption }
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-      setOdooOrder(job.id, await sendOrder(client, pid, option.lines, sheet.odoo, orderRef(TIER_LABEL[option.tier], job.address)));
+      setOdooOrder(job.id, await sendOrder(client, pid, option.lines, sheet.odoo, orderRef(option.title ?? TIER_LABEL[option.tier], job.address)));
     } catch (e) {
       setError(message(e));
     } finally {

@@ -9,7 +9,7 @@ import { pdfName, quoteHtml } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
 import { formatNumber } from '../lib/measure';
 import { cents, formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
-import { buildQuote, QuoteOption, quoteText } from '../lib/quote';
+import { buildQuote, QuoteOption, quoteText, repairQuote } from '../lib/quote';
 import { formatLife } from '../lib/springNames';
 import { Repair, repairLines, withRepairs } from '../lib/inspection';
 import { templateQuote, templatesFor } from '../lib/odooTemplates';
@@ -32,9 +32,16 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
   const springQuote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
   // Jobs the spring calculator can't price (openers, tune-ups) use the job type's Odoo templates.
   const fromTemplates = !!set && !!springQuote.blocked;
+  // No spring answer and no templates, but the inspection found repairs: quote those on their own.
+  const repairOnly = !fromTemplates && !!springQuote.blocked && (job.inspection?.repairs.some((r) => r.label.trim()) ?? false);
   const quote = useMemo(
-    () => (fromTemplates && set ? templateQuote(set, sheet, repairLines(job.inspection)) : withRepairs(springQuote, job.inspection, sheet)),
-    [fromTemplates, set, springQuote, job.inspection, sheet],
+    () =>
+      fromTemplates && set
+        ? templateQuote(set, sheet, repairLines(job.inspection))
+        : repairOnly
+          ? repairQuote(repairLines(job.inspection), sheet)
+          : withRepairs(springQuote, job.inspection, sheet),
+    [fromTemplates, repairOnly, set, springQuote, job.inspection, sheet],
   );
   const addOns = job.inspection?.repairs.filter((r) => r.label.trim()) ?? [];
   const toggleAddOn = (r: Repair) => {
@@ -72,6 +79,12 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
       {fromTemplates && set ? (
         <Text style={styles.meta} testID="quote-from-templates">
           From your Odoo quotation templates for {set.type}.
+        </Text>
+      ) : null}
+
+      {repairOnly ? (
+        <Text style={styles.meta} testID="quote-repairs-only">
+          No spring measurements, so this quote is the service call and the repairs from the inspection.
         </Text>
       ) : null}
 
@@ -137,7 +150,7 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
       {job.accepted ? (
         <>
           <Text style={styles.meta} testID="quote-accepted-note">
-            Customer picked {TIER_LABEL[job.accepted.tier]} at {formatMoney(job.accepted.total)} on {formatJobDate(job.accepted.at)}.
+            Customer picked {picked?.title ?? TIER_LABEL[job.accepted.tier]} at {formatMoney(job.accepted.total)} on {formatJobDate(job.accepted.at)}.
           </Text>
           {signature ? (
             <Text style={styles.meta} testID="quote-signed">
@@ -148,7 +161,7 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
           <SignatureSheet
             visible={signing}
             title="Approve the quote"
-            agreement={`I approve the ${TIER_LABEL[job.accepted.tier]} option for ${formatMoney(job.accepted.total)}.`}
+            agreement={`I approve the ${picked?.title ?? TIER_LABEL[job.accepted.tier]} option for ${formatMoney(job.accepted.total)}.`}
             initialName={job.customer}
             onCancel={() => setSigning(false)}
             onSave={(s) => {
@@ -212,7 +225,7 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
 }
 
 function OptionCard({ option, accepted, onAccept }: { option: QuoteOption; accepted: boolean; onAccept: () => void }) {
-  const label = TIER_LABEL[option.tier];
+  const label = option.title ?? TIER_LABEL[option.tier];
   if (!option.available) {
     return (
       <View style={[styles.card, styles.cardOff]} testID={`quote-${option.tier}`}>
