@@ -203,7 +203,7 @@ export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
       ? x.lines.flatMap((l): QuoteLine[] => {
           if (!l || typeof l !== 'object') return [];
           const y = l as Record<string, unknown>;
-          return [{ label: str(y.label), cents: num(y.cents), taxable: y.taxable === true, ...(str(y.key) ? { key: str(y.key) } : {}), ...(num(y.qty) > 0 ? { qty: num(y.qty) } : {}) }];
+          return [{ label: str(y.label), cents: num(y.cents), taxable: y.taxable === true, ...(str(y.key) ? { key: str(y.key) } : {}), ...(num(y.qty) > 0 ? { qty: num(y.qty) } : {}), ...(num(y.productId) > 0 ? { productId: num(y.productId) } : {}) }];
         })
       : [];
     const payments = Array.isArray(x.payments)
