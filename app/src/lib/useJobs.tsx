@@ -22,7 +22,7 @@ interface JobsApi {
   linkCustomers: (links: Record<string, string>) => void;
   /** Copies a customer's new name and phone onto their jobs. */
   renameCustomer: (customerId: string, d: { customer: string; phone: string }) => void;
-  /** Saves the job's safety check (or clears it). */
+  /** Saves the job's inspection (or clears it). */
   setInspection: (id: string, inspection: Inspection | undefined) => void;
   /** Remembers the sales order made in Odoo for this job. */
   setOdooOrder: (id: string, order: OdooRef) => void;

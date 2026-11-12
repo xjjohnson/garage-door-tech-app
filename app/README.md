@@ -553,16 +553,24 @@ and ordinary Project tasks otherwise; Odoo 16+ (`user_ids`) and older
 (`src/lib/odoo.ts`, `src/lib/useOdoo.tsx`, sign-in details in AsyncStorage
 `odoo/v1`). Needs the 0.4.0 APK for the keystore.
 
-**Safety check.** A job's **Safety check** (in its details, or on its quote)
-walks the door and opener: lift cables, drums, bottom brackets, springs and
-cones, bearings, rollers, hinges, tracks, seals, door balance, the opener, photo
-eyes, auto-reverse (a 1½" board) and the emergency release. Each is marked
-**OK**, **Needs work** or **N/A**, with a note. Items under spring tension are
-marked PRO. **Mark the other … OK** finishes the rest in one tap. A problem
-becomes a **repair** with a name, a price on the keypad, and taxed (parts) or not
-(labor). Repairs with a price go onto every option of the job's quote, and so
-onto its invoice. **Send report to customer** shares what was checked, what
-needs work and the repairs as text. It's saved with the job (`src/lib/inspection.ts`).
+**Inspection.** A job's **Inspection** (in its details, or on its quote) is
+the checklist that replaces SafetyCulture. Each **door** gets its maker, size,
+year, spring date code and cycles, and 18 items (balance, springs and cables,
+bearings, hinges, fixtures, rollers, track, panels, seal...) rated **Good**,
+**Fair**, **Poor**, **Safety risk** or **N/A**. Each door has one or more
+**motors** (drive, force and limits, safety eyes, logic board, keypad,
+remotes, wall button), rated Compliant / Non-compliant or Pass / Fail. A
+**gate** adds the UL 325 and ASTM F2200 items. Poor, Safety risk,
+Non-compliant and Fail are **flagged** and open a note, an action, photos
+for that item and **Add as repair**. The score is the share of points
+available, N/A left out. Voice notes are recorded on the phone (expo-audio).
+The customer signs, then **Share PDF report** makes the report (logo, score,
+flagged items first, every section, photos, signature), and **Save report to
+Odoo** attaches the PDF to the job's Field Service order, else its sales
+order, else the customer, with a note in the chatter
+(`src/lib/inspection.ts`, `src/lib/inspectionReport.ts`, `src/lib/odooReports.ts`).
+A 0.4 safety check opens as Door 1 and Motor 1. Repairs with a price go onto
+every option of the job's quote, and so onto its invoice.
 
 **Invoices.** Once the customer has picked an option on a quote, **Make
 invoice** turns it into an invoice, numbered from 1001 up, with the option's
@@ -643,7 +651,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `invoices.tsx` | `/invoices` | Every invoice and the total owed, a full page |
 | `invoice/[id].tsx` | `/invoice/<id>` | One invoice: payments and QR codes to pay, a full page |
 | `business.tsx` | `/business` | Business name and payment handles, a full page |
-| `inspection/[id].tsx` | `/inspection/<job id>` | One job's safety check and repairs, a full page |
+| `inspection/[id].tsx` | `/inspection/<job id>` | One job's inspection, report and repairs, a full page |
 | `stats.tsx` | `/stats` | Business numbers, a full page |
 | `follow-ups.tsx` | `/follow-ups` | Tune-ups, worn springs and warranty ends due, a full page |
 | `schedule.tsx` | `/schedule` | Booked visits by day; `?book=<customer id>` opens booking for them, a full page |
