@@ -40,7 +40,8 @@ export interface Warranty {
 
 /** The warranty on an invoice's work, counted from the day it was made. */
 export function warrantyFor(inv: Invoice, s: FollowUpSettings): Warranty {
-  const p = s.warrantyMonths[inv.tier];
+  // A ticket isn't a spring option, so it has no spring warranty of its own.
+  const p = inv.source === 'ticket' ? 0 : s.warrantyMonths[inv.tier];
   return {
     partsUntil: p > 0 ? addMonths(inv.createdAt, p) : null,
     laborUntil: s.laborWarrantyMonths > 0 ? addMonths(inv.createdAt, s.laborWarrantyMonths) : null,
@@ -104,7 +105,7 @@ export function followUps(
     const tune = addMonths(inv.createdAt, s.tuneUpMonths);
     add('tuneup', tune, 'Tune-up due', `Hi ${name}, it's ${who}. It's been about a year since we worked on your garage door. A yearly tune-up and safety check keeps it running quiet and safe. Want me to set one up?`);
     const worn = springsWornOutAt(inv, s);
-    add(
+    if (inv.source !== 'ticket') add(
       'springs',
       worn - 180 * DAY,
       `${TIER_LABEL[inv.tier]} springs near the end of their life (${monthYear(worn)})`,

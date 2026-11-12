@@ -503,6 +503,21 @@ on **Update from Odoo**. Prices, categories and descriptions are edited in
 Odoo. It's the first step of the invoicing rework: later releases add items
 from it straight onto a job's ticket.
 
+**Job ticket** (from 0.5.15). On a job, the **Ticket** step (and the
+Ticket row) holds the job's services and materials: **+ Add a service** or
+**+ Add a material** opens the price book, tapping an item adds it (the same
+item again adds one to its count), and **Type a line by hand** adds anything
+else. Each line's count and price can be changed, or the line taken off,
+until the invoice is made. When signed in to Odoo with Sales, the ticket is
+kept as a draft quotation (the customer's Odoo contact is made if needed), a
+moment after each change, and the totals shown are Odoo's: Odoo applies tax
+(set on the products, parts only) and any discount. Offline the phone shows
+an estimate, taxing materials at the price sheet's rate. **Make the invoice**
+confirms that quotation and makes the job's invoice from the ticket (marked
+"Job ticket" instead of an option), which then signs, sends to Odoo and takes
+payments as before. Good / better / best is now **Estimate**, optional: once
+the customer picks an option, **Put … on the job ticket** adds its lines.
+
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
 and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
 customer invoice and credit note, not only the phone's: newest first, 40 at a

@@ -52,6 +52,13 @@ export interface Invoice {
   voidedAt?: number;
   /** The posted invoice in Odoo, with what Odoo last said is paid (src/lib/odooSales.ts). */
   odoo?: OdooInvoiceState;
+  /** "ticket" when made from the job's ticket rather than a good/better/best option. */
+  source?: 'ticket';
+}
+
+/** "Better option", or "Job ticket" for an invoice made from the ticket. */
+export function optionLabel(inv: Pick<Invoice, 'tier' | 'source'>): string {
+  return inv.source === 'ticket' ? 'Job ticket' : `${TIER_LABEL[inv.tier]} option`;
 }
 
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'void';
@@ -105,6 +112,7 @@ export function createInvoice(
   existing: Invoice[],
   now: number,
   id: string = newId('i', now),
+  source?: 'ticket',
 ): Invoice {
   return {
     id,
@@ -121,6 +129,7 @@ export function createInvoice(
     payments: [],
     createdAt: now,
     updatedAt: now,
+    ...(source ? { source } : {}),
   };
 }
 
@@ -232,6 +241,7 @@ export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
       updatedAt: num(x.updatedAt) || createdAt,
       ...(num(x.voidedAt) ? { voidedAt: num(x.voidedAt) } : {}),
       ...(parseInvoiceState(x.odoo) ? { odoo: parseInvoiceState(x.odoo) } : {}),
+      ...(x.source === 'ticket' ? { source: 'ticket' as const } : {}),
     });
   }
   return out;

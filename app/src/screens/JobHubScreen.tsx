@@ -12,6 +12,7 @@ import { log } from '../lib/log';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { dayLabel, formatTime, mapsLink, onMyWayText } from '../lib/schedule';
 import { useSchedule } from '../lib/useSchedule';
+import { currentTotals, subtotal } from '../lib/ticket';
 import { useCalculatorLink } from '../lib/useCalculatorLink';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -21,7 +22,7 @@ const open = (url: string | undefined) => url && Linking.openURL(url).catch(() =
 
 /**
  * One job, start to finish. The steps across the top show where it is:
- * On my way, Arrived, Inspect, Quote, Work, Paid. The big button at the
+ * On my way, Arrived, Inspect, Ticket, Work, Paid. The big button at the
  * bottom does the next one. Everything else about the job is one tap away.
  */
 export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => number }) {
@@ -61,14 +62,14 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         router.push({ pathname: '/inspection/[id]', params: { id: job.id } });
         return;
       case 'quote':
-        router.push({ pathname: '/quote/[id]', params: { id: job.id } });
+        router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
         return;
       case 'work':
         setStep(job.id, 'workDoneAt', now());
         return;
       case 'paid':
         if (inv) router.push({ pathname: '/invoice/[id]', params: { id: inv.id } });
-        else router.push({ pathname: '/quote/[id]', params: { id: job.id } });
+        else router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
         return;
     }
   };
@@ -137,8 +138,14 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         testID="job-open-springs"
       />
       <NavRow
-        label="Quote"
-        detail={job.accepted ? `${TIER_LABEL[job.accepted.tier]} picked · ${formatMoney(job.accepted.total)}${job.odooOrder ? ` · ${job.odooOrder.name}` : ''}` : 'Good, better, best'}
+        label="Ticket"
+        detail={ticketDetail(job)}
+        href={{ pathname: '/ticket/[id]', params: { id: job.id } }}
+        testID="job-open-ticket"
+      />
+      <NavRow
+        label="Estimate"
+        detail={job.accepted ? `${TIER_LABEL[job.accepted.tier]} picked · ${formatMoney(job.accepted.total)}${job.odooOrder ? ` · ${job.odooOrder.name}` : ''}` : 'Good, better, best (optional)'}
         href={{ pathname: '/quote/[id]', params: { id: job.id } }}
         testID="job-open-quote"
       />
@@ -168,6 +175,14 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   );
 }
 
+/** "3 items · $485", or what to do when the ticket is empty. */
+function ticketDetail(job: Job): string {
+  const t = job.ticket;
+  if (!t || t.lines.length === 0) return 'Services and materials from the price book';
+  const shown = currentTotals(t)?.total ?? subtotal(t);
+  return `${t.lines.length === 1 ? '1 item' : `${t.lines.length} items`} · ${formatMoney(shown)}${currentTotals(t) ? '' : ' before tax'}`;
+}
+
 function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
   switch (step) {
     case 'onMyWay':
@@ -177,7 +192,7 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
     case 'inspect':
       return 'Next: inspect';
     case 'quote':
-      return 'Next: build the quote';
+      return 'Next: build the ticket';
     case 'work':
       return 'Work done';
     case 'paid':

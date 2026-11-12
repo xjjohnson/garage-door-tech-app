@@ -53,6 +53,8 @@ export default function RootLayout() {
                               <Stack.Screen name="(tabs)" />
                               <Stack.Screen name="price-sheet" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="price-book" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="ticket/[id]" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="ticket-add" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="odoo-product" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="quote/[id]" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="backup" options={{ presentation: 'modal' }} />

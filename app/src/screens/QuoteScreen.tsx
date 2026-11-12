@@ -11,6 +11,7 @@ import { useAttachments } from '../lib/useAttachments';
 import { formatNumber } from '../lib/measure';
 import { cents, formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
 import { buildQuote, QuoteOption, quoteText, repairQuote } from '../lib/quote';
+import { addOption, newLineId } from '../lib/ticket';
 import { formatLife } from '../lib/springNames';
 import { Repair, repairLines, withRepairs } from '../lib/inspection';
 import { usesSprings } from '../lib/jobTypes';
@@ -28,7 +29,7 @@ import { colors, touch, type } from '../theme';
  */
 export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () => void }) {
   const { sheet } = usePriceSheet();
-  const { setAccepted, setInspection, setQuoteLines } = useJobs();
+  const { setAccepted, setInspection, setQuoteLines, setTicket } = useJobs();
   const templates = useQuoteTemplates();
   const set = templatesFor(templates, job.what);
   const typed = useMemo(() => job.quoteLines ?? [], [job.quoteLines]);
@@ -202,8 +203,18 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
             </Text>
           ) : null}
           <Action
-            label={`Make invoice for ${formatMoney(picked.total)}`}
+            label={`Put ${picked.title ?? TIER_LABEL[picked.tier]} on the job ticket`}
             primary
+            onPress={() => {
+              let n = 0;
+              const t = Date.now();
+              setTicket(job.id, (prev) => addOption(prev, picked, sheet.odoo, () => newLineId(t + n++)));
+              router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
+            }}
+            testID="quote-to-ticket"
+          />
+          <Action
+            label={`Make invoice for ${formatMoney(picked.total)}`}
             onPress={() => {
               const inv = create(job, picked);
               router.push({ pathname: '/invoice/[id]', params: { id: inv.id } });

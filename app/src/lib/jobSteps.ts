@@ -1,6 +1,6 @@
 /**
  * The job hub's steps, in the order a visit goes: On my way, Arrived,
- * Inspect, Quote, Work, Paid. Each step's state comes from what's saved on
+ * Inspect, Ticket (the step id stays "quote"), Work, Paid. Each step's state comes from what's saved on
  * the job (and its invoice), so the hub never disagrees with the rest of
  * the app. Kept free of React so it can be tested directly.
  */
@@ -21,7 +21,7 @@ export const STEP_LABEL: Record<StepId, string> = {
   onMyWay: 'On my way',
   arrived: 'Arrived',
   inspect: 'Inspect',
-  quote: 'Quote',
+  quote: 'Ticket',
   work: 'Work',
   paid: 'Paid',
 };
@@ -39,7 +39,7 @@ export function jobSteps(job: Job, invoices: Invoice[]): Step[] {
     { id: 'onMyWay', label: STEP_LABEL.onMyWay, done: !!s.onMyWayAt || !!s.arrivedAt },
     { id: 'arrived', label: STEP_LABEL.arrived, done: !!s.arrivedAt },
     { id: 'inspect', label: STEP_LABEL.inspect, done: !!job.inspection },
-    { id: 'quote', label: STEP_LABEL.quote, done: !!job.accepted },
+    { id: 'quote', label: STEP_LABEL.quote, done: !!job.accepted || (job.ticket?.lines.length ?? 0) > 0 },
     { id: 'work', label: STEP_LABEL.work, done: !!s.workDoneAt || job.status === 'done' },
     { id: 'paid', label: STEP_LABEL.paid, done: paid },
   ];

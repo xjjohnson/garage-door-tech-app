@@ -5,6 +5,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { mergeJobs, MergeResult } from './backup';
 import { Inspection, Repair } from './inspection';
 import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, JobSteps, parseJobs } from './jobs';
+import { EMPTY_TICKET, Ticket } from './ticket';
 
 interface JobsApi {
   jobs: Job[];
@@ -34,6 +35,8 @@ interface JobsApi {
   setQuoteLines: (id: string, lines: Repair[]) => void;
   /** Records a job hub step (On my way, Arrived, Work done), or clears it with undefined. */
   setStep: (id: string, step: keyof JobSteps, at: number | undefined) => void;
+  /** Changes the job's ticket (src/lib/ticket.ts). */
+  setTicket: (id: string, fn: (prev: Ticket) => Ticket) => void;
 }
 
 const JobsContext = createContext<JobsApi | null>(null);
@@ -186,9 +189,14 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
+  const setTicket = useCallback<JobsApi['setTicket']>(
+    (id, fn) => change((prev) => prev.map((j) => (j.id === id ? ({ ...j, ticket: fn(j.ticket ?? EMPTY_TICKET), updatedAt: Date.now() } as Job) : j))),
+    [change],
+  );
+
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setSendToOdoo, setStep }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setSendToOdoo, setStep],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }

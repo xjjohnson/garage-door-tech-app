@@ -21,7 +21,7 @@ import { colors, touch, type } from '../theme';
 const message = (e: unknown) => (e instanceof OdooError || e instanceof Error ? e.message : "Couldn't reach Odoo. Try again.");
 
 /** The Odoo contact for a job's or invoice's customer, made in Odoo the first time. */
-function usePartner() {
+export function usePartner() {
   const { customers, apply } = useCustomers();
   return async (client: OdooClient, customerId: string | undefined, fallback: { name: string; phone: string; address: string }): Promise<number> => {
     const c = customers.find((x) => x.id === customerId);
@@ -34,7 +34,7 @@ function usePartner() {
   };
 }
 
-function useSalesOdoo() {
+export function useSalesOdoo() {
   const { status, client } = useOdoo();
   return status === 'signedIn' && client && client.session.apps.sales && client.session.apps.products ? client : null;
 }
