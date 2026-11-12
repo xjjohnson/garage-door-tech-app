@@ -259,6 +259,16 @@ export class OdooClient {
     return this.partnerFieldsCache;
   }
 
+  /**
+   * What to read about a job's contact. Odoo 19 dropped `mobile` from
+   * contacts (and so from Field Service locations, which are contacts), so
+   * it's only asked for where it exists.
+   */
+  private async contactFields(): Promise<string[]> {
+    const pf = await this.partnerFields();
+    return ['name', 'phone', ...(pf.includes('mobile') ? ['mobile'] : []), 'street', 'city', 'zip'];
+  }
+
   /** The business's customers (contacts marked as customers once Sales or Invoicing is installed), up to 5000. */
   async partners(): Promise<OdooPartner[]> {
     const pf = await this.partnerFields();
@@ -313,7 +323,7 @@ export class OdooClient {
       const order = this.has('scheduled_date_start') ? 'scheduled_date_start asc, id asc' : 'id asc';
       const rows = (await this.call('fsm.order', 'search_read', [domain], { fields, limit: 200, order })) as Record<string, unknown>[];
       const locIds = [...new Set(rows.map((r) => (Array.isArray(r.location_id) ? (r.location_id[0] as number) : 0)).filter(Boolean))];
-      const locs = locIds.length ? ((await this.call('fsm.location', 'read', [locIds], { fields: ['name', 'phone', 'mobile', 'street', 'city', 'zip'] })) as Record<string, unknown>[]) : [];
+      const locs = locIds.length ? ((await this.call('fsm.location', 'read', [locIds], { fields: await this.contactFields() })) as Record<string, unknown>[]) : [];
       return rows.map((r) => orderToTask(r, locs));
     }
     const fields = ['name', 'partner_id', 'stage_id', s.assignField, ...s.fields];
@@ -321,7 +331,7 @@ export class OdooClient {
     const rows = (await this.call('project.task', 'search_read', [domain], { fields, limit: 200, order })) as Record<string, unknown>[];
     const partnerIds = [...new Set(rows.map((r) => (Array.isArray(r.partner_id) ? (r.partner_id[0] as number) : 0)).filter(Boolean))];
     const partners = partnerIds.length
-      ? ((await this.call('res.partner', 'read', [partnerIds], { fields: ['name', 'phone', 'mobile', 'street', 'city', 'zip'] })) as Record<string, unknown>[])
+      ? ((await this.call('res.partner', 'read', [partnerIds], { fields: await this.contactFields() })) as Record<string, unknown>[])
       : [];
     return rows.map((r) => toTask(r, partners, s.assignField));
   }
