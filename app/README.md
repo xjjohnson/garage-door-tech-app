@@ -588,6 +588,9 @@ not on the truck** finds the part in Odoo (or makes it), then sends the
 supplier a purchase order for that job, to pick up or have delivered; **Got
 it, put it on this job** receives it onto the truck and takes it off for the
 job (`src/lib/useTruckSync.ts`, `src/components/JobParts.tsx`).
+If Odoo won't take one part (from 0.5.10), such as a consumable without
+**Track Inventory**, that part keeps the phone's count and says what to turn
+on in Odoo, and the rest of the sync goes on.
 
 **Photos, signatures and PDFs** (from version 0.4.0). A quote has **Take
 photos**, a page for that job's **Before**, **After** and **Other** photos,

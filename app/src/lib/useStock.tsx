@@ -181,7 +181,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
         throw e;
       }
       apply(result.store);
-      log.info('stock', `truck sync: ${result.sent} sent, ${result.added} new, ${result.linked} linked, ${result.removed.length} removed, ${result.created.length} made in Odoo`);
+      log.info('stock', `truck sync: ${result.sent} sent, ${result.added} new, ${result.linked} linked, ${result.removed.length} removed, ${result.created.length} made in Odoo, ${result.problems.length} refused`);
       return result;
     }
   };
@@ -230,9 +230,22 @@ export function StockProvider({ children }: { children: ReactNode }) {
       if (!done) return false;
       change((cur) => ({ ...cur, purchases: (cur.purchases ?? []).map((p) => (p.id === purchaseId ? { ...p, receivedAt: Date.now() } : p)) }));
       latest.current = { ...latest.current, purchases: (latest.current.purchases ?? []).map((p) => (p.id === purchaseId ? { ...p, receivedAt: Date.now() } : p)) };
-      await sync(client);
+      // Odoo has the parts now: a sync that trips over something else mustn't keep them off the job.
+      let failed: unknown;
+      try {
+        await sync(client);
+      } catch (e) {
+        failed = e;
+        log.warn('stock', `sync after receiving ${po.name} failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      if (failed) {
+        // Count the receipt on the phone the way Odoo has it, so what the job takes off is right.
+        const add = new Map(po.lines.map((l) => [l.itemId, l.qty]));
+        change((cur) => ({ ...cur, items: cur.items.map((i) => (add.has(i.id) ? { ...i, onHand: i.onHand + add.get(i.id)!, ...(i.syncedOnHand !== undefined ? { syncedOnHand: i.syncedOnHand + add.get(i.id)! } : {}) } : i)) }));
+      }
       // A part ordered for a job goes on that job once it's on the truck.
       if (po.jobId) for (const l of po.lines) takeParts(l.itemId, l.qty, po.jobId);
+      if (failed && !po.jobId) throw failed;
       return true;
     },
     [change, sync, takeParts],
