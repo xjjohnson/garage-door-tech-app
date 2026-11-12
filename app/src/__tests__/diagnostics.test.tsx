@@ -148,9 +148,10 @@ describe('Diagnose screen', () => {
     expect(screen.queryByTestId('diagnose-pro')).toBeNull();
   });
 
-  it('is reachable from the app header', async () => {
+  it('is reachable from the Tools tab', async () => {
     await renderApp();
-    await fireEvent.press(screen.getByTestId('section-diagnose'));
+    await fireEvent.press(screen.getByTestId('section-tools'));
+    await fireEvent.press(screen.getByTestId('tools-diagnose'));
     expect(screen.getByTestId('diagnose-safety')).toBeTruthy();
     expect(screen.getAllByText('Diagnose').length).toBeGreaterThan(0);
   });
@@ -160,10 +161,13 @@ describe('Diagnose in the app', () => {
   it('is not drawn until opened, then keeps its picks when switching away and back', async () => {
     await renderApp();
     expect(screen.queryByTestId('diagnose-safety')).toBeNull();
-    await fireEvent.press(screen.getByTestId('section-diagnose'));
+    await fireEvent.press(screen.getByTestId('section-tools'));
+    await fireEvent.press(screen.getByTestId('tools-diagnose'));
     await fireEvent.press(within(screen.getByTestId('diagnose-symptoms')).getByText("Won't close"));
-    await fireEvent.press(screen.getByTestId('section-manuals'));
-    await fireEvent.press(screen.getByTestId('section-diagnose'));
+    await fireEvent.press(screen.getByTestId('back-to-tools'));
+    await fireEvent.press(screen.getByTestId('tools-manuals'));
+    await fireEvent.press(screen.getByTestId('back-to-tools'));
+    await fireEvent.press(screen.getByTestId('tools-diagnose'));
     expect(screen.getByTestId('symptom-wont-close')).toBeTruthy();
   });
 });

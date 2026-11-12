@@ -52,15 +52,21 @@ export function slotsFor(day: number): number[] {
   return out;
 }
 
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "Wed, Nov 12", for the Today header. */
+export function dateLine(ms: number): string {
+  const d = new Date(ms);
+  return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
 export function formatTime(ms: number): string {
   const d = new Date(ms);
   const h = d.getHours();
   const m = d.getMinutes();
   return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 }
-
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** "Today", "Tomorrow", or "Fri, Nov 13". */
 export function dayLabel(day: number, now: number): string {

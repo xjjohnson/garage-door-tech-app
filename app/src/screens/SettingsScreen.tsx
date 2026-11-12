@@ -1,7 +1,7 @@
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SectionTitle } from '../components/controls';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
@@ -36,6 +36,16 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<OtaCheck | null>(null);
   const [restartFailed, setRestartFailed] = useState(false);
+  // Seven taps on the version opens the hidden Developer screen.
+  const taps = useRef<number[]>([]);
+  const tapVersion = () => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((t) => now - t < 4000), now];
+    if (taps.current.length >= 7) {
+      taps.current = [];
+      router.push('/developer');
+    }
+  };
 
   const check = async () => {
     setChecking(true);
@@ -55,12 +65,12 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
   return (
     <View style={styles.wrap}>
       <SectionTitle first>App version</SectionTitle>
-      <View style={styles.card} testID="settings-version">
-        <Text style={styles.value} selectable testID="build-info">
+      <Pressable onPress={tapVersion} accessibilityRole="text" style={styles.card} testID="settings-version">
+        <Text style={styles.value} testID="build-info">
           {buildInfo}
         </Text>
         <Text style={styles.meta}>Update channel: {channel ?? 'none (development)'}</Text>
-      </View>
+      </Pressable>
       <Action label={checking ? 'Checking...' : 'Check for update'} disabled={checking} onPress={check} testID="settings-check-update" />
       {result ? (
         <Text style={styles.note} testID="settings-update-note" accessibilityLiveRegion="polite">

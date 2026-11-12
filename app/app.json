@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Spring Calc",
+    "name": "Johnsons",
     "slug": "tech-app",
     "scheme": "garagedoortech",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FFD000",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -36,7 +36,7 @@
       "fallbackToCacheTimeout": 0
     },
     "extra": {
-      "release": "0.4.4",
+      "release": "0.5.0",
       "eas": {
         "projectId": "2b70a853-c332-49ea-8fde-4678952d9d87"
       }
@@ -48,9 +48,25 @@
         {
           "photosPermission": "Pick photos of a job from your gallery.",
           "cameraPermission": "Take before and after photos of a job.",
-          "microphonePermission": false
+          "microphonePermission": "Record voice notes on a job."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Take job photos and scan part barcodes.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Record voice notes on a job.",
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-sqlite",
       "./plugins/withReleaseSigning"
     ]
   }

@@ -3,12 +3,12 @@ import type { OdooRef } from './odooSales';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { mergeJobs, MergeResult } from './backup';
 import { Inspection } from './inspection';
-import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, parseJobs } from './jobs';
+import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, JobSteps, parseJobs } from './jobs';
 
 interface JobsApi {
   jobs: Job[];
   loaded: boolean;
-  add: (inputs: JobInputs, details: JobDetails, summary: { title: string; detail?: string }) => Job;
+  add: (inputs: JobInputs, details: JobDetails, summary: { title: string; detail?: string }, extra?: { what?: string; customerId?: string }) => Job;
   /** Overwrites a saved job's inputs and answer with what's on the calculator now. */
   updateInputs: (id: string, inputs: JobInputs, summary: { title: string; detail?: string }) => void;
   updateDetails: (id: string, details: JobDetails) => void;
@@ -26,6 +26,8 @@ interface JobsApi {
   setInspection: (id: string, inspection: Inspection | undefined) => void;
   /** Remembers the sales order made in Odoo for this job. */
   setOdooOrder: (id: string, order: OdooRef) => void;
+  /** Records a job hub step (On my way, Arrived, Work done), or clears it with undefined. */
+  setStep: (id: string, step: keyof JobSteps, at: number | undefined) => void;
 }
 
 const JobsContext = createContext<JobsApi | null>(null);
@@ -69,8 +71,9 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const add = useCallback<JobsApi['add']>(
-    (inputs, details, summary) => {
-      const job = createJob(inputs, details, summary, Date.now());
+    (inputs, details, summary, extra) => {
+      const made = createJob(inputs, details, summary, Date.now());
+      const job: Job = { ...made, ...(extra?.what ? { what: extra.what } : {}), ...(extra?.customerId ? { customerId: extra.customerId } : {}) };
       change((prev) => [job, ...prev]);
       return job;
     },
@@ -147,9 +150,24 @@ export function JobsProvider({ children }: { children: ReactNode }) {
 
   const setOdooOrder = useCallback<JobsApi['setOdooOrder']>((id, odooOrder) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooOrder } : j))), [change]);
 
+  const setStep = useCallback<JobsApi['setStep']>(
+    (id, step, at) =>
+      change((prev) =>
+        prev.map((j) => {
+          if (j.id !== id) return j;
+          const steps = { ...j.steps };
+          if (at === undefined) delete steps[step];
+          else steps[step] = at;
+          const { steps: _old, ...rest } = j;
+          return (Object.keys(steps).length ? { ...rest, steps, updatedAt: Date.now() } : { ...rest, updatedAt: Date.now() }) as Job;
+        }),
+      ),
+    [change],
+  );
+
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setStep }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setStep],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }

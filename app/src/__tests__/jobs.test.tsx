@@ -67,7 +67,7 @@ beforeEach(async () => {
 
 describe('saved jobs in the app', () => {
   it('saves a spring result as a job, lists it, reopens it in the calculator and saves changes back', async () => {
-    await renderApp();
+    await renderApp('/springs');
     // No answer yet: nothing to save.
     expect(screen.getByTestId('job-save')).toBeDisabled();
 
@@ -115,7 +115,7 @@ describe('saved jobs in the app', () => {
   it('edits, marks done and deletes (on a second tap) from the Jobs list', async () => {
     const saved = createJob({ mode: 'door', form: DEFAULT_DOOR_FORM }, { customer: 'Lee', address: '4 Elm Rd', phone: '', notes: '' }, { title: '3 pairs that fit' }, 1000, 'j1');
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([saved]));
-    await renderApp();
+    await renderApp('/springs');
     await fireEvent.press(screen.getByTestId('section-jobs'));
     await screen.findByTestId('job-j1');
     expect(screen.getByTestId('jobs-count')).toHaveTextContent('1 shown · 1 open');
@@ -147,7 +147,7 @@ describe('saved jobs in the app', () => {
     const a = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat Smith', address: '', phone: '', notes: '' }, { title: 'x' }, 1, 'a');
     const b = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Lee Jones', address: '', phone: '', notes: '' }, { title: 'y' }, 2, 'b');
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([a, b]));
-    await renderApp();
+    await renderApp('/springs');
     await fireEvent.press(screen.getByTestId('section-jobs'));
     await screen.findByTestId('job-a');
     await fireEvent.changeText(screen.getByTestId('jobs-search'), 'jones');

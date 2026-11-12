@@ -14,7 +14,7 @@ describe('door weight estimate', () => {
   });
 
   it('opens from Size from door, marked as an estimate, and closes back', async () => {
-    const app = await renderApp();
+    const app = await renderApp('/springs');
     await fireEvent.press(screen.getByTestId('tab-door'));
     await fireEvent.press(screen.getByTestId('door-estimate-weight'));
     expect(app.getPathname()).toBe('/door-weight');
@@ -23,6 +23,6 @@ describe('door weight estimate', () => {
     await fireEvent.press(within(screen.getByTestId('dw-build')).getByText('Wood, older'));
     expect(screen.getByTestId('dw-result')).toHaveTextContent(/350–360 lb/);
     await fireEvent.press(screen.getByTestId('door-weight-page-close'));
-    expect(app.getPathname()).toBe('/');
+    expect(app.getPathname()).toBe('/springs');
   });
 });

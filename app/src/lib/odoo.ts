@@ -9,6 +9,8 @@
  */
 import type { CustomerFields } from './customers';
 import type { OdooPartner } from './customerSync';
+import { pretendOffline } from './devFlags';
+import { log } from './log';
 import { Appointment } from './schedule';
 
 export const ODOO_STORAGE_KEY = 'odoo/v1';
@@ -104,9 +106,30 @@ export function guessDb(url: string): string {
 
 let rpcId = 0;
 
+/** What a call was, for the log: "sale.order.create" or "sign in". Never what was sent. */
+function callName(service: string, method: string, args: unknown[]): string {
+  if (service === 'object' && typeof args[3] === 'string' && typeof args[4] === 'string') return `${args[3]}.${args[4]}`;
+  if (service === 'common' && method === 'authenticate') return 'sign in';
+  return `${service}.${method}`;
+}
+
 async function rpc(fetchFn: Fetch, url: string, service: string, method: string, args: unknown[]): Promise<unknown> {
+  const name = callName(service, method, args);
+  const started = Date.now();
+  try {
+    const result = await rpcOnce(fetchFn, url, service, method, args);
+    log.info('odoo', `${name} ok ${Date.now() - started} ms`);
+    return result;
+  } catch (e) {
+    log.warn('odoo', `${name} failed after ${Date.now() - started} ms: ${e instanceof Error ? e.message : String(e)}`);
+    throw e;
+  }
+}
+
+async function rpcOnce(fetchFn: Fetch, url: string, service: string, method: string, args: unknown[]): Promise<unknown> {
   let res;
   try {
+    if (pretendOffline()) throw new Error('Pretend offline is on (Developer screen).');
     res = await fetchFn(`${url}/jsonrpc`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

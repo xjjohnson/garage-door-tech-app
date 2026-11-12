@@ -36,7 +36,7 @@ beforeEach(async () => {
 
 describe('extension tab in the app', () => {
   it('sizes a door and shows the answer in the bar', async () => {
-    await renderApp();
+    await renderApp('/springs');
     await fireEvent.press(screen.getByTestId('tab-extension'));
     expect(screen.getByTestId('ext-bar')).toHaveTextContent(/Enter door weight/);
     await fireEvent.press(screen.getByTestId('field-ext-weight'));
@@ -47,7 +47,7 @@ describe('extension tab in the app', () => {
   });
 
   it('a color alone is a STOP with the ratings it could be', async () => {
-    await renderApp();
+    await renderApp('/springs');
     await fireEvent.press(screen.getByTestId('tab-extension'));
     await fireEvent.press(within(screen.getByTestId('ext-color')).getByText('Tan'));
     expect(screen.getByTestId('ext-bar')).toHaveTextContent(/STOP/);
@@ -57,7 +57,7 @@ describe('extension tab in the app', () => {
   it('opens a saved extension job on its tab', async () => {
     const job = createJob({ mode: 'extension', form: { ...DEFAULT_EXTENSION_FORM, weight: '120' } }, { customer: 'Lee', address: '', phone: '', notes: '' }, { title: '2 × 120 lb Green' }, 1000, 'e1');
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
-    await renderApp();
+    await renderApp('/springs');
     await fireEvent.press(screen.getByTestId('section-jobs'));
     await fireEvent.press(await screen.findByTestId('job-toggle-e1'));
     expect(screen.getByText(/Extension springs/)).toBeTruthy();
