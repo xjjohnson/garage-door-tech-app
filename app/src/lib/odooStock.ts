@@ -13,7 +13,7 @@
  * orders (purchase.order) that Odoo emails. Kept free of React; the client is
  * passed in, so tests use a fake server.
  */
-import type { OdooClient } from './odoo';
+import { OdooClient, OdooError } from './odoo';
 import { DEFAULT_TRUCK, guessCategory, STARTER_ITEMS, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
 
 /** A product as truck stock needs it. */
@@ -199,6 +199,36 @@ async function matchProduct(client: OdooClient, i: StockItem): Promise<number | 
  * packages, shelves under the truck); only the difference is applied, added
  * to the first one or taken from them in turn, so the total comes out right.
  */
+/** A product Odoo doesn't track stock for (a consumable or a service), that the app couldn't switch on. */
+export class UntrackedError extends Error {
+  constructor(readonly product: string) {
+    super(`${product} isn't tracked in Odoo, so it can't be counted on the truck. In Odoo open the product and tick Track Inventory (or make it a Storable product), then sync.`);
+  }
+}
+
+/**
+ * Makes sure Odoo keeps stock of a product, so it can sit on the truck: on
+ * Odoo 18 and later a consumable gets "Track inventory" (is_storable), on
+ * older ones it becomes a Storable product. Services are left alone.
+ */
+export async function ensureTracked(client: OdooClient, productId: number): Promise<void> {
+  const [p] = (await client.call('product.product', 'read', [[productId]], { fields: ['product_tmpl_id', 'display_name'] })) as Record<string, unknown>[];
+  const tmpl = many2one(p?.product_tmpl_id)?.[0];
+  const name = String(p?.display_name || many2one(p?.product_tmpl_id)?.[1] || 'This part');
+  if (!tmpl) throw new UntrackedError(name);
+  const f = (await client.call('product.template', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
+  const storable = 'is_storable' in f;
+  const [t] = (await client.call('product.template', 'read', [[tmpl]], { fields: storable ? ['type', 'is_storable'] : ['type'] })) as Record<string, unknown>[];
+  if (storable ? t?.is_storable === true : t?.type === 'product') return;
+  if (t?.type === 'service') throw new UntrackedError(name);
+  try {
+    await client.call('product.template', 'write', [[tmpl], storable ? { is_storable: true } : { type: 'product' }]);
+  } catch (e) {
+    if (e instanceof OdooError && e.kind === 'network') throw e;
+    throw new UntrackedError(name);
+  }
+}
+
 export async function setTruckQty(client: OdooClient, locationId: number, productId: number, qty: number): Promise<void> {
   const rows = (await client.call('stock.quant', 'search_read', [[['product_id', '=', productId], ['location_id', 'child_of', locationId]]], { fields: ['quantity', 'location_id'], context: INVENTORY })) as Record<string, unknown>[];
   const quants = rows
@@ -212,6 +242,8 @@ export async function setTruckQty(client: OdooClient, locationId: number, produc
   };
   if (diff > 0) {
     if (quants[0]) return set(quants[0].id, quants[0].qty + diff);
+    // Odoo makes no quant for a consumable: switch on stock tracking first.
+    await ensureTracked(client, productId);
     const id = (await client.call('stock.quant', 'create', [{ product_id: productId, location_id: locationId, inventory_quantity: qty }], { context: INVENTORY })) as number;
     await client.call('stock.quant', 'action_apply_inventory', [[id]], { context: INVENTORY });
     return;
@@ -255,7 +287,12 @@ export interface SyncResult {
   removed: string[];
   /** Parts typed in on the phone that Odoo didn't have: made there as new products. */
   created: string[];
+  /** Items Odoo wouldn't take this time, with why. They keep the phone's count and are tried again at the next sync. */
+  problems: { name: string; why: string }[];
 }
+
+/** Odoo said no to this one item (not a lost connection), so the rest of the sync can go on. */
+const itemProblem = (e: unknown) => e instanceof UntrackedError || (e instanceof OdooError && e.kind === 'server');
 
 const SAMPLE_NAMES = new Set(STARTER_ITEMS.map((s) => s.name.toLowerCase()));
 /** Still one of the "Add common items" samples, untouched apart from the count. */
@@ -287,6 +324,10 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
   let linked = 0;
   const removed: string[] = [];
   const created: string[] = [];
+  const problems: { name: string; why: string }[] = [];
+  /** Items left as they are this time: Odoo refused them. */
+  const held = new Set<string>();
+  const heldUnlinked: StockItem[] = [];
   // Link every phone item to its Odoo product first.
   const linkedItems: StockItem[] = [];
   for (const item of store.items) {
@@ -301,7 +342,15 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
         continue;
       } else {
         // Typed in on the phone (signed out, or Odoo was unreachable): make it in Odoo, and its count goes up as new stock.
-        const id = await createProduct(client, { name: i.name, sku: i.sku, barcode: i.barcode, costCents: i.costCents });
+        let id: number;
+        try {
+          id = await createProduct(client, { name: i.name, sku: i.sku, barcode: i.barcode, costCents: i.costCents });
+        } catch (e) {
+          if (!itemProblem(e)) throw e;
+          problems.push({ name: i.name, why: e instanceof Error ? e.message : String(e) });
+          heldUnlinked.push(i);
+          continue;
+        }
         i = { ...i, odooId: id, syncedOnHand: 0 };
         created.push(i.name);
       }
@@ -334,10 +383,17 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       try {
         await setTruckQty(client, truck.locationId, i.odooId!, target);
       } catch (e) {
+        if (itemProblem(e)) {
+          // Just this item: it keeps the phone's count and goes again next time; the rest carry on.
+          problems.push({ name: i.name, why: e instanceof UntrackedError ? e.message : `${i.name}: ${e instanceof Error ? e.message : String(e)}` });
+          held.add(i.id);
+          items.push(i);
+          continue;
+        }
         // Keep what Odoo already took: those items now match Odoo, the rest are untouched.
         const done = new Map(items.map((x) => [x.id, x]));
         // Linked, made and merged items keep that, so nothing is made or sent twice.
-        const partial = merged.map((x) => done.get(x.id) ?? x);
+        const partial = [...merged.map((x) => done.get(x.id) ?? x), ...heldUnlinked];
         const why = e instanceof Error ? e.message : String(e);
         throw new PartialSyncError(`The sync stopped after ${sent} count${sent === 1 ? '' : 's'}: ${why}`, { ...store, items: partial, truck }, sent);
       }
@@ -367,6 +423,7 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
   const out = items.map((i): StockItem => {
     const l = i.odooId !== undefined ? fresh.get(i.odooId) : undefined;
     if (!l) return i;
+    if (held.has(i.id)) return { ...i, syncedOnHand: i.syncedOnHand ?? 0 };
     return {
       ...i,
       onHand: l.qty,
@@ -400,7 +457,7 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       updatedAt: now,
     });
   }
-  return { store: { ...store, items: out, suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, removed, created };
+  return { store: { ...store, items: [...out, ...heldUnlinked], suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, removed, created, problems };
 }
 
 /** The supplier's contact in Odoo: the one linked, else one by that name, else a new vendor. */
