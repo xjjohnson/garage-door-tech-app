@@ -14,6 +14,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { useSchedule } from '../lib/useSchedule';
 import { NewStockItem, useStock } from '../lib/useStock';
+import { useTruckSync } from '../lib/useTruckSync';
 import { colors, touch, type } from '../theme';
 
 /** At the top of Jobs: how many items are low. */
@@ -45,7 +46,7 @@ const ago = (ms: number, now: number) => {
  */
 export function StockScreen() {
   const store = useStock();
-  const { items, suppliers, add, update, adjust, remove, addStarter, received, setSupplier } = store;
+  const { items, suppliers, add, update, adjust, remove, addStarter, received, setSupplier, addToOdoo } = store;
   const { business } = useInvoices();
   const { client } = useOdoo();
   const { appointments } = useSchedule();
@@ -68,6 +69,14 @@ export function StockScreen() {
   const usedToday = usedTotals(store.used, { from: today });
   const pick = pickList(appointments, jobs, items, sheet, now);
   const unsynced = unsyncedItems(store).length;
+  // Signed in, Odoo is the record of the truck: it syncs on open and after each change.
+  const auto = useTruckSync({
+    onDone: (r) => r.removed.length && setMessage({ text: syncDone(r) }),
+    onError: (e) => {
+      setMessage({ text: e instanceof Error ? e.message : String(e), bad: true });
+      if (e instanceof NoTruckError && client) listTrucks(client).then(setTrucks, () => undefined);
+    },
+  });
 
   const run = async (key: string, fn: () => Promise<string>) => {
     setBusy(key);
@@ -89,11 +98,11 @@ export function StockScreen() {
       return list.length ? 'Pick the Odoo location that is your truck.' : 'Odoo has no Inventory locations to pick. Make one in Inventory › Configuration › Locations.';
     });
 
-  const syncDone = (r: SyncResult) => {
+  function syncDone(r: SyncResult) {
     const bits = [r.sent ? `${r.sent} count${r.sent === 1 ? '' : 's'} sent` : '', r.added ? `${r.added} new from Odoo` : '', r.linked ? `${r.linked} linked` : ''].filter(Boolean);
-    const left = r.phoneOnly.length ? ` Not in Odoo yet: ${r.phoneOnly.slice(0, 3).join(', ')}${r.phoneOnly.length > 3 ? '…' : ''}.` : '';
+    const left = r.removed.length ? ` Taken off (not on this truck in Odoo): ${r.removed.slice(0, 3).join(', ')}${r.removed.length > 3 ? '…' : ''}.` : '';
     return `${r.store.truck?.name ?? 'Truck'} synced${bits.length ? `: ${bits.join(', ')}` : ''}.${left}`;
-  };
+  }
 
   const syncNow = () =>
     client &&
@@ -135,8 +144,8 @@ export function StockScreen() {
         <View style={styles.syncCard} testID="stock-odoo">
           <Text style={styles.name}>{store.truck ? store.truck.name : 'Your truck in Odoo'}</Text>
           <Text style={styles.meta}>
-            {store.truck ? `Synced ${ago(store.truck.syncedAt, now)}` : 'Not synced yet'}
-            {unsynced ? ` · ${unsynced} count${unsynced === 1 ? '' : 's'} to send` : ''}
+            {auto.syncing || busy === 'sync' ? 'Syncing…' : store.truck ? `Synced ${ago(store.truck.syncedAt, now)}` : 'Not synced yet'}
+            {unsynced ? ` · ${unsynced} change${unsynced === 1 ? '' : 's'} not sent yet` : ''}
           </Text>
           <View style={styles.row}>
             <Action label={busy === 'sync' ? 'Syncing…' : 'Sync with Odoo'} grow primary onPress={() => !busy && syncNow()} testID="stock-sync" />
@@ -155,8 +164,14 @@ export function StockScreen() {
       {items.length === 0 ? (
         <View style={styles.empty} testID="stock-empty">
           <Text style={styles.emptyTitle}>Nothing on the truck yet</Text>
-          <Text style={styles.emptyBody}>{client ? 'Sync to bring in what Odoo has on the truck, or start with a list of common springs and parts.' : 'Start with a list of common springs and parts, then set how many you have, or add your own.'}</Text>
-          <Action label="Add common items" primary onPress={addStarter} testID="stock-starter" />
+          {client ? (
+            <Text style={styles.emptyBody}>Odoo has nothing on {store.truck?.name ?? 'your truck'}. Put stock on that location in Odoo (a receipt or an inventory count), or add an item here and its count goes to Odoo.</Text>
+          ) : (
+            <>
+              <Text style={styles.emptyBody}>Start with a list of common springs and parts, then set how many you have, or add your own.</Text>
+              <Action label="Add common items" primary onPress={addStarter} testID="stock-starter" />
+            </>
+          )}
         </View>
       ) : null}
 
@@ -198,6 +213,11 @@ export function StockScreen() {
           <Text style={styles.name}>
             {po.name} · {po.supplier}
           </Text>
+          {po.jobId ? (
+            <Text style={styles.meta} testID={`po-job-${po.name}`}>
+              {po.pickup ? 'Pickup' : 'Delivery'} for {jobs.find((j) => j.id === po.jobId)?.customer || 'a job'} · goes on the job when it's in
+            </Text>
+          ) : null}
           {po.lines.map((l) => (
             <Text key={l.itemId} style={styles.detail}>
               {l.qty} x {items.find((i) => i.id === l.itemId)?.name ?? 'Removed item'}
@@ -262,7 +282,7 @@ export function StockScreen() {
           <View key={cat} style={styles.stack}>
             <SectionTitle>{CATEGORY_LABEL[cat]}</SectionTitle>
             {list.map((i) => (
-              <Row key={i.id} i={i} onAdjust={(by) => adjust(i.id, by)} onEdit={() => setEditing({ id: i.id, item: { ...i } })} />
+              <Row key={i.id} i={i} unsent={!!store.truck && i.odooId !== undefined && i.onHand !== i.syncedOnHand} onAdjust={(by) => adjust(i.id, by)} onEdit={() => setEditing({ id: i.id, item: { ...i } })} />
             ))}
           </View>
         );
@@ -320,9 +340,14 @@ export function StockScreen() {
         suppliers={names}
         onCancel={() => setEditing(null)}
         onSave={(item) => {
-          if (editing?.id) update(editing.id, item);
-          else add(item);
           setEditing(null);
+          if (editing?.id) update(editing.id, item);
+          else if (client)
+            run('add', async () => {
+              await addToOdoo(client, item);
+              return `${item.name} added${item.odooId === undefined ? ' to Odoo as a new product' : ''}. Its count goes to ${store.truck?.name ?? 'the truck'} in Odoo next.`;
+            });
+          else add(item);
         }}
         onDelete={() => {
           if (editing?.id) remove(editing.id);
@@ -435,7 +460,7 @@ function CountSheet({ item, onSave, onCancel }: { item: StockItem | null; onSave
   );
 }
 
-function Row({ i, onAdjust, onEdit }: { i: StockItem; onAdjust: (by: number) => void; onEdit: () => void }) {
+function Row({ i, unsent, onAdjust, onEdit }: { i: StockItem; unsent?: boolean; onAdjust: (by: number) => void; onEdit: () => void }) {
   const low = isLow(i);
   return (
     <View style={[styles.item, low && styles.low]} testID={`stock-${i.id}`}>
@@ -445,6 +470,11 @@ function Row({ i, onAdjust, onEdit }: { i: StockItem; onAdjust: (by: number) => 
           {low ? 'LOW · ' : ''}reorder at {i.min}, fill to {i.par}
           {i.supplier ? ` · ${i.supplier}` : ''}
         </Text>
+        {unsent ? (
+          <Text style={styles.unsent} testID={`stock-unsent-${i.id}`}>
+            Odoo has {i.syncedOnHand ?? 0}: not sent yet
+          </Text>
+        ) : null}
       </Pressable>
       <View style={styles.row}>
         <Action label="−" grow onPress={() => onAdjust(-1)} testID={`stock-minus-${i.id}`} accessibilityLabel={`One less ${i.name}`} />
@@ -594,6 +624,7 @@ const styles = StyleSheet.create({
   name: { fontSize: type.body, fontWeight: '900', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  unsent: { fontSize: 15, fontWeight: '800', color: colors.stop },
   count: { minWidth: 72, fontSize: type.big, fontWeight: '900', color: colors.text, textAlign: 'center', textAlignVertical: 'center' },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   grow: { flex: 1 },

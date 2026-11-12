@@ -1,21 +1,46 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { findByCode, StockItem } from '../lib/stock';
+import { createProduct, searchProducts, StockProduct } from '../lib/odooStock';
+import { findByCode, openPurchases, StockItem } from '../lib/stock';
+import { useJobs } from '../lib/useJobs';
+import { useOdoo } from '../lib/useOdoo';
 import { useStock } from '../lib/useStock';
+import { useTruckSync } from '../lib/useTruckSync';
 import { colors, touch, type } from '../theme';
 import { BarcodeScanner } from './BarcodeScanner';
 
 /**
  * On the job hub: parts used on this job. Each one comes off the truck count
- * (and so off the truck in Odoo at the next sync). Scan the box, or pick from
- * the truck list.
+ * (and so off the truck in Odoo, which syncs a few seconds later). Scan the
+ * box, or pick from the truck list. A part that isn't on the truck is ordered
+ * from the supplier in Odoo, to pick up or have delivered, and goes on the
+ * job when it's in.
  */
 export function JobParts({ jobId }: { jobId: string }) {
-  const { items, used, takeParts, undoUse } = useStock();
+  const { items, used, purchases, takeParts, undoUse, orderForJob, receiveOrder } = useStock();
+  const { client } = useOdoo();
+  const { jobs } = useJobs();
   const [scanning, setScanning] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [ordering, setOrdering] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  useTruckSync();
   const mine = (used ?? []).filter((u) => u.jobId === jobId);
+  const waiting = openPurchases(purchases).filter((p) => p.jobId === jobId);
+  const customer = jobs.find((j) => j.id === jobId)?.customer ?? '';
+
+  const run = async (key: string, fn: () => Promise<string>) => {
+    setBusy(key);
+    setNote(null);
+    try {
+      setNote(await fn());
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const take = (item: StockItem) => {
     takeParts(item.id, 1, jobId);
@@ -36,6 +61,26 @@ export function JobParts({ jobId }: { jobId: string }) {
           </Pressable>
         </View>
       ))}
+      {waiting.map((po) => (
+        <View key={po.id} style={styles.waiting} testID={`job-po-${po.name}`}>
+          <Text style={styles.body}>
+            {po.lines.map((l) => `${l.qty} x ${items.find((i) => i.id === l.itemId)?.name ?? 'part'}`).join(', ')}
+          </Text>
+          <Text style={styles.note}>
+            {po.name} · {po.pickup ? `pick up at ${po.supplier}` : `${po.supplier} delivers`}
+            {po.emailed ? ' · emailed' : ' · not emailed, call or text them'}
+          </Text>
+          <Button
+            label={busy === po.id ? 'Receiving…' : 'Got it, put it on this job'}
+            onPress={() =>
+              !busy &&
+              client &&
+              run(po.id, async () => ((await receiveOrder(client, po.id)) ? `${po.name} received in Odoo and put on this job.` : `Odoo wants ${po.name} finished there (a backorder or a missing quantity). Validate the receipt in Odoo.`))
+            }
+            testID={`job-po-received-${po.name}`}
+          />
+        </View>
+      ))}
       {note ? (
         <Text style={styles.note} testID="job-parts-note">
           {note}
@@ -45,6 +90,11 @@ export function JobParts({ jobId }: { jobId: string }) {
         <Button label="Scan a part" onPress={() => setScanning(true)} testID="job-parts-scan" />
         <Button label="Pick from truck" onPress={() => setPicking(true)} testID="job-parts-pick" />
       </View>
+      <Button
+        label="Part not on the truck"
+        onPress={() => (client ? setOrdering(true) : setNote('Sign in to Odoo (Team) to order a part for this job.'))}
+        testID="job-parts-order"
+      />
       <BarcodeScanner
         visible={scanning}
         title="Scan a part used"
@@ -52,12 +102,142 @@ export function JobParts({ jobId }: { jobId: string }) {
           setScanning(false);
           const item = findByCode(items, code);
           if (item) take(item);
-          else setNote(`Nothing on the truck has the code ${code}. Add it in Truck stock first.`);
+          else setNote(`Nothing on the truck has the code ${code}. Tap "Part not on the truck" to order it.`);
         }}
         onClose={() => setScanning(false)}
       />
       <TruckPicker visible={picking} items={items} onPick={(i) => { setPicking(false); take(i); }} onClose={() => setPicking(false)} />
+      {ordering && client ? (
+        <OrderSheet
+          search={(q) => searchProducts(client, q)}
+          make={async (name) => ({ id: await createProduct(client, { name }), name, code: '', barcode: '', costCents: 0 })}
+          onClose={() => setOrdering(false)}
+          onSend={(o) => {
+            setOrdering(false);
+            run('order', async () => {
+              const po = await orderForJob(client, { ...o, jobId, jobName: customer });
+              return `${po.name} sent to ${po.supplier}${po.emailed ? ' by email' : ". Odoo couldn't email it, so call or text them"}. ${o.pickup ? 'Pick it up' : "It's coming"}, then tap "Got it" to put it on this job.`;
+            });
+          }}
+        />
+      ) : null}
     </View>
+  );
+}
+
+interface PartOrder {
+  product: StockProduct;
+  qty: number;
+  supplier: string;
+  pickup: boolean;
+}
+
+/** Finds the part in Odoo (or makes it), then how many, who from, and pickup or delivery. Sending is the last tap. */
+function OrderSheet({ search, make, onSend, onClose }: { search: (q: string) => Promise<StockProduct[]>; make: (name: string) => Promise<StockProduct>; onSend: (o: PartOrder) => void; onClose: () => void }) {
+  const [q, setQ] = useState('');
+  const [found, setFound] = useState<StockProduct[] | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [product, setProduct] = useState<StockProduct | null>(null);
+  const [qty, setQty] = useState(1);
+  const [supplier, setSupplier] = useState('');
+  const [pickup, setPickup] = useState(true);
+
+  const look = async (fn: () => Promise<void>) => {
+    setLooking(true);
+    setErr(null);
+    try {
+      await fn();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLooking(false);
+    }
+  };
+  const choose = (p: StockProduct) => {
+    setProduct(p);
+    setSupplier(p.vendor?.name ?? '');
+  };
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={styles.sheet} testID="job-order-sheet">
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{product ? 'Order it' : 'Which part?'}</Text>
+            <Pressable onPress={onClose} style={styles.undo} accessibilityRole="button" testID="job-order-close">
+              <Text style={styles.undoText}>Close</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+            {!product ? (
+              <>
+                <TextInput
+                  value={q}
+                  onChangeText={setQ}
+                  onSubmitEditing={() => q.trim() && look(async () => setFound(await search(q)))}
+                  placeholder="Name, part number or barcode"
+                  placeholderTextColor={colors.muted}
+                  accessibilityLabel="Search Odoo products"
+                  returnKeyType="search"
+                  testID="job-order-search"
+                  style={styles.input}
+                />
+                <Button label={looking ? 'Looking…' : 'Search Odoo'} onPress={() => !looking && q.trim() && look(async () => setFound(await search(q)))} testID="job-order-go" />
+                {found?.map((p) => (
+                  <Pressable key={p.id} onPress={() => choose(p)} accessibilityRole="button" testID={`job-order-pick-${p.id}`} style={({ pressed }) => [styles.pick, pressed && styles.pressed]}>
+                    <Text style={[styles.body, styles.grow]}>{p.name}</Text>
+                    {p.code ? <Text style={styles.note}>{p.code}</Text> : null}
+                  </Pressable>
+                ))}
+                {found && found.length === 0 ? (
+                  <>
+                    <Text style={styles.body}>No product in Odoo matches.</Text>
+                    <Button label={looking ? 'Making…' : `Make "${q.trim()}" in Odoo`} onPress={() => !looking && look(async () => choose(await make(q.trim())))} testID="job-order-make" />
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Text style={styles.body}>{product.name}</Text>
+                <View style={styles.line}>
+                  <Button label="−" onPress={() => setQty((n) => Math.max(1, n - 1))} testID="job-order-minus" />
+                  <Text style={[styles.count, styles.qty]} testID="job-order-qty">
+                    {qty}
+                  </Text>
+                  <Button label="+" onPress={() => setQty((n) => n + 1)} testID="job-order-plus" />
+                </View>
+                <TextInput value={supplier} onChangeText={setSupplier} placeholder="Supplier" placeholderTextColor={colors.muted} accessibilityLabel="Supplier" testID="job-order-supplier" style={styles.input} />
+                <View style={styles.row}>
+                  <Choice label="I'll pick it up" on={pickup} onPress={() => setPickup(true)} testID="job-order-pickup" />
+                  <Choice label="Have it delivered" on={!pickup} onPress={() => setPickup(false)} testID="job-order-delivery" />
+                </View>
+                <Text style={styles.note}>Makes a purchase order in Odoo for this job and emails it to {supplier.trim() || 'the supplier'}. It comes in on your truck.</Text>
+                <Pressable
+                  onPress={() => supplier.trim() && onSend({ product, qty, supplier: supplier.trim(), pickup })}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !supplier.trim() }}
+                  testID="job-order-send"
+                  style={({ pressed }) => [styles.button, styles.primary, !supplier.trim() && styles.disabled, pressed && styles.pressed]}
+                >
+                  {({ pressed }) => <Text style={[styles.buttonText, !pressed && styles.primaryText]}>{supplier.trim() ? `Send PO to ${supplier.trim()}` : 'Add the supplier first'}</Text>}
+                </Pressable>
+                <Button label="Different part" onPress={() => setProduct(null)} testID="job-order-back" />
+              </>
+            )}
+            {err ? <Text style={styles.error}>{err}</Text> : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function Choice({ label, on, onPress, testID }: { label: string; on: boolean; onPress: () => void; testID: string }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected: on }} testID={testID} style={({ pressed }) => [styles.button, on && styles.primary, pressed && styles.pressed]}>
+      {({ pressed }) => <Text style={[styles.buttonText, on && !pressed && styles.primaryText]}>{label}</Text>}
+    </Pressable>
   );
 }
 
@@ -121,4 +301,10 @@ const styles = StyleSheet.create({
   list: { gap: 8, paddingBottom: 8 },
   pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
   count: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  qty: { minWidth: 48, textAlign: 'center' },
+  waiting: { gap: 6, borderWidth: 2, borderColor: colors.border, borderRadius: 10, padding: 10 },
+  primary: { backgroundColor: colors.selected, borderColor: colors.selected },
+  primaryText: { color: colors.onSelected },
+  disabled: { opacity: 0.5 },
+  error: { fontSize: 16, fontWeight: '800', color: colors.stop },
 });

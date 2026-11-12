@@ -159,6 +159,27 @@ export async function findProductByCode(client: OdooClient, code: string): Promi
   return (await readProducts(client, [ids[0]]))[0] ?? null;
 }
 
+/** Products by name, internal reference or barcode, for adding a part. */
+export async function searchProducts(client: OdooClient, q: string, limit = 20): Promise<StockProduct[]> {
+  const t = q.trim();
+  if (!t) return [];
+  const ids = (await client.call('product.product', 'search', [['|', '|', ['name', 'ilike', t], ['default_code', 'ilike', t], ['barcode', '=', t]]], { limit, order: 'name asc' })) as number[];
+  return readProducts(client, ids);
+}
+
+/**
+ * Makes a new stocked product in Odoo for a part added on the phone. Odoo 18
+ * and later mark it "Track inventory" (is_storable); older ones use the
+ * Storable product type. Returns the product.product id.
+ */
+export async function createProduct(client: OdooClient, p: { name: string; sku?: string; barcode?: string; costCents?: number }): Promise<number> {
+  const f = (await client.call('product.template', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
+  const stocked = 'is_storable' in f ? { type: 'consu', is_storable: true } : { type: 'product' };
+  return (await client.call('product.product', 'create', [
+    { name: p.name.trim(), default_code: p.sku?.trim() || false, barcode: p.barcode?.trim() || false, ...(p.costCents ? { standard_price: p.costCents / 100 } : {}), sale_ok: true, purchase_ok: true, ...stocked },
+  ])) as number;
+}
+
 /** The product for an item that isn't linked yet: by barcode, part number, then exact name. */
 async function matchProduct(client: OdooClient, i: StockItem): Promise<number | undefined> {
   const tries: unknown[][] = [];
@@ -230,16 +251,18 @@ export interface SyncResult {
   added: number;
   /** Phone items linked to an Odoo product this time. */
   linked: number;
-  /** Phone items with no Odoo product (they stay on the phone only). */
-  phoneOnly: string[];
+  /** Phone items with no Odoo product, taken off the list: Odoo is the truck's record. */
+  removed: string[];
 }
 
 /**
- * Two-way truck sync. Phone changes go to Odoo as a difference on top of what
- * Odoo has now (so a receipt done in Odoo meanwhile still counts); then every
- * linked item takes Odoo's number. Products Odoo has on the truck that the
- * phone doesn't are added. An item linked for the first time sends the
- * phone's count when Odoo has none of it there.
+ * Two-way truck sync, with Odoo as the record of what's on the truck. Phone
+ * changes (parts used, counts, new items) go to Odoo as a difference on top
+ * of what Odoo has now, so a receipt done in Odoo meanwhile still counts;
+ * then every item takes Odoo's number. Products Odoo has on the truck that
+ * the phone doesn't are added. A phone item that matches an Odoo product for
+ * the first time takes Odoo's count (nothing is sent), and one with no Odoo
+ * product at all is taken off the list.
  */
 export async function syncTruck(client: OdooClient, given: StockStore, now: number, newId: () => string = () => `i-${now.toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`): Promise<SyncResult> {
   let store = given;
@@ -254,24 +277,27 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
   const odoo = new Map(lines.map((l) => [l.id, l]));
   let sent = 0;
   let linked = 0;
-  const phoneOnly: string[] = [];
+  const removed: string[] = [];
   const items: StockItem[] = [];
   for (const item of store.items) {
     let i = item;
     if (i.odooId === undefined) {
       const pid = await matchProduct(client, i);
       if (!pid) {
-        phoneOnly.push(i.name);
-        items.push(i);
+        removed.push(i.name);
         continue;
       }
       i = { ...i, odooId: pid };
       linked++;
     }
+    // Two phone items for one Odoo product would show two different counts: keep the first.
+    if (items.some((x) => x.odooId === i.odooId)) {
+      removed.push(i.name);
+      continue;
+    }
     const have = odoo.get(i.odooId!)?.qty;
     let target: number | undefined;
-    if (i.syncedOnHand === undefined) target = have === undefined || have === 0 ? i.onHand : undefined;
-    else if (i.onHand !== i.syncedOnHand) target = Math.max(0, (have ?? 0) + i.onHand - i.syncedOnHand);
+    if (i.syncedOnHand !== undefined && i.onHand !== i.syncedOnHand) target = Math.max(0, (have ?? 0) + i.onHand - i.syncedOnHand);
     if (target !== undefined && target !== (have ?? 0)) {
       try {
         await setTruckQty(client, truck.locationId, i.odooId!, target);
@@ -341,7 +367,7 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       updatedAt: now,
     });
   }
-  return { store: { ...store, items: out, suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, phoneOnly };
+  return { store: { ...store, items: out, suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, removed };
 }
 
 /** The supplier's contact in Odoo: the one linked, else one by that name, else a new vendor. */
@@ -366,6 +392,7 @@ export interface SentPurchase {
  * text or email it instead.
  */
 export async function sendPurchaseOrder(client: OdooClient, supplier: Supplier, lines: { productId: number; name: string; qty: number; priceCents: number }[], truck?: TruckLink, ref = ''): Promise<SentPurchase> {
+  // `ref` goes in the order's Source (origin): the truck, and for a job's part "Pickup" or "Delivery" and the job.
   if (lines.length === 0) throw new Error('Nothing on this order is linked to an Odoo product yet. Sync the truck first.');
   const vendorId = await vendorFor(client, supplier);
   const order_line = lines.map((l) => [0, 0, { product_id: l.productId, name: l.name, product_qty: l.qty, ...(l.priceCents > 0 ? { price_unit: l.priceCents / 100 } : {}) }]);

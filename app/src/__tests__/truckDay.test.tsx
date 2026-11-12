@@ -1,16 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { daySummary, dayText, DAY_CLOSE_STORAGE_KEY, parseClosedDays } from '../lib/endOfDay';
 import { Invoice } from '../lib/invoices';
 import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
 import type { OdooClient } from '../lib/odoo';
-import { findProductByCode, likeExact, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
+import { createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
 import { Appointment } from '../lib/schedule';
 import { phoneScoreData, scorecard, tierIn } from '../lib/scorecard';
 import { findByCode, onOrder, orders, parseStock, STOCK_STORAGE_KEY, StockItem, StockStore, usedTotals } from '../lib/stock';
+import { StockProvider, useStock } from '../lib/useStock';
 import { renderApp } from '../testing/renderApp';
 
 const DAY = 86_400_000;
@@ -58,6 +59,11 @@ function fakeStockOdoo() {
         return [{ id: 1, partner_id: [55, 'DDM Garage Doors'], product_tmpl_id: [111, 'Rollers'], product_id: false, product_code: 'D-ROL', price: 17 }];
       case 'product.product.search': {
         const d = JSON.stringify(args[0]);
+        // A typed search (Part not on the truck): name contains the words.
+        if ((args[0] as unknown[])[0] === '|') {
+          const t = String(((args[0] as unknown[][])[2] as unknown[])[2]).toLowerCase();
+          return products.filter((p) => p.name.toLowerCase().includes(t) || p.default_code.toLowerCase().includes(t) || p.barcode === t).map((p) => p.id);
+        }
         const hit = products.find((p) => (p.barcode && d.includes(`"${p.barcode}"`)) || (p.default_code && d.toLowerCase().includes(`"${p.default_code.toLowerCase()}"`)) || d.toLowerCase().includes(`"${p.name.toLowerCase().replace(/"/g, '\\"')}"`));
         return hit ? [hit.id] : [];
       }
@@ -77,6 +83,14 @@ function fakeStockOdoo() {
         q.qty = q.pending ?? q.qty;
         delete q.pending;
         return true;
+      }
+      case 'product.template.fields_get':
+        return { type: {}, is_storable: {} };
+      case 'product.product.create': {
+        const v = args[0] as { name: string; default_code: string | false; barcode: string | false; standard_price?: number };
+        const id = nextId++;
+        products.push({ id, name: v.name, default_code: v.default_code || '', barcode: v.barcode || '', standard_price: v.standard_price ?? 0, product_tmpl_id: [id + 1000, v.name] });
+        return id;
       }
       case 'res.partner.search':
         return [];
@@ -118,7 +132,7 @@ function fakeStockOdoo() {
   };
   const session = { uid: 2, name: 'Justin Johnson', kind: 'oca', fields: [], apps: { products: true, sales: true, invoicing: true } };
   const client = { session, call } as unknown as OdooClient;
-  return { client, calls, quants, pickings, failOn, session, locations };
+  return { client, calls, quants, pickings, failOn, session, locations, products };
 }
 
 describe('truck stock with Odoo Inventory (plain logic)', () => {
@@ -129,10 +143,11 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     let n = 0;
     const first = await syncTruck(o.client, store, 1000, () => `new${++n}`);
     expect(first.linked).toBe(2);
-    expect(first.phoneOnly).toEqual(['Shop rags']);
-    // Odoo already had rollers, so Odoo wins; the spring wasn't there, so the phone's 4 goes up.
-    expect(first.sent).toBe(1);
-    expect(o.quants.find((q) => q.product === 12)?.qty).toBe(4);
+    expect(first.removed).toEqual(['Shop rags']);
+    // Odoo is the record: on first link nothing is sent and every count is Odoo's (no spring on the truck there).
+    expect(first.sent).toBe(0);
+    expect(first.store.items.map((i) => i.id)).toEqual(['r', 's']);
+    expect(first.store.items.find((i) => i.id === 's')).toMatchObject({ odooId: 12, onHand: 0, syncedOnHand: 0 });
     const r = first.store.items.find((i) => i.id === 'r')!;
     expect(r).toMatchObject({ odooId: 11, onHand: 5, syncedOnHand: 5, min: 2, par: 6, sku: 'ROL-10', barcode: '0123456789012', costCents: 1850, supplier: 'DDM Garage Doors' });
     expect(first.store.suppliers).toEqual([{ name: 'DDM Garage Doors', phone: '', email: '', odooId: 55 }]);
@@ -176,7 +191,7 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     expect(sam.store.truck).toMatchObject({ locationId: 8, uid: 3 });
     expect(o.calls.filter((c) => c.method === 'action_apply_inventory').length).toBe(sentBefore);
     expect(sam.store.items.find((i) => i.id === 's')).toMatchObject({ onHand: 2, syncedOnHand: 2 });
-    expect(o.quants.filter((q) => q.product === 12 && (q.loc ?? 7) === 7).map((q) => q.qty)).toEqual([4]);
+    expect(o.quants.filter((q) => q.product === 12 && (q.loc ?? 7) === 7).map((q) => q.qty)).toEqual([]);
 
     // Nobody's truck and no Truck 1: the sync asks them to pick.
     o.locations.splice(0, 2, { id: 10, name: 'Van', complete_name: 'WH/Van' }, { id: 11, name: 'Shop', complete_name: 'WH/Shop' });
@@ -232,6 +247,20 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
 
     expect(await receivePurchaseOrder(o.client, 300)).toBe(true);
     expect(o.quants.find((q) => q.product === 12)?.qty).toBe(3);
+  });
+
+  it('makes a new stocked product, finds products by what is typed, and keeps one item per product', async () => {
+    const o = fakeStockOdoo();
+    expect((await searchProducts(o.client, 'roller')).map((p) => p.id)).toEqual([11]);
+    expect(await searchProducts(o.client, '  ')).toEqual([]);
+    const id = await createProduct(o.client, { name: ' Bottom seal 16ft ', sku: 'SEAL-16', costCents: 2250 });
+    expect(o.calls.find((c) => c.method === 'create' && c.model === 'product.product')?.args[0]).toEqual({ name: 'Bottom seal 16ft', default_code: 'SEAL-16', barcode: false, standard_price: 22.5, sale_ok: true, purchase_ok: true, type: 'consu', is_storable: true });
+    expect((await searchProducts(o.client, 'seal')).map((p) => p.id)).toEqual([id]);
+
+    // Two phone items for one Odoo product (an old sample and the Odoo one) would show two counts: the second goes.
+    const r = await syncTruck(o.client, { items: [item('a', { odooId: 11, onHand: 5, syncedOnHand: 5 }), item('b', { name: 'Nylon rollers (10)', onHand: 6 })], suppliers: [], truck: { locationId: 7, name: 'Truck 1', syncedAt: 1 } }, 10);
+    expect(r.store.items.map((i) => [i.id, i.onHand])).toEqual([['a', 5]]);
+    expect(r.removed).toEqual(['Nylon rollers (10)']);
   });
 
   it('leaves items already on order off the next order, and adds up parts used', () => {
@@ -339,6 +368,81 @@ describe('tech scorecard (plain logic)', () => {
   });
 });
 
+describe('job part orders and adding parts signed in (StockProvider)', () => {
+  const settle = async (n = 5) => {
+    for (let k = 0; k < n; k++) await act(async () => undefined);
+  };
+  async function mount(start: StockStore) {
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(start));
+    const api: { current: ReturnType<typeof useStock> | null } = { current: null };
+    function Grab() {
+      api.current = useStock();
+      return null;
+    }
+    await render(
+      <StockProvider>
+        <Grab />
+      </StockProvider>,
+    );
+    await settle();
+    return () => api.current!;
+  }
+
+  it('orders a part that is not on the truck for a job, and puts it on the job when it comes in', async () => {
+    const o = fakeStockOdoo();
+    const stock = await mount({ items: [], suppliers: [], truck: { locationId: 7, name: 'WH/Truck 1', syncedAt: 1, uid: 2 } });
+    const [spring] = await searchProducts(o.client, 'torsion');
+    let po!: Awaited<ReturnType<ReturnType<typeof stock>['orderForJob']>>;
+    await act(async () => {
+      po = await stock().orderForJob(o.client, { product: spring, qty: 2, supplier: 'ABC Supply', pickup: true, jobId: 'j1', jobName: 'Ortega' });
+    });
+    expect(po).toMatchObject({ name: 'P00012', jobId: 'j1', pickup: true, lines: [{ qty: 2 }] });
+    expect(o.calls.find((c) => c.model === 'purchase.order' && c.method === 'create')?.args[0]).toMatchObject({ origin: 'WH/Truck 1 · Pickup · Job: Ortega' });
+    // Listed on the truck at 0 with no reorder, so it never lands on a restock order.
+    expect(stock().items).toEqual([expect.objectContaining({ odooId: 12, onHand: 0, syncedOnHand: 0, min: 0, par: 0 })]);
+
+    await act(async () => {
+      expect(await stock().receiveOrder(o.client, po.id)).toBe(true);
+    });
+    await settle();
+    // Received onto the truck in Odoo, then taken off it for the job.
+    expect(stock().used).toEqual([expect.objectContaining({ jobId: 'j1', qty: 2, itemId: po.lines[0].itemId })]);
+    expect(stock().items[0]).toMatchObject({ onHand: 0, syncedOnHand: 2 });
+    await act(async () => {
+      await stock().sync(o.client);
+    });
+    expect(o.quants.find((q) => q.product === 12)?.qty).toBe(0);
+  });
+
+  it('makes a new part in Odoo and sends its count, and an undo only puts back what came off', async () => {
+    const o = fakeStockOdoo();
+    const stock = await mount({ items: [item('r', { odooId: 11, name: 'Nylon rollers (10)', onHand: 0, syncedOnHand: 0 })], suppliers: [], truck: { locationId: 7, name: 'WH/Truck 1', syncedAt: 1, uid: 2 } });
+    let id = '';
+    await act(async () => {
+      id = await stock().addToOdoo(o.client, { name: 'Bottom seal', sku: '', category: 'parts', onHand: 3, min: 1, par: 4, supplier: '', costCents: 0 });
+    });
+    expect(stock().items.find((i) => i.id === id)).toMatchObject({ odooId: 100, onHand: 3, syncedOnHand: 0 });
+    await act(async () => {
+      await stock().sync(o.client);
+    });
+    expect(o.quants.find((q) => q.product === 100)?.qty).toBe(3);
+
+    // A part taken when the truck said 0, then undone, leaves the count at 0.
+    await act(async () => stock().takeParts('r', 1, 'j1'));
+    await settle();
+    // The sync above made rollers 5 again (Odoo's number).
+    expect(stock().items.find((i) => i.id === 'r')?.onHand).toBe(4);
+    await act(async () => stock().update('r', { onHand: 0 }));
+    await act(async () => stock().takeParts('r', 1, 'j1'));
+    await settle();
+    const zero = stock().used!.find((u) => u.off === 0)!;
+    await act(async () => stock().undoUse(zero.id));
+    await settle();
+    expect(stock().items.find((i) => i.id === 'r')?.onHand).toBe(0);
+  });
+});
+
 describe('truck, job parts, wrap-up and scorecard screens', () => {
   const settle = async (n = 5) => {
     for (let k = 0; k < n; k++) await act(async () => undefined);
@@ -384,6 +488,9 @@ describe('truck, job parts, wrap-up and scorecard screens', () => {
     await fireEvent.press(screen.getByTestId(`job-part-undo-${saved.used![0].id}`));
     await settle(3);
     expect(parseStock(await AsyncStorage.getItem(STOCK_STORAGE_KEY)).items[0].onHand).toBe(4);
+    // Ordering a part that isn't on the truck needs Odoo.
+    await fireEvent.press(screen.getByTestId('job-parts-order'));
+    expect(screen.getByTestId('job-parts-note')).toHaveTextContent(/Sign in to Odoo/);
   });
 
   it('wraps up the day from Today and closes it', async () => {

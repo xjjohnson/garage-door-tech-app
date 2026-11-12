@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { log } from './log';
 import type { OdooClient } from './odoo';
-import { PartialSyncError, receivePurchaseOrder, sendPurchaseOrder, syncTruck, SyncResult } from './odooStock';
-import { EMPTY_STOCK, findSupplier, mergeStock, parseStock, PartUse, PurchaseOrder, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, StockStore, Supplier, SupplierOrder, switchTruck, TruckLink } from './stock';
+import { createProduct, PartialSyncError, receivePurchaseOrder, sendPurchaseOrder, StockProduct, syncTruck, SyncResult } from './odooStock';
+import { EMPTY_STOCK, findSupplier, guessCategory, mergeStock, parseStock, PartUse, PurchaseOrder, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, StockStore, Supplier, SupplierOrder, switchTruck, TruckLink } from './stock';
 
 export type NewStockItem = Omit<StockItem, 'id' | 'updatedAt'>;
 
@@ -28,8 +28,22 @@ interface StockApi extends StockStore {
   chooseTruck: (client: OdooClient, truck: TruckLink) => Promise<SyncResult>;
   /** Sends a supplier's order to Odoo as a purchase order. */
   sendOrder: (client: OdooClient, o: SupplierOrder) => Promise<PurchaseOrder>;
-  /** The parts on an Odoo purchase order came in: receives it in Odoo, then syncs. False if Odoo needs it finished there. */
+  /** The parts on an Odoo purchase order came in: receives it in Odoo, then syncs. A job's part then goes on the job. False if Odoo needs it finished there. */
   receiveOrder: (client: OdooClient, purchaseId: string) => Promise<boolean>;
+  /** Orders a part that isn't on the truck for a job: a purchase order to pick up or have delivered. */
+  orderForJob: (client: OdooClient, o: JobPartOrder) => Promise<PurchaseOrder>;
+  /** Adds a part signed in to Odoo: makes the product there when it's new, and its count goes up at the next sync. */
+  addToOdoo: (client: OdooClient, i: NewStockItem) => Promise<string>;
+}
+
+export interface JobPartOrder {
+  product: StockProduct;
+  qty: number;
+  supplier: string;
+  pickup: boolean;
+  jobId: string;
+  /** The job's customer, for the order's Source in Odoo. */
+  jobName: string;
 }
 
 const Ctx = createContext<StockApi | null>(null);
@@ -109,7 +123,8 @@ export function StockProvider({ children }: { children: ReactNode }) {
         const item = s.items.find((i) => i.id === itemId);
         if (!item || qty <= 0) return s;
         const now = Date.now();
-        const use: PartUse = { id: newId('u'), itemId, name: item.name, qty, at: now, ...(jobId ? { jobId } : {}) };
+        const off = Math.min(qty, item.onHand);
+        const use: PartUse = { id: newId('u'), itemId, name: item.name, qty, at: now, ...(jobId ? { jobId } : {}), ...(off !== qty ? { off } : {}) };
         return { ...s, items: s.items.map((i) => (i.id === itemId ? { ...i, onHand: Math.max(0, i.onHand - qty), updatedAt: now } : i)), used: [...(s.used ?? []), use] };
       }),
     [change],
@@ -120,13 +135,28 @@ export function StockProvider({ children }: { children: ReactNode }) {
         const use = s.used?.find((u) => u.id === useId);
         if (!use) return s;
         const now = Date.now();
-        return { ...s, items: s.items.map((i) => (i.id === use.itemId ? { ...i, onHand: i.onHand + use.qty, updatedAt: now } : i)), used: (s.used ?? []).filter((u) => u.id !== useId) };
+        return { ...s, items: s.items.map((i) => (i.id === use.itemId ? { ...i, onHand: i.onHand + (use.off ?? use.qty), updatedAt: now } : i)), used: (s.used ?? []).filter((u) => u.id !== useId) };
       }),
     [change],
   );
 
+  const running = useRef<Promise<SyncResult> | null>(null);
   const sync = useCallback(
-    async (client: OdooClient) => {
+    (client: OdooClient) => {
+      // One sync at a time: a second ask while one runs waits for it, then runs with what changed since.
+      const prev = running.current;
+      const run = (prev ? prev.catch(() => undefined) : Promise.resolve()).then(() => syncOnce(client));
+      running.current = run;
+      run.finally(() => {
+        if (running.current === run) running.current = null;
+      }).catch(() => undefined);
+      return run;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [change],
+  );
+  const syncOnce = async (client: OdooClient) => {
+    {
       const before = latest.current;
       // Counts changed on the phone while the sync ran are kept on top of Odoo's.
       const apply = (next: StockStore) =>
@@ -151,11 +181,10 @@ export function StockProvider({ children }: { children: ReactNode }) {
         throw e;
       }
       apply(result.store);
-      log.info('stock', `truck sync: ${result.sent} sent, ${result.added} new, ${result.linked} linked, ${result.phoneOnly.length} phone only`);
+      log.info('stock', `truck sync: ${result.sent} sent, ${result.added} new, ${result.linked} linked, ${result.removed.length} not in Odoo removed`);
       return result;
-    },
-    [change],
-  );
+    }
+  };
 
   const chooseTruck = useCallback(
     async (client: OdooClient, truck: TruckLink) => {
@@ -202,14 +231,53 @@ export function StockProvider({ children }: { children: ReactNode }) {
       change((cur) => ({ ...cur, purchases: (cur.purchases ?? []).map((p) => (p.id === purchaseId ? { ...p, receivedAt: Date.now() } : p)) }));
       latest.current = { ...latest.current, purchases: (latest.current.purchases ?? []).map((p) => (p.id === purchaseId ? { ...p, receivedAt: Date.now() } : p)) };
       await sync(client);
+      // A part ordered for a job goes on that job once it's on the truck.
+      if (po.jobId) for (const l of po.lines) takeParts(l.itemId, l.qty, po.jobId);
       return true;
     },
-    [change, sync],
+    [change, sync, takeParts],
+  );
+
+  const orderForJob = useCallback(
+    async (client: OdooClient, o: JobPartOrder) => {
+      const s = latest.current;
+      let item = s.items.find((i) => i.odooId === o.product.id);
+      const itemId = item?.id ?? newId();
+      if (!item) {
+        // Not stocked on the truck: listed at 0 with no reorder, so it never lands on a restock order.
+        item = { id: itemId, name: o.product.name, sku: o.product.code, category: guessCategory(o.product.name), onHand: 0, syncedOnHand: 0, min: 0, par: 0, supplier: o.supplier, costCents: o.product.costCents || o.product.vendor?.priceCents || 0, odooId: o.product.id, ...(o.product.barcode ? { barcode: o.product.barcode } : {}), updatedAt: Date.now() };
+        const add = item;
+        change((cur) => ({ ...cur, items: [...cur.items, add] }));
+        latest.current = { ...latest.current, items: [...latest.current.items, add] };
+      }
+      const supplier = findSupplier(s.suppliers, o.supplier) ?? (o.product.vendor && o.product.vendor.name === o.supplier ? { name: o.supplier, phone: '', email: '', odooId: o.product.vendor.id } : { name: o.supplier, phone: '', email: '' });
+      const ref = [s.truck?.name, o.pickup ? 'Pickup' : 'Delivery', o.jobName && `Job: ${o.jobName}`].filter(Boolean).join(' · ');
+      const sent = await sendPurchaseOrder(client, supplier, [{ productId: o.product.id, name: o.product.name, qty: o.qty, priceCents: item.costCents }], s.truck, ref);
+      const po: PurchaseOrder = { id: newId('po'), supplier: o.supplier, odooId: sent.odooId, name: sent.name, lines: [{ itemId, qty: o.qty }], at: Date.now(), emailed: sent.emailed, jobId: o.jobId, ...(o.pickup ? { pickup: true } : {}) };
+      change((cur) => {
+        const k = o.supplier.trim().toLowerCase();
+        const has = cur.suppliers.some((x) => x.name.trim().toLowerCase() === k);
+        const suppliers = has ? cur.suppliers.map((x) => (x.name.trim().toLowerCase() === k ? { ...x, odooId: sent.vendorId } : x)) : [...cur.suppliers, { name: o.supplier, phone: '', email: '', odooId: sent.vendorId }];
+        return { ...cur, suppliers, purchases: [...(cur.purchases ?? []), po] };
+      });
+      log.info('stock', `job part ordered: ${sent.name} (${o.pickup ? 'pickup' : 'delivery'})`);
+      return po;
+    },
+    [change],
+  );
+
+  const addToOdoo = useCallback(
+    async (client: OdooClient, i: NewStockItem) => {
+      const odooId = i.odooId ?? (await createProduct(client, { name: i.name, sku: i.sku, barcode: i.barcode, costCents: i.costCents }));
+      // syncedOnHand 0: the count typed in goes to Odoo as new stock on the truck at the next sync.
+      return add({ ...i, odooId, syncedOnHand: 0 });
+    },
+    [add],
   );
 
   const api = useMemo(
-    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder, chooseTruck }),
-    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder, chooseTruck],
+    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder, chooseTruck, orderForJob, addToOdoo }),
+    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder, chooseTruck, orderForJob, addToOdoo],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
