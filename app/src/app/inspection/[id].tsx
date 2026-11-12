@@ -5,13 +5,13 @@ import { useJobs } from '../../lib/useJobs';
 import { InspectionScreen } from '../../screens/InspectionScreen';
 import { colors, type } from '../../theme';
 
-/** /inspection/<job id>: the safety check for one saved job. */
+/** /inspection/<job id>: the inspection for one saved job. */
 export default function InspectionRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { jobs, loaded } = useJobs();
   const job = jobs.find((j) => j.id === id);
   return (
-    <Page title="Safety check" testID="inspection-page">
+    <Page title="Inspection" testID="inspection-page">
       {job ? (
         <InspectionScreen job={job} />
       ) : loaded ? (

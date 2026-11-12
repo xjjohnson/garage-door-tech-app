@@ -50,7 +50,7 @@ function header(business: Business, right: string): string {
   return `<div class="top"><div><h1>${escapeHtml(business.name || 'Garage door service')}</h1>${business.phone ? `<div class="muted">${escapeHtml(business.phone)}</div>` : ''}</div><div class="right">${right}</div></div>`;
 }
 
-function signatureBlock(sig: Signature | undefined, what: string): string {
+export function signatureBlock(sig: Signature | undefined, what: string): string {
   if (!sig) return `<div class="sig"><p>${escapeHtml(what)}</p><p>Signature: ______________________________ &nbsp; Date: ____________</p></div>`;
   return `<div class="sig"><p>${escapeHtml(what)}</p>${signatureSvg(sig)}<div>${escapeHtml(sig.name || 'Customer')} · ${escapeHtml(formatJobDate(sig.at))}</div></div>`;
 }

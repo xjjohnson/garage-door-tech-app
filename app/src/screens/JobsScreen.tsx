@@ -207,7 +207,7 @@ function JobCard({
           {job.notes ? <Text style={styles.detail}>{job.notes}</Text> : null}
           <Action label="Open job" primary onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })} testID={`job-hub-${job.id}`} />
           <Action label="Quote" onPress={onQuote} testID={`job-quote-${job.id}`} />
-          <Action label={job.inspection ? `Safety check (${checkCounts(job.inspection).fix} need work)` : 'Safety check'} onPress={() => router.push({ pathname: '/inspection/[id]', params: { id: job.id } })} testID={`job-inspection-${job.id}`} />
+          <Action label={job.inspection ? `Inspection (${checkCounts(job.inspection).fix} flagged)` : 'Inspection'} onPress={() => router.push({ pathname: '/inspection/[id]', params: { id: job.id } })} testID={`job-inspection-${job.id}`} />
           <Action label="Open in calculator" onPress={onOpen} testID={`job-open-${job.id}`} />
           {job.customerId ? (
             <Action label="Customer history" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: job.customerId! } })} testID={`job-customer-${job.id}`} />
