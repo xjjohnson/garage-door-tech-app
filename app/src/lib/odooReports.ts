@@ -52,10 +52,16 @@ export interface PdfFile {
  * invoice) and posted as a message to the customer's contact, which Odoo
  * sends by email. Returns the address it went to.
  */
-export async function emailCustomer(client: Pick<OdooClient, 'call'>, model: string, id: number, partnerId: number, files: PdfFile[], body: string): Promise<string> {
+/** The customer's email in Odoo; throws when the contact has none. */
+export async function partnerEmail(client: Pick<OdooClient, 'call'>, partnerId: number): Promise<string> {
   const [p] = (await client.call('res.partner', 'read', [[partnerId]], { fields: ['email'] })) as { email?: string | false }[];
   const email = typeof p?.email === 'string' ? p.email.trim() : '';
   if (!email) throw new Error('This customer has no email in Odoo. Add one on their contact, then try again.');
+  return email;
+}
+
+export async function emailCustomer(client: Pick<OdooClient, 'call'>, model: string, id: number, partnerId: number, files: PdfFile[], body: string): Promise<string> {
+  const email = await partnerEmail(client, partnerId);
   const ids: number[] = [];
   for (const f of files) {
     ids.push((await client.call('ir.attachment', 'create', [{ name: f.name, type: 'binary', datas: f.base64, res_model: model, res_id: id, mimetype: 'application/pdf' }])) as number);

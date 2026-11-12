@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { signatureFor } from '../lib/attachments';
 import { Invoice, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
-import { emailCustomer, PdfFile } from '../lib/odooReports';
+import { emailCustomer, partnerEmail, PdfFile } from '../lib/odooReports';
 import { escapeHtml, invoiceHtml, pdfName } from '../lib/pdf';
 import { inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
@@ -86,6 +86,8 @@ export function OdooInvoiceSync({ invoice, warranty, now = Date.now }: { invoice
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailed, setEmailed] = useState<string | null>(null);
+  /** Asked before anything is sent: who it goes to. */
+  const [confirm, setConfirm] = useState<{ pid: number; email: string } | null>(null);
   const attachments = useAttachments();
   const { business } = useInvoices();
   const online = status === 'signedIn' && client && client.session.apps.invoicing;
@@ -121,13 +123,27 @@ export function OdooInvoiceSync({ invoice, warranty, now = Date.now }: { invoice
     }
   };
 
-  const email = async () => {
-    if (!client || !o || !media?.pdfBase64) return;
+  const askEmail = async () => {
+    if (!client || !o) return;
     setBusy(true);
     setError(null);
     setEmailed(null);
     try {
       const pid = await partner(client, invoice.customerId ?? job?.customerId, { name: invoice.billTo, phone: job?.phone ?? '', address: invoice.address });
+      setConfirm({ pid, email: await partnerEmail(client, pid) });
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const email = async () => {
+    if (!client || !o || !media?.pdfBase64 || !confirm) return;
+    const { pid } = confirm;
+    setConfirm(null);
+    setBusy(true);
+    try {
       const files: PdfFile[] = [{ name: pdfName(`Invoice ${invoice.number}`, invoice.billTo), base64: await media.pdfBase64(invoiceHtml(invoice, business, signatureFor(attachments, 'invoice', invoice.id), { warranty })) }];
       if (job?.inspection) {
         const html = await inspectionReportHtml(job, attachments, media, business, { reference: o.name, inspector: client.session.name || business.name });
@@ -160,7 +176,17 @@ export function OdooInvoiceSync({ invoice, warranty, now = Date.now }: { invoice
       {invoice.voidedAt && o ? <Text style={styles.meta}>Voided on the phone; cancel it in Odoo with a credit note.</Text> : null}
       {online ? <Button label={busy ? 'Working...' : o ? 'Sync with Odoo' : 'Send to Odoo'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
       {online && o && !invoice.voidedAt && media?.pdfBase64 ? (
-        <Button label={job?.inspection ? 'Email the invoice and inspection report' : 'Email the invoice'} disabled={busy} onPress={email} testID="invoice-odoo-email" />
+        confirm ? (
+          <View style={styles.stack} testID="invoice-odoo-email-confirm">
+            <Text style={styles.detail}>
+              Email {confirm.email} invoice {invoice.number} ({formatMoney(invoice.total)}){job?.inspection ? ' and the inspection report' : ''}?
+            </Text>
+            <Button label={`Send to ${confirm.email}`} disabled={busy} onPress={email} testID="invoice-odoo-email-send" />
+            <Button label="Cancel" onPress={() => setConfirm(null)} testID="invoice-odoo-email-cancel" />
+          </View>
+        ) : (
+          <Button label={job?.inspection ? 'Email the invoice and inspection report' : 'Email the invoice'} disabled={busy} onPress={askEmail} testID="invoice-odoo-email" />
+        )
       ) : null}
       {emailed ? (
         <Text style={styles.detail} testID="invoice-odoo-emailed">
