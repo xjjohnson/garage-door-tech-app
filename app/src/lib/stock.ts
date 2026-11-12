@@ -53,6 +53,8 @@ export interface PartUse {
   qty: number;
   jobId?: string;
   at: number;
+  /** How many actually came off the truck count, when it had fewer than `qty` (so undo doesn't add more than was taken). */
+  off?: number;
 }
 
 /** A purchase order sent to a supplier through Odoo. */
@@ -67,6 +69,10 @@ export interface PurchaseOrder {
   /** Whether Odoo emailed it to the supplier. */
   emailed: boolean;
   receivedAt?: number;
+  /** A part ordered for a job (not truck restock): it goes on that job when it comes in. */
+  jobId?: string;
+  /** Picked up at the supplier's counter rather than delivered. */
+  pickup?: boolean;
 }
 
 /** The truck's Inventory location in Odoo. */
@@ -250,14 +256,14 @@ export function parseStock(raw: string | null | unknown): StockStore {
     if (!x || typeof x !== 'object') return [];
     const u = x as Record<string, unknown>;
     if (typeof u.id !== 'string' || typeof u.itemId !== 'string' || typeof u.at !== 'number') return [];
-    return [{ id: u.id, itemId: u.itemId, name: s0(u.name), qty: n0(u.qty) || 1, at: u.at, ...(typeof u.jobId === 'string' ? { jobId: u.jobId } : {}) }];
+    return [{ id: u.id, itemId: u.itemId, name: s0(u.name), qty: n0(u.qty) || 1, at: u.at, ...(typeof u.jobId === 'string' ? { jobId: u.jobId } : {}), ...(typeof u.off === 'number' && u.off >= 0 ? { off: n0(u.off) } : {}) }];
   });
   const purchases = (Array.isArray(d.purchases) ? d.purchases : []).flatMap((x): PurchaseOrder[] => {
     if (!x || typeof x !== 'object') return [];
     const p = x as Record<string, unknown>;
     if (typeof p.id !== 'string' || !id(p.odooId) || typeof p.at !== 'number') return [];
     const lines = (Array.isArray(p.lines) ? p.lines : []).flatMap((l) => (l && typeof l === 'object' && typeof (l as { itemId?: unknown }).itemId === 'string' ? [{ itemId: (l as { itemId: string }).itemId, qty: n0((l as { qty?: unknown }).qty) }] : []));
-    return [{ id: p.id, supplier: s0(p.supplier), odooId: id(p.odooId)!, name: s0(p.name), lines, at: p.at, emailed: p.emailed === true, ...(typeof p.receivedAt === 'number' ? { receivedAt: p.receivedAt } : {}) }];
+    return [{ id: p.id, supplier: s0(p.supplier), odooId: id(p.odooId)!, name: s0(p.name), lines, at: p.at, emailed: p.emailed === true, ...(typeof p.receivedAt === 'number' ? { receivedAt: p.receivedAt } : {}), ...(typeof p.jobId === 'string' ? { jobId: p.jobId } : {}), ...(p.pickup === true ? { pickup: true } : {}) }];
   });
   const t = d.truck as Record<string, unknown> | undefined;
   const truck = t && typeof t === 'object' && id(t.locationId) ? { locationId: id(t.locationId)!, name: s0(t.name), syncedAt: n0(t.syncedAt), ...(id(t.uid) ? { uid: id(t.uid) } : {}), ...(t.chosen === true ? { chosen: true } : {}) } : undefined;

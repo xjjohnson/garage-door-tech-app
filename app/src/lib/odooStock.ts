@@ -14,7 +14,7 @@
  * passed in, so tests use a fake server.
  */
 import type { OdooClient } from './odoo';
-import { DEFAULT_TRUCK, guessCategory, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
+import { DEFAULT_TRUCK, guessCategory, STARTER_ITEMS, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
 
 /** A product as truck stock needs it. */
 export interface StockProduct {
@@ -159,6 +159,27 @@ export async function findProductByCode(client: OdooClient, code: string): Promi
   return (await readProducts(client, [ids[0]]))[0] ?? null;
 }
 
+/** Products by name, internal reference or barcode, for adding a part. */
+export async function searchProducts(client: OdooClient, q: string, limit = 20): Promise<StockProduct[]> {
+  const t = q.trim();
+  if (!t) return [];
+  const ids = (await client.call('product.product', 'search', [['|', '|', ['name', 'ilike', t], ['default_code', 'ilike', t], ['barcode', '=', t]]], { limit, order: 'name asc' })) as number[];
+  return readProducts(client, ids);
+}
+
+/**
+ * Makes a new stocked product in Odoo for a part added on the phone. Odoo 18
+ * and later mark it "Track inventory" (is_storable); older ones use the
+ * Storable product type. Returns the product.product id.
+ */
+export async function createProduct(client: OdooClient, p: { name: string; sku?: string; barcode?: string; costCents?: number }): Promise<number> {
+  const f = (await client.call('product.template', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
+  const stocked = 'is_storable' in f ? { type: 'consu', is_storable: true } : { type: 'product' };
+  return (await client.call('product.product', 'create', [
+    { name: p.name.trim(), default_code: p.sku?.trim() || false, barcode: p.barcode?.trim() || false, ...(p.costCents ? { standard_price: p.costCents / 100 } : {}), sale_ok: true, purchase_ok: true, ...stocked },
+  ])) as number;
+}
+
 /** The product for an item that isn't linked yet: by barcode, part number, then exact name. */
 async function matchProduct(client: OdooClient, i: StockItem): Promise<number | undefined> {
   const tries: unknown[][] = [];
@@ -230,16 +251,26 @@ export interface SyncResult {
   added: number;
   /** Phone items linked to an Odoo product this time. */
   linked: number;
-  /** Phone items with no Odoo product (they stay on the phone only). */
-  phoneOnly: string[];
+  /** Sample items with no Odoo product, and second items for one product, taken off the list: Odoo is the truck's record. */
+  removed: string[];
+  /** Parts typed in on the phone that Odoo didn't have: made there as new products. */
+  created: string[];
 }
 
+const SAMPLE_NAMES = new Set(STARTER_ITEMS.map((s) => s.name.toLowerCase()));
+/** Still one of the "Add common items" samples, untouched apart from the count. */
+const isSample = (i: StockItem) => SAMPLE_NAMES.has(i.name.trim().toLowerCase()) && !i.sku.trim() && !i.barcode && !i.supplier.trim();
+
 /**
- * Two-way truck sync. Phone changes go to Odoo as a difference on top of what
- * Odoo has now (so a receipt done in Odoo meanwhile still counts); then every
- * linked item takes Odoo's number. Products Odoo has on the truck that the
- * phone doesn't are added. An item linked for the first time sends the
- * phone's count when Odoo has none of it there.
+ * Two-way truck sync, with Odoo as the record of what's on the truck. Phone
+ * changes (parts used, counts, new items) go to Odoo as a difference on top
+ * of what Odoo has now, so a receipt done in Odoo meanwhile still counts;
+ * then every item takes Odoo's number. Products Odoo has on the truck that
+ * the phone doesn't are added. A phone item that matches an Odoo product for
+ * the first time takes Odoo's count (nothing is sent). A sample item with
+ * no Odoo product is taken off the list; a part the tech typed in that Odoo
+ * doesn't have is made there, and its count sent. Two phone items for one
+ * product become one, keeping both items' unsent changes.
  */
 export async function syncTruck(client: OdooClient, given: StockStore, now: number, newId: () => string = () => `i-${now.toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`): Promise<SyncResult> {
   let store = given;
@@ -254,31 +285,59 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
   const odoo = new Map(lines.map((l) => [l.id, l]));
   let sent = 0;
   let linked = 0;
-  const phoneOnly: string[] = [];
-  const items: StockItem[] = [];
+  const removed: string[] = [];
+  const created: string[] = [];
+  // Link every phone item to its Odoo product first.
+  const linkedItems: StockItem[] = [];
   for (const item of store.items) {
     let i = item;
     if (i.odooId === undefined) {
       const pid = await matchProduct(client, i);
-      if (!pid) {
-        phoneOnly.push(i.name);
-        items.push(i);
+      if (pid) {
+        i = { ...i, odooId: pid };
+        linked++;
+      } else if (isSample(i)) {
+        removed.push(i.name);
         continue;
+      } else {
+        // Typed in on the phone (signed out, or Odoo was unreachable): make it in Odoo, and its count goes up as new stock.
+        const id = await createProduct(client, { name: i.name, sku: i.sku, barcode: i.barcode, costCents: i.costCents });
+        i = { ...i, odooId: id, syncedOnHand: 0 };
+        created.push(i.name);
       }
-      i = { ...i, odooId: pid };
-      linked++;
     }
+    linkedItems.push(i);
+  }
+  // Two phone items for one Odoo product would show two counts: keep the first, with the other's unsent change folded in.
+  const merged: StockItem[] = [];
+  for (const i of linkedItems) {
+    const at = merged.findIndex((x) => x.odooId === i.odooId);
+    if (at < 0) {
+      merged.push(i);
+      continue;
+    }
+    removed.push(i.name);
+    const delta = i.syncedOnHand !== undefined ? i.onHand - i.syncedOnHand : 0;
+    if (!delta) continue;
+    const k = merged[at];
+    const base = k.syncedOnHand ?? odoo.get(k.odooId!)?.qty ?? 0;
+    const kOnHand = k.syncedOnHand === undefined ? base : k.onHand;
+    merged[at] = { ...k, syncedOnHand: base, onHand: Math.max(0, kOnHand + delta) };
+  }
+  const items: StockItem[] = [];
+  for (const item of merged) {
+    let i = item;
     const have = odoo.get(i.odooId!)?.qty;
     let target: number | undefined;
-    if (i.syncedOnHand === undefined) target = have === undefined || have === 0 ? i.onHand : undefined;
-    else if (i.onHand !== i.syncedOnHand) target = Math.max(0, (have ?? 0) + i.onHand - i.syncedOnHand);
+    if (i.syncedOnHand !== undefined && i.onHand !== i.syncedOnHand) target = Math.max(0, (have ?? 0) + i.onHand - i.syncedOnHand);
     if (target !== undefined && target !== (have ?? 0)) {
       try {
         await setTruckQty(client, truck.locationId, i.odooId!, target);
       } catch (e) {
         // Keep what Odoo already took: those items now match Odoo, the rest are untouched.
         const done = new Map(items.map((x) => [x.id, x]));
-        const partial = store.items.map((x) => done.get(x.id) ?? x);
+        // Linked, made and merged items keep that, so nothing is made or sent twice.
+        const partial = merged.map((x) => done.get(x.id) ?? x);
         const why = e instanceof Error ? e.message : String(e);
         throw new PartialSyncError(`The sync stopped after ${sent} count${sent === 1 ? '' : 's'}: ${why}`, { ...store, items: partial, truck }, sent);
       }
@@ -341,7 +400,7 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       updatedAt: now,
     });
   }
-  return { store: { ...store, items: out, suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, phoneOnly };
+  return { store: { ...store, items: out, suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, removed, created };
 }
 
 /** The supplier's contact in Odoo: the one linked, else one by that name, else a new vendor. */
@@ -366,6 +425,7 @@ export interface SentPurchase {
  * text or email it instead.
  */
 export async function sendPurchaseOrder(client: OdooClient, supplier: Supplier, lines: { productId: number; name: string; qty: number; priceCents: number }[], truck?: TruckLink, ref = ''): Promise<SentPurchase> {
+  // `ref` goes in the order's Source (origin): the truck, and for a job's part "Pickup" or "Delivery" and the job.
   if (lines.length === 0) throw new Error('Nothing on this order is linked to an Odoo product yet. Sync the truck first.');
   const vendorId = await vendorFor(client, supplier);
   const order_line = lines.map((l) => [0, 0, { product_id: l.productId, name: l.name, product_qty: l.qty, ...(l.priceCents > 0 ? { price_unit: l.priceCents / 100 } : {}) }]);
