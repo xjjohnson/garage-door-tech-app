@@ -1,7 +1,8 @@
 import { OdooQuoteSend } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ChipRow, MeasureField } from '../components/controls';
 import { SignatureSheet } from '../components/SignaturePad';
 import { photosFor, signatureFor } from '../lib/attachments';
 import { formatJobDate, Job, jobName } from '../lib/jobs';
@@ -12,6 +13,7 @@ import { cents, formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/p
 import { buildQuote, QuoteOption, quoteText, repairQuote } from '../lib/quote';
 import { formatLife } from '../lib/springNames';
 import { Repair, repairLines, withRepairs } from '../lib/inspection';
+import { usesSprings } from '../lib/jobTypes';
 import { templateQuote, templatesFor } from '../lib/odooTemplates';
 import { useQuoteTemplates } from '../lib/useQuoteTemplates';
 import { invoiceStatus } from '../lib/invoices';
@@ -26,22 +28,25 @@ import { colors, touch, type } from '../theme';
  */
 export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () => void }) {
   const { sheet } = usePriceSheet();
-  const { setAccepted, setInspection } = useJobs();
+  const { setAccepted, setInspection, setQuoteLines } = useJobs();
   const templates = useQuoteTemplates();
   const set = templatesFor(templates, job.what);
+  const typed = useMemo(() => job.quoteLines ?? [], [job.quoteLines]);
+  const springJob = usesSprings(job.what);
   const springQuote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
   // Jobs the spring calculator can't price (openers, tune-ups) use the job type's Odoo templates.
   const fromTemplates = !!set && !!springQuote.blocked;
-  // No spring answer and no templates, but the inspection found repairs: quote those on their own.
-  const repairOnly = !fromTemplates && !!springQuote.blocked && (job.inspection?.repairs.some((r) => r.label.trim()) ?? false);
+  // No spring answer and no templates: the service call plus the inspection's repairs and lines typed here.
+  // Always so for a job that isn't about springs; for a spring job, once there is something to quote.
+  const repairOnly = !fromTemplates && !!springQuote.blocked && (!springJob || [...(job.inspection?.repairs ?? []), ...typed].some((r) => r.label.trim()));
   const quote = useMemo(
     () =>
       fromTemplates && set
-        ? templateQuote(set, sheet, repairLines(job.inspection))
+        ? templateQuote(set, sheet, repairLines(job.inspection, typed))
         : repairOnly
-          ? repairQuote(repairLines(job.inspection), sheet)
-          : withRepairs(springQuote, job.inspection, sheet),
-    [fromTemplates, repairOnly, set, springQuote, job.inspection, sheet],
+          ? repairQuote(repairLines(job.inspection, typed), sheet)
+          : withRepairs(springQuote, job.inspection, sheet, typed),
+    [fromTemplates, repairOnly, set, springQuote, job.inspection, typed, sheet],
   );
   const addOns = job.inspection?.repairs.filter((r) => r.label.trim()) ?? [];
   const toggleAddOn = (r: Repair) => {
@@ -82,16 +87,23 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
         </Text>
       ) : null}
 
-      {repairOnly ? (
+      {repairOnly && !springJob ? (
+        <View style={styles.notice} testID="quote-no-templates">
+          <Text style={styles.noticeTitle}>No {job.what} templates in Odoo</Text>
+          <Text style={styles.noticeBody}>
+            To quote good, better and best for {job.what}, make quotation templates in Odoo named "{job.what} · Good", "{job.what} · Better" and "{job.what} · Best". Until then this quote is the service call, the repairs from the inspection, and any lines you add below.
+          </Text>
+        </View>
+      ) : repairOnly ? (
         <Text style={styles.meta} testID="quote-repairs-only">
-          No spring measurements, so this quote is the service call and the repairs from the inspection.
+          No spring measurements, so this quote is the service call, the repairs from the inspection, and any lines you add below.
         </Text>
       ) : null}
 
       {quote.blocked ? (
         <View style={[styles.notice, styles.stop]} testID="quote-blocked">
           <Text style={[styles.noticeTitle, styles.onStop]}>No quote yet</Text>
-          <Text style={[styles.noticeBody, styles.onStop]}>{quote.blocked}. Open the job in the calculator to fix it.</Text>
+          <Text style={[styles.noticeBody, styles.onStop]}>{quote.blocked}. Open the job in the calculator to fix it, or quote it by hand: add a line below.</Text>
         </View>
       ) : null}
 
@@ -137,6 +149,8 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
           })}
         </View>
       ) : null}
+
+      <TypedLines lines={typed} onChange={(lines) => setQuoteLines(job.id, lines)} />
 
       {quote.options.map((o) => (
         <OptionCard
@@ -224,6 +238,30 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
   );
 }
 
+const TAX_OPTIONS = [
+  { label: 'Taxed (parts)', value: 'yes' as const },
+  { label: 'No tax (labor)', value: 'no' as const },
+];
+
+/** Lines typed on the quote by hand, each with a price; they go on every option, so a job is never stuck without a quote. */
+function TypedLines({ lines, onChange }: { lines: Repair[]; onChange: (lines: Repair[]) => void }) {
+  const set = (id: string, patch: Partial<Repair>) => onChange(lines.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  return (
+    <View style={styles.stack} testID="quote-lines">
+      {lines.length > 0 ? <Text style={styles.tier}>Lines added by hand</Text> : null}
+      {lines.map((l) => (
+        <View key={l.id} style={styles.card} testID={`quote-line-${l.id}`}>
+          <TextInput value={l.label} onChangeText={(label) => set(l.id, { label })} placeholder="Part or work" placeholderTextColor={colors.muted} accessibilityLabel="Line name" testID={`quote-line-name-${l.id}`} style={styles.input} />
+          <MeasureField label="Price" value={l.price} onChange={(price) => set(l.id, { price })} unit="dollars" allowFraction={false} placeholder="Tap to set" testID={`quote-line-price-${l.id}`} />
+          <ChipRow options={TAX_OPTIONS} value={l.taxable ? 'yes' : 'no'} onChange={(v) => set(l.id, { taxable: v === 'yes' })} testID={`quote-line-tax-${l.id}`} />
+          <Action label="Remove" onPress={() => onChange(lines.filter((x) => x.id !== l.id))} testID={`quote-line-remove-${l.id}`} />
+        </View>
+      ))}
+      <Action label="Add a line by hand" onPress={() => onChange([...lines, { id: `q-${Date.now().toString(36)}-${lines.length}`, label: '', price: '', taxable: false }])} testID="quote-line-add" />
+    </View>
+  );
+}
+
 function OptionCard({ option, accepted, onAccept }: { option: QuoteOption; accepted: boolean; onAccept: () => void }) {
   const label = option.title ?? TIER_LABEL[option.tier];
   if (!option.available) {
@@ -302,6 +340,7 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.safety },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
+  input: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
   thumbs: { flexDirection: 'row', gap: 8 },
   thumb: { width: 88, height: 88, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
 });

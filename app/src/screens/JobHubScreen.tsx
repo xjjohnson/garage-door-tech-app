@@ -10,7 +10,8 @@ import { Job, jobName, MODE_LABEL, phoneLink } from '../lib/jobs';
 import { jobInvoice, jobSteps, nextStep, onSiteFor, smsLink, StepId } from '../lib/jobSteps';
 import { log } from '../lib/log';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
-import { formatTime, mapsLink, onMyWayText } from '../lib/schedule';
+import { dayLabel, formatTime, mapsLink, onMyWayText } from '../lib/schedule';
+import { useSchedule } from '../lib/useSchedule';
 import { useCalculatorLink } from '../lib/useCalculatorLink';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -27,6 +28,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const { jobs, loaded, setStep, setStatus } = useJobs();
   const { invoices, business } = useInvoices();
   const { requestOpen } = useCalculatorLink();
+  const { appointments } = useSchedule();
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30000);
@@ -36,6 +38,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const job = jobs.find((j) => j.id === id);
   if (!job) return <Text style={styles.note}>{loaded ? "That job isn't saved on this phone any more." : 'Loading...'}</Text>;
 
+  const visit = appointments.filter((a) => a.jobId === job.id && a.status === 'booked').sort((a, b) => a.start - b.start)[0];
   const steps = jobSteps(job, invoices);
   const next = nextStep(steps);
   const inv = jobInvoice(job, invoices);
@@ -112,6 +115,12 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       {next && next.id === 'onMyWay' ? <Action label="Skip, I'm already here" onPress={() => go('arrived')} testID="job-skip-arrived" /> : null}
 
       <SectionTitle>The job</SectionTitle>
+      <NavRow
+        label="Visit"
+        detail={visit ? `${dayLabel(visit.start, now())} ${formatTime(visit.start)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''} · change` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
+        href={{ pathname: '/schedule', params: { job: job.id } }}
+        testID="job-visit"
+      />
       <NavRow
         label="Inspection"
         detail={job.inspection ? `${checkCounts(job.inspection).done} of ${checkCounts(job.inspection).total} checked · ${checkCounts(job.inspection).fix} flagged` : 'Checklist, photos and signature'}

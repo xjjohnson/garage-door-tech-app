@@ -27,6 +27,8 @@ export interface Appointment {
   status: VisitStatus;
   createdAt: number;
   updatedAt: number;
+  /** When this visit's time last matched its Odoo job; a later updatedAt means the phone changed it. */
+  syncedAt?: number;
 }
 
 export function startOfDay(ms: number): number {
@@ -151,6 +153,7 @@ export function parseSchedule(raw: string | null | unknown[]): Appointment[] {
         status: STATUSES.includes(a.status as VisitStatus) ? (a.status as VisitStatus) : 'booked',
         createdAt,
         updatedAt: typeof a.updatedAt === 'number' ? a.updatedAt : createdAt,
+        ...(typeof a.syncedAt === 'number' ? { syncedAt: a.syncedAt } : {}),
       },
     ];
   });

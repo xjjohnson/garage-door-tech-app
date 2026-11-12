@@ -167,7 +167,7 @@ describe('repair-only quote', () => {
     await renderApp('/quote/j1');
     await settle();
     expect(screen.queryByTestId('quote-blocked')).toBeNull();
-    expect(screen.getByTestId('quote-repairs-only')).toBeTruthy();
+    expect(screen.getByTestId('quote-no-templates')).toHaveTextContent(/"Tune-up · Good", "Tune-up · Better" and "Tune-up · Best"/);
     expect(screen.getByTestId('quote-good')).toHaveTextContent(/Repairs/);
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$149');
     expect(screen.queryByTestId('quote-better')).toBeNull();
@@ -176,10 +176,31 @@ describe('repair-only quote', () => {
     expect(screen.getByTestId('quote-make-invoice')).toHaveTextContent('Make invoice for $149');
   });
 
-  it('still says what is missing when there is nothing to quote', async () => {
+  it('still says what is missing on a spring job, and can be quoted by hand', async () => {
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
     await renderApp('/quote/j1');
     await settle();
-    expect(screen.getByTestId('quote-blocked')).toHaveTextContent(/Missing/);
+    expect(screen.getByTestId('quote-blocked')).toHaveTextContent(/Missing.*add a line below/);
+    await fireEvent.press(screen.getByTestId('quote-line-add'));
+    const [line] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines!;
+    await fireEvent.changeText(screen.getByTestId(`quote-line-name-${line.id}`), 'Cable replacement');
+    await settle();
+    expect(screen.queryByTestId('quote-blocked')).toBeNull();
+    expect(screen.getByTestId('quote-repairs-only')).toBeTruthy();
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
+  });
+
+  it('never lists spring measurements for an opener with no templates', async () => {
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Opener', quoteLines: [{ id: 'q1', label: 'Opener install', price: '150', taxable: false }] }]));
+    await renderApp('/quote/j1');
+    await settle();
+    expect(screen.queryByTestId('quote-blocked')).toBeNull();
+    expect(screen.queryByText(/coils|Spring length/)).toBeNull();
+    expect(screen.getByTestId('quote-no-templates')).toHaveTextContent(/No Opener templates in Odoo/);
+    expect(screen.getByTestId('quote-good')).toHaveTextContent(/Opener install/);
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$239');
+    await fireEvent.press(screen.getByTestId('quote-line-remove-q1'));
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines).toBeUndefined();
   });
 });

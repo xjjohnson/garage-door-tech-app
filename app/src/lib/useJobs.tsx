@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { OdooRef } from './odooSales';
+import type { OdooJobRef } from './odooJobs';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { mergeJobs, MergeResult } from './backup';
-import { Inspection } from './inspection';
+import { Inspection, Repair } from './inspection';
 import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, JobSteps, parseJobs } from './jobs';
 
 interface JobsApi {
@@ -26,6 +27,9 @@ interface JobsApi {
   setInspection: (id: string, inspection: Inspection | undefined) => void;
   /** Remembers the sales order made in Odoo for this job. */
   setOdooOrder: (id: string, order: OdooRef) => void;
+  setOdooJob: (id: string, ref: OdooJobRef) => void;
+  /** Saves the lines typed on the job's quote. */
+  setQuoteLines: (id: string, lines: Repair[]) => void;
   /** Records a job hub step (On my way, Arrived, Work done), or clears it with undefined. */
   setStep: (id: string, step: keyof JobSteps, at: number | undefined) => void;
 }
@@ -148,6 +152,19 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
+  const setQuoteLines = useCallback<JobsApi['setQuoteLines']>(
+    (id, lines) =>
+      change((prev) =>
+        prev.map((j) => {
+          if (j.id !== id) return j;
+          const { quoteLines: _old, ...rest } = j;
+          return (lines.length ? { ...rest, quoteLines: lines, updatedAt: Date.now() } : { ...rest, updatedAt: Date.now() }) as Job;
+        }),
+      ),
+    [change],
+  );
+
+  const setOdooJob = useCallback<JobsApi['setOdooJob']>((id, odooJob) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooJob } : j))), [change]);
   const setOdooOrder = useCallback<JobsApi['setOdooOrder']>((id, odooOrder) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooOrder } : j))), [change]);
 
   const setStep = useCallback<JobsApi['setStep']>(
@@ -166,8 +183,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setStep }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setStep],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setStep }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setStep],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }

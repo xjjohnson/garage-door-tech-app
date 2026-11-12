@@ -149,7 +149,7 @@ export function SyncLine() {
   if (pending.total === 0) {
     return (
       <Text style={[styles.sync, styles.syncOk]} testID="today-sync">
-        ✓ Customers, quotes and invoices are in Odoo. Jobs and visits stay on this phone for now.
+        ✓ Odoo up to date: jobs, visits, customers, quotes and invoices
       </Text>
     );
   }

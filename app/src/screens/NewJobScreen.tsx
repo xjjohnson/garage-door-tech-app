@@ -41,7 +41,7 @@ export function NewJobScreen() {
     const job = add({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: name, address, phone, notes: '' }, { title: '' }, { what, customerId: picked?.id });
     log.info('job', `new job ${job.id} (${what}, ${when})`);
     if (when === 'now') router.replace({ pathname: '/job/[id]', params: { id: job.id } });
-    else router.replace('/schedule');
+    else router.replace({ pathname: '/schedule', params: { job: job.id } });
   };
 
   return (

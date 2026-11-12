@@ -8,6 +8,7 @@ import { phoneLink } from '../lib/jobs';
 import { addDays, Appointment, dayLabel, formatTime, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming } from '../lib/schedule';
 import { useCustomers } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
+import { useJobs } from '../lib/useJobs';
 import { NewAppointment, useSchedule } from '../lib/useSchedule';
 import { colors, touch, type } from '../theme';
 
@@ -37,8 +38,11 @@ export function NextVisits({ now = Date.now }: { now?: () => number }) {
  * Visits by day. Book one with big buttons for the day and time, then on the
  * day: directions, an "on my way" text, call, and mark done.
  */
-export function ScheduleScreen({ now = Date.now, bookFor }: { now?: () => number; bookFor?: string }) {
+export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () => number; bookFor?: string; forJob?: string }) {
   const { appointments, add, setStatus, update } = useSchedule();
+  const { jobs, loaded: jobsLoaded } = useJobs();
+  /** The visit being moved, when booking for a job that already has one. */
+  const [editing, setEditing] = useState<string | null>(null);
   const { customers } = useCustomers();
   const { business } = useInvoices();
   const today = startOfDay(now());
@@ -52,6 +56,22 @@ export function ScheduleScreen({ now = Date.now, bookFor }: { now?: () => number
     const c = customers.find((x) => x.id === bookFor);
     if (c) setBooking(blank(today, { customerId: c.id, name: c.name, address: c.address, phone: c.phone }));
   }, [bookFor, customers, today]);
+
+  useEffect(() => {
+    if (!forJob) return;
+    const j = jobs.find((x) => x.id === forJob);
+    if (!j) return;
+    const v = appointments.find((a) => a.jobId === j.id && a.status === 'booked');
+    if (v) {
+      setEditing(v.id);
+      setDay(startOfDay(v.start));
+      setBooking({ start: v.start, minutes: v.minutes, name: v.name, address: v.address, phone: v.phone, what: v.what, jobId: v.jobId, ...(v.customerId ? { customerId: v.customerId } : {}) });
+    } else {
+      setBooking(blank(today, { jobId: j.id, name: j.customer, address: j.address, phone: j.phone, what: j.what ?? '', ...(j.customerId ? { customerId: j.customerId } : {}) }));
+    }
+    // Once, when the job is found; later changes to the schedule mustn't reopen the sheet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forJob, jobsLoaded]);
 
   return (
     <View style={styles.stack} testID="schedule">
@@ -69,11 +89,17 @@ export function ScheduleScreen({ now = Date.now, bookFor }: { now?: () => number
         value={booking}
         today={today}
         customers={customers}
-        onCancel={() => setBooking(null)}
+        editing={!!editing}
+        onCancel={() => {
+          setBooking(null);
+          setEditing(null);
+        }}
         onSave={(a) => {
-          add(a);
+          if (editing) update(editing, a);
+          else add(a);
           setDay(startOfDay(a.start));
           setBooking(null);
+          setEditing(null);
         }}
         appointments={appointments}
       />
@@ -149,7 +175,9 @@ function BookSheet({
   appointments,
   onSave,
   onCancel,
+  editing,
 }: {
+  editing?: boolean;
   value: NewAppointment | null;
   today: number;
   customers: ReturnType<typeof useCustomers>['customers'];
@@ -165,14 +193,17 @@ function BookSheet({
   const minutesIntoDay = a.start - day;
   const days = Array.from({ length: 14 }, (_, i) => addDays(today, i));
   const suggestions = a.customerId ? [] : suggestCustomers(customers, a.name);
-  const clashes = overlaps(appointments, { id: '', start: a.start, minutes: a.minutes });
+  const clashes = overlaps(
+    appointments.filter((x) => !(editing && x.jobId && x.jobId === a.jobId)),
+    { id: '', start: a.start, minutes: a.minutes },
+  );
   const canSave = a.name.trim() !== '' || a.address.trim() !== '';
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
       <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.sheet} testID="book-sheet">
           <View style={styles.titleRow}>
-            <Text style={styles.sheetTitle}>Book a visit</Text>
+            <Text style={styles.sheetTitle}>{editing ? 'Change the visit' : 'Book a visit'}</Text>
             <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" testID="book-cancel">
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
@@ -223,7 +254,7 @@ function BookSheet({
             style={({ pressed }) => [styles.save, !canSave && styles.saveOff, pressed && styles.pressed]}
           >
             <Text style={styles.saveText}>
-              Book {dayLabel(a.start, today)} {formatTime(a.start)}
+              {editing ? 'Move to' : 'Book'} {dayLabel(a.start, today)} {formatTime(a.start)}
             </Text>
           </Pressable>
         </View>

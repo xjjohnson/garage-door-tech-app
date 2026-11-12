@@ -489,7 +489,14 @@ works too) price jobs the spring calculator can't, like openers and tune-ups:
 a job whose "What's wrong" is Opener gets its options from the "Opener ·"
 templates, with each line's Odoo product, price and tax. They're saved on the
 phone (`odoo-templates/v1`) and refreshed from Odoo every 10 minutes while
-signed in. Spring jobs keep using the price sheet.
+signed in. Spring jobs keep using the price sheet. A job that isn't about
+springs (anything but Broken spring, New door or no type) and has no templates
+never asks for spring measurements: the quote says which template names to
+make in Odoo and, until then, is the service call plus the inspection's
+repairs. **Add a line by hand** on any quote adds a typed line with a price
+(taxed as a part, or not, as labor) to every option, so a job can always be
+quoted; on a spring job missing its measurements, a named line turns the
+quote into that service-call-and-lines quote (`quoteLines` on the job).
 
 **Inspection add-ons.** Repairs added from the inspection (from Poor, Safety
 risk, Fair and other items) show on the quote with that item's photos. Each
@@ -595,6 +602,22 @@ to pick the worker and a start time (half hours, 7 to 6); it writes
 `person_id` and `scheduled_date_start` on the `fsm.order` straight away.
 **Assign and text the customer** also opens the phone's messages app with
 the booking filled in, to send by hand (`src/screens/DispatchScreen.tsx`).
+
+**Phone jobs in Odoo** (from 0.5.9). While signed in, every open job made on
+the phone (with a customer or address) becomes a Field Service order, or a
+Project task without OCA Field Service, so it shows on Jobs › Team (under
+**Not assigned** when it has no worker). The order gets the customer's Field
+Service location (made on their contact if they have none) and the job type
+and notes as its description. A job with a booked visit is given to you;
+the visit then takes the order's id (`odoo-<id>`). Booking or moving the
+visit on the phone (the job's **Visit** row, or **Later** on New job, opens
+the Schedule for that job) writes `scheduled_date_start` and
+`scheduled_duration`; a time or worker set in Odoo (Jobs › Team) comes back
+to the phone's visit, and a job given to someone else leaves this phone's
+schedule. It runs in the background shortly after a change, when the app
+comes back, and every 3 minutes (`src/lib/odooJobs.ts`,
+`src/components/OdooJobSync.tsx`). Jobs not sent yet count in the Today
+"waiting to go to Odoo" line.
 
 **Inspection.** A job's **Inspection** (in its details, or on its quote) is
 the checklist that replaces SafetyCulture. Each **door** gets its maker, size,
