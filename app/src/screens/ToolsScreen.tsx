@@ -13,12 +13,14 @@ export function ToolsScreen() {
       <NavRow label="Manuals" detail="Makers' install and owner's manuals" href="/manuals" testID="tools-manuals" />
 
       <SectionTitle>Truck and day</SectionTitle>
-      <NavRow label="Truck stock" detail="What's on the truck and what to order" href="/stock" testID="tools-stock" />
+      <NavRow label="Truck stock" detail="Truck 1 in Odoo, scan, restock orders" href="/stock" testID="tools-stock" />
+      <NavRow label="Wrap up the day" detail="Money to deposit, hours, miles, close the day" href="/end-of-day" testID="tools-end-of-day" />
       <NavRow label="Time and miles" detail="Clock in and out, mileage" href="/time-log" testID="tools-time" />
       <NavRow label="Schedule" detail="Book and move visits" href="/schedule" testID="tools-schedule" />
 
       <SectionTitle>Business</SectionTitle>
       <NavRow label="Business numbers" detail="Sales, close rate, average ticket" href="/stats" testID="tools-stats" />
+      <NavRow label="Tech scorecard" detail="Owner only: quotes won, ticket, callbacks" href="/scorecard" testID="tools-scorecard" />
       <NavRow label="Team (Odoo)" detail="Jobs from Odoo, dispatch" href="/team" testID="tools-team" />
       <NavRow label="Settings" detail="Version, business details, backups" href="/settings" testID="tools-settings" />
     </View>
