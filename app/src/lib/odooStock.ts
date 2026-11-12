@@ -26,6 +26,8 @@ export interface StockProduct {
   costCents: number;
   /** The first vendor on the product, if any. */
   vendor?: { id: number; name: string; code: string; priceCents: number };
+  /** Odoo's product category, last part only ("Openers" for "All / Openers"). */
+  category?: string;
 }
 
 /** One product on the truck in Odoo. */
@@ -101,7 +103,7 @@ export async function myTruck(client: OdooClient): Promise<TruckLink | null> {
 /** Product details and first vendor for these products. */
 export async function readProducts(client: OdooClient, ids: number[]): Promise<StockProduct[]> {
   if (ids.length === 0) return [];
-  const rows = (await client.call('product.product', 'read', [ids], { fields: ['name', 'default_code', 'barcode', 'standard_price', 'product_tmpl_id'] })) as Record<string, unknown>[];
+  const rows = (await client.call('product.product', 'read', [ids], { fields: ['name', 'default_code', 'barcode', 'standard_price', 'product_tmpl_id', 'categ_id'] })) as Record<string, unknown>[];
   const tmplIds = [...new Set(rows.map((r) => many2one(r.product_tmpl_id)?.[0]).filter((x): x is number => !!x))];
   let sellers: Record<string, unknown>[] = [];
   if (tmplIds.length) {
@@ -115,12 +117,14 @@ export async function readProducts(client: OdooClient, ids: number[]): Promise<S
     const tmpl = many2one(r.product_tmpl_id)?.[0];
     const s = sellers.find((x) => many2one(x.product_id)?.[0] === r.id) ?? sellers.find((x) => many2one(x.product_tmpl_id)?.[0] === tmpl && !many2one(x.product_id));
     const partner = s ? many2one(s.partner_id) : undefined;
+    const categ = many2one(r.categ_id)?.[1];
     return {
       id: r.id as number,
       name: str(r.name),
       code: str(r.default_code),
       barcode: str(r.barcode),
       costCents: cents(r.standard_price),
+      ...(categ ? { category: String(categ).split('/').pop()!.trim() } : {}),
       ...(partner ? { vendor: { id: partner[0], name: partner[1], code: str(s!.product_code), priceCents: cents(s!.price) } } : {}),
     };
   });
@@ -163,6 +167,22 @@ export async function findProductByCode(client: OdooClient, code: string): Promi
 export async function searchProducts(client: OdooClient, q: string, limit = 20): Promise<StockProduct[]> {
   const t = q.trim();
   if (!t) return [];
+  return findProducts(client, t, limit);
+}
+
+/**
+ * The products to pick from when adding a part to the truck: those matching
+ * what's typed (name, internal reference or barcode), or with nothing typed,
+ * Odoo's goods (not services) by category and name to scroll through.
+ */
+export async function browseProducts(client: OdooClient, q: string, limit = 80): Promise<StockProduct[]> {
+  const t = q.trim();
+  if (t) return findProducts(client, t, limit);
+  const ids = (await client.call('product.product', 'search', [[['type', '!=', 'service']]], { limit, order: 'categ_id asc, name asc' })) as number[];
+  return readProducts(client, ids);
+}
+
+async function findProducts(client: OdooClient, t: string, limit: number): Promise<StockProduct[]> {
   const ids = (await client.call('product.product', 'search', [['|', '|', ['name', 'ilike', t], ['default_code', 'ilike', t], ['barcode', '=', t]]], { limit, order: 'name asc' })) as number[];
   return readProducts(client, ids);
 }
