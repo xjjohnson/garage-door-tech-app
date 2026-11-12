@@ -52,7 +52,9 @@ const GATE_TYPES = [
   { label: 'Slide', value: 'slide' as const },
 ];
 /** Photos in one report, so the PDF stays small enough to email. */
-const MAX_REPORT_PHOTOS = 24;
+const MAX_REPORT_PHOTOS = 12;
+/** Odoo's upload limit is often 25 MB; stay under it after base64. */
+const MAX_ODOO_PDF_BASE64 = 20_000_000;
 
 /**
  * The inspection for one job, the checklist from SafetyCulture: each door
@@ -71,6 +73,8 @@ export function InspectionScreen({ job }: { job: Job }) {
   const [signing, setSigning] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  /** A remove that would lose answers waits for a second tap. */
+  const [armed, setArmed] = useState<string | null>(null);
 
   const insp: Inspection = job.inspection ?? EMPTY_INSPECTION(job.savedAt);
   const save = (fn: (i: Inspection) => Inspection) => setInspection(job.id, { ...fn(insp), at: Date.now() });
@@ -80,6 +84,14 @@ export function InspectionScreen({ job }: { job: Job }) {
   const signature = signatureFor(attachments, 'inspection', job.id);
   const media = attachments.media;
   const target = odoo.client ? reportTarget(job, appointments, customers, jobsModel(odoo.client)) : null;
+
+  const answered = (a: Record<string, Answer>) => Object.values(a).some((x) => x.rating || x.note.trim() || x.action.trim());
+  const guarded = (id: string, losesAnswers: boolean, run: () => void) => {
+    if (losesAnswers && armed !== id) return setArmed(id);
+    setArmed(null);
+    run();
+  };
+  const tapAgain = (id: string, label: string) => (armed === id ? 'Tap again: answers will be lost' : label);
 
   const addRepair = (r: Repair) => save((i) => ({ ...i, repairs: [...i.repairs, r] }));
   const setRepair = (id: string, patch: Partial<Repair>) => save((i) => ({ ...i, repairs: i.repairs.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
@@ -118,6 +130,11 @@ export function InspectionScreen({ job }: { job: Job }) {
     setNote(null);
     try {
       const pdf = await media.pdfBase64(await reportHtml());
+      if (pdf.length > MAX_ODOO_PDF_BASE64) {
+        setNote('The report is too big for Odoo with this many photos. Share the PDF instead, or remove some item photos.');
+        setBusy(null);
+        return;
+      }
       const s = summary(insp);
       await sendReport(odoo.client, target, pdfName('Inspection', job.customer), pdf, `Inspection report: ${s.score === null ? 'not scored' : `score ${s.score}%`}, ${s.flagged} flagged.`);
       log.info('inspect', `report sent to ${target.model} ${target.id}`);
@@ -171,19 +188,37 @@ export function InspectionScreen({ job }: { job: Job }) {
               />
               <Field label="Build date" value={m.built} placeholder="2019" onChange={(built) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, motors: x.motors.map((y) => (y.id === m.id ? { ...y, built } : y)) } : x)) }))} testID={`motor-${di}-${mi}-built`} />
               <SectionItems insp={insp} sectionKey={`${d.id}/${m.id}`} job={job} photos={photos.map((p) => p.item ?? '')} onAnswer={answer} onPhoto={media ? takePhoto : undefined} onRepair={addRepair} onRestGood={() => save((i) => restGood(i, `${d.id}/${m.id}`))} />
-              <Action label={`Remove motor ${mi + 1}`} onPress={() => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, motors: x.motors.filter((y) => y.id !== m.id) } : x)) }))} testID={`motor-${di}-${mi}-remove`} />
+              <Action
+                label={tapAgain(m.id, `Remove motor ${mi + 1}`)}
+                onPress={() => guarded(m.id, answered(m.answers), () => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, motors: x.motors.filter((y) => y.id !== m.id) } : x)) })))}
+                testID={`motor-${di}-${mi}-remove`}
+              />
             </View>
           ))}
           <View style={styles.row}>
             <Action label="+ Motor" grow onPress={() => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, motors: [...x.motors, newMotor(Date.now(), x.motors.length)] } : x)) }))} testID={`door-${di}-add-motor`} />
-            <Action label={`Remove door ${di + 1}`} grow onPress={() => save((i) => ({ ...i, doors: i.doors.filter((x) => x.id !== d.id) }))} testID={`door-${di}-remove`} />
+            <Action
+              label={tapAgain(d.id, `Remove door ${di + 1}`)}
+              grow
+              onPress={() => guarded(d.id, answered(d.answers) || d.motors.some((m) => answered(m.answers)), () => save((i) => ({ ...i, doors: i.doors.filter((x) => x.id !== d.id) })))}
+              testID={`door-${di}-remove`}
+            />
           </View>
         </View>
       ))}
       <Action label="+ Door" onPress={() => save((i) => ({ ...i, doors: [...i.doors, newDoor(Date.now(), i.doors.length)] }))} testID="inspection-add-door" />
 
       <SectionTitle>Gate</SectionTitle>
-      <Toggle label="There's a gate to inspect" on={!!insp.gate} onPress={() => save((i) => (i.gate ? { ...i, gate: undefined } : { ...i, gate: { type: '', answers: {} } }))} testID="inspection-gate" />
+      <Toggle
+        label={armed === 'gate' ? 'Tap again to remove the gate and its answers' : "There's a gate to inspect"}
+        on={!!insp.gate}
+        onPress={() =>
+          insp.gate
+            ? guarded('gate', answered(insp.gate.answers), () => save((i) => ({ ...i, gate: undefined })))
+            : save((i) => ({ ...i, gate: { type: '', answers: {} } }))
+        }
+        testID="inspection-gate"
+      />
       {insp.gate ? (
         <View style={styles.stack}>
           <ChipRow options={GATE_TYPES} value={insp.gate.type as 'swing' | 'slide'} onChange={(t) => save((i) => ({ ...i, gate: { ...i.gate!, type: t } }))} testID="gate-type" />

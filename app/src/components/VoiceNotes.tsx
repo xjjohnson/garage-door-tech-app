@@ -90,7 +90,12 @@ function Recorder({ audio: a, keepFile, onAdd }: { audio: AudioModule; keepFile:
 
   useEffect(
     () => () => {
-      if (recorder.isRecording) recorder.stop().catch(() => undefined);
+      // The recorder may already be released by its own hook; a throw here is harmless.
+      try {
+        if (recorder.isRecording) recorder.stop().catch(() => undefined);
+      } catch {
+        // Already gone.
+      }
     },
     [recorder],
   );

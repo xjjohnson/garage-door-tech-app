@@ -258,5 +258,16 @@ describe('inspection in the app', () => {
     expect(insp.lubricated).toBe(true);
     expect(screen.getByTestId('item-g:ul-signs')).toBeTruthy();
     expect(screen.getByTestId('voice-notes')).toHaveTextContent('No voice notes.');
+
+    // A door with answers needs a second tap to remove; an empty one goes at once.
+    const first = insp.doors[0];
+    await fireEvent.press(screen.getByTestId(`item-d:${first.id}:rollers-good`));
+    await fireEvent.press(screen.getByTestId('door-0-remove'));
+    expect(screen.getByTestId('door-0-remove')).toHaveTextContent('Tap again: answers will be lost');
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].inspection!.doors).toHaveLength(2);
+    await fireEvent.press(screen.getByTestId('door-0-remove'));
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].inspection!.doors.map((d) => d.id)).toEqual([insp.doors[1].id]);
+    await fireEvent.press(screen.getByTestId('door-0-remove'));
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].inspection!.doors).toHaveLength(0);
   });
 });
