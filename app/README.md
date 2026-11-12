@@ -565,6 +565,16 @@ system keeps for a product (name, part number, on hand, reorder point, cost,
 vendor), so a later Odoo sync can map it (`src/lib/stock.ts`, AsyncStorage
 `stock/v1`, included in backups).
 
+Signed in to Odoo (from 0.5.8), Odoo is the record of the truck: the list is
+what the tech's truck location has in stock.quant. It syncs when Truck stock
+or a job opens and a few seconds after a count changes; a count not sent yet
+says so in red. Items with no Odoo product are taken off, **Add common items**
+is hidden, and **Add an item** makes the product in Odoo. On a job, **Part
+not on the truck** finds the part in Odoo (or makes it), then sends the
+supplier a purchase order for that job, to pick up or have delivered; **Got
+it, put it on this job** receives it onto the truck and takes it off for the
+job (`src/lib/useTruckSync.ts`, `src/components/JobParts.tsx`).
+
 **Photos, signatures and PDFs** (from version 0.4.0). A quote has **Take
 photos**, a page for that job's **Before**, **After** and **Other** photos,
 from the camera or the gallery, each with **Share** and **Delete**. Photos are
