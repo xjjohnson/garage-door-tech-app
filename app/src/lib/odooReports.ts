@@ -62,16 +62,25 @@ export interface EmailResult {
   reason?: string;
 }
 
-/** Odoo's own "Invoice: Send by email" template (account.email_template_edi_invoice), or any invoice template. */
-async function invoiceTemplate(client: Pick<OdooClient, 'call'>): Promise<number> {
+/** Odoo's own email templates: "Invoice: Send by email" and "Sales: Send Quotation". */
+const TEMPLATES = {
+  'account.move': { module: 'account', name: 'email_template_edi_invoice', what: 'invoice' },
+  'sale.order': { module: 'sale', name: 'email_template_edi_sale', what: 'quotation' },
+} as const;
+
+type TemplateModel = keyof typeof TEMPLATES;
+
+/** Odoo's own template for the model, or else the first template for it. */
+async function templateFor(client: Pick<OdooClient, 'call'>, model: TemplateModel): Promise<number> {
+  const t = TEMPLATES[model];
   try {
-    const [x] = (await client.call('ir.model.data', 'search_read', [[['module', '=', 'account'], ['name', '=', 'email_template_edi_invoice']]], { fields: ['res_id'], limit: 1 })) as { res_id?: number }[];
+    const [x] = (await client.call('ir.model.data', 'search_read', [[['module', '=', t.module], ['name', '=', t.name]]], { fields: ['res_id'], limit: 1 })) as { res_id?: number }[];
     if (x?.res_id) return x.res_id;
   } catch {
     // Not readable here: look for the template by its model instead.
   }
-  const [id] = (await client.call('mail.template', 'search', [[['model', '=', 'account.move']]], { limit: 1, order: 'id asc' })) as number[];
-  if (!id) throw new Error('Odoo has no invoice email template. Check Settings › Technical › Email Templates.');
+  const [id] = (await client.call('mail.template', 'search', [[['model', '=', model]]], { limit: 1, order: 'id asc' })) as number[];
+  if (!id) throw new Error(`Odoo has no ${t.what} email template. Check Settings › Technical › Email Templates.`);
   return id;
 }
 
@@ -81,19 +90,27 @@ async function invoiceTemplate(client: Pick<OdooClient, 'call'>): Promise<number
  * PDFs (the inspection report). Logs a note on the invoice and reads Odoo's
  * outgoing mail to say what happened.
  */
-export async function emailInvoice(client: Pick<OdooClient, 'call'>, moveId: number, partnerId: number, extra: PdfFile[]): Promise<EmailResult> {
+export function emailInvoice(client: Pick<OdooClient, 'call'>, moveId: number, partnerId: number, extra: PdfFile[]): Promise<EmailResult> {
+  return emailRecord(client, 'account.move', moveId, partnerId, extra);
+}
+
+/** Emails an invoice or a quotation with Odoo's own template, as Odoo's Send button does. */
+export async function emailRecord(client: Pick<OdooClient, 'call'>, model: TemplateModel, moveId: number, partnerId: number, extra: PdfFile[] = []): Promise<EmailResult> {
+  const what = TEMPLATES[model].what;
   const to = await partnerEmail(client, partnerId);
   const ids: number[] = [];
   for (const f of extra) {
-    ids.push((await client.call('ir.attachment', 'create', [{ name: f.name, type: 'binary', datas: f.base64, res_model: 'account.move', res_id: moveId, mimetype: 'application/pdf' }])) as number);
+    ids.push((await client.call('ir.attachment', 'create', [{ name: f.name, type: 'binary', datas: f.base64, res_model: model, res_id: moveId, mimetype: 'application/pdf' }])) as number);
   }
-  const template = await invoiceTemplate(client);
+  const template = await templateFor(client, model);
   const mailId = await client.call('mail.template', 'send_mail', [[template], moveId], { force_send: true, ...(ids.length ? { email_values: { attachment_ids: ids } } : {}) });
   const result = { to, ...(await mailState(client, mailId)) };
-  // Like Odoo's own Send: the invoice is marked sent, with a note in its chatter (best effort).
-  await client.call('account.move', 'write', [[moveId], { is_move_sent: true }]).catch(() => undefined);
-  const note = result.state === 'failed' ? `Invoice email to ${to} failed: ${result.reason}` : `Invoice emailed to ${to} from the app${extra.length ? `, with ${extra.map((f) => f.name).join(', ')}` : ''}.`;
-  await client.call('account.move', 'message_post', [[moveId]], { body: note, message_type: 'comment', subtype_xmlid: 'mail.mt_note' }).catch(() => undefined);
+  // Like Odoo's own Send: marked sent, with a note in the chatter (best effort).
+  if (model === 'account.move') await client.call(model, 'write', [[moveId], { is_move_sent: true }]).catch(() => undefined);
+  else if (result.state !== 'failed') await client.call(model, 'action_quotation_sent', [[moveId]]).catch(() => undefined);
+  const What = what[0].toUpperCase() + what.slice(1);
+  const note = result.state === 'failed' ? `${What} email to ${to} failed: ${result.reason}` : `${What} emailed to ${to} from the app${extra.length ? `, with ${extra.map((f) => f.name).join(', ')}` : ''}.`;
+  await client.call(model, 'message_post', [[moveId]], { body: note, message_type: 'comment', subtype_xmlid: 'mail.mt_note' }).catch(() => undefined);
   return result;
 }
 
@@ -109,4 +126,12 @@ export async function mailState(client: Pick<OdooClient, 'call'>, mailId: unknow
     // Only Odoo admins can read outgoing mail.
     return { state: 'unknown' };
   }
+}
+
+/** What Odoo did with an email, in words. */
+export function emailedText(r: EmailResult): string {
+  if (r.state === 'sent') return `Odoo sent the email to ${r.to}.`;
+  if (r.state === 'queued') return `Odoo has the email to ${r.to} in its outgoing mail; it goes out within a few minutes.`;
+  if (r.state === 'failed') return `Odoo couldn't email ${r.to}: ${r.reason}`;
+  return `Sent to Odoo for ${r.to}. Check the record in Odoo to see whether the email went out.`;
 }

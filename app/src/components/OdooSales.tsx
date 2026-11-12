@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Invoice, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
-import { EmailResult, emailInvoice, partnerEmail, PdfFile } from '../lib/odooReports';
+import { EmailResult, emailedText, emailInvoice, partnerEmail, PdfFile } from '../lib/odooReports';
 import { pdfName } from '../lib/pdf';
 import { inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
@@ -195,13 +195,6 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
-}
-
-function emailedText(r: EmailResult): string {
-  if (r.state === 'sent') return `Odoo sent the email to ${r.to}.`;
-  if (r.state === 'queued') return `Odoo has the email to ${r.to} in its outgoing mail; it goes out within a few minutes.`;
-  if (r.state === 'failed') return `Odoo couldn't email ${r.to}: ${r.reason}`;
-  return `Posted for ${r.to}. Check the invoice in Odoo to see whether the email went out.`;
 }
 
 function Button({ label, onPress, disabled, testID }: { label: string; onPress: () => void; disabled?: boolean; testID: string }) {

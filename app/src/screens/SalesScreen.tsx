@@ -9,6 +9,7 @@ import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
+import { useOdoo } from '../lib/useOdoo';
 import { colors } from '../theme';
 import { InvoicesScreen } from './InvoicesScreen';
 
@@ -20,6 +21,8 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
   const { jobs } = useJobs();
   const { invoices, business } = useInvoices();
   const { settings, dismissed } = useFollowUps();
+  const { status, client } = useOdoo();
+  const odoo = status === 'signedIn' && client ? client.session.apps : null;
   const t = now();
   const toInvoice = useMemo(() => jobs.filter((j) => j.accepted && !invoices.some((i) => i.jobId === j.id && !i.voidedAt)), [jobs, invoices]);
   const due = followUps(invoices, settings, business, t, dismissed).filter((f) => f.due <= t + 7 * 24 * 3600 * 1000).length;
@@ -28,6 +31,8 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
     <View style={styles.stack} testID="sales">
       <NavRow label="Follow-ups" detail="Invoice and quote reminders, texted by you" badge={due ? `${due} due` : undefined} href="/follow-ups" testID="sales-followups" />
       <NavRow label="Price sheet" detail="Parts and labor for quotes" href="/price-sheet" testID="sales-price-sheet" />
+      {odoo?.sales ? <NavRow label="Odoo quotations" detail="Every quotation and sales order in Odoo" href="/odoo-list/quotations" testID="sales-odoo-quotations" /> : null}
+      {odoo?.invoicing ? <NavRow label="Odoo invoices" detail="Every invoice in Odoo, paid and not" href="/odoo-list/invoices" testID="sales-odoo-invoices" /> : null}
       {toInvoice.length > 0 ? (
         <>
           <SectionTitle>Said yes, no invoice yet</SectionTitle>
@@ -42,7 +47,7 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
           ))}
         </>
       ) : null}
-      <SectionTitle>Invoices</SectionTitle>
+      <SectionTitle>Invoices on this phone</SectionTitle>
       <InvoicesScreen />
       <Text style={styles.meta}>Quotes and invoices go to Odoo Sales and Invoicing from each quote and invoice.</Text>
     </View>
