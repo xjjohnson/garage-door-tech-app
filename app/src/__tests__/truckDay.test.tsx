@@ -5,13 +5,14 @@ import { daySummary, dayText, DAY_CLOSE_STORAGE_KEY, parseClosedDays } from '../
 import { Invoice } from '../lib/invoices';
 import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
-import { createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
+import { browseProducts, createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
 import { Appointment } from '../lib/schedule';
 import { phoneScoreData, scorecard, tierIn } from '../lib/scorecard';
 import { findByCode, onOrder, orders, parseStock, STOCK_STORAGE_KEY, StockItem, StockStore, usedTotals } from '../lib/stock';
 import { StockProvider, useStock } from '../lib/useStock';
+import { ProductPicker } from '../components/ProductPicker';
 import { renderApp } from '../testing/renderApp';
 
 const DAY = 86_400_000;
@@ -25,7 +26,7 @@ function fakeStockOdoo() {
   const products = [
     { id: 11, name: 'Nylon rollers (10)', default_code: 'ROL-10', barcode: '0123456789012', standard_price: 18.5, product_tmpl_id: [111, 'Rollers'] },
     { id: 12, name: '.250 x 2" x 30" torsion spring', default_code: 'SPR-250-30', barcode: '', standard_price: 24, product_tmpl_id: [112, 'Spring'] },
-    { id: 13, name: 'Safety sensors (pair)', default_code: '', barcode: '777', standard_price: 0, product_tmpl_id: [113, 'Sensors'] },
+    { id: 13, name: 'Safety sensors (pair)', default_code: '', barcode: '777', standard_price: 0, product_tmpl_id: [113, 'Sensors'], categ_id: [5, 'All / Openers'] },
   ];
   const failOn: { writes?: number } = {};
   /** Templates Odoo keeps no stock of: a consumable (Track Inventory off) or a service. */
@@ -62,6 +63,8 @@ function fakeStockOdoo() {
         return [{ id: 1, partner_id: [55, 'DDM Garage Doors'], product_tmpl_id: [111, 'Rollers'], product_id: false, product_code: 'D-ROL', price: 17 }];
       case 'product.product.search': {
         const d = JSON.stringify(args[0]);
+        // Browsing goods to add to the truck.
+        if (((args[0] as unknown[][])[0] ?? [])[0] === 'type') return products.map((p) => p.id);
         // A typed search (Part not on the truck): name contains the words.
         if ((args[0] as unknown[])[0] === '|') {
           const t = String(((args[0] as unknown[][])[2] as unknown[])[2]).toLowerCase();
@@ -281,6 +284,15 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     expect(o.quants.find((q) => q.product === 13)?.qty).toBe(2);
   });
 
+  it('lists Odoo products to pick for the truck, with their category, or the ones matching what is typed', async () => {
+    const o = fakeStockOdoo();
+    const all = await browseProducts(o.client, '');
+    expect(all.map((p) => p.id)).toEqual([11, 12, 13]);
+    expect(o.calls.find((c) => c.method === 'search')?.args[0]).toEqual([['type', '!=', 'service']]);
+    expect(all.find((p) => p.id === 13)).toMatchObject({ category: 'Openers', barcode: '777' });
+    expect((await browseProducts(o.client, 'ROL-10')).map((p) => p.id)).toEqual([11]);
+  });
+
   it('makes a new stocked product, finds products by what is typed, and keeps one item per product', async () => {
     const o = fakeStockOdoo();
     expect((await searchProducts(o.client, 'roller')).map((p) => p.id)).toEqual([11]);
@@ -477,6 +489,32 @@ describe('job part orders and adding parts signed in (StockProvider)', () => {
     await act(async () => stock().undoUse(zero.id));
     await settle();
     expect(stock().items.find((i) => i.id === 'r')?.onHand).toBe(0);
+  });
+});
+
+describe('picking a part from Odoo', () => {
+  it('shows Odoo products by category, searches as you type, and offers a new part last', async () => {
+    jest.useFakeTimers();
+    const p = (id: number, name: string, category: string, code = '') => ({ id, name, code, barcode: '', costCents: 0, category });
+    const load = jest.fn(async (q: string) => (q ? [p(2, 'Genie 2028 belt', 'Openers', '2028-7FT-BELT')] : [p(1, '.250 spring', 'Springs'), p(2, 'Genie 2028 belt', 'Openers', '2028-7FT-BELT')]));
+    const onPick = jest.fn();
+    const onNew = jest.fn();
+    await render(<ProductPicker visible load={load} onPick={onPick} onNew={onNew} onClose={() => undefined} onTruck={new Set([1])} />);
+    await act(async () => undefined);
+    expect(screen.getByText('SPRINGS')).toBeTruthy();
+    expect(screen.getByText('OPENERS')).toBeTruthy();
+    expect(screen.getByText('on the truck')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('product-picker-search'), 'genie');
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    expect(load).toHaveBeenLastCalledWith('genie');
+    expect(screen.getByText('MATCHES')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('product-pick-2'));
+    expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ id: 2, code: '2028-7FT-BELT' }));
+    await fireEvent.press(screen.getByTestId('product-picker-new'));
+    expect(onNew).toHaveBeenCalledWith('genie');
+    jest.useRealTimers();
   });
 });
 

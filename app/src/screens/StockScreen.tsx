@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BarcodeScanner } from '../components/BarcodeScanner';
+import { ProductPicker } from '../components/ProductPicker';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
-import { findProductByCode, listTrucks, NoTruckError, SyncResult } from '../lib/odooStock';
+import { browseProducts, ensureTracked, findProductByCode, listTrucks, NoTruckError, StockProduct, SyncResult, UntrackedError } from '../lib/odooStock';
 import { pickList } from '../lib/pickList';
 import { cents, formatMoney } from '../lib/prices';
 import { startOfDay } from '../lib/schedule';
@@ -56,6 +57,10 @@ export function StockScreen() {
   const [editingSupplier, setEditingSupplier] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [counting, setCounting] = useState<StockItem | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [adding, setAdding] = useState<StockProduct | null>(null);
+  // One object per pick, so the count sheet doesn't reset while it's open.
+  const addingItem = useMemo<StockItem | null>(() => (adding ? { id: 'new', name: adding.name, sku: adding.code, category: 'parts', onHand: 0, min: 0, par: 0, supplier: '', costCents: 0, updatedAt: 0 } : null), [adding]);
   const [confirming, setConfirming] = useState<SupplierOrder | null>(null);
   const [trucks, setTrucks] = useState<TruckLink[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -293,7 +298,7 @@ export function StockScreen() {
         );
       })}
 
-      <Action label="Add an item" onPress={() => setEditing({ item: blank() })} testID="stock-add" />
+      <Action label={client ? 'Add a part from Odoo' : 'Add an item'} onPress={() => (client ? setPicking(true) : setEditing({ item: blank() }))} testID="stock-add" />
 
       {names.length > 0 ? (
         <>
@@ -328,6 +333,58 @@ export function StockScreen() {
             const po = await store.sendOrder(client, o);
             const skipped = o.lines.length - linked;
             return `${po.name} made in Odoo${po.emailed ? ' and emailed to the supplier' : '. Odoo could not email it, so text or email it'}.${skipped ? ` ${skipped} item${skipped === 1 ? ' is' : 's are'} not in Odoo and left off.` : ''}`;
+          });
+        }}
+      />
+      {client ? (
+        <ProductPicker
+          visible={picking}
+          title="Add a part to the truck"
+          load={(q) => browseProducts(client, q)}
+          onTruck={new Set(items.map((i) => i.odooId).filter((x): x is number => x !== undefined))}
+          onClose={() => setPicking(false)}
+          onPick={(p) => {
+            setPicking(false);
+            const have = items.find((i) => i.odooId === p.id);
+            if (have) setCounting(have);
+            else setAdding(p);
+          }}
+          onNew={(name) => {
+            setPicking(false);
+            setEditing({ item: { ...blank(), name } });
+          }}
+        />
+      ) : null}
+      <CountSheet
+        item={addingItem}
+        prompt="How many are on the truck?"
+        saveLabel="Add to the truck"
+        onCancel={() => setAdding(null)}
+        onSave={(n) => {
+          const p = adding;
+          setAdding(null);
+          if (!p || !client) return;
+          run('add', async () => {
+            await addToOdoo(client, {
+              name: p.name,
+              sku: p.code,
+              ...(p.barcode ? { barcode: p.barcode } : {}),
+              odooId: p.id,
+              category: guessCategory(`${p.category ?? ''} ${p.name}`),
+              onHand: n,
+              min: 1,
+              par: 2,
+              supplier: p.vendor?.name ?? '',
+              costCents: p.costCents || p.vendor?.priceCents || 0,
+            });
+            // A consumable can't be counted on the truck: say what to tick in Odoo now, not at the sync.
+            try {
+              await ensureTracked(client, p.id);
+            } catch (e) {
+              if (e instanceof UntrackedError) return { text: e.message, bad: true };
+              throw e;
+            }
+            return `${p.name} added. ${n} go${n === 1 ? 'es' : ''} to ${store.truck?.name ?? 'the truck'} in Odoo next.`;
           });
         }}
       />
@@ -432,7 +489,7 @@ function ConfirmOrderSheet({ order, email, onSend, onCancel }: { order: Supplier
 }
 
 /** Sets an item's count after a scan: type it, or step it with - and +. */
-function CountSheet({ item, onSave, onCancel }: { item: StockItem | null; onSave: (n: number) => void; onCancel: () => void }) {
+function CountSheet({ item, prompt, saveLabel = 'Save count', onSave, onCancel }: { item: StockItem | null; prompt?: string; saveLabel?: string; onSave: (n: number) => void; onCancel: () => void }) {
   const [n, setN] = useState(0);
   useEffect(() => {
     if (item) setN(item.onHand);
@@ -448,7 +505,7 @@ function CountSheet({ item, onSave, onCancel }: { item: StockItem | null; onSave
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
           </View>
-          <Text style={styles.meta}>How many are on the truck? The app had {item.onHand}.</Text>
+          <Text style={styles.meta}>{prompt ?? `How many are on the truck? The app had ${item.onHand}.`}</Text>
           <View style={styles.row}>
             <Action label="−" grow onPress={() => setN((x) => Math.max(0, x - 1))} testID="count-minus" accessibilityLabel="One less" />
             <Text style={styles.count} testID="count-value">
@@ -457,7 +514,7 @@ function CountSheet({ item, onSave, onCancel }: { item: StockItem | null; onSave
             <Action label="+" grow onPress={() => setN((x) => x + 1)} testID="count-plus" accessibilityLabel="One more" />
           </View>
           <Pressable onPress={() => onSave(n)} accessibilityRole="button" testID="count-save" style={({ pressed }) => [styles.save, pressed && styles.pressed]}>
-            <Text style={styles.saveText}>Save count</Text>
+            <Text style={styles.saveText}>{saveLabel}</Text>
           </Pressable>
         </View>
       </View>
