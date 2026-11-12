@@ -66,6 +66,8 @@ function fakeOdoo({ groups = ['fieldservice.group_fsm_dispatcher'], legacyHasGro
       const people = [{ id: 40, name: 'Justin', email: 'j@x.test', partner_id: 90 }, { id: 41, name: 'Sam Ruiz', email: 's@x.test', partner_id: 91 }];
       return reply(people.filter((p) => d.every(([f, , v]) => f !== 'partner_id' || p.partner_id === v)));
     }
+    // Odoo 19: contacts (and so Field Service locations) have no mobile field.
+    if (model === 'fsm.location' && (params.args[6] as { fields: string[] }).fields.includes('mobile')) return error("Invalid field 'mobile' on 'fsm.location'");
     if (model === 'fsm.location') return reply([{ id: 70, street: '1 Oak St', city: 'Springfield', zip: '12345', phone: '' }, { id: 71, street: '2 Elm St', city: 'Springfield', zip: '', phone: '' }, { id: 72, street: '3 Cedar Way', city: 'Springfield', zip: '', phone: '555-222-3333' }]);
     if (model === 'fsm.order' && method === 'search_read') {
       const d = args[0] as [string, string, unknown][];
@@ -102,12 +104,19 @@ describe('dispatch (Odoo logic)', () => {
     const c = await OdooClient.signIn(o.fetchFn, login, 'k');
     const day = await c.jobsBetween(at(0), at(0, 0, 1));
     expect(day.map((t) => [t.id, t.assignees, t.minutes])).toEqual([[601, [40], 90], [602, [41], 60]]);
-    expect(o.calls.at(-2)?.args[0]).toEqual([['person_id', '!=', false], ['scheduled_date_start', '>=', toOdooTime(at(0))], ['scheduled_date_start', '<', toOdooTime(at(0, 0, 1))]]);
+    expect(o.calls.filter((x) => x.model === 'fsm.order' && x.method === 'search_read').at(-1)?.args[0]).toEqual([['person_id', '!=', false], ['scheduled_date_start', '>=', toOdooTime(at(0))], ['scheduled_date_start', '<', toOdooTime(at(0, 0, 1))]]);
     expect(c.canSchedule).toBe(true);
     await c.scheduleJob(603, 41, at(15));
     expect(o.calls.at(-1)).toEqual({ model: 'fsm.order', method: 'write', args: [[603], { person_id: 41, scheduled_date_start: toOdooTime(at(15)) }] });
     await c.scheduleJob(603, 40);
     expect(o.calls.at(-1)?.args).toEqual([[603], { person_id: 40 }]);
+  });
+
+  it("reads job addresses on Odoo 19, where contacts have no mobile field", async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    expect((await c.unassignedTasks()).map((t) => [t.id, t.address, t.phone])).toEqual([[603, '3 Cedar Way, Springfield', '555-222-3333']]);
+    expect((await c.myTasks()).map((t) => t.id)).toEqual([601, 604]);
   });
 
   it('lets dispatchers, managers and admins dispatch, and nobody else', async () => {
