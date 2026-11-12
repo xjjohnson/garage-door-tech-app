@@ -681,7 +681,9 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `follow-ups.tsx` | `/follow-ups` | Tune-ups, worn springs and warranty ends due, a full page |
 | `schedule.tsx` | `/schedule` | Booked visits by day; `?book=<customer id>` opens booking for them, a full page |
 | `time-log.tsx` | `/time-log` | Clock in and out, miles and the week's totals, a full page |
-| `stock.tsx` | `/stock` | Truck stock and orders to suppliers, a full page |
+| `stock.tsx` | `/stock` | Truck stock (synced with the tech's own Odoo Inventory location, e.g. "Truck - Justin Johnson", Truck 1 as fallback), barcode scan, tomorrow's pick list, supplier purchase orders, a full page |
+| `end-of-day.tsx` | `/end-of-day` | Wrap up the day: jobs done, money by method, hours, miles, close the day, a full page |
+| `scorecard.tsx` | `/scorecard` | Tech scorecard, owner only (Odoo admin or Field Service manager), a full page |
 | `photos/[id].tsx` | `/photos/<job id>` | One job's before and after photos, a full page |
 | `team.tsx` | `/team` | Odoo sign-in, my assigned jobs and dispatch, a full page |
 | `settings.tsx` | `/settings` | App version, update channel and a Check for update button, plus links to Your business, the price sheet, the Odoo sign-in and backups; opened from the Settings button (with the version on it) at the top right of every section |

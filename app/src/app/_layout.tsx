@@ -63,6 +63,8 @@ export default function RootLayout() {
                               <Stack.Screen name="schedule" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="time-log" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="stock" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="end-of-day" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="scorecard" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="photos/[id]" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="team" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="door-weight" options={{ presentation: 'modal' }} />

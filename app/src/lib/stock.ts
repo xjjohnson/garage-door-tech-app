@@ -28,17 +28,77 @@ export interface StockItem {
   /** What one costs, in cents; 0 when not entered. */
   costCents: number;
   updatedAt: number;
+  /** The product's barcode (Odoo's Barcode field), for scanning. */
+  barcode?: string;
+  /** The Odoo product (product.product) this item is, once linked. */
+  odooId?: number;
+  /** On hand as Odoo last had it for the truck, so a sync sends only what changed on the phone since. */
+  syncedOnHand?: number;
 }
 
 export interface Supplier {
   name: string;
   phone: string;
   email: string;
+  /** The vendor's contact (res.partner) in Odoo. */
+  odooId?: number;
+}
+
+/** A part taken off the truck for a job. */
+export interface PartUse {
+  id: string;
+  itemId: string;
+  /** What it was called then, so the list reads right if the item is renamed or removed. */
+  name: string;
+  qty: number;
+  jobId?: string;
+  at: number;
+}
+
+/** A purchase order sent to a supplier through Odoo. */
+export interface PurchaseOrder {
+  id: string;
+  supplier: string;
+  /** Odoo's purchase.order id and number ("P00012"). */
+  odooId: number;
+  name: string;
+  lines: { itemId: string; qty: number }[];
+  at: number;
+  /** Whether Odoo emailed it to the supplier. */
+  emailed: boolean;
+  receivedAt?: number;
+}
+
+/** The truck's Inventory location in Odoo. */
+export interface TruckLink {
+  locationId: number;
+  name: string;
+  syncedAt: number;
+  /** The Odoo user this truck is for; another user signing in on the phone gets their own truck. */
+  uid?: number;
+  /** True when the tech picked it by hand (not matched by name). */
+  chosen?: boolean;
 }
 
 export interface StockStore {
   items: StockItem[];
   suppliers: Supplier[];
+  /** Parts used on jobs, newest last. */
+  used?: PartUse[];
+  purchases?: PurchaseOrder[];
+  truck?: TruckLink;
+}
+
+/** The Inventory location used when none is named for the tech. */
+export const DEFAULT_TRUCK = 'Truck 1';
+
+/**
+ * Moves the phone to another truck's location. Linked items start from 0 as
+ * if Odoo had none (so nothing on the phone is sent to the new truck), and
+ * the next sync brings in what Odoo has there. Phone-only items are kept.
+ */
+export function switchTruck(store: StockStore, truck: TruckLink, now: number): StockStore {
+  return { ...store, truck: { ...truck, syncedAt: 0 }, items: store.items.map((i) => (i.odooId !== undefined ? { ...i, onHand: 0, syncedOnHand: 0, updatedAt: now } : i)) };
 }
 
 export const EMPTY_STOCK: StockStore = { items: [], suppliers: [] };
@@ -66,9 +126,22 @@ export function isLow(i: StockItem): boolean {
   return i.par > 0 && i.onHand <= i.min;
 }
 
-/** How many to order to get back up to the fill-to count. */
-export function orderQty(i: StockItem): number {
-  return isLow(i) ? Math.max(1, i.par - i.onHand) : 0;
+/** How many to order to get back up to the fill-to count, less any already on order. */
+export function orderQty(i: StockItem, onOrder = 0): number {
+  if (!isLow(i) || i.onHand + onOrder > i.min) return 0;
+  return Math.max(1, i.par - i.onHand - onOrder);
+}
+
+/** How many of each item are on purchase orders not received yet. */
+export function onOrder(purchases: PurchaseOrder[] = []): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const p of purchases) if (!p.receivedAt) for (const l of p.lines) m.set(l.itemId, (m.get(l.itemId) ?? 0) + l.qty);
+  return m;
+}
+
+/** Purchase orders still waiting for parts, oldest first. */
+export function openPurchases(purchases: PurchaseOrder[] = []): PurchaseOrder[] {
+  return purchases.filter((p) => !p.receivedAt).sort((a, b) => a.at - b.at);
 }
 
 export interface SupplierOrder {
@@ -78,10 +151,10 @@ export interface SupplierOrder {
 }
 
 /** Low items as one order per supplier, suppliers in name order, items with no supplier last. */
-export function orders(items: StockItem[]): SupplierOrder[] {
+export function orders(items: StockItem[], ordered: Map<string, number> = new Map()): SupplierOrder[] {
   const by = new Map<string, SupplierOrder>();
   for (const item of items) {
-    const qty = orderQty(item);
+    const qty = orderQty(item, ordered.get(item.id) ?? 0);
     if (qty === 0) continue;
     const key = item.supplier.trim();
     const o = by.get(key) ?? { supplier: key, lines: [], costCents: 0 };
@@ -127,8 +200,8 @@ export function supplierNames(store: StockStore): string[] {
 }
 
 /** Adds an order's quantities to on hand. */
-export function receive(items: StockItem[], o: SupplierOrder, now: number): StockItem[] {
-  const add = new Map(o.lines.map((l) => [l.item.id, l.qty]));
+export function receive(items: StockItem[], o: { lines: { item?: StockItem; itemId?: string; qty: number }[] }, now: number): StockItem[] {
+  const add = new Map(o.lines.map((l) => [l.item?.id ?? l.itemId ?? '', l.qty]));
   return items.map((i) => (add.has(i.id) ? { ...i, onHand: i.onHand + add.get(i.id)!, updatedAt: now } : i));
 }
 
@@ -162,16 +235,36 @@ export function parseStock(raw: string | null | unknown): StockStore {
         supplier: s0(i.supplier),
         costCents: n0(i.costCents),
         updatedAt: n0(i.updatedAt),
+        ...(typeof i.barcode === 'string' && i.barcode ? { barcode: i.barcode } : {}),
+        ...(id(i.odooId) ? { odooId: id(i.odooId) } : {}),
+        ...(typeof i.syncedOnHand === 'number' && i.syncedOnHand >= 0 ? { syncedOnHand: n0(i.syncedOnHand) } : {}),
       },
     ];
   });
   const suppliers = (Array.isArray(d.suppliers) ? d.suppliers : []).flatMap((x): Supplier[] => {
     if (!x || typeof x !== 'object') return [];
     const s = x as Record<string, unknown>;
-    return typeof s.name === 'string' && s.name.trim() ? [{ name: s.name, phone: s0(s.phone), email: s0(s.email) }] : [];
+    return typeof s.name === 'string' && s.name.trim() ? [{ name: s.name, phone: s0(s.phone), email: s0(s.email), ...(id(s.odooId) ? { odooId: id(s.odooId) } : {}) }] : [];
   });
-  return { items, suppliers };
+  const used = (Array.isArray(d.used) ? d.used : []).flatMap((x): PartUse[] => {
+    if (!x || typeof x !== 'object') return [];
+    const u = x as Record<string, unknown>;
+    if (typeof u.id !== 'string' || typeof u.itemId !== 'string' || typeof u.at !== 'number') return [];
+    return [{ id: u.id, itemId: u.itemId, name: s0(u.name), qty: n0(u.qty) || 1, at: u.at, ...(typeof u.jobId === 'string' ? { jobId: u.jobId } : {}) }];
+  });
+  const purchases = (Array.isArray(d.purchases) ? d.purchases : []).flatMap((x): PurchaseOrder[] => {
+    if (!x || typeof x !== 'object') return [];
+    const p = x as Record<string, unknown>;
+    if (typeof p.id !== 'string' || !id(p.odooId) || typeof p.at !== 'number') return [];
+    const lines = (Array.isArray(p.lines) ? p.lines : []).flatMap((l) => (l && typeof l === 'object' && typeof (l as { itemId?: unknown }).itemId === 'string' ? [{ itemId: (l as { itemId: string }).itemId, qty: n0((l as { qty?: unknown }).qty) }] : []));
+    return [{ id: p.id, supplier: s0(p.supplier), odooId: id(p.odooId)!, name: s0(p.name), lines, at: p.at, emailed: p.emailed === true, ...(typeof p.receivedAt === 'number' ? { receivedAt: p.receivedAt } : {}) }];
+  });
+  const t = d.truck as Record<string, unknown> | undefined;
+  const truck = t && typeof t === 'object' && id(t.locationId) ? { locationId: id(t.locationId)!, name: s0(t.name), syncedAt: n0(t.syncedAt), ...(id(t.uid) ? { uid: id(t.uid) } : {}), ...(t.chosen === true ? { chosen: true } : {}) } : undefined;
+  return { items, suppliers, ...(used.length ? { used } : {}), ...(purchases.length ? { purchases } : {}), ...(truck ? { truck } : {}) };
 }
+
+const id = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : undefined);
 
 /** A backup's stock together with the phone's: the item changed last wins; suppliers are matched by name. */
 export function mergeStock(current: StockStore, incoming: StockStore): StockStore {
@@ -184,7 +277,50 @@ export function mergeStock(current: StockStore, incoming: StockStore): StockStor
   for (const s of incoming.suppliers) {
     const at = suppliers.findIndex((x) => x.name.trim().toLowerCase() === s.name.trim().toLowerCase());
     if (at < 0) suppliers.push(s);
-    else suppliers[at] = { ...suppliers[at], phone: suppliers[at].phone || s.phone, email: suppliers[at].email || s.email };
+    else suppliers[at] = { ...suppliers[at], phone: suppliers[at].phone || s.phone, email: suppliers[at].email || s.email, ...(suppliers[at].odooId || s.odooId ? { odooId: suppliers[at].odooId ?? s.odooId } : {}) };
   }
-  return { items: [...byId.values()], suppliers };
+  const union = <T extends { id: string }>(a: T[] = [], b: T[] = []) => {
+    const m = new Map(a.map((x) => [x.id, x]));
+    for (const x of b) if (!m.has(x.id)) m.set(x.id, x);
+    return [...m.values()];
+  };
+  const used = union(current.used, incoming.used).sort((a, b) => a.at - b.at);
+  const purchases = union(current.purchases, incoming.purchases);
+  const truck = current.truck ?? incoming.truck;
+  return { items: [...byId.values()], suppliers, ...(used.length ? { used } : {}), ...(purchases.length ? { purchases } : {}), ...(truck ? { truck } : {}) };
+}
+
+/** The item a scanned code is: its barcode, else its part number. */
+export function findByCode(items: StockItem[], code: string): StockItem | undefined {
+  const k = code.trim().toLowerCase();
+  if (!k) return undefined;
+  return items.find((i) => (i.barcode ?? '').trim().toLowerCase() === k) ?? items.find((i) => i.sku.trim().toLowerCase() === k);
+}
+
+/** Parts used in a stretch of time (or on one job), added up by item, most used first. */
+export function usedTotals(used: PartUse[] = [], filter: { from?: number; to?: number; jobId?: string }): { itemId: string; name: string; qty: number }[] {
+  const m = new Map<string, { itemId: string; name: string; qty: number }>();
+  for (const u of used) {
+    if (filter.jobId !== undefined && u.jobId !== filter.jobId) continue;
+    if (filter.from !== undefined && u.at < filter.from) continue;
+    if (filter.to !== undefined && u.at >= filter.to) continue;
+    const row = m.get(u.itemId) ?? { itemId: u.itemId, name: u.name, qty: 0 };
+    row.qty += u.qty;
+    m.set(u.itemId, row);
+  }
+  return [...m.values()].filter((r) => r.qty > 0).sort((a, b) => b.qty - a.qty || a.name.localeCompare(b.name));
+}
+
+/** Items whose count changed on the phone since Odoo last had it (or that Odoo doesn't have yet). */
+export function unsyncedItems(store: StockStore): StockItem[] {
+  if (!store.truck) return [];
+  return store.items.filter((i) => i.odooId !== undefined && i.onHand !== (i.syncedOnHand ?? -1));
+}
+
+/** A guess at the category from a product name, for parts that come from Odoo. */
+export function guessCategory(name: string): StockCategory {
+  const n = name.toLowerCase();
+  if (/spring/.test(n)) return 'springs';
+  if (/opener|remote|sensor|keypad|button|transmitter|operator/.test(n)) return 'openers';
+  return 'parts';
 }
