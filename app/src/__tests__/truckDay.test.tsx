@@ -5,7 +5,7 @@ import { daySummary, dayText, DAY_CLOSE_STORAGE_KEY, parseClosedDays } from '../
 import { Invoice } from '../lib/invoices';
 import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
 import type { OdooClient } from '../lib/odoo';
-import { findProductByCode, likeExact, PartialSyncError, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
+import { findProductByCode, likeExact, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
 import { Appointment } from '../lib/schedule';
@@ -27,6 +27,10 @@ function fakeStockOdoo() {
     { id: 13, name: 'Safety sensors (pair)', default_code: '', barcode: '777', standard_price: 0, product_tmpl_id: [113, 'Sensors'] },
   ];
   const failOn: { writes?: number } = {};
+  const locations = [
+    { id: 7, name: 'Truck 1', complete_name: 'WH/Truck 1' },
+    { id: 8, name: 'Truck - Sam Ortiz', complete_name: 'WH/Truck - Sam Ortiz' },
+  ];
   const quants: { id: number; product: number; qty: number; pending?: number; loc?: number }[] = [{ id: 1, product: 11, qty: 5 }];
   const pickings: Record<number, { state: string; dest: number; lines: { product: number; qty: number }[] }> = {};
   let nextId = 100;
@@ -36,12 +40,15 @@ function fakeStockOdoo() {
     const pname = (id: number) => products.find((p) => p.id === id)!.name;
     switch (key) {
       case 'stock.location.search_read':
-        return [{ id: 7, name: 'Truck 1', complete_name: 'WH/Truck 1' }];
+        return locations;
       case 'stock.quant.search_read': {
         const d = args[0] as unknown[][];
         const pid = d.find((x) => x[0] === 'product_id')?.[2];
+        const loc = d.find((x) => x[0] === 'location_id')?.[2];
+        // Location 9 is a shelf inside Truck 1 (7).
+        const inLoc = (q: { loc?: number }) => loc === undefined || (q.loc ?? 7) === loc || (q.loc === 9 && loc === 7);
         if (pid !== undefined && failOn.writes !== undefined && failOn.writes-- === 0) throw new Error('Network request failed');
-        return quants.filter((q) => pid === undefined || q.product === pid).map((q) => ({ id: q.id, product_id: [q.product, pname(q.product)], location_id: [q.loc ?? 7, 'Truck'], quantity: q.qty }));
+        return quants.filter((q) => (pid === undefined || q.product === pid) && inLoc(q)).map((q) => ({ id: q.id, product_id: [q.product, pname(q.product)], location_id: [q.loc ?? 7, 'Truck'], quantity: q.qty }));
       }
       case 'stock.warehouse.orderpoint.search_read':
         return [{ id: 1, product_id: [11, pname(11)], product_min_qty: 2, product_max_qty: 6 }];
@@ -62,7 +69,7 @@ function fakeStockOdoo() {
       case 'stock.quant.create': {
         const v = args[0] as { product_id: number; inventory_quantity: number };
         const id = nextId++;
-        quants.push({ id, product: v.product_id, qty: 0, pending: v.inventory_quantity });
+        quants.push({ id, product: v.product_id, qty: 0, pending: v.inventory_quantity, loc: (v as { location_id?: number }).location_id });
         return id;
       }
       case 'stock.quant.action_apply_inventory': {
@@ -109,8 +116,9 @@ function fakeStockOdoo() {
     }
     throw new Error(`fake Odoo has no ${key}`);
   };
-  const client = { session: { uid: 2, kind: 'oca', fields: [], apps: { products: true, sales: true, invoicing: true } }, call } as unknown as OdooClient;
-  return { client, calls, quants, pickings, failOn };
+  const session = { uid: 2, name: 'Justin Johnson', kind: 'oca', fields: [], apps: { products: true, sales: true, invoicing: true } };
+  const client = { session, call } as unknown as OdooClient;
+  return { client, calls, quants, pickings, failOn, session, locations };
 }
 
 describe('truck stock with Odoo Inventory (plain logic)', () => {
@@ -119,7 +127,7 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     // Phone: rollers by name (5 in Odoo), a spring with a count Odoo doesn't have, and a phone-only item.
     const store: StockStore = { items: [item('r', { name: 'Nylon rollers (10)', onHand: 3 }), item('s', { name: 'Spring', sku: 'SPR-250-30', onHand: 4 }), item('x', { name: 'Shop rags', onHand: 9 })], suppliers: [] };
     let n = 0;
-    const first = await syncTruck(o.client, store, 1000, 'Truck 1', () => `new${++n}`);
+    const first = await syncTruck(o.client, store, 1000, () => `new${++n}`);
     expect(first.linked).toBe(2);
     expect(first.phoneOnly).toEqual(['Shop rags']);
     // Odoo already had rollers, so Odoo wins; the spring wasn't there, so the phone's 4 goes up.
@@ -128,7 +136,7 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     const r = first.store.items.find((i) => i.id === 'r')!;
     expect(r).toMatchObject({ odooId: 11, onHand: 5, syncedOnHand: 5, min: 2, par: 6, sku: 'ROL-10', barcode: '0123456789012', costCents: 1850, supplier: 'DDM Garage Doors' });
     expect(first.store.suppliers).toEqual([{ name: 'DDM Garage Doors', phone: '', email: '', odooId: 55 }]);
-    expect(first.store.truck).toEqual({ locationId: 7, name: 'WH/Truck 1', syncedAt: 1000 });
+    expect(first.store.truck).toEqual({ locationId: 7, name: 'WH/Truck 1', syncedAt: 1000, uid: 2 });
 
     // Two rollers used on the phone while someone in Odoo added 3 (a receipt): 5 + 3 - 2 = 6.
     o.quants.find((q) => q.product === 11)!.qty = 8;
@@ -143,9 +151,38 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
 
     // A product Odoo puts on the truck shows up on the phone.
     o.quants.push({ id: 50, product: 13, qty: 2 });
-    const third = await syncTruck(o.client, second.store, 3000, 'Truck 1', () => 'new-sensors');
+    const third = await syncTruck(o.client, second.store, 3000, () => 'new-sensors');
     expect(third.added).toBe(1);
     expect(third.store.items.find((i) => i.id === 'new-sensors')).toMatchObject({ name: 'Safety sensors (pair)', category: 'openers', onHand: 2, odooId: 13, barcode: '777' });
+  });
+
+  it("gives each tech their own truck: by name, else Truck 1, else they pick", async () => {
+    const t = (id: number, name: string) => ({ locationId: id, name, syncedAt: 0 });
+    const trucks = [t(7, 'WH/Truck 1'), t(8, 'WH/Truck - Sam Ortiz'), t(9, "WH/Justin's truck")];
+    expect(truckFor(trucks, 'Sam Ortiz')?.locationId).toBe(8);
+    expect(truckFor(trucks, 'Justin Johnson')?.locationId).toBe(9);
+    expect(truckFor(trucks, 'Pat Lee')?.locationId).toBe(7);
+    expect(truckFor([t(8, 'WH/Truck - Sam Ortiz'), t(10, 'WH/Van')], 'Pat Lee')).toBeNull();
+
+    // Sam signs in on a phone that synced Justin's truck: Sam's own truck is used, with Odoo's counts, and nothing of Justin's is sent to it.
+    const o = fakeStockOdoo();
+    o.quants.push({ id: 60, product: 12, qty: 2, loc: 8 });
+    const justin = (await syncTruck(o.client, { items: [item('s', { name: 'Spring', sku: 'SPR-250-30', onHand: 4 })], suppliers: [] }, 1000)).store;
+    expect(justin.truck).toMatchObject({ locationId: 7, uid: 2 });
+    o.session.uid = 3;
+    o.session.name = 'Sam Ortiz';
+    const sentBefore = o.calls.filter((c) => c.method === 'action_apply_inventory').length;
+    const sam = await syncTruck(o.client, justin, 2000);
+    expect(sam.store.truck).toMatchObject({ locationId: 8, uid: 3 });
+    expect(o.calls.filter((c) => c.method === 'action_apply_inventory').length).toBe(sentBefore);
+    expect(sam.store.items.find((i) => i.id === 's')).toMatchObject({ onHand: 2, syncedOnHand: 2 });
+    expect(o.quants.filter((q) => q.product === 12 && (q.loc ?? 7) === 7).map((q) => q.qty)).toEqual([4]);
+
+    // Nobody's truck and no Truck 1: the sync asks them to pick.
+    o.locations.splice(0, 2, { id: 10, name: 'Van', complete_name: 'WH/Van' }, { id: 11, name: 'Shop', complete_name: 'WH/Shop' });
+    o.session.uid = 4;
+    o.session.name = 'Pat Lee';
+    await expect(syncTruck(o.client, sam.store, 3000)).rejects.toBeInstanceOf(NoTruckError);
   });
 
   it('keeps the counts Odoo took when a sync stops partway, so none is sent twice', async () => {

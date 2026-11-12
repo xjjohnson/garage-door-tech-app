@@ -681,7 +681,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `follow-ups.tsx` | `/follow-ups` | Tune-ups, worn springs and warranty ends due, a full page |
 | `schedule.tsx` | `/schedule` | Booked visits by day; `?book=<customer id>` opens booking for them, a full page |
 | `time-log.tsx` | `/time-log` | Clock in and out, miles and the week's totals, a full page |
-| `stock.tsx` | `/stock` | Truck stock (synced with the Odoo Inventory location Truck 1), barcode scan, tomorrow's pick list, supplier purchase orders, a full page |
+| `stock.tsx` | `/stock` | Truck stock (synced with the tech's own Odoo Inventory location, e.g. "Truck - Justin Johnson", Truck 1 as fallback), barcode scan, tomorrow's pick list, supplier purchase orders, a full page |
 | `end-of-day.tsx` | `/end-of-day` | Wrap up the day: jobs done, money by method, hours, miles, close the day, a full page |
 | `scorecard.tsx` | `/scorecard` | Tech scorecard, owner only (Odoo admin or Field Service manager), a full page |
 | `photos/[id].tsx` | `/photos/<job id>` | One job's before and after photos, a full page |

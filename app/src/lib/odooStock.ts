@@ -1,5 +1,7 @@
 /**
- * Truck stock in Odoo Inventory. The truck is an Inventory location (Truck 1);
+ * Truck stock in Odoo Inventory. Each tech's truck is an Inventory location
+ * ("Truck - <tech name>", found by the signed-in user's name, Truck 1 if
+ * none, or picked by hand);
  * what's on it is Odoo's stock on hand there (stock.quant). The phone keeps its
  * own counts so it works offline, and a sync sends Odoo only what changed on
  * the phone since the last one (as an inventory adjustment), then takes
@@ -12,7 +14,7 @@
  * passed in, so tests use a fake server.
  */
 import type { OdooClient } from './odoo';
-import { DEFAULT_TRUCK, guessCategory, StockItem, StockStore, Supplier, TruckLink } from './stock';
+import { DEFAULT_TRUCK, guessCategory, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
 
 /** A product as truck stock needs it. */
 export interface StockProduct {
@@ -58,6 +60,42 @@ export async function findTruck(client: OdooClient, name = DEFAULT_TRUCK): Promi
   const rows = (await client.call('stock.location', 'search_read', [[['usage', '=', 'internal'], '|', ['name', '=ilike', likeExact(n)], ['complete_name', '=ilike', likeExact(n)]]], { fields: ['name', 'complete_name'], limit: 1 })) as Record<string, unknown>[];
   const r = rows[0];
   return r ? { locationId: r.id as number, name: str(r.complete_name) || str(r.name), syncedAt: 0 } : null;
+}
+
+/** Inventory locations a truck could be: ones with "truck" in the name, else every internal one. */
+export async function listTrucks(client: OdooClient): Promise<TruckLink[]> {
+  const read = async (domain: unknown[]) => (await client.call('stock.location', 'search_read', [domain], { fields: ['name', 'complete_name'], order: 'complete_name asc', limit: 200 })) as Record<string, unknown>[];
+  let rows = await read([['usage', '=', 'internal'], ['name', 'ilike', 'truck']]);
+  if (rows.length === 0) rows = await read([['usage', '=', 'internal']]);
+  return rows.map((r) => ({ locationId: r.id as number, name: str(r.complete_name) || str(r.name), syncedAt: 0 }));
+}
+
+const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * Each tech has their own truck: the location whose name has the tech's
+ * name in it ("Truck - Justin Johnson", "Justin's truck", "Truck Justin"),
+ * full name first, then first name; else "Truck 1"; else the only truck
+ * there is. Null when none fits, and the tech picks one.
+ */
+export function truckFor(trucks: TruckLink[], userName: string): TruckLink | null {
+  const full = words(userName);
+  const first = full.split(' ')[0] ?? '';
+  const has = (t: TruckLink, w: string) => w.length >= 3 && ` ${words(t.name)} `.replace(/ s /g, ' ').includes(` ${w} `);
+  const named = (w: string) => trucks.filter((t) => has(t, w));
+  const byFull = named(full);
+  if (byFull.length === 1) return byFull[0];
+  const byFirst = named(first);
+  if (byFirst.length === 1) return byFirst[0];
+  const fallback = trucks.find((t) => words(t.name).endsWith(words(DEFAULT_TRUCK)));
+  if (fallback) return fallback;
+  return trucks.length === 1 ? trucks[0] : null;
+}
+
+/** The signed-in tech's truck in Odoo, or null with the choices when it can't tell. */
+export async function myTruck(client: OdooClient): Promise<TruckLink | null> {
+  const t = truckFor(await listTrucks(client), client.session.name);
+  return t ? { ...t, uid: client.session.uid } : null;
 }
 
 /** Product details and first vendor for these products. */
@@ -166,6 +204,13 @@ export async function setTruckQty(client: OdooClient, locationId: number, produc
   }
 }
 
+/** No Inventory location is this tech's truck yet. */
+export class NoTruckError extends Error {
+  constructor(readonly tech: string) {
+    super(`No truck in Odoo is yours yet. Make an Inventory location called "Truck - ${tech || 'your name'}" (Inventory › Configuration › Locations), or pick one with Change truck.`);
+  }
+}
+
 /** A sync that stopped partway (lost signal): `store` has every count Odoo took before it stopped, so none is sent twice. */
 export class PartialSyncError extends Error {
   constructor(
@@ -196,9 +241,15 @@ export interface SyncResult {
  * phone doesn't are added. An item linked for the first time sends the
  * phone's count when Odoo has none of it there.
  */
-export async function syncTruck(client: OdooClient, store: StockStore, now: number, truckName = DEFAULT_TRUCK, newId: () => string = () => `i-${now.toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`): Promise<SyncResult> {
-  const truck = store.truck ?? (await findTruck(client, truckName));
-  if (!truck) throw new Error(`There's no Inventory location called "${truckName}" in Odoo. Make one in Inventory › Configuration › Locations.`);
+export async function syncTruck(client: OdooClient, given: StockStore, now: number, newId: () => string = () => `i-${now.toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`): Promise<SyncResult> {
+  let store = given;
+  // The saved truck is this tech's; another tech signed in on the phone gets theirs.
+  if (!store.truck || (store.truck.uid !== undefined && store.truck.uid !== client.session.uid)) {
+    const mine = await myTruck(client);
+    if (!mine) throw new NoTruckError(client.session.name);
+    store = store.truck ? switchTruck(store, mine, now) : { ...store, truck: mine };
+  }
+  const truck = store.truck!;
   let lines = await readTruck(client, truck.locationId);
   const odoo = new Map(lines.map((l) => [l.id, l]));
   let sent = 0;

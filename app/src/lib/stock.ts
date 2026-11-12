@@ -74,6 +74,10 @@ export interface TruckLink {
   locationId: number;
   name: string;
   syncedAt: number;
+  /** The Odoo user this truck is for; another user signing in on the phone gets their own truck. */
+  uid?: number;
+  /** True when the tech picked it by hand (not matched by name). */
+  chosen?: boolean;
 }
 
 export interface StockStore {
@@ -85,8 +89,17 @@ export interface StockStore {
   truck?: TruckLink;
 }
 
-/** The Inventory location the app looks for in Odoo. */
+/** The Inventory location used when none is named for the tech. */
 export const DEFAULT_TRUCK = 'Truck 1';
+
+/**
+ * Moves the phone to another truck's location. Linked items start from 0 as
+ * if Odoo had none (so nothing on the phone is sent to the new truck), and
+ * the next sync brings in what Odoo has there. Phone-only items are kept.
+ */
+export function switchTruck(store: StockStore, truck: TruckLink, now: number): StockStore {
+  return { ...store, truck: { ...truck, syncedAt: 0 }, items: store.items.map((i) => (i.odooId !== undefined ? { ...i, onHand: 0, syncedOnHand: 0, updatedAt: now } : i)) };
+}
 
 export const EMPTY_STOCK: StockStore = { items: [], suppliers: [] };
 
@@ -247,7 +260,7 @@ export function parseStock(raw: string | null | unknown): StockStore {
     return [{ id: p.id, supplier: s0(p.supplier), odooId: id(p.odooId)!, name: s0(p.name), lines, at: p.at, emailed: p.emailed === true, ...(typeof p.receivedAt === 'number' ? { receivedAt: p.receivedAt } : {}) }];
   });
   const t = d.truck as Record<string, unknown> | undefined;
-  const truck = t && typeof t === 'object' && id(t.locationId) ? { locationId: id(t.locationId)!, name: s0(t.name), syncedAt: n0(t.syncedAt) } : undefined;
+  const truck = t && typeof t === 'object' && id(t.locationId) ? { locationId: id(t.locationId)!, name: s0(t.name), syncedAt: n0(t.syncedAt), ...(id(t.uid) ? { uid: id(t.uid) } : {}), ...(t.chosen === true ? { chosen: true } : {}) } : undefined;
   return { items, suppliers, ...(used.length ? { used } : {}), ...(purchases.length ? { purchases } : {}), ...(truck ? { truck } : {}) };
 }
 

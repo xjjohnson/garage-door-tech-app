@@ -3,7 +3,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { log } from './log';
 import type { OdooClient } from './odoo';
 import { PartialSyncError, receivePurchaseOrder, sendPurchaseOrder, syncTruck, SyncResult } from './odooStock';
-import { EMPTY_STOCK, findSupplier, mergeStock, parseStock, PartUse, PurchaseOrder, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, StockStore, Supplier, SupplierOrder } from './stock';
+import { EMPTY_STOCK, findSupplier, mergeStock, parseStock, PartUse, PurchaseOrder, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, StockStore, Supplier, SupplierOrder, switchTruck, TruckLink } from './stock';
 
 export type NewStockItem = Omit<StockItem, 'id' | 'updatedAt'>;
 
@@ -24,6 +24,8 @@ interface StockApi extends StockStore {
   undoUse: (useId: string) => void;
   /** Two-way sync with the truck's Inventory location in Odoo. */
   sync: (client: OdooClient) => Promise<SyncResult>;
+  /** Uses another Odoo location as this tech's truck, then syncs with it. */
+  chooseTruck: (client: OdooClient, truck: TruckLink) => Promise<SyncResult>;
   /** Sends a supplier's order to Odoo as a purchase order. */
   sendOrder: (client: OdooClient, o: SupplierOrder) => Promise<PurchaseOrder>;
   /** The parts on an Odoo purchase order came in: receives it in Odoo, then syncs. False if Odoo needs it finished there. */
@@ -155,6 +157,17 @@ export function StockProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
+  const chooseTruck = useCallback(
+    async (client: OdooClient, truck: TruckLink) => {
+      const next = switchTruck(latest.current, { ...truck, uid: client.session.uid, chosen: true }, Date.now());
+      change(() => next);
+      latest.current = next;
+      log.info('stock', `truck set to ${truck.name}`);
+      return sync(client);
+    },
+    [change, sync],
+  );
+
   const sendOrder = useCallback(
     async (client: OdooClient, o: SupplierOrder) => {
       const s = latest.current;
@@ -195,8 +208,8 @@ export function StockProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder }),
-    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder],
+    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder, chooseTruck }),
+    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder, chooseTruck],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

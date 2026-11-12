@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
-import { findProductByCode } from '../lib/odooStock';
+import { findProductByCode, listTrucks, NoTruckError, SyncResult } from '../lib/odooStock';
 import { pickList } from '../lib/pickList';
 import { cents, formatMoney } from '../lib/prices';
 import { startOfDay } from '../lib/schedule';
-import { CATEGORY_LABEL, findByCode, findSupplier, guessCategory, isLow, onOrder, openPurchases, orderLinks, orders, orderText, STOCK_CATEGORIES, StockItem, SupplierOrder, supplierNames, unsyncedItems, usedTotals } from '../lib/stock';
+import { CATEGORY_LABEL, findByCode, findSupplier, guessCategory, isLow, onOrder, openPurchases, orderLinks, orders, orderText, STOCK_CATEGORIES, StockItem, SupplierOrder, supplierNames, TruckLink, unsyncedItems, usedTotals } from '../lib/stock';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
@@ -56,6 +56,7 @@ export function StockScreen() {
   const [scanning, setScanning] = useState(false);
   const [counting, setCounting] = useState<StockItem | null>(null);
   const [confirming, setConfirming] = useState<SupplierOrder | null>(null);
+  const [trucks, setTrucks] = useState<TruckLink[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; bad?: boolean } | null>(null);
   const ordered = onOrder(store.purchases);
@@ -80,13 +81,30 @@ export function StockScreen() {
     }
   };
 
+  const openTrucks = () =>
+    client &&
+    run('trucks', async () => {
+      const list = await listTrucks(client);
+      setTrucks(list);
+      return list.length ? 'Pick the Odoo location that is your truck.' : 'Odoo has no Inventory locations to pick. Make one in Inventory › Configuration › Locations.';
+    });
+
+  const syncDone = (r: SyncResult) => {
+    const bits = [r.sent ? `${r.sent} count${r.sent === 1 ? '' : 's'} sent` : '', r.added ? `${r.added} new from Odoo` : '', r.linked ? `${r.linked} linked` : ''].filter(Boolean);
+    const left = r.phoneOnly.length ? ` Not in Odoo yet: ${r.phoneOnly.slice(0, 3).join(', ')}${r.phoneOnly.length > 3 ? '…' : ''}.` : '';
+    return `${r.store.truck?.name ?? 'Truck'} synced${bits.length ? `: ${bits.join(', ')}` : ''}.${left}`;
+  };
+
   const syncNow = () =>
     client &&
     run('sync', async () => {
-      const r = await store.sync(client);
-      const bits = [r.sent ? `${r.sent} count${r.sent === 1 ? '' : 's'} sent` : '', r.added ? `${r.added} new from Odoo` : '', r.linked ? `${r.linked} linked` : ''].filter(Boolean);
-      const left = r.phoneOnly.length ? ` Not in Odoo yet: ${r.phoneOnly.slice(0, 3).join(', ')}${r.phoneOnly.length > 3 ? '…' : ''}.` : '';
-      return `Truck synced${bits.length ? `: ${bits.join(', ')}` : ''}.${left}`;
+      try {
+        return syncDone(await store.sync(client));
+      } catch (e) {
+        // No truck is named for this tech: let them pick one.
+        if (e instanceof NoTruckError) setTrucks(await listTrucks(client).catch(() => []));
+        throw e;
+      }
     });
 
   const scanned = (code: string) => {
@@ -115,12 +133,15 @@ export function StockScreen() {
     <View style={styles.stack} testID="stock">
       {client ? (
         <View style={styles.syncCard} testID="stock-odoo">
-          <Text style={styles.name}>{store.truck ? store.truck.name : 'Truck 1 in Odoo'}</Text>
+          <Text style={styles.name}>{store.truck ? store.truck.name : 'Your truck in Odoo'}</Text>
           <Text style={styles.meta}>
             {store.truck ? `Synced ${ago(store.truck.syncedAt, now)}` : 'Not synced yet'}
             {unsynced ? ` · ${unsynced} count${unsynced === 1 ? '' : 's'} to send` : ''}
           </Text>
-          <Action label={busy === 'sync' ? 'Syncing…' : 'Sync with Odoo'} primary onPress={() => !busy && syncNow()} testID="stock-sync" />
+          <View style={styles.row}>
+            <Action label={busy === 'sync' ? 'Syncing…' : 'Sync with Odoo'} grow primary onPress={() => !busy && syncNow()} testID="stock-sync" />
+            <Action label="Change truck" grow onPress={() => !busy && openTrucks()} testID="stock-change-truck" />
+          </View>
         </View>
       ) : null}
       {message ? (
@@ -260,6 +281,15 @@ export function StockScreen() {
       ) : null}
 
       <BarcodeScanner visible={scanning} title="Scan a part" hint="Point at the barcode on the box or label. A part on the truck opens its count; a new one is looked up in Odoo." onCode={scanned} onClose={() => setScanning(false)} />
+      <TruckSheet
+        trucks={trucks}
+        current={store.truck?.locationId}
+        onCancel={() => setTrucks(null)}
+        onPick={(t) => {
+          setTrucks(null);
+          if (client) run('sync', async () => syncDone(await store.chooseTruck(client, t)));
+        }}
+      />
       <ConfirmOrderSheet
         order={confirming}
         email={confirming ? findSupplier(suppliers, confirming.supplier)?.email : undefined}
@@ -309,6 +339,31 @@ export function StockScreen() {
         }}
       />
     </View>
+  );
+}
+
+/** Picks which Odoo location is this tech's truck. */
+function TruckSheet({ trucks, current, onPick, onCancel }: { trucks: TruckLink[] | null; current?: number; onPick: (t: TruckLink) => void; onCancel: () => void }) {
+  if (!trucks || trucks.length === 0) return null;
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
+      <View style={styles.backdrop}>
+        <View style={styles.sheet} testID="truck-sheet">
+          <View style={styles.titleRow}>
+            <Text style={styles.sheetTitle}>Which truck is yours?</Text>
+            <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" testID="truck-sheet-cancel">
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.meta}>Each tech has their own Inventory location in Odoo. Switching brings in that truck's counts from Odoo.</Text>
+          <ScrollView contentContainerStyle={styles.fields}>
+            {trucks.map((t) => (
+              <Action key={t.locationId} label={`${t.name}${t.locationId === current ? ' (now)' : ''}`} primary={t.locationId === current} onPress={() => onPick(t)} testID={`truck-${t.locationId}`} />
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
