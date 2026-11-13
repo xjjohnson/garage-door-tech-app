@@ -363,13 +363,15 @@ describe('Ticket screen', () => {
     expect((await saved()).odooOrder).toEqual({ id: 70, name: 'S00070' });
     const [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
     expect(inv).toMatchObject({ source: 'ticket', tax: 1889, total: 44789 });
-    // Finish job: work done, the invoice posted in Odoo, and the customer signs straight away.
+    // Create invoice: work done and the invoice posted in Odoo; the signature opens from its button.
     expect((await saved()).steps?.workDoneAt).toBeGreaterThan(0);
     expect(calls.find((c) => c.model === 'account.move' && c.method === 'action_post')?.args).toEqual([[80]]);
     // No customer reference typed: none on the order, the invoice keeps "Invoice 1001".
     expect((calls.find((c) => c.model === 'sale.order' && c.method === 'create')!.args[0] as Row).client_order_ref).toBe(false);
     expect((calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as Row).ref).toBe(`Invoice ${inv!.number}`);
     expect(inv!.odoo).toMatchObject({ id: 80, name: 'INV/2026/00080' });
+    expect(screen.queryByTestId('signature-sheet')).toBeNull();
+    await fireEvent.press(screen.getByTestId('invoice-sign'));
     expect(screen.getByTestId('signature-sheet')).toBeTruthy();
     const pad = screen.getByTestId('signature-pad');
     await fireEvent(pad, 'layout', { nativeEvent: { layout: { width: 300, height: 200 } } });
@@ -448,7 +450,8 @@ describe('Ticket screen', () => {
     expect(inv).toMatchObject({ source: 'ticket', ref: 'PO 4471', autoSend: true, tax: 1889, total: 44789 });
     expect(inv!.odoo).toBeUndefined();
     expect(o.calls.some((c) => c.model === 'account.move' && c.method === 'create')).toBe(false);
-    await fireEvent.press(screen.getByTestId('signature-cancel'));
+    // No signing sheet pops up; it opens from its button.
+    expect(screen.queryByTestId('signature-sheet')).toBeNull();
     await settle();
     expect(screen.getByTestId('invoice-odoo-waiting')).toHaveTextContent(/goes to Odoo on its own/);
 
