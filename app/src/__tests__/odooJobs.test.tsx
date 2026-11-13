@@ -12,6 +12,7 @@ import { renderApp } from '../testing/renderApp';
 import { router } from 'expo-router';
 import { pendingSync } from '../lib/pending';
 import { Appointment, parseSchedule, SCHEDULE_STORAGE_KEY } from '../lib/schedule';
+import { CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
 import { CustomersProvider } from '../lib/useCustomers';
 import { JobsProvider } from '../lib/useJobs';
 import { OdooProvider } from '../lib/useOdoo';
@@ -92,6 +93,8 @@ function fakeOdoo() {
     }
     if (model === 'fsm.order' && method === 'read') {
       const ids = args[0] as number[];
+      // Like Odoo: the whole read is refused when one of the orders was deleted.
+      if (ids.some((id) => !orders.some((o) => o.id === id))) return error('Record does not exist or has been deleted.\n(Record: fsm.order, User: 2)');
       return reply(
         orders
           .filter((o) => ids.includes(o.id as number))
@@ -323,6 +326,33 @@ describe('job sync in the background', () => {
     await settle();
     expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY)).map((j) => j.odooJob?.id)).toEqual([undefined, 500, undefined]);
     expect(o.orders).toHaveLength(1);
+  });
+
+  it('waits for a customer name, and remembers the contact it made on the phone customer', async () => {
+    const o = fakeOdoo();
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([base('j1'), base('j2', { customer: '', phone: '', address: '1365 George Street' })]));
+    await renderSync(o.fetchFn);
+    await settle(20);
+    // Only the named job went; no contact named after the street.
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY)).map((j) => j.odooJob?.id)).toEqual([500, undefined]);
+    expect(o.partners.map((p) => p.name)).toEqual(['Pat Smith']);
+    // The phone's customer knows its Odoo contact, so Customers' sync won't make a second one.
+    const pat = parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY)).find((c) => c.name === 'Pat Smith');
+    expect(pat?.odooId).toBe(100);
+  });
+
+  it('takes a job deleted in Odoo, and its visit, off the phone', async () => {
+    const o = fakeOdoo();
+    o.orders.push({ id: 500, name: 'FSO500', person_id: 40, scheduled_date_start: toOdooTime(at(15, 1)), scheduled_duration: 1, stage_id: [1, 'New'] });
+    await AsyncStorage.setItem(
+      JOBS_STORAGE_KEY,
+      JSON.stringify([base('j1', { odooJob: { model: 'fsm.order', id: 500, name: 'FSO500' } }), base('j2', { odooJob: { model: 'fsm.order', id: 501, name: 'FSO501' } })]),
+    );
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([{ id: 'odoo-501', jobId: 'j2', start: at(9, 1), minutes: 60, name: 'Pat', address: '', phone: '', what: '', status: 'booked', createdAt: 1, updatedAt: 1, syncedAt: 1 }]));
+    await renderSync(o.fetchFn);
+    await settle(20);
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY)).map((j) => j.id)).toEqual(['j1']);
+    expect(parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY)).map((v) => v.id)).toEqual(['odoo-500']);
   });
 
   it('brings a time and worker set in Odoo back to the phone', async () => {

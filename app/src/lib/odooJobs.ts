@@ -22,7 +22,12 @@ type Client = Pick<OdooClient, 'call' | 'session'>;
 /** When this phone started sending its jobs to Odoo. Jobs saved before then go only when the tech picks them. */
 export const JOBS_SINCE_KEY = 'odoo-jobs/since/v1';
 
-const sendable = (j: Job) => j.status === 'open' && !j.odooJob && !!(j.customer.trim() || j.address.trim());
+/**
+ * A job goes to Odoo once it has a customer's name: a job started from an
+ * address alone waits, so Odoo doesn't get a contact named after the street
+ * and then a second one when the customer is added.
+ */
+const sendable = (j: Job) => j.status === 'open' && !j.odooJob && !!j.customer.trim();
 
 /** Whether the background sync sends this job: saved since sending started, or picked to send. */
 export const shouldSend = (j: Job, since: number | null) => sendable(j) && since !== null && (j.savedAt >= since || j.sendToOdoo === true);
@@ -60,6 +65,35 @@ export interface OdooJobState {
   /** The worker (OCA) or user (tasks) it's given to; 0 when nobody. */
   personId: number;
   done: boolean;
+  /** Deleted in Odoo: the phone's copy of the job goes too. */
+  deleted?: true;
+}
+
+/** Odoo's answer when a record was deleted ("Record does not exist or has been deleted."). */
+const isDeleted = (e: unknown) => e instanceof Error && /does not exist or has been deleted/i.test(e.message);
+
+/**
+ * Reads records, telling apart the ones deleted in Odoo: Odoo refuses the
+ * whole read when one is gone, so then each is read on its own. Any other
+ * error (no access, no signal) is thrown, so nothing is taken for deleted.
+ */
+async function readExisting(c: Pick<OdooClient, 'call'>, model: string, ids: number[], fields: string[]): Promise<{ rows: Record<string, unknown>[]; deleted: number[] }> {
+  try {
+    return { rows: (await c.call(model, 'read', [ids], { fields })) as Record<string, unknown>[], deleted: [] };
+  } catch (e) {
+    if (!isDeleted(e)) throw e;
+  }
+  const rows: Record<string, unknown>[] = [];
+  const deleted: number[] = [];
+  for (const id of ids) {
+    try {
+      rows.push(...((await c.call(model, 'read', [[id]], { fields })) as Record<string, unknown>[]));
+    } catch (e) {
+      if (!isDeleted(e)) throw e;
+      deleted.push(id);
+    }
+  }
+  return { rows, deleted };
 }
 
 /** The visit's Odoo id for a job sent to Odoo: phone visits take the Odoo job's id, as Odoo's own jobs do. */
@@ -225,7 +259,7 @@ export async function pushJobChanges(
   if (done !== sent.done) {
     if (done && c.markDone) {
       const [state] = await readJobStates(c, ref.model, [ref.id]);
-      if (state && !state.done) await c.markDone(ref.id);
+      if (state && !state.done && !state.deleted) await c.markDone(ref.id);
     }
     if (!done) await note(c, ref, 'Job reopened on the phone (from the app)');
     next.done = done;
@@ -251,19 +285,19 @@ export async function readJobStates(c: Client, model: OdooJobRef['model'], ids: 
   const s = c.session;
   if (model === 'fsm.order') {
     const fields = ['person_id', ...['scheduled_date_start', 'scheduled_duration', 'stage_id'].filter((f) => has(c, f))];
-    const rows = (await c.call('fsm.order', 'read', [ids], { fields })) as Record<string, unknown>[];
+    const { rows, deleted } = await readExisting(c, 'fsm.order', ids, fields);
     const closed = s.closedStage ? await closedStages(c) : new Set<number>();
-    return rows.map((r) => ({
+    return [...gone(deleted), ...rows.map((r) => ({
       id: r.id as number,
       ...(odooTime(r.scheduled_date_start) !== undefined ? { start: odooTime(r.scheduled_date_start) } : {}),
       ...(typeof r.scheduled_duration === 'number' && r.scheduled_duration > 0 ? { minutes: Math.round(r.scheduled_duration * 60) } : {}),
       personId: Array.isArray(r.person_id) ? (r.person_id[0] as number) : 0,
       done: Array.isArray(r.stage_id) && closed.has(r.stage_id[0] as number),
-    }));
+    }))];
   }
   const fields = [s.assignField, ...['planned_date_begin', 'fsm_done'].filter((f) => has(c, f))];
-  const rows = (await c.call('project.task', 'read', [ids], { fields })) as Record<string, unknown>[];
-  return rows.map((r) => {
+  const { rows, deleted } = await readExisting(c, 'project.task', ids, fields);
+  return [...gone(deleted), ...rows.map((r) => {
     const who = r[s.assignField];
     // user_ids is a list of ids; user_id is [id, name] or false.
     const ids = s.assignField === 'user_ids' && Array.isArray(who) ? (who as number[]) : Array.isArray(who) ? [who[0] as number] : [];
@@ -273,8 +307,10 @@ export async function readJobStates(c: Client, model: OdooJobRef['model'], ids: 
       personId: ids.includes(s.uid) ? s.uid : (ids[0] ?? 0),
       done: r.fsm_done === true,
     };
-  });
+  })];
 }
+
+const gone = (ids: number[]): OdooJobState[] => ids.map((id) => ({ id, personId: 0, done: false, deleted: true }));
 
 async function closedStages(c: Client): Promise<Set<number>> {
   const ids = (await c.call('fsm.stage', 'search', [[['is_closed', '=', true]]])) as number[];
