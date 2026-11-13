@@ -231,3 +231,18 @@ export async function fetchPriceBook(client: PriceBookSource, now: number): Prom
   }
   return { items, frequent, fetchedAt: now };
 }
+
+/**
+ * The company's default sales tax in Odoo as a percent ("8.25"), for the
+ * phone's own estimate while offline (Odoo applies the real tax). Undefined
+ * when there is none, or it isn't a plain percent.
+ */
+export async function fetchSaleTaxPercent(client: PriceBookSource): Promise<string | undefined> {
+  const [co] = (await client.call('res.company', 'search_read', [[]], { fields: ['account_sale_tax_id'], limit: 1 })) as Record<string, unknown>[];
+  const ref = co?.account_sale_tax_id;
+  const id = Array.isArray(ref) && typeof ref[0] === 'number' ? ref[0] : undefined;
+  if (!id) return undefined;
+  const [tax] = (await client.call('account.tax', 'read', [[id]], { fields: ['amount', 'amount_type'] })) as Record<string, unknown>[];
+  if (tax?.amount_type !== 'percent' || typeof tax.amount !== 'number') return undefined;
+  return String(Math.round(tax.amount * 10_000) / 10_000);
+}

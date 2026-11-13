@@ -483,6 +483,9 @@ spring labor, a price per spring for each option, add-ons (named freely,
 each ticked for Good, Better and/or Best; add or remove any) and the tax
 rate. Prices are entered on the keypad and saved on the phone as they're
 typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
+From 0.5.46 the tax rate is Odoo's: signed in, each price book update sets
+it from the company's default sales tax (`res.company.account_sale_tax_id`),
+since it is only the phone's offline estimate and Odoo charges the real tax.
 
 **Prices from Odoo.** When signed in to Odoo (Jobs > Team) and Odoo has
 products, the price book's **Update from Odoo** (also run when the saved

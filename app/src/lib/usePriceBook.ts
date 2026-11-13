@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { OdooError } from './odoo';
-import { EMPTY_PRICE_BOOK, Favorites, fetchPriceBook, parseFavorites, parsePriceBook, PRICE_BOOK_FAVORITES_KEY, PRICE_BOOK_STORAGE_KEY, PriceBook, techKey, toggleFavorite } from './priceBook';
+import { EMPTY_PRICE_BOOK, Favorites, fetchPriceBook, fetchSaleTaxPercent, parseFavorites, parsePriceBook, PRICE_BOOK_FAVORITES_KEY, PRICE_BOOK_STORAGE_KEY, PriceBook, techKey, toggleFavorite } from './priceBook';
 import { importOdooProducts, OdooImport } from './prices';
 import { useOdoo } from './useOdoo';
 import { usePriceSheet } from './usePriceSheet';
@@ -66,6 +66,9 @@ export function usePriceBook(now: () => number = Date.now): PriceBookApi {
       AsyncStorage.setItem(PRICE_BOOK_STORAGE_KEY, JSON.stringify(fresh)).catch(() => undefined);
       // One update for both: the estimate prices linked to Odoo products follow the book.
       const products = fresh.items.map((i) => ({ id: i.id, name: i.name, ...(i.code ? { code: i.code } : {}), cents: i.cents }));
+      // The phone's offline estimate uses Odoo's own sales tax rate, not one typed on the phone.
+      const tax = await fetchSaleTaxPercent(client).catch(() => undefined);
+      if (tax !== undefined) updateSheet((cur) => (cur.taxPercent === tax ? cur : { ...cur, taxPercent: tax }));
       if (products.length) {
         const { changed, added, missing } = importOdooProducts(sheetRef.current, products);
         // Applied to the sheet as it is by then, in case a price was typed while Odoo answered.
