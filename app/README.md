@@ -827,6 +827,9 @@ sheet scrolls the field being typed in into view. Every address field has
 the same autofill as New job (map results and houses in Odoo): Edit/Add
 customer, Add/Edit address, job details and Book a visit.
 (`src/lib/useKeyboardHeight.ts`, `src/components/AddressSuggestions.tsx`.)
+From 0.5.36 the Parts used sheets (**Order it**, **Part on the truck**) and
+the ticket's price book search sit above the keyboard the same way
+(`src/components/KeyboardBackdrop.tsx`).
 
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an
