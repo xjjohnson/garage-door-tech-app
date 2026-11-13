@@ -3,6 +3,7 @@ import { useAppForeground } from '../lib/useAppForeground';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Invoice, invoiceNo, invoiceRef, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
+import { onSyncNow } from '../lib/syncNow';
 import { EmailResult, emailedText, emailInvoice, partnerEmail, PdfFile } from '../lib/odooReports';
 import { pdfName, signedPageHtml } from '../lib/pdf';
 import { Signature, signatureFor } from '../lib/attachments';
@@ -63,7 +64,7 @@ export function OdooQuoteSend({ job, option }: { job: Job; option: QuoteOption }
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-      setOdooOrder(job.id, await sendOrder(client, pid, option.lines, sheet.odoo, orderRef(option.title ?? TIER_LABEL[option.tier], job.address)));
+      setOdooOrder(job.id, await sendOrder(client, pid, option.lines, sheet.odoo, orderRef(option.title ?? TIER_LABEL[option.tier], job.ticket?.shipTo?.address || job.address), job.ticket?.shipTo?.id));
     } catch (e) {
       setError(message(e));
     } finally {
@@ -115,7 +116,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     if (given ?? job?.odooOrder) return given ?? job?.odooOrder;
     if (invoice.source !== 'ticket' || !job || !c.session.apps.sales) return undefined;
     try {
-      const order = await confirmOrderFor(c, pid, invoice.lines, sheet.odoo, invoice.ref ?? '', job.ticket?.order);
+      const order = await confirmOrderFor(c, pid, invoice.lines, sheet.odoo, invoice.ref ?? '', job.ticket?.order, invoice.shipTo?.id);
       setOdooOrder(job.id, order);
       return order;
     } catch (e) {
@@ -131,7 +132,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       const job = jobs.find((j) => j.id === invoice.jobId);
       const pid = await partner(c, invoice.customerId ?? job?.customerId, { name: invoice.billTo, phone: job?.phone ?? '', address: invoice.address });
       const order = await orderFor(c, invoice, pid, job, opts.order);
-      state = await sendInvoice(c, pid, invoice.lines, sheet.odoo, invoiceRef(invoice), order);
+      state = await sendInvoice(c, pid, invoice.lines, sheet.odoo, invoiceRef(invoice), order, invoice.shipTo?.id);
       // Kept straight away, so a failure below (or a second send from elsewhere) never posts it twice.
       posted.set(invoice.id, state);
       setOdoo(invoice.id, state);
@@ -267,6 +268,18 @@ export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
   useAppForeground(() => {
     if (online) pass();
   });
+
+  // Sync now: send waiting invoices straight away, ones that failed lately too.
+  useEffect(
+    () =>
+      online
+        ? onSyncNow(() => {
+            failed.current.clear();
+            return pass();
+          })
+        : undefined,
+    [online, pass],
+  );
 
   return null;
 }

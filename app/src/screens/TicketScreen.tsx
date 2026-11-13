@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AddressPicker } from '../components/AddressPicker';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle, Segmented } from '../components/controls';
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
@@ -11,6 +12,7 @@ import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
 import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
+import { useCustomersIfAny } from '../lib/useCustomers';
 import { useJobs } from '../lib/useJobs';
 import { useStock } from '../lib/useStock';
 import { EmailResult, emailedText, emailRecord, partnerEmail } from '../lib/odooReports';
@@ -36,6 +38,9 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const { sheet } = usePriceSheet();
   const client = useSalesOdoo();
   const partner = usePartner();
+  const customers = useCustomersIfAny();
+  // The customer's Odoo contact, for picking which of their addresses this is for.
+  const odooPartnerId = customers?.customers.find((c) => c.id === job.customerId)?.odooId;
   const ticket = job.ticket ?? EMPTY_TICKET;
   const odooTotals = currentTotals(ticket);
   const shown = odooTotals ?? estimateTotals(ticket, sheet.taxPercent);
@@ -100,7 +105,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         }
       }
       if (t.order && !tied) setError(`Made the invoice from the phone's lines and estimate. Quotation ${t.order.name} in Odoo was left as it is.`);
-      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t));
+      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t), t.shipTo);
       if (!job.steps?.workDoneAt) setStep(job.id, 'workDoneAt', now());
       // Parts used filter down from the ticket: what's on it from the truck comes off the truck now.
       for (const p of ticketParts(t, stock.items, stock.used ?? [], job.id)) stock.takeParts(p.itemId, p.qty, job.id);
@@ -186,8 +191,18 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     <View style={styles.stack} testID="ticket">
       <Text style={styles.for}>
         {jobName(job)}
-        {job.customer && job.address ? `, ${job.address}` : ''}
+        {job.customer && (ticket.shipTo?.address || job.address) ? `, ${ticket.shipTo?.address || job.address}` : ''}
       </Text>
+      {!invoice && odooPartnerId ? (
+        <AddressPicker
+          partnerId={odooPartnerId}
+          mainAddress={job.address}
+          value={ticket.shipTo?.id}
+          // A new address makes Odoo's totals stale, so the quotation is sent again with it.
+          onChange={(id, address) => setTicket(job.id, (t) => ({ ...t, shipTo: { id, address }, totals: undefined }))}
+          testID="ticket-address"
+        />
+      ) : null}
       {invoice ? (
         <NavRow label={`${invoiceLabel(invoice)} made`} detail="Changes to the ticket now don't change the invoice" href={{ pathname: '/invoice/[id]', params: { id: invoice.id } }} testID="ticket-invoice" />
       ) : null}

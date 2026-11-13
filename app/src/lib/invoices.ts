@@ -11,6 +11,7 @@
  */
 import { formatJobDate } from './jobs';
 import { OdooInvoiceState, parseInvoiceState } from './odooSales';
+import { parseShipTo, ShipTo } from './ticket';
 import { formatMoney, Tier, TIER_LABEL, TIERS } from './prices';
 import { QuoteLine, QuoteOption } from './quote';
 
@@ -58,6 +59,8 @@ export interface Invoice {
   ref?: string;
   /** Sent to Odoo by the phone on its own once there's signal (invoices made since 0.5.17). */
   autoSend?: boolean;
+  /** The delivery address picked on the ticket; partner_shipping_id on the invoice in Odoo. */
+  shipTo?: ShipTo;
 }
 
 /** The customer reference the invoice goes to Odoo with. */
@@ -136,7 +139,7 @@ export function createInvoice(
   now: number,
   id: string = newId('i', now),
   source?: 'ticket',
-  extra: { ref?: string; autoSend?: boolean } = {},
+  extra: { ref?: string; autoSend?: boolean; shipTo?: ShipTo } = {},
 ): Invoice {
   return {
     id,
@@ -144,7 +147,7 @@ export function createInvoice(
     jobId: job.id,
     ...(job.customerId ? { customerId: job.customerId } : {}),
     billTo: job.customer,
-    address: job.address,
+    address: extra.shipTo?.address || job.address,
     tier: option.tier,
     lines: option.lines.filter((l) => l.cents > 0).map((l) => ({ ...l })),
     subtotal: option.subtotal,
@@ -156,6 +159,7 @@ export function createInvoice(
     ...(source ? { source } : {}),
     ...(extra.ref?.trim() ? { ref: extra.ref.trim() } : {}),
     ...(extra.autoSend ? { autoSend: true } : {}),
+    ...(extra.shipTo ? { shipTo: extra.shipTo } : {}),
   };
 }
 
@@ -270,6 +274,7 @@ export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
       ...(x.source === 'ticket' ? { source: 'ticket' as const } : {}),
       ...(str(x.ref) ? { ref: str(x.ref) } : {}),
       ...(x.autoSend === true ? { autoSend: true } : {}),
+      ...(parseShipTo(x.shipTo) ? { shipTo: parseShipTo(x.shipTo) } : {}),
     });
   }
   return out;
