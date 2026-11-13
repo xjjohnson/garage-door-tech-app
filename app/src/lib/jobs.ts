@@ -44,7 +44,7 @@ interface JobBase extends JobDetails {
   inspection?: Inspection;
   /** The sales order made in Odoo from the accepted option (src/lib/odooSales.ts). */
   odooOrder?: OdooRef;
-  /** The quote signature (its id) already saved on odooOrder in Odoo (since 0.5.40). */
+  /** The quote signature (its id) already saved on odooOrder in Odoo (since 0.5.44). */
   quoteSignatureSent?: string;
   /** The Field Service order (or task) this job is in Odoo (src/lib/odooJobs.ts). */
   odooJob?: OdooJobRef;
