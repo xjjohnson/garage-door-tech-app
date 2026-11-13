@@ -152,7 +152,10 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     setEmailTo(null);
     setEmailing(true);
     try {
-      setEmailed(await emailRecord(client, 'sale.order', ticket.order.id, pid));
+      // Lines edited since the last sync go to Odoo first, so the customer gets the current quotation.
+      const t = odooTotals ? ticket : await sync();
+      const order = t?.order ?? ticket.order;
+      setEmailed(await emailRecord(client, 'sale.order', order.id, pid));
     } catch (e) {
       setError(message(e));
     } finally {
