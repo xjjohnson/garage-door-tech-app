@@ -33,6 +33,11 @@ export interface OdooInvoiceState extends OdooRef {
   /** Phone payments already registered in Odoo. */
   sentPayments: string[];
   checkedAt: number;
+  /** The customer signature (its id) already attached to the invoice in Odoo. */
+  signatureSent?: string;
+  /** Odoo's amounts before tax and its tax, cents (read since 0.5.17). */
+  untaxed?: number;
+  tax?: number;
 }
 
 /** The product a line without a linked Odoo product goes in as. */
@@ -83,6 +88,24 @@ export async function sendOrder(client: OdooClient, partnerId: number, lines: Qu
 }
 
 /**
+ * The confirmed sales order for an invoice made without one (a ticket
+ * finished offline): the ticket's draft quotation gets the invoice's lines
+ * and is confirmed, or, if there's no draft left, a new order is made.
+ */
+export async function confirmOrderFor(client: OdooClient, partnerId: number, lines: QuoteLine[], links: Record<string, OdooLink>, ref: string, draft?: OdooRef): Promise<OdooRef> {
+  if (draft) {
+    const [row] = (await client.call('sale.order', 'read', [[draft.id]], { fields: ['state', 'name'] })) as { state?: string; name?: string }[];
+    if (row?.state === 'draft' || row?.state === 'sent') {
+      const vals = await prepare(client, lines, links, 'product_uom_qty');
+      await client.call('sale.order', 'write', [[draft.id], { client_order_ref: ref || false, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
+      await client.call('sale.order', 'action_confirm', [[draft.id]]);
+      return { id: draft.id, name: row.name ?? draft.name };
+    }
+  }
+  return sendOrder(client, partnerId, lines, links, ref);
+}
+
+/**
  * Sends an invoice and posts it. When the job's sales order is in Odoo, the
  * invoice lines are tied to its lines, so Odoo shows the order as invoiced.
  */
@@ -100,9 +123,18 @@ export async function sendInvoice(client: OdooClient, partnerId: number, lines: 
 
 /** What Odoo says is paid and owed now. */
 export async function readInvoice(client: OdooClient, id: number, sentPayments: string[], now: number = Date.now()): Promise<OdooInvoiceState> {
-  const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['name', 'amount_total', 'amount_residual', 'payment_state'] })) as Record<string, unknown>[];
+  const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total', 'amount_residual', 'payment_state'] })) as Record<string, unknown>[];
   if (!r) throw new Error('That invoice is no longer in Odoo.');
-  return { id, name: typeof r.name === 'string' ? r.name : `#${id}`, total: toCents(r.amount_total), residual: toCents(r.amount_residual), paymentState: typeof r.payment_state === 'string' ? r.payment_state : 'not_paid', sentPayments, checkedAt: now };
+  return {
+    id,
+    name: typeof r.name === 'string' ? r.name : `#${id}`,
+    total: toCents(r.amount_total),
+    residual: toCents(r.amount_residual),
+    paymentState: typeof r.payment_state === 'string' ? r.payment_state : 'not_paid',
+    sentPayments,
+    checkedAt: now,
+    ...(typeof r.amount_untaxed === 'number' ? { untaxed: toCents(r.amount_untaxed), tax: toCents(r.amount_tax) } : {}),
+  };
 }
 
 /** Cash goes to a cash journal; checks and the payment apps to the bank. */
@@ -155,5 +187,13 @@ export function parseInvoiceState(v: unknown): OdooInvoiceState | undefined {
     paymentState: typeof r.paymentState === 'string' ? r.paymentState : 'not_paid',
     sentPayments: Array.isArray(r.sentPayments) ? r.sentPayments.filter((x): x is string => typeof x === 'string') : [],
     checkedAt: n(r.checkedAt),
+    ...(typeof r.signatureSent === 'string' ? { signatureSent: r.signatureSent } : {}),
+    ...(typeof r.untaxed === 'number' ? { untaxed: r.untaxed, tax: n(r.tax) } : {}),
   };
+}
+
+/** Attaches the signed page (a PDF) to the invoice in Odoo, with a note in its chatter. */
+export async function sendSignature(client: Pick<OdooClient, 'call'>, moveId: number, fileName: string, pdfBase64: string, note: string): Promise<void> {
+  const id = (await client.call('ir.attachment', 'create', [{ name: fileName, type: 'binary', datas: pdfBase64, res_model: 'account.move', res_id: moveId, mimetype: 'application/pdf' }])) as number;
+  await client.call('account.move', 'message_post', [[moveId]], { body: note, attachment_ids: [id], message_type: 'comment', subtype_xmlid: 'mail.mt_note' });
 }

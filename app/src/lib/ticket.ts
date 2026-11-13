@@ -40,7 +40,12 @@ export interface Ticket {
   /** The draft quotation in Odoo holding these lines. */
   order?: OdooRef;
   totals?: TicketTotals;
+  /** The customer reference typed on the ticket; goes on the sales order and the invoice in Odoo. */
+  ref?: string;
 }
+
+/** The ticket's customer reference as typed; empty means none (Justin, Nov 13). */
+export const ticketRef = (t: Ticket) => t.ref?.trim() ?? '';
 
 export const EMPTY_TICKET: Ticket = { lines: [] };
 
@@ -143,7 +148,7 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
     if (row?.state !== 'draft' && row?.state !== 'sent') order = undefined;
   }
   if (order) {
-    await client.call('sale.order', 'write', [[order.id], { order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
+    await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
   } else {
     const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, order_line: vals.map((v) => [0, 0, v]) }])) as number;
     order = { id, name: `#${id}` };
@@ -156,9 +161,11 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
 }
 
 /** Confirms the ticket's quotation, when making the invoice, so Odoo ties the invoice to it. */
-export async function confirmTicket(client: OdooClient, order: OdooRef): Promise<void> {
+export async function confirmTicket(client: OdooClient, order: OdooRef, ref?: string): Promise<void> {
   const [row] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['state'] })) as { state?: string }[];
-  if (row?.state === 'draft' || row?.state === 'sent') await client.call('sale.order', 'action_confirm', [[order.id]]);
+  if (row?.state !== 'draft' && row?.state !== 'sent') return;
+  if (ref !== undefined) await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false }]);
+  await client.call('sale.order', 'action_confirm', [[order.id]]);
 }
 
 export function parseTicket(v: unknown): Ticket | undefined {
@@ -187,5 +194,5 @@ export function parseTicket(v: unknown): Ticket | undefined {
     t && typeof t === 'object' && typeof t.key === 'string'
       ? { untaxed: Number(t.untaxed) || 0, tax: Number(t.tax) || 0, total: Number(t.total) || 0, key: t.key, at: Number(t.at) || 0 }
       : undefined;
-  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}) };
+  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}) };
 }

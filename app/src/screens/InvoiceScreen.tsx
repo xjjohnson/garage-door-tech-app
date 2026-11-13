@@ -1,4 +1,4 @@
-import { OdooInvoiceSync } from '../components/OdooSales';
+import { OdooInvoiceSync, useInvoiceOdoo } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -25,7 +25,7 @@ const CONFIRM_MS = 4000;
  * customer can scan a QR code to pay by Cash App or Venmo with the amount
  * filled in; the tech records each payment by how it came in.
  */
-export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
+export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSign?: boolean }) {
   const { business, addPayment, removePayment, setVoid } = useInvoices();
   const status = invoiceStatus(invoice);
   const warranty = warrantyFor(invoice, useFollowUps().settings);
@@ -39,7 +39,10 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
 
   const attachments = useAttachments();
   const signature = signatureFor(attachments, 'invoice', invoice.id);
-  const [signing, setSigning] = useState(false);
+  // Straight after Finish job, the customer signs first.
+  const [signing, setSigning] = useState(!!autoSign && !signature && !invoice.voidedAt);
+  const invoiceOdoo = useInvoiceOdoo();
+  const [sigNote, setSigNote] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState(false);
   const warrantyNote =
     status !== 'void' && (warranty.partsUntil || warranty.laborUntil)
@@ -193,8 +196,17 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
           Signed by {signature.name || 'the customer'} on {formatJobDate(signature.at)}
         </Text>
       ) : (
-        <Text style={styles.meta}>The customer signs that the work is done, on this phone. It goes on the PDF.</Text>
+        <Text style={styles.meta}>The customer signs that the work is done, on this phone. It goes on the PDF, and on the invoice in Odoo.</Text>
       )}
+      {sigNote ? (
+        <Text style={styles.meta} testID="invoice-sign-odoo">
+          {sigNote}
+        </Text>
+      ) : invoice.odoo?.signatureSent && invoice.odoo.signatureSent === signature?.id ? (
+        <Text style={styles.meta} testID="invoice-sign-odoo">
+          Signature is on {invoice.odoo.name} in Odoo.
+        </Text>
+      ) : null}
       <Action label={signature ? 'Sign again' : 'Customer signs'} onPress={() => setSigning(true)} testID="invoice-sign" />
       <SignatureSheet
         visible={signing}
@@ -203,8 +215,16 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
         initialName={invoice.billTo}
         onCancel={() => setSigning(false)}
         onSave={(s) => {
-          attachments.sign({ for: 'invoice', refId: invoice.id, ...s });
+          const saved = attachments.sign({ for: 'invoice', refId: invoice.id, ...s });
           setSigning(false);
+          // On an invoice already in Odoo, the signed page goes there too.
+          if (invoice.odoo && invoiceOdoo.client) {
+            setSigNote('Adding the signature to the invoice in Odoo...');
+            invoiceOdoo
+              .send(invoice, { sig: saved })
+              .then((st) => setSigNote(st?.signatureSent === saved.id ? `Signature added to ${st.name} in Odoo.` : null))
+              .catch(() => setSigNote("Couldn't add the signature in Odoo yet. Sync with Odoo to try again."));
+          }
         }}
       />
 

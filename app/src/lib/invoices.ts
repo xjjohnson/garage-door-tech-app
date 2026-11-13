@@ -54,6 +54,18 @@ export interface Invoice {
   odoo?: OdooInvoiceState;
   /** "ticket" when made from the job's ticket rather than a good/better/best option. */
   source?: 'ticket';
+  /** The customer reference for Odoo; "Invoice 1004" when not set. */
+  ref?: string;
+  /** Sent to Odoo by the phone on its own once there's signal (invoices made since 0.5.17). */
+  autoSend?: boolean;
+}
+
+/** The customer reference the invoice goes to Odoo with. */
+export const invoiceRef = (inv: Pick<Invoice, 'ref' | 'number'>) => inv.ref?.trim() || `Invoice ${inv.number}`;
+
+/** The invoice with what Odoo said: once Odoo has priced it, its tax and totals are the ones shown. */
+export function withOdoo(inv: Invoice, odoo: OdooInvoiceState): Invoice {
+  return { ...inv, odoo, ...(odoo.untaxed !== undefined ? { subtotal: odoo.untaxed, tax: odoo.tax ?? 0, total: odoo.total } : {}) };
 }
 
 /** "Better option", or "Job ticket" for an invoice made from the ticket. */
@@ -113,6 +125,7 @@ export function createInvoice(
   now: number,
   id: string = newId('i', now),
   source?: 'ticket',
+  extra: { ref?: string; autoSend?: boolean } = {},
 ): Invoice {
   return {
     id,
@@ -130,6 +143,8 @@ export function createInvoice(
     createdAt: now,
     updatedAt: now,
     ...(source ? { source } : {}),
+    ...(extra.ref?.trim() ? { ref: extra.ref.trim() } : {}),
+    ...(extra.autoSend ? { autoSend: true } : {}),
   };
 }
 
@@ -242,6 +257,8 @@ export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
       ...(num(x.voidedAt) ? { voidedAt: num(x.voidedAt) } : {}),
       ...(parseInvoiceState(x.odoo) ? { odoo: parseInvoiceState(x.odoo) } : {}),
       ...(x.source === 'ticket' ? { source: 'ticket' as const } : {}),
+      ...(str(x.ref) ? { ref: str(x.ref) } : {}),
+      ...(x.autoSend === true ? { autoSend: true } : {}),
     });
   }
   return out;
