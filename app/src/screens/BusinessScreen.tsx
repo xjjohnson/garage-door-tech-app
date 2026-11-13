@@ -1,8 +1,12 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SectionTitle } from '../components/controls';
 import { QrCode } from '../components/QrCode';
 import { Business, payLinks } from '../lib/invoices';
+import { queueBusiness } from '../lib/settingsSync';
+import { isOwner } from '../lib/scorecard';
 import { useInvoices } from '../lib/useInvoices';
+import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
 
 const FIELDS: { key: keyof Business; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' | 'url' }[] = [
@@ -26,20 +30,44 @@ const FIELDS: { key: keyof Business; label: string; placeholder: string; hint?: 
   },
 ];
 
-/** The tech's own details for invoices and getting paid. Saved on the phone as typed. */
+/**
+ * Business details for invoices and getting paid. Signed in to Odoo they are
+ * the company's, shared by every phone: the owner (an Odoo admin or Field
+ * Service manager) edits them and they are saved in Odoo as typed; everyone
+ * else sees them. Not signed in, they are saved on this phone as typed.
+ */
 export function BusinessScreen() {
   const { business, setBusiness } = useInvoices();
+  const { client, status } = useOdoo();
+  const signedIn = status === 'signedIn' && !!client;
+  const [owner, setOwner] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setOwner(null);
+    if (signedIn && client) isOwner(client).then((ok) => alive && setOwner(ok));
+    return () => {
+      alive = false;
+    };
+  }, [signedIn, client]);
+  const locked = signedIn && owner !== true;
   const preview = payLinks(business, 0, '').filter((l) => l.url);
   return (
     <View style={styles.stack} testID="business">
-      <Text style={styles.note}>Saved on this phone as you type, and included in backups.</Text>
+      <Text style={styles.note} testID="business-where">
+        {!signedIn ? 'Saved on this phone as you type, and included in backups.' : owner === true ? "Saved in Odoo on your company as you type. Every phone reads it from there." : owner === false ? 'These come from Odoo, set by the owner. Ask the owner to change them.' : 'Checking with Odoo...'}
+      </Text>
       {FIELDS.map((f) => (
         <View key={f.key} style={styles.field}>
           <Text style={styles.label}>{f.label}</Text>
           {f.hint ? <Text style={styles.note}>{f.hint}</Text> : null}
           <TextInput
             value={business[f.key]}
-            onChangeText={(v) => setBusiness((b) => ({ ...b, [f.key]: v }))}
+            editable={!locked}
+            onChangeText={(v) => {
+              const next = { ...business, [f.key]: v };
+              setBusiness(() => next);
+              if (signedIn && owner === true) queueBusiness(next);
+            }}
             placeholder={f.placeholder}
             placeholderTextColor={colors.muted}
             keyboardType={f.keyboard ?? 'default'}
@@ -51,6 +79,11 @@ export function BusinessScreen() {
           />
         </View>
       ))}
+      {signedIn && owner === true ? (
+        <Pressable onPress={() => queueBusiness(business)} accessibilityRole="button" testID="business-save-odoo" style={styles.save}>
+          <Text style={styles.label}>Save these to Odoo now</Text>
+        </Pressable>
+      ) : null}
       {preview.length > 0 ? (
         <>
           <SectionTitle>Check your codes</SectionTitle>
@@ -85,5 +118,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.bg,
   },
+  save: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   qr: { alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 2, borderColor: colors.border },
 });

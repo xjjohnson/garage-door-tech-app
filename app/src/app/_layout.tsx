@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { OdooInvoicesSync } from '../components/OdooSales';
 import { OdooJobSync } from '../components/OdooJobSync';
 import { OdooPhotoSync } from '../components/OdooPhotoSync';
+import { OdooSettingsSync } from '../components/OdooSettingsSync';
 import { OdooReportSync } from '../components/OdooReportSync';
 import { OdooAttendanceSync } from '../components/OdooAttendanceSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
@@ -54,6 +55,7 @@ export default function RootLayout() {
                             <StatusBar style="dark" />
                             <OdooJobSync />
                             <OdooPhotoSync />
+                            <OdooSettingsSync />
                             <OdooReportSync />
                             <OdooAttendanceSync />
                             <OdooInvoicesSync />
