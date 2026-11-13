@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { OdooCustomerBackgroundSync } from '../components/OdooCustomerBackgroundSync';
 import { OdooInvoicesSync } from '../components/OdooSales';
 import { OdooJobSync } from '../components/OdooJobSync';
 import { OdooPhotoSync } from '../components/OdooPhotoSync';
@@ -52,6 +53,7 @@ export default function RootLayout() {
                         <OdooProvider>
                           <CalculatorLinkProvider>
                             <StatusBar style="dark" />
+                            <OdooCustomerBackgroundSync />
                             <OdooJobSync />
                             <OdooPhotoSync />
                             <OdooReportSync />
