@@ -282,7 +282,7 @@ street that comes back with no number takes the number typed ("400 Main"
 gives "400 Main St"), listed after real numbered houses; the map then looks
 that full address up. Signed in to Odoo, houses under customers' contacts (a
 property manager's delivery addresses) whose street matches show too, and
-picking one fills that customer with the house as the address (from 0.5.21).
+picking one fills that customer with the house as the address (from 0.5.22).
 (`src/lib/addressSuggest.ts`, `src/lib/useAddressSuggestions.ts`.)
 
 **Sales** has follow-ups, the price sheet, accepted quotes still to invoice,
@@ -686,7 +686,7 @@ the Jobs tab and Schedule work from the phone as before.
 (`src/components/OdooJobsList.tsx`, `pullSchedule` in `src/lib/odooJobs.ts`,
 `OdooClient.listJobs`, `useOpenOdooJob` in `src/lib/useStartJob.ts`.)
 
-**New job from Odoo's Field Service templates** (from 0.5.21). When Odoo has
+**New job from Odoo's Field Service templates** (from 0.5.22). When Odoo has
 Field Service templates (Field Service › Configuration › Templates), New job
 offers them as the kinds of job in place of the built-in list (Broken spring,
 Off track...). The list read last time is kept for no signal. When the job
@@ -696,7 +696,7 @@ the same as picking the template on Odoo's own form. With no templates in
 Odoo, New job keeps the built-in kinds. (`src/lib/fsmTemplates.ts`,
 `src/lib/useFsmTemplates.ts`.)
 
-**One Field Service location per house** (from 0.5.21, Justin's call). A job
+**One Field Service location per house** (from 0.5.22, Justin's call). A job
 sent to Odoo goes to the customer's location at that street when Odoo has one
 (matched loosely: "9 Pine Rd" and "9 pine road" are the same), otherwise to a
 new location named by the street, owned by the customer. So a property
@@ -704,7 +704,7 @@ manager's houses each get their own location, repeat visits reuse it, and no
 new location is named after the customer. A job with no address uses the
 customer's first location.
 
-**Customers: add, edit and house addresses** (from 0.5.21). **+ Add customer**
+**Customers: add, edit and house addresses** (from 0.5.22). **+ Add customer**
 on the Customers tab adds one by hand; the Odoo sync makes their contact. An
 edit now sends the address (as Odoo's street, city and ZIP) and notes to Odoo
 too, not only name, phone and email. A customer linked to Odoo shows
