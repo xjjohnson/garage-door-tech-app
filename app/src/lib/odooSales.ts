@@ -199,7 +199,7 @@ export async function sendPayments(client: OdooClient, invoiceId: number, paymen
  * Returns "cancelled" or the credit note's number.
  */
 export async function voidInvoice(client: OdooClient, id: number, reason: string): Promise<string> {
-  const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['state', 'amount_residual'] })) as { state?: string; amount_residual?: number }[];
+  const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['state', 'amount_residual', 'journal_id'] })) as { state?: string; amount_residual?: number; journal_id?: unknown }[];
   if (!r) throw new Error('That invoice is no longer in Odoo.');
   if (r.state === 'cancel') return 'cancelled';
   if (r.state === 'draft') {
@@ -210,7 +210,9 @@ export async function voidInvoice(client: OdooClient, id: number, reason: string
   let credit = existing[0];
   if (!credit) {
     const context = { active_model: 'account.move', active_ids: [id] };
-    const wizard = (await client.call('account.move.reversal', 'create', [{ move_ids: [[6, 0, [id]]], reason, date: new Date().toISOString().slice(0, 10) }], { context })) as number;
+    // Odoo needs the journal named over RPC (its Reverse button fills it in): the invoice's own.
+    const journal = Array.isArray(r.journal_id) && typeof r.journal_id[0] === 'number' ? r.journal_id[0] : undefined;
+    const wizard = (await client.call('account.move.reversal', 'create', [{ move_ids: [[6, 0, [id]]], reason, date: new Date().toISOString().slice(0, 10), ...(journal ? { journal_id: journal } : {}) }], { context })) as number;
     await client.call('account.move.reversal', 'reverse_moves', [[wizard]], { context });
     credit = ((await client.call('account.move', 'search_read', [[['reversed_entry_id', '=', id], ['state', '!=', 'cancel']]], { fields: ['id', 'name', 'state'], limit: 1 })) as { id: number; name?: string; state?: string }[])[0];
     if (!credit) throw new Error("Odoo didn't make the credit note.");
