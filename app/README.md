@@ -786,6 +786,22 @@ empty. A State or Country Odoo already has is never changed, and an address
 that names another state ("Tulsa, OK 74101") is left alone. Texas is looked up
 once per sign-in in res.country.state. (`src/lib/odooRegion.ts`.)
 
+**Waiting for Odoo** (from 0.5.27). Today's "Not in Odoo yet" line and
+Developer's **See what's waiting** open a list of every record on the phone
+that Odoo doesn't have yet (quotes, jobs, customers, invoices, payments), each
+with what it needs and a tap to open it. **Sync now** sends what goes on its
+own straight away (customers, jobs and visits, photos) instead of waiting for
+the next background turn. A picked quote still goes from its own **Send to
+Odoo as a sales order**. (`src/screens/WaitingScreen.tsx`, `src/lib/syncNow.ts`,
+`pendingItems` in `src/lib/pending.ts`.)
+
+**Edit customer sheet** (from 0.5.27). The customer, house address and job
+details sheets pad themselves above the Android keyboard, and the customer
+sheet scrolls the field being typed in into view. Every address field has
+the same autofill as New job (map results and houses in Odoo): Edit/Add
+customer, Add/Edit address, job details and Book a visit.
+(`src/lib/useKeyboardHeight.ts`, `src/components/AddressSuggestions.tsx`.)
+
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an
 API key from Odoo's My Preferences > Account Security). The key is kept in the

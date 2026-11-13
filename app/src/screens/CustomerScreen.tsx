@@ -1,5 +1,7 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useKeyboardHeight } from '../lib/useKeyboardHeight';
+import { useEffect, useRef, useState } from 'react';
+import type { ScrollViewInstance } from 'react-native';
 import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Customer, CustomerFields, customerName, emailLink, summarize } from '../lib/customers';
 import { formatJobDate, MODE_LABEL, phoneLink } from '../lib/jobs';
@@ -13,6 +15,7 @@ import { CustomerOdoo } from '../components/CustomerOdoo';
 import { useOdoo } from '../lib/useOdoo';
 import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
+import { AddressSuggestions } from '../components/AddressSuggestions';
 import { colors, touch, type } from '../theme';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
@@ -177,13 +180,23 @@ function Addresses({ partnerId }: { partnerId: number }) {
 /** The customer's details on the phone's own keyboard. A new name or phone is copied onto their jobs. */
 export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { visible: boolean; title: string; initial: CustomerFields; onSave: (f: CustomerFields) => void; onCancel: () => void }) {
   const [f, setF] = useState<CustomerFields>(initial);
+  const kb = useKeyboardHeight();
+  const scroll = useRef<ScrollViewInstance>(null);
+  const tops = useRef<Partial<Record<keyof CustomerFields, number>>>({});
+  const [focused, setFocused] = useState<keyof CustomerFields | null>(null);
   useEffect(() => {
     if (visible) setF({ name: initial.name, phone: initial.phone, email: initial.email, address: initial.address, notes: initial.notes });
   }, [visible, initial]);
+  // Bring the field being typed in into view once the keyboard is up.
+  useEffect(() => {
+    if (!focused || kb === 0) return;
+    const y = tops.current[focused];
+    if (y !== undefined) scroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  }, [focused, kb]);
   const canSave = f.name.trim() !== '' || f.address.trim() !== '';
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={[styles.backdrop, Platform.OS !== 'ios' && kb > 0 && { paddingBottom: kb }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.dismiss} onPress={onCancel} accessibilityLabel="Cancel" />
         <View style={styles.sheet} testID="customer-sheet">
           <View style={styles.titleRow}>
@@ -194,13 +207,15 @@ export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { v
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.fields}>
+          <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.fields}>
             {FIELDS.map((x) => (
-              <View key={x.key} style={styles.field}>
+              <View key={x.key} style={styles.field} onLayout={(e) => (tops.current[x.key] = e.nativeEvent.layout.y)}>
                 <Text style={styles.label}>{x.label}</Text>
                 <TextInput
                   value={f[x.key]}
                   onChangeText={(v) => setF((p) => ({ ...p, [x.key]: v }))}
+                  onFocus={() => setFocused(x.key)}
+                  onBlur={() => setFocused((cur) => (cur === x.key ? null : cur))}
                   placeholder={x.placeholder}
                   placeholderTextColor={colors.muted}
                   multiline={x.multiline}
@@ -210,6 +225,9 @@ export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { v
                   testID={`customer-field-${x.key}`}
                   style={[styles.input, x.multiline && styles.multiline]}
                 />
+                {x.key === 'address' ? (
+                  <AddressSuggestions typed={f.address} focused={focused === 'address'} reset={visible} onPick={(a) => setF((p) => ({ ...p, address: a.address }))} testID="customer-place" />
+                ) : null}
               </View>
             ))}
           </ScrollView>

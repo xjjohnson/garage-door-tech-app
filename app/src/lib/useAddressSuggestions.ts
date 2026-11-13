@@ -4,8 +4,8 @@ import { pretendOffline } from './devFlags';
 import type { GeoFetch } from './geocode';
 import { log } from './log';
 import { FoundAddress, searchAddresses } from './odooContacts';
-import { useCustomers } from './useCustomers';
-import { useOdoo } from './useOdoo';
+import { useCustomersIfAny } from './useCustomers';
+import { useOdooIfAny } from './useOdoo';
 
 /** Waits this long after the last key before asking, so a word typed fast is one lookup. */
 export const DEBOUNCE_MS = 300;
@@ -25,9 +25,13 @@ export function setAddressSuggestDeps(d: Partial<typeof deps>): () => void {
  * in), then addresses from the map. `off` (after a pick)
  * stops asking until the text changes again.
  */
+const NONE: never[] = [];
+
 export function useAddressSuggestions(typed: string, off = false): AddressSuggestion[] {
-  const { customers } = useCustomers();
-  const { status, client } = useOdoo();
+  const customers = useCustomersIfAny()?.customers ?? NONE;
+  const signIn = useOdooIfAny();
+  const status = signIn?.status;
+  const client = signIn?.client ?? null;
   const [found, setFound] = useState<{ q: string; list: AddressSuggestion[] }>({ q: '', list: [] });
   const [houses, setHouses] = useState<{ q: string; list: FoundAddress[] }>({ q: '', list: [] });
   const q = typed.trim();

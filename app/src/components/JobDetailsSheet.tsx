@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { AddressSuggestions } from './AddressSuggestions';
+import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { suggestCustomers } from '../lib/customers';
 import { EMPTY_DETAILS, JobDetails } from '../lib/jobs';
@@ -32,6 +34,8 @@ export function JobDetailsSheet({
   onCancel: () => void;
 }) {
   const [details, setDetails] = useState<JobDetails>(initial);
+  const kb = useKeyboardHeight();
+  const [focused, setFocused] = useState<string | null>(null);
   useEffect(() => {
     if (visible) setDetails(initial);
   }, [visible, initial]);
@@ -41,7 +45,7 @@ export function JobDetailsSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={[styles.backdrop, Platform.OS !== 'ios' && kb > 0 && { paddingBottom: kb }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.dismiss} onPress={onCancel} accessibilityLabel="Cancel" />
         <View style={styles.sheet} testID="job-sheet">
           <View style={styles.titleRow}>
@@ -59,6 +63,8 @@ export function JobDetailsSheet({
                 <TextInput
                   value={details[f.key]}
                   onChangeText={(v) => setDetails((d) => ({ ...d, [f.key]: v }))}
+                  onFocus={() => setFocused(f.key)}
+                  onBlur={() => setFocused((cur) => (cur === f.key ? null : cur))}
                   placeholder={f.placeholder}
                   placeholderTextColor={colors.muted}
                   multiline={f.multiline}
@@ -68,6 +74,9 @@ export function JobDetailsSheet({
                   testID={`job-${f.key}`}
                   style={[styles.input, f.multiline && styles.multiline]}
                 />
+                {f.key === 'address' ? (
+                  <AddressSuggestions typed={details.address} focused={focused === 'address'} reset={visible} onPick={(a) => setDetails((d) => ({ ...d, address: a.address }))} testID="job-place" />
+                ) : null}
                 {f.key === 'customer' && suggestions.length > 0 ? (
                   <View style={styles.suggestions} testID="customer-suggestions">
                     <Text style={styles.hint}>Repeat customer?</Text>
