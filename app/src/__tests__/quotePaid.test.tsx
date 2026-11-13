@@ -5,7 +5,7 @@ import { EMPTY_INSPECTION, Inspection, parseInspection, repairFromFlag, repairLi
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { emailInvoice } from '../lib/odooReports';
 import { lineValues, orderRef } from '../lib/odooSales';
-import { fetchTemplates, parseTemplates, templateQuote, TemplateSets, TEMPLATES_STORAGE_KEY, tierFromName } from '../lib/odooTemplates';
+import { fetchTemplates, parseTemplates, springTemplateQuote, springTemplatesFor, templateQuote, TemplateSets, TEMPLATES_STORAGE_KEY, tierFromName } from '../lib/odooTemplates';
 import { DEFAULT_PRICE_SHEET, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
 import { resetQuoteTemplates } from '../lib/useQuoteTemplates';
 import { renderApp } from '../testing/renderApp';
@@ -69,6 +69,32 @@ describe('quotation templates', () => {
     expect(better.reason).toMatch(/Opener · Better/);
     expect(best.lines.map((l) => l.label)).toEqual(['Belt drive opener', 'Remote × 2', 'Rollers']);
     expect(best.lines[1]).toMatchObject({ cents: 6000, qty: 2, productId: 14 });
+  });
+
+  it('prices a spring job from the Springs templates, with the calculator picking the spring', () => {
+    const sets: TemplateSets = {
+      springs: {
+        type: 'Springs',
+        tiers: {
+          good: [{ productId: 21, label: 'Torsion spring 10k', qty: 1, unitCents: 6000, taxable: true }, { productId: 22, label: 'Spring labor', qty: 1, unitCents: 15000, taxable: false }],
+          better: [{ productId: 23, label: 'Torsion spring 25k', qty: 1, unitCents: 9000, taxable: true }, { productId: 22, label: 'Spring labor', qty: 1, unitCents: 15000, taxable: false }, { productId: 24, label: 'Rollers', qty: 1, unitCents: 8000, taxable: true }],
+        },
+      },
+    };
+    const set = springTemplatesFor(sets, 'Spring replacement');
+    expect(set?.type).toBe('Springs');
+    const base = (tier: 'good' | 'better' | 'best') => ({ tier, available: true, springCount: 2, lines: [{ label: `2 springs, .225 ${tier}`, cents: 0, taxable: true }], subtotal: 0, tax: 0, total: 0 });
+    const q = springTemplateQuote({ options: [base('good'), base('better'), base('best')] }, set!, SHEET);
+    const [good, better, best] = q.options;
+    expect(good.lines).toEqual([
+      { label: '2 springs, .225 good', cents: 12000, taxable: true, productId: 21, qty: 2 },
+      { label: 'Spring labor', cents: 15000, taxable: false, productId: 22 },
+    ]);
+    expect(good.tax).toBe(1200);
+    expect(better.subtotal).toBe(18000 + 15000 + 8000);
+    expect(best.available).toBe(false);
+    expect(best.reason).toMatch(/Springs · Best/);
+    expect(springTemplateQuote({ blocked: 'No spring size yet', options: [] }, set!, SHEET).blocked).toBe('No spring size yet');
   });
 
   it('sends template lines to Odoo with their own product', () => {

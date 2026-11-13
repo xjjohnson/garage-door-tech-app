@@ -1,11 +1,15 @@
 import { Page } from '../components/Page';
-import { PriceBookScreen } from '../screens/PriceBookScreen';
+import { PriceSheetScreen } from '../screens/PriceSheetScreen';
 
-/** /price-sheet: the price book open on its Estimates tab (good / better / best prices). */
+/**
+ * /price-sheet: the old phone price sheet, kept only as the fallback for
+ * spring quotes until Odoo has "Springs · Good / Better / Best" templates.
+ * Reached from the quote's notice; no longer a price book tab.
+ */
 export default function PriceSheetRoute() {
   return (
-    <Page title="Price book" testID="prices-sheet">
-      <PriceBookScreen initialTab="estimate" />
+    <Page title="Old price sheet" testID="prices-sheet">
+      <PriceSheetScreen />
     </Page>
   );
 }

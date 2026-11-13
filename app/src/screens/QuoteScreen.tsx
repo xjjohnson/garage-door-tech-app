@@ -15,7 +15,7 @@ import { addOption, newLineId } from '../lib/ticket';
 import { formatLife } from '../lib/springNames';
 import { Repair, repairLines, withRepairs } from '../lib/inspection';
 import { usesSprings } from '../lib/jobTypes';
-import { templateQuote, templatesFor } from '../lib/odooTemplates';
+import { springTemplateQuote, springTemplatesFor, templateQuote, templatesFor } from '../lib/odooTemplates';
 import { useQuoteTemplates } from '../lib/useQuoteTemplates';
 import { invoiceNo, invoiceStatus } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
@@ -24,8 +24,10 @@ import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type } from '../theme';
 
 /**
- * Good, better and best for one saved job, priced from the price sheet. The
- * tech can send it to the customer and record which option they picked.
+ * Good, better and best for one saved job, priced from Odoo's quotation
+ * templates ("Springs · Good" and so on; the calculator picks each option's
+ * spring). Spring jobs fall back to the old price sheet until those templates
+ * exist. The tech can send it to the customer and record which option they picked.
  */
 export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () => void }) {
   const { sheet } = usePriceSheet();
@@ -37,6 +39,8 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
   const springQuote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
   // Jobs the spring calculator can't price (openers, tune-ups) use the job type's Odoo templates.
   const fromTemplates = !!set && !!springQuote.blocked;
+  // Spring jobs with springs picked: Odoo's spring templates price them.
+  const springSet = springJob && !springQuote.blocked ? springTemplatesFor(templates, job.what) : undefined;
   // No spring answer and no templates: the service call plus the inspection's repairs and lines typed here.
   // Always so for a job that isn't about springs; for a spring job, once there is something to quote.
   const repairOnly = !fromTemplates && !!springQuote.blocked && (!springJob || [...(job.inspection?.repairs ?? []), ...typed].some((r) => r.label.trim()));
@@ -44,10 +48,12 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
     () =>
       fromTemplates && set
         ? templateQuote(set, sheet, repairLines(job.inspection, typed))
-        : repairOnly
+        : springSet
+          ? springTemplateQuote(springQuote, springSet, sheet, repairLines(job.inspection, typed))
+          : repairOnly
           ? repairQuote(repairLines(job.inspection, typed), sheet)
           : withRepairs(springQuote, job.inspection, sheet, typed),
-    [fromTemplates, repairOnly, set, springQuote, job.inspection, typed, sheet],
+    [fromTemplates, springSet, repairOnly, set, springQuote, job.inspection, typed, sheet],
   );
   const addOns = job.inspection?.repairs.filter((r) => r.label.trim()) ?? [];
   const toggleAddOn = (r: Repair) => {
@@ -74,17 +80,19 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
       </Text>
       <Text style={styles.meta}>{job.summaryTitle}</Text>
 
-      {!priced && !fromTemplates ? (
-        <View style={styles.notice} testID="quote-no-prices">
-          <Text style={styles.noticeTitle}>Set your prices first</Text>
-          <Text style={styles.noticeBody}>The options below show $0 until the price sheet has your prices.</Text>
-          <Action label="Open the price sheet" primary onPress={onSetPrices} testID="quote-set-prices" />
+      {springJob && !springQuote.blocked && !springSet ? (
+        <View style={styles.notice} testID="quote-no-spring-templates">
+          <Text style={styles.noticeTitle}>No Springs templates in Odoo</Text>
+          <Text style={styles.noticeBody}>
+            Make quotation templates in Odoo named "Springs · Good", "Springs · Better" and "Springs · Best" with the spring product, labor and extras for each. The calculator picks the spring; the template sets the price. Until then these prices come from the old price sheet{priced ? '' : ', which has no prices yet'}.
+          </Text>
+          <Action label="Old price sheet" onPress={onSetPrices} testID="quote-set-prices" />
         </View>
       ) : null}
 
-      {fromTemplates && set ? (
+      {(fromTemplates && set) || springSet ? (
         <Text style={styles.meta} testID="quote-from-templates">
-          From your Odoo quotation templates for {set.type}.
+          From your Odoo quotation templates for {(springSet ?? set)!.type}.
         </Text>
       ) : null}
 
@@ -242,7 +250,6 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
             onPress={() => Share.share({ message: quoteText(quote, job.customer) }).catch(() => undefined)}
             testID="quote-share"
           />
-          <Action label="Price sheet" onPress={onSetPrices} testID="quote-prices" />
         </>
       ) : null}
     </View>

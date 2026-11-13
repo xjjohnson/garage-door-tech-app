@@ -9,7 +9,7 @@ import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoi
 import { Job, jobName, phoneLink } from '../lib/jobs';
 import { jobInvoice, jobSteps, nextStep, onSiteFor, smsLink, StepId } from '../lib/jobSteps';
 import { log } from '../lib/log';
-import { formatMoney, TIER_LABEL } from '../lib/prices';
+import { formatMoney } from '../lib/prices';
 import { dayLabel, formatTime, mapsLink, onMyWayText } from '../lib/schedule';
 import { useSchedule } from '../lib/useSchedule';
 import { currentTotals, subtotal } from '../lib/ticket';
@@ -133,12 +133,6 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         detail={ticketDetail(job)}
         href={{ pathname: '/ticket/[id]', params: { id: job.id } }}
         testID="job-open-ticket"
-      />
-      <NavRow
-        label="Estimate"
-        detail={job.accepted ? `${TIER_LABEL[job.accepted.tier]} picked · ${formatMoney(job.accepted.total)}${job.odooOrder ? ` · ${job.odooOrder.name}` : ''}` : 'Good, better, best (optional)'}
-        href={{ pathname: '/quote/[id]', params: { id: job.id } }}
-        testID="job-open-quote"
       />
       <NavRow label="Photos" detail="Before and after" href={{ pathname: '/photos/[id]', params: { id: job.id } }} testID="job-open-photos" />
       <JobParts jobId={job.id} />

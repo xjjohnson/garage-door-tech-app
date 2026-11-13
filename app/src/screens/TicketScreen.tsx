@@ -260,8 +260,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
 
       <SectionTitle>Optional</SectionTitle>
       <NavRow
-        label="Estimate"
-        detail={job.accepted ? `Good, better, best · ${TIER_LABEL[job.accepted.tier]} picked` : 'Good, better, best options, if you want them'}
+        label="Good, better, best"
+        detail={job.accepted ? `${TIER_LABEL[job.accepted.tier]} picked` : 'Options from your Odoo quotation templates, if you want them'}
         href={{ pathname: '/quote/[id]', params: { id: job.id } }}
         testID="ticket-estimate"
       />
