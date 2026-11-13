@@ -89,8 +89,8 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         </Pressable>
       </View>
       <View style={styles.row}>
-        <Pressable onPress={() => router.push('/price-sheet')} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
-          <Text style={styles.buttonText}>Price sheet</Text>
+        <Pressable onPress={() => router.push('/price-book')} accessibilityRole="button" testID="open-price-book" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
+          <Text style={styles.buttonText}>Price book</Text>
         </Pressable>
         <TeamButton />
       </View>
