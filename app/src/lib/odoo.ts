@@ -7,6 +7,7 @@
  * otherwise ordinary Project tasks. Kept free of React; the network call is
  * passed in, so tests use a fake server.
  */
+import { addressParts } from './geocode';
 import type { CustomerFields } from './customers';
 import type { OdooPartner } from './customerSync';
 import { pretendOffline } from './devFlags';
@@ -281,15 +282,17 @@ export class OdooClient {
   /** Makes a contact in Odoo for a customer from the phone, marked as a customer. Returns its id. */
   async createPartner(f: CustomerFields): Promise<number> {
     const pf = await this.partnerFields();
-    const vals: Record<string, unknown> = { name: f.name, phone: f.phone || false, email: f.email || false, street: f.address || false, comment: f.notes ? escapeHtml(f.notes) : false };
+    const vals: Record<string, unknown> = { name: f.name, phone: f.phone || false, email: f.email || false, ...filled(addressVals(f.address)), comment: f.notes ? escapeHtml(f.notes) : false };
     if (pf.includes('customer_rank')) vals.customer_rank = 1;
     return (await this.call('res.partner', 'create', [vals])) as number;
   }
 
-  /** Sends a customer's changed name, phone or email to Odoo. */
+  /** Sends a customer's changed name, phone, email, address or notes to Odoo. */
   writePartner(id: number, f: Partial<CustomerFields>): Promise<unknown> {
     const vals: Record<string, unknown> = {};
     for (const k of ['name', 'phone', 'email'] as const) if (f[k] !== undefined) vals[k] = f[k] || false;
+    if (f.address !== undefined) Object.assign(vals, addressVals(f.address));
+    if (f.notes !== undefined) vals.comment = f.notes ? escapeHtml(f.notes) : false;
     return this.call('res.partner', 'write', [[id], vals]);
   }
 
@@ -575,6 +578,17 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
 
 const escapeHtml = (t: string) =>
   `<p>${t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
+
+/** An address typed on the phone as Odoo's street, city and ZIP ("400 Main St, Kyle, TX 78640"). */
+export function addressVals(address: string): Record<string, unknown> {
+  const a = address.trim();
+  if (!a) return { street: false, street2: false, city: false, zip: false };
+  const p = addressParts(a);
+  return { street: p.street || a, street2: false, city: p.city || false, zip: p.zip || false };
+}
+
+/** Only the values that are set, for a new record. */
+const filled = (v: Record<string, unknown>) => Object.fromEntries(Object.entries(v).filter(([, x]) => x !== false));
 
 function toPartner(r: Record<string, unknown>): OdooPartner {
   const street = [str(r.street), str(r.street2)].filter(Boolean).join(' ');

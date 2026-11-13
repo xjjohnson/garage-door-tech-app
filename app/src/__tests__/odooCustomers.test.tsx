@@ -1,9 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { AddressPicker } from '../components/AddressPicker';
+import { OdooProvider } from '../lib/useOdoo';
 import { router } from 'expo-router';
 import { Customer, CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
 import { finishCustomerSync, OdooPartner, planCustomerSync } from '../lib/customerSync';
-import { Fetch, OdooClient } from '../lib/odoo';
+import { addressVals, Fetch, OdooClient } from '../lib/odoo';
+import { addAddress, ADDRESSES_STORAGE_KEY, fetchAddresses } from '../lib/odooContacts';
 import { renderApp } from '../testing/renderApp';
 
 const T0 = Date.UTC(2026, 10, 1);
@@ -71,13 +74,21 @@ function fakeOdoo() {
     calls.push({ model, method, args });
     if (model === 'res.users') return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
     if (model === 'res.partner' && method === 'fields_get') return reply({ name: {}, phone: {}, email: {}, customer_rank: {}, comment: {} });
-    if (model === 'res.partner' && method === 'search_read') return reply(partners.filter((p) => (p.customer_rank as number) > 0));
+    if (model === 'res.partner' && method === 'search_read') {
+      const [first] = args[0] as [string, string, unknown][];
+      if (first?.[0] === 'parent_id') return reply(partners.filter((p) => p.parent_id === first[2]));
+      return reply(partners.filter((p) => (p.customer_rank as number) > 0));
+    }
     if (model === 'res.partner' && method === 'create') {
       const id = 100 + partners.length;
       partners.push({ id, write_date: '2026-11-11 20:00:00', street2: false, city: false, zip: false, ...(args[0] as object) });
       return reply(id);
     }
-    if (model === 'res.partner' && method === 'write') return reply(true);
+    if (model === 'res.partner' && method === 'write') {
+      const [[id], vals] = args as [number[], object];
+      Object.assign(partners.find((p) => p.id === id) ?? {}, vals);
+      return reply(true);
+    }
     return missing(model);
   };
   return { fetchFn, calls, partners };
@@ -124,5 +135,102 @@ describe('Customers screen with Odoo', () => {
     await fireEvent.press(screen.getByTestId('odoo-customers-sync'));
     await settle(12);
     expect(screen.getByTestId('odoo-customers-result')).toHaveTextContent('Customers already match Odoo.');
+  });
+});
+
+describe('a customer\'s addresses in Odoo', () => {
+  const settle = async (n = 8) => {
+    for (let k = 0; k < n; k++) await act(async () => undefined);
+  };
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('splits a typed address into Odoo\'s street, city and ZIP', () => {
+    expect(addressVals('400 Main St, Kyle, TX 78640')).toEqual({ street: '400 Main St', street2: false, city: 'Kyle', zip: '78640' });
+    expect(addressVals('')).toEqual({ street: false, street2: false, city: false, zip: false });
+  });
+
+  it('lists houses first and adds one under the customer\'s contact', async () => {
+    const o = fakeOdoo();
+    o.partners.push({ id: 20, parent_id: 7, type: 'invoice', name: 'Accounts', street: '1 Pay Ln', city: 'Austin', zip: '78701' }, { id: 21, parent_id: 7, type: 'delivery', name: false, street: '9 Elm St', street2: 'Unit 4', city: 'Buda', zip: '78610', phone: '512' });
+    const c = await OdooClient.signIn(o.fetchFn, { url: 'x.test', db: 'x', login: 'j' }, 'k');
+    expect(await fetchAddresses(c, 7)).toEqual([
+      { id: 21, type: 'delivery', name: '', address: '9 Elm St Unit 4, Buda 78610', phone: '512', email: '' },
+      { id: 20, type: 'invoice', name: 'Accounts', address: '1 Pay Ln, Austin 78701', phone: '', email: '' },
+    ]);
+    await addAddress(c, 7, { type: 'delivery', name: '', address: '400 Main St, Kyle 78640', phone: '', email: '' });
+    expect(o.calls.filter((x) => x.method === 'create').at(-1)!.args[0]).toEqual({ parent_id: 7, type: 'delivery', street: '400 Main St', city: 'Kyle', zip: '78640' });
+  });
+
+  it('adds a customer by hand, then adds and edits their house address in Odoo', async () => {
+    const o = fakeOdoo();
+    jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
+    // Pat, already linked to Odoo contact 7.
+    await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([cust('p', { name: 'Pat Smith', odooId: 7, syncedAt: T0 })]));
+    const app = await renderApp('/customers');
+    await settle();
+    await fireEvent.press(screen.getByTestId('customers-add'));
+    await fireEvent.changeText(screen.getByTestId('customer-field-name'), 'Oak Property Mgmt');
+    await fireEvent.changeText(screen.getByTestId('customer-field-phone'), '512 555 0100');
+    await fireEvent.press(screen.getByTestId('customer-sheet-save'));
+    await settle();
+    expect(app.getPathname()).toMatch(/^\/customer\//);
+    expect(parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY)).map((x) => [x.name, x.phone])).toEqual([
+      ['Pat Smith', ''],
+      ['Oak Property Mgmt', '512 555 0100'],
+    ]);
+
+    await act(async () => router.push('/team'));
+    await settle();
+    await fireEvent.changeText(screen.getByTestId('team-url'), 'x.test');
+    await fireEvent.changeText(screen.getByTestId('team-db'), 'x');
+    await fireEvent.changeText(screen.getByTestId('team-login'), 'j');
+    await fireEvent.changeText(screen.getByTestId('team-secret'), 'k');
+    await fireEvent.press(screen.getByTestId('team-signin-go'));
+    await settle();
+    await act(async () => router.push({ pathname: '/customer/[id]', params: { id: 'p' } }));
+    await settle();
+    expect(screen.getByTestId('customer-addresses')).toHaveTextContent(/No other addresses in Odoo/);
+
+    await fireEvent.press(screen.getByTestId('customer-address-add'));
+    await fireEvent.changeText(screen.getByTestId('address-field-address'), '400 Main St, Kyle, TX 78640');
+    await fireEvent.press(screen.getByTestId('address-sheet-save'));
+    await settle();
+    const house = o.partners.find((p) => p.parent_id === 7)!;
+    expect(house).toMatchObject({ type: 'delivery', street: '400 Main St', city: 'Kyle', zip: '78640' });
+    expect(screen.getByTestId(`customer-address-${house.id}`)).toHaveTextContent(/House \(delivery\).*400 Main St, Kyle 78640/);
+
+    await fireEvent.press(screen.getByTestId(`customer-address-${house.id}`));
+    await fireEvent.changeText(screen.getByTestId('address-field-name'), 'Unit B');
+    await fireEvent.press(screen.getByTestId('address-sheet-save'));
+    await settle();
+    expect(house.name).toBe('Unit B');
+    expect(screen.getByTestId(`customer-address-${house.id}`)).toHaveTextContent(/Unit B · 400 Main St/);
+  });
+});
+
+describe('picking the delivery address', () => {
+  it('offers the main address and the houses read last time, and says which contact it is', async () => {
+    // The tests above render the whole app, which leaves Jest on fake timers.
+    jest.useRealTimers();
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(ADDRESSES_STORAGE_KEY, JSON.stringify({ 7: [{ id: 21, type: 'delivery', name: 'Unit B', address: '400 Main St, Kyle 78640', phone: '', email: '' }, { id: 20, type: 'invoice', name: 'Accounts', address: '1 Pay Ln', phone: '', email: '' }] }));
+    const picked = jest.fn();
+    const secrets = { get: async () => null, set: async () => undefined, remove: async () => undefined };
+    const shown = await render(
+      <OdooProvider fetchFn={async () => ({ ok: false, status: 500, json: async () => ({}) })} secrets={secrets}>
+        <AddressPicker partnerId={7} mainAddress="1 Office Rd" onChange={picked} />
+      </OdooProvider>,
+    );
+    for (let i = 0; i < 5; i++) await act(() => new Promise<void>((r) => setTimeout(r, 0)));
+    expect(screen.getByTestId('address-picker-7')).toHaveTextContent(/Main address.*1 Office Rd/);
+    expect(screen.getByTestId('address-picker-7').props.accessibilityState).toEqual({ checked: true });
+    // Billing addresses aren't places to send a tech.
+    expect(screen.queryByTestId('address-picker-20')).toBeNull();
+    await fireEvent.press(screen.getByTestId('address-picker-21'));
+    expect(picked).toHaveBeenCalledWith(21, '400 Main St, Kyle 78640');
+    await act(async () => shown.unmount());
   });
 });

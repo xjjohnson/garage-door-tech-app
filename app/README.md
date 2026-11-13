@@ -673,6 +673,19 @@ the same as picking the template on Odoo's own form. With no templates in
 Odoo, New job keeps the built-in kinds. (`src/lib/fsmTemplates.ts`,
 `src/lib/useFsmTemplates.ts`.)
 
+**Customers: add, edit and house addresses** (from 0.5.21). **+ Add customer**
+on the Customers tab adds one by hand; the Odoo sync makes their contact. An
+edit now sends the address (as Odoo's street, city and ZIP) and notes to Odoo
+too, not only name, phone and email. A customer linked to Odoo shows
+**Addresses**: the contacts under theirs in Odoo (House (delivery), Billing,
+Person, Other), with **Add address** and tap to edit. That's where the house
+goes when a property manager or landlord is the customer. These save straight
+to Odoo, so they need signal; the list read last time shows without.
+`AddressPicker` (`src/components/AddressPicker.tsx`) picks the main address or
+a house as the delivery address (Odoo's partner_shipping_id) for the ticket,
+quote and invoice. (`src/lib/odooContacts.ts`, `src/lib/useContactAddresses.ts`,
+`src/components/AddressSheet.tsx`.)
+
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an
 API key from Odoo's My Preferences > Account Security). The key is kept in the

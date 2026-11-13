@@ -8,6 +8,9 @@ import { useCustomers } from '../lib/useCustomers';
 import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
+import { AddressSheet } from '../components/AddressSheet';
+import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
+import { useContactAddresses } from '../lib/useContactAddresses';
 import { colors, touch, type } from '../theme';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
@@ -48,6 +51,8 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
       {mail ? <Action label="Email" onPress={() => Linking.openURL(mail).catch(() => undefined)} testID="customer-email" /> : null}
       <Action label="Book a visit" onPress={() => router.push({ pathname: '/schedule', params: { book: customer.id } })} testID="customer-book" />
       <Action label="Edit customer" onPress={() => setEditing(true)} testID="customer-edit" />
+
+      {customer.odooId ? <Addresses partnerId={customer.odooId} /> : null}
 
       <Text style={styles.section} accessibilityRole="header">
         Jobs
@@ -99,6 +104,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
 
       <CustomerSheet
         visible={editing}
+        title="Edit customer"
         initial={customer}
         onCancel={() => setEditing(false)}
         onSave={(f) => {
@@ -118,8 +124,45 @@ const FIELDS: { key: keyof CustomerFields; label: string; placeholder: string; k
   { key: 'notes', label: 'Notes', placeholder: 'Gate code, dog, best time to call', multiline: true },
 ];
 
+/**
+ * A customer's other addresses in Odoo (the house when a property manager is
+ * the customer, a billing address...), with Add and tap to edit. Saving goes
+ * straight to Odoo, so it needs signal.
+ */
+function Addresses({ partnerId }: { partnerId: number }) {
+  const { addresses, error, busy, online, save } = useContactAddresses(partnerId);
+  const [editing, setEditing] = useState<ContactAddress | 'new' | null>(null);
+  return (
+    <View style={styles.stack} testID="customer-addresses">
+      <Text style={styles.section} accessibilityRole="header">
+        Addresses
+      </Text>
+      {addresses.length === 0 ? <Text style={styles.meta}>No other addresses in Odoo. Add the house here when a property manager or landlord is the customer.</Text> : null}
+      {addresses.map((a) => (
+        <Pressable key={a.id} onPress={() => setEditing(a)} accessibilityRole="button" accessibilityHint="Edit this address" testID={`customer-address-${a.id}`} style={({ pressed }) => [styles.job, pressed && styles.pressed]}>
+          <Text style={styles.meta}>{typeLabel(a.type)}</Text>
+          <Text style={styles.jobTitle}>{addressLine(a) || 'No address'}</Text>
+          {a.phone ? <Text style={styles.detail}>Phone: {a.phone}</Text> : null}
+        </Pressable>
+      ))}
+      {error && editing === null ? <Text style={styles.meta}>Couldn&apos;t read Odoo&apos;s addresses: {error}</Text> : null}
+      <Action label={online ? 'Add address' : 'Add address (needs Odoo sign-in)'} onPress={() => setEditing('new')} testID="customer-address-add" />
+      <AddressSheet
+        visible={editing !== null}
+        initial={editing && editing !== 'new' ? { type: editing.type, name: editing.name, address: editing.address, phone: editing.phone, email: editing.email } : undefined}
+        busy={busy}
+        error={editing !== null ? error : null}
+        onCancel={() => setEditing(null)}
+        onSave={async (f) => {
+          if (await save(f, editing && editing !== 'new' ? editing.id : undefined)) setEditing(null);
+        }}
+      />
+    </View>
+  );
+}
+
 /** The customer's details on the phone's own keyboard. A new name or phone is copied onto their jobs. */
-function CustomerSheet({ visible, initial, onSave, onCancel }: { visible: boolean; initial: CustomerFields; onSave: (f: CustomerFields) => void; onCancel: () => void }) {
+export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { visible: boolean; title: string; initial: CustomerFields; onSave: (f: CustomerFields) => void; onCancel: () => void }) {
   const [f, setF] = useState<CustomerFields>(initial);
   useEffect(() => {
     if (visible) setF({ name: initial.name, phone: initial.phone, email: initial.email, address: initial.address, notes: initial.notes });
@@ -132,7 +175,7 @@ function CustomerSheet({ visible, initial, onSave, onCancel }: { visible: boolea
         <View style={styles.sheet} testID="customer-sheet">
           <View style={styles.titleRow}>
             <Text style={styles.sheetTitle} accessibilityRole="header">
-              Edit customer
+              {title}
             </Text>
             <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" testID="customer-sheet-cancel">
               <Text style={styles.cancelText}>Cancel</Text>

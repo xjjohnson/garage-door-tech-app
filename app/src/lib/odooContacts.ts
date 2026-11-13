@@ -1,0 +1,97 @@
+/**
+ * A customer's other addresses in Odoo: the child contacts on their Odoo
+ * contact (res.partner with parent_id), such as the delivery address Justin
+ * uses for the house when a property manager is the customer. Read, added
+ * and changed here; the ticket, quote and invoice pick a delivery address
+ * from the same list. Kept free of React; the client is passed in, so tests
+ * use a fake.
+ */
+import type { OdooClient } from './odoo';
+import { addressVals } from './odoo';
+
+type Client = Pick<OdooClient, 'call'>;
+
+export const ADDRESSES_STORAGE_KEY = 'odoo-addresses/v1';
+
+/** Odoo's address types, in the words the app shows. */
+export const ADDRESS_TYPES = [
+  { value: 'delivery', label: 'House (delivery)' },
+  { value: 'invoice', label: 'Billing' },
+  { value: 'contact', label: 'Person' },
+  { value: 'other', label: 'Other' },
+] as const;
+export type AddressType = (typeof ADDRESS_TYPES)[number]['value'];
+
+export interface ContactAddress {
+  id: number;
+  type: AddressType;
+  /** A person or place name; often empty for a plain address. */
+  name: string;
+  /** "400 Main St, Kyle 78640". */
+  address: string;
+  phone: string;
+  email: string;
+}
+
+export interface AddressFields {
+  type: AddressType;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+}
+
+export const EMPTY_ADDRESS: AddressFields = { type: 'delivery', name: '', address: '', phone: '', email: '' };
+
+const str = (v: unknown) => (typeof v === 'string' ? v : '');
+const TYPES = ADDRESS_TYPES.map((t) => t.value) as string[];
+
+export const typeLabel = (t: AddressType) => ADDRESS_TYPES.find((x) => x.value === t)?.label ?? 'Other';
+
+function toAddress(r: Record<string, unknown>): ContactAddress {
+  const street = [str(r.street), str(r.street2)].filter(Boolean).join(' ');
+  return {
+    id: r.id as number,
+    type: (TYPES.includes(str(r.type)) ? str(r.type) : 'other') as AddressType,
+    name: str(r.name),
+    address: [street, [str(r.city), str(r.zip)].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+    phone: str(r.phone),
+    email: str(r.email),
+  };
+}
+
+/** The addresses under a customer's Odoo contact: houses first, then billing, people and the rest. */
+export async function fetchAddresses(c: Client, partnerId: number): Promise<ContactAddress[]> {
+  const rows = (await c.call('res.partner', 'search_read', [[['parent_id', '=', partnerId]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email'], order: 'id asc', limit: 500 })) as Record<string, unknown>[];
+  return rows.map(toAddress).sort((a, b) => TYPES.indexOf(a.type) - TYPES.indexOf(b.type));
+}
+
+function vals(f: AddressFields): Record<string, unknown> {
+  return { type: f.type, name: f.name.trim() || false, phone: f.phone.trim() || false, email: f.email.trim() || false, ...addressVals(f.address) };
+}
+
+/** Adds an address under the customer's contact. Returns its id. */
+export async function addAddress(c: Client, partnerId: number, f: AddressFields): Promise<number> {
+  const v = Object.fromEntries(Object.entries(vals(f)).filter(([, x]) => x !== false));
+  return (await c.call('res.partner', 'create', [{ parent_id: partnerId, ...v }])) as number;
+}
+
+export async function saveAddress(c: Client, id: number, f: AddressFields): Promise<void> {
+  await c.call('res.partner', 'write', [[id], vals(f)]);
+}
+
+/** What one line of the address list says: "400 Main St, Kyle 78640" or "Unit 4 · 400 Main St". */
+export const addressLine = (a: Pick<ContactAddress, 'name' | 'address'>) => [a.name, a.address].filter(Boolean).join(' · ');
+
+/** The addresses read last time, by Odoo contact, so they show with no signal. */
+export function parseSavedAddresses(raw: string | null): Record<string, ContactAddress[]> {
+  try {
+    const d = raw ? JSON.parse(raw) : null;
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return {};
+    const out: Record<string, ContactAddress[]> = {};
+    for (const [k, v] of Object.entries(d)) if (Array.isArray(v)) out[k] = v.filter((a) => a && typeof a.id === 'number' && typeof a.address === 'string');
+    return out;
+  } catch {
+    return {};
+  }
+}
