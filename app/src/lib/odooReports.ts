@@ -3,9 +3,12 @@
  * the Field Service order the job came from, else the job's sales order,
  * else the customer. It shows in that record's chatter with a short note.
  */
+import type { Signature } from './attachments';
 import type { Customer } from './customers';
+import { flags, Inspection, RATING_LABEL, summary, VoiceNote } from './inspection';
 import type { Job } from './jobs';
 import type { OdooClient } from './odoo';
+import type { OdooJobRef } from './odooJobs';
 import type { Appointment } from './schedule';
 
 export interface ReportTarget {
@@ -15,14 +18,78 @@ export interface ReportTarget {
   label: string;
 }
 
+/** The job's own Field Service order (or task) as a place for the report. */
+export const jobTarget = (ref: OdooJobRef): ReportTarget => ({ model: ref.model, id: ref.id, label: ref.model === 'fsm.order' ? `the Field Service order ${ref.name}`.trim() : 'the Odoo task' });
+
 /** Where a job's report goes in Odoo, or null when Odoo has nothing for it yet. */
-export function reportTarget(job: Pick<Job, 'id' | 'customerId' | 'odooOrder'>, appointments: Pick<Appointment, 'id' | 'jobId'>[], customers: Pick<Customer, 'id' | 'odooId' | 'name'>[], jobsModel: 'fsm.order' | 'project.task' | null): ReportTarget | null {
+export function reportTarget(job: Pick<Job, 'id' | 'customerId' | 'odooOrder' | 'odooJob'>, appointments: Pick<Appointment, 'id' | 'jobId'>[], customers: Pick<Customer, 'id' | 'odooId' | 'name'>[], jobsModel: 'fsm.order' | 'project.task' | null): ReportTarget | null {
+  if (job.odooJob) return jobTarget(job.odooJob);
   const visit = appointments.find((a) => a.jobId === job.id && /^odoo-\d+$/.test(a.id));
   if (visit && jobsModel) return { model: jobsModel, id: Number(visit.id.slice(5)), label: jobsModel === 'fsm.order' ? 'the Field Service order' : 'the Odoo task' };
   if (job.odooOrder) return { model: 'sale.order', id: job.odooOrder.id, label: `the sales order ${job.odooOrder.name}`.trim() };
   const c = job.customerId ? customers.find((x) => x.id === job.customerId) : undefined;
   if (c?.odooId) return { model: 'res.partner', id: c.odooId, label: c.name.trim() ? `${c.name.trim()}'s contact` : "the customer's contact" };
   return null;
+}
+
+/**
+ * The chatter note that goes with the report: its score, then each flagged
+ * item with its rating and the action typed for it, so the order shows what
+ * needs work without opening the PDF.
+ */
+export function reportNote(insp: Inspection): string {
+  const s = summary(insp);
+  const head = `Inspection report: ${s.score === null ? 'not scored' : `score ${s.score}%`}, ${s.flagged} flagged`;
+  const items = flags(insp).map((f) => `${f.section} ${f.label} (${RATING_LABEL[f.rating]}${f.action.trim() ? `: ${f.action.trim()}` : ''})`);
+  return items.length ? `${head}: ${items.join('; ')}.` : `${head}.`;
+}
+
+/**
+ * Signed inspections whose report should go to the job's order on its own:
+ * the job is in Odoo, and it was signed at or after `since` (when the app
+ * started doing this, so older reports aren't sent in bulk) and after the
+ * report last went. Signing again sends it again.
+ */
+export function reportsToSend<J extends Pick<Job, 'id' | 'inspection' | 'odooJob'>>(jobs: J[], signatures: Pick<Signature, 'for' | 'refId' | 'at'>[], since: number): { job: J & { inspection: Inspection; odooJob: OdooJobRef }; signedAt: number }[] {
+  const out: { job: J & { inspection: Inspection; odooJob: OdooJobRef }; signedAt: number }[] = [];
+  for (const job of jobs) {
+    if (!job.inspection || !job.odooJob) continue;
+    const at = Math.max(0, ...signatures.filter((x) => x.for === 'inspection' && x.refId === job.id).map((x) => x.at));
+    if (!at || at < since || at <= (job.inspection.sent?.at ?? 0)) continue;
+    out.push({ job: job as J & { inspection: Inspection; odooJob: OdooJobRef }, signedAt: at });
+  }
+  return out;
+}
+
+/**
+ * Inspection voice notes to put on the job's order in Odoo, oldest first:
+ * the job is in Odoo, the note isn't there yet, and it was recorded at or
+ * after `since` (so an update doesn't send old notes in bulk).
+ */
+export function voiceToSend(jobs: Pick<Job, 'id' | 'inspection' | 'odooJob'>[], since: number): { jobId: string; note: VoiceNote; ref: OdooJobRef }[] {
+  return jobs
+    .flatMap((j) => (j.odooJob && j.inspection ? j.inspection.voice.filter((n) => !n.odooId && n.at >= since).map((note) => ({ jobId: j.id, note, ref: j.odooJob! })) : []))
+    .sort((a, b) => a.note.at - b.note.at);
+}
+
+const AUDIO: Record<string, string> = { m4a: 'audio/mp4', mp4: 'audio/mp4', aac: 'audio/aac', mp3: 'audio/mpeg', wav: 'audio/wav', '3gp': 'audio/3gpp', caf: 'audio/x-caf', webm: 'audio/webm' };
+const two = (n: number) => String(n).padStart(2, '0');
+
+/** "Voice note 2026-11-13 14.05.m4a". */
+export function voiceFileName(n: Pick<VoiceNote, 'at' | 'uri'>): string {
+  const ext = (n.uri.split('?')[0].match(/\.([a-z0-9]+)$/i)?.[1] ?? 'm4a').toLowerCase();
+  const d = new Date(n.at);
+  return `Voice note ${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}.${two(d.getMinutes())}.${ext}`;
+}
+
+/** Attaches one voice note (base64) to the job's order with a chatter note; returns the attachment's id. */
+export async function sendVoice(client: Pick<OdooClient, 'call'>, ref: OdooJobRef, note: Pick<VoiceNote, 'at' | 'uri' | 'seconds'>, base64: string): Promise<number> {
+  const name = voiceFileName(note);
+  const ext = name.split('.').pop() ?? 'm4a';
+  const id = (await client.call('ir.attachment', 'create', [{ name, type: 'binary', datas: base64, res_model: ref.model, res_id: ref.id, mimetype: AUDIO[ext] ?? 'audio/mp4' }])) as number;
+  const len = `${Math.floor(note.seconds / 60)}:${two(Math.round(note.seconds % 60))}`;
+  await client.call(ref.model, 'message_post', [[ref.id]], { body: `Inspection voice note (${len}) from the app`, attachment_ids: [id], message_type: 'comment', subtype_xmlid: 'mail.mt_note' }).catch(() => undefined);
+  return id;
 }
 
 /** Which model this Odoo keeps jobs in. */

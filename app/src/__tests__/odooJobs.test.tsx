@@ -355,6 +355,16 @@ describe('job sync in the background', () => {
     expect(parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY)).map((v) => v.id)).toEqual(['odoo-500']);
   });
 
+  it('takes visits whose job is gone off the schedule, and keeps the rest (the job that is there goes to Odoo and its visit takes the order id)', async () => {
+    const o = fakeOdoo();
+    const visit = (id: string, over: Partial<Appointment> = {}): Appointment => ({ id, start: at(10, 1), minutes: 60, name: 'Pat', address: '', phone: '', what: '', status: 'booked', createdAt: 1, updatedAt: 1, syncedAt: 1, ...over });
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([base('j1')]));
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([visit('a-1', { jobId: 'j1' }), visit('a-2', { jobId: 'deleted-job' }), visit('a-3'), visit('a-4', { jobId: 'deleted-job', status: 'done' })]));
+    await renderSync(o.fetchFn);
+    await settle(20);
+    expect(parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY)).map((v) => v.id).sort()).toEqual(['a-3', 'a-4', 'odoo-500']);
+  });
+
   it('brings a time and worker set in Odoo back to the phone', async () => {
     const o = fakeOdoo();
     o.orders.push({ id: 500, name: 'FSO500', person_id: 40, scheduled_date_start: toOdooTime(at(15, 1)), scheduled_duration: 2, stage_id: [1, 'New'] });

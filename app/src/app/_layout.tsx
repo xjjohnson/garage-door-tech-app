@@ -8,6 +8,7 @@ import { OdooCustomerBackgroundSync } from '../components/OdooCustomerBackground
 import { OdooInvoicesSync } from '../components/OdooSales';
 import { OdooJobSync } from '../components/OdooJobSync';
 import { OdooPhotoSync } from '../components/OdooPhotoSync';
+import { OdooReportSync } from '../components/OdooReportSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
 import { CalculatorLinkProvider } from '../lib/useCalculatorLink';
 import { CustomersProvider } from '../lib/useCustomers';
@@ -54,6 +55,7 @@ export default function RootLayout() {
                             <OdooCustomerBackgroundSync />
                             <OdooJobSync />
                             <OdooPhotoSync />
+                            <OdooReportSync />
                             <OdooInvoicesSync />
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                               <Stack.Screen name="(tabs)" />
