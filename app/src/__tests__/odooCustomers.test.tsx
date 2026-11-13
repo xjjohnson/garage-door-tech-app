@@ -340,24 +340,39 @@ describe('splitting crammed addresses from the Customers tab', () => {
 });
 
 describe('picking the delivery address', () => {
-  it('finds customers in Odoo by name, once each, and lists all of a customer\'s addresses', async () => {
+  it('finds customers in Odoo by name, one per name, and lists all of a customer\'s addresses', async () => {
     const calls: unknown[][] = [];
-    const client = { call: async (...a: unknown[]) => (calls.push(a), [{ id: 40, name: 'Caliber Collision', type: 'contact', street: '6222 Menchaca Rd', city: 'Austin', zip: '78745' }, { id: 40, name: 'Caliber Collision', type: 'contact', street: '6222 Menchaca Rd', city: 'Austin', zip: '78745' }, { id: 41, name: 'Cal Smith', type: 'contact', street: '', city: '', zip: '' }]) };
+    const client = {
+      call: async (...a: unknown[]) => (
+        calls.push(a),
+        [
+          { id: 39, name: 'Caliber Collision', type: 'contact', street: false, city: false, zip: false, child_ids: [] },
+          { id: 40, name: 'Caliber  collision', type: 'contact', street: '6222 Menchaca Rd', city: 'Austin', zip: '78745', child_ids: [50, 51] },
+          { id: 41, name: 'Cal Smith', type: 'contact', street: '', city: '', zip: '', child_ids: [] },
+        ]
+      ),
+    };
     expect(await searchCustomers(client, 'c')).toEqual([]);
     expect(await searchCustomers(client, 'ca')).toEqual([
-      { id: 40, name: 'Caliber Collision', address: '6222 Menchaca Rd, Austin 78745' },
-      { id: 41, name: 'Cal Smith', address: '' },
+      { id: 40, ids: [40, 39], name: 'Caliber  collision', address: '6222 Menchaca Rd, Austin 78745', under: 2 },
+      { id: 41, ids: [41], name: 'Cal Smith', address: '', under: 0 },
     ]);
     expect((calls[0][2] as unknown[][])[0]).toEqual(expect.arrayContaining([['parent_id', '=', false]]));
-    const list = addressChoices({ id: 40, address: '' }, [
-      { id: 50, type: 'delivery', name: '1901 S Bell Blvd', address: '1901 S Bell Blvd, Cedar Park 78613', phone: '', email: '' },
-      { id: 51, type: 'contact', name: 'Pat', address: '', phone: '', email: '' },
-      { id: 52, type: 'invoice', name: '', address: 'PO Box 9, Austin', phone: '', email: '' },
-    ]);
+    const list = addressChoices(
+      { id: 40, address: '' },
+      [
+        { id: 50, type: 'delivery', name: '1901 S Bell Blvd', address: '1901 S Bell Blvd, Cedar Park 78613', phone: '', email: '' },
+        { id: 51, type: 'contact', name: 'Pat', address: '', phone: '', email: '' },
+        { id: 52, type: 'invoice', name: '', address: 'PO Box 9, Austin', phone: '', email: '' },
+        { id: 53, type: 'other', name: '', address: '1901 s bell blvd, cedar park 78613', phone: '', email: '' },
+      ],
+      [{ id: 39, address: '7 Elm St' }],
+    );
     expect(list.map((c) => [c.id, c.title, c.line])).toEqual([
       [40, 'Main address', 'No address in Odoo'],
+      [39, 'Main address', '7 Elm St'],
       [50, 'House (delivery)', '1901 S Bell Blvd, Cedar Park 78613'],
-      [52, expect.any(String), 'PO Box 9, Austin'],
+      [52, 'Billing', 'PO Box 9, Austin'],
     ]);
   });
 
