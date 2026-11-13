@@ -8,6 +8,7 @@ import { formatJobDate } from '../lib/jobs';
 import { TIER_LABEL, TIERS } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
+import { useFollowUpInvoices } from '../lib/useFollowUpInvoices';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type } from '../theme';
 
@@ -16,7 +17,8 @@ import { colors, touch, type } from '../theme';
  * warranties about to end, each with a text to the customer ready to send.
  */
 export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
-  const { invoices, business } = useInvoices();
+  const { business } = useInvoices();
+  const invoices = useFollowUpInvoices();
   const { customers } = useCustomers();
   const { settings, dismissed, dismiss, setSettings } = useFollowUps();
   const list = useMemo(() => followUps(invoices, settings, business, now(), dismissed), [invoices, settings, business, dismissed, now]);

@@ -260,7 +260,7 @@ describe('a customer\'s page shows Odoo\'s jobs, quotes and invoices', () => {
 
     const orderSearch = o.calls.find((x) => x.model === 'fsm.order' && x.method === 'search_read' && JSON.stringify(x.args).includes('child_of'));
     expect(orderSearch?.args[0]).toEqual(['|', ['location_id.owner_id', 'child_of', 7], ['location_id.partner_id', 'child_of', 7]]);
-    expect(o.calls.find((x) => x.model === 'account.move' && x.method === 'search_read')?.args[0]).toEqual([['move_type', 'in', ['out_invoice', 'out_refund']], ['partner_id', 'child_of', 7]]);
+    expect(o.calls.find((x) => x.model === 'account.move' && x.method === 'search_read' && JSON.stringify(x.args).includes('child_of'))?.args[0]).toEqual([['move_type', 'in', ['out_invoice', 'out_refund']], ['partner_id', 'child_of', 7]]);
   });
 });
 

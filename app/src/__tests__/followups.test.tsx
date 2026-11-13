@@ -71,10 +71,11 @@ describe('follow-ups (plain logic)', () => {
   it('makes a text link and reads saved settings safely', () => {
     expect(textLink('(555) 123-4567', 'Hi there')).toBe('sms:5551234567?body=Hi%20there');
     expect(textLink('', 'x')).toBeUndefined();
-    expect(parseFollowUpStore('junk')).toEqual({ settings: DEFAULT_FOLLOW_UP, dismissed: {} });
+    expect(parseFollowUpStore('junk')).toEqual({ settings: DEFAULT_FOLLOW_UP, dismissed: {}, activities: {} });
     expect(parseFollowUpStore({ settings: { cyclesPerDay: 6, warrantyMonths: { best: 120 } }, dismissed: { a: 1, b: 'x' } })).toEqual({
       settings: { ...DEFAULT_FOLLOW_UP, cyclesPerDay: 6, warrantyMonths: { ...DEFAULT_FOLLOW_UP.warrantyMonths, best: 120 } },
       dismissed: { a: 1 },
+      activities: {},
     });
   });
 });

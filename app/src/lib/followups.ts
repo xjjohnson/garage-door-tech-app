@@ -151,6 +151,8 @@ export interface FollowUpStore {
   settings: FollowUpSettings;
   /** Follow-up id → when the tech marked it handled. */
   dismissed: Record<string, number>;
+  /** Follow-up id → the Odoo activity on the customer made for it (src/lib/odooFollowUps.ts). */
+  activities: Record<string, number>;
 }
 
 export function parseFollowUpStore(raw: string | null | object): FollowUpStore {
@@ -165,5 +167,7 @@ export function parseFollowUpStore(raw: string | null | object): FollowUpStore {
   const d = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
   const dismissed: Record<string, number> = {};
   if (d.dismissed && typeof d.dismissed === 'object') for (const [k, t] of Object.entries(d.dismissed as Record<string, unknown>)) if (typeof t === 'number') dismissed[k] = t;
-  return { settings: parseFollowUpSettings(d.settings), dismissed };
+  const activities: Record<string, number> = {};
+  if (d.activities && typeof d.activities === 'object') for (const [k, n] of Object.entries(d.activities as Record<string, unknown>)) if (typeof n === 'number') activities[k] = n;
+  return { settings: parseFollowUpSettings(d.settings), dismissed, activities };
 }

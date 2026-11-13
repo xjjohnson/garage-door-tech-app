@@ -7,6 +7,7 @@ import { followUps } from '../lib/followups';
 import { jobName } from '../lib/jobs';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { useFollowUps } from '../lib/useFollowUps';
+import { useFollowUpInvoices } from '../lib/useFollowUpInvoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
@@ -21,11 +22,12 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
   const { jobs } = useJobs();
   const { invoices, business } = useInvoices();
   const { settings, dismissed } = useFollowUps();
+  const followInvoices = useFollowUpInvoices();
   const { status, client } = useOdoo();
   const odoo = status === 'signedIn' && client ? client.session.apps : null;
   const t = now();
   const toInvoice = useMemo(() => jobs.filter((j) => j.accepted && !invoices.some((i) => i.jobId === j.id && !i.voidedAt)), [jobs, invoices]);
-  const due = followUps(invoices, settings, business, t, dismissed).filter((f) => f.due <= t + 7 * 24 * 3600 * 1000).length;
+  const due = followUps(followInvoices, settings, business, t, dismissed).filter((f) => f.due <= t + 7 * 24 * 3600 * 1000).length;
 
   return (
     <View style={styles.stack} testID="sales">
