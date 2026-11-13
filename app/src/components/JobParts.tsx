@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardBackdrop } from './KeyboardBackdrop';
 import { createProduct, searchProducts, StockProduct } from '../lib/odooStock';
 import { findByCode, openPurchases, StockItem } from '../lib/stock';
 import { boughtParts, ticketParts, unaccountedParts } from '../lib/ticket';
@@ -199,7 +200,7 @@ function OrderSheet({ initial = '', search, make, onSend, onClose }: { initial?:
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <KeyboardBackdrop style={styles.backdrop}>
         <View style={styles.sheet} testID="job-order-sheet">
           <View style={styles.titleRow}>
             <Text style={styles.title}>{product ? 'Order it' : 'Which part?'}</Text>
@@ -266,7 +267,7 @@ function OrderSheet({ initial = '', search, make, onSend, onClose }: { initial?:
             {err ? <Text style={styles.error}>{err}</Text> : null}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardBackdrop>
     </Modal>
   );
 }
@@ -286,7 +287,7 @@ function TruckPicker({ visible, items, onPick, onClose }: { visible: boolean; it
   const list = items.filter((i) => !k || i.name.toLowerCase().includes(k) || i.sku.toLowerCase().includes(k)).sort((a, b) => a.name.localeCompare(b.name));
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <KeyboardBackdrop style={styles.backdrop}>
         <View style={styles.sheet} testID="truck-picker">
           <View style={styles.titleRow}>
             <Text style={styles.title}>Which part?</Text>
@@ -305,7 +306,7 @@ function TruckPicker({ visible, items, onPick, onClose }: { visible: boolean; it
             ))}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardBackdrop>
     </Modal>
   );
 }
