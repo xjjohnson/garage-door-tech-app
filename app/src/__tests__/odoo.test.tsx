@@ -3,6 +3,7 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { cleanUrl, Fetch, guessDb, odooTime, OdooClient, OdooError, plainText, taskToAppointment } from '../lib/odoo';
 import { parseSchedule, SCHEDULE_STORAGE_KEY } from '../lib/schedule';
 import { renderApp } from '../testing/renderApp';
+import { JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 
 type Task = Record<string, unknown> & { id: number };
 
@@ -211,18 +212,19 @@ describe('Team screen', () => {
     expect(screen.getByTestId('team-who')).toHaveTextContent('Signed in as Justin · acme.odoo.com');
     expect(screen.getByTestId('task-11')).toHaveTextContent(/Broken spring.*Pat Smith.*1 Oak St/);
 
-    await fireEvent.press(screen.getByTestId('team-schedule-11'));
-    await settle(3);
-    const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
-    expect(saved.map((a) => [a.id, a.name, a.what])).toEqual([['odoo-11', 'Pat Smith', 'Broken spring']]);
-    expect(screen.getByTestId('team-schedule-11')).toHaveTextContent('On schedule ✓');
-
     await fireEvent.press(screen.getByTestId('team-assign-12-3'));
     await settle();
     expect(o.tasks.find((t) => t.id === 12)!.user_ids).toEqual([3]);
     expect(screen.queryByTestId('team-assign-12-3')).toBeNull();
     // The password or key never goes into AsyncStorage.
     expect(JSON.stringify(await AsyncStorage.multiGet(await AsyncStorage.getAllKeys()))).not.toContain('key123');
+
+    // Opening a job from Odoo makes the phone's job for it, tied to it.
+    await fireEvent.press(screen.getByTestId('team-open-11'));
+    await settle(3);
+    expect(app.getPathname()).toMatch(/^\/job\//);
+    const job = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY)).find((j) => j.odooJob?.id === 11);
+    expect(job).toEqual(expect.objectContaining({ customer: 'Pat Smith', address: expect.stringContaining('1 Oak St'), odooJob: expect.objectContaining({ model: 'project.task', id: 11 }) }));
   });
 
   it('explains which Odoo app to install when there are no jobs yet', async () => {
