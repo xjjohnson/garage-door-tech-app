@@ -28,6 +28,8 @@ interface JobsApi {
   setInspection: (id: string, inspection: Inspection | undefined) => void;
   /** Remembers the sales order made in Odoo for this job. */
   setOdooOrder: (id: string, order: OdooRef) => void;
+  /** Notes that the quote signature (its id) is saved on the job's sales order in Odoo. */
+  setQuoteSignatureSent: (id: string, signatureId: string) => void;
   setOdooJob: (id: string, ref: OdooJobRef) => void;
   /** Picks older jobs to send to Odoo (true) or keep on the phone (false). Not counted as a change to the job. */
   setSendToOdoo: (picks: Record<string, boolean>) => void;
@@ -176,6 +178,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   const setOdooJob = useCallback<JobsApi['setOdooJob']>((id, odooJob) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooJob } : j))), [change]);
   const setOdooSent = useCallback<JobsApi['setOdooSent']>((id, odooSent) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooSent } : j))), [change]);
   const setOdooOrder = useCallback<JobsApi['setOdooOrder']>((id, odooOrder) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooOrder } : j))), [change]);
+  const setQuoteSignatureSent = useCallback<JobsApi['setQuoteSignatureSent']>((id, quoteSignatureSent) => change((prev) => prev.map((j) => (j.id === id ? { ...j, quoteSignatureSent } : j))), [change]);
 
   const setStep = useCallback<JobsApi['setStep']>(
     (id, step, at) =>
@@ -198,8 +201,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setOdooSent }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setOdooSent],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setOdooSent }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setOdooSent],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }

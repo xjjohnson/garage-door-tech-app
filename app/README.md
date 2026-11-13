@@ -744,7 +744,10 @@ app" note in its chatter, a few at a time in the background, and shows
 option, **Customer signs to approve** opens a pad to sign with a finger under
 "I approve the Better option for $X"; an invoice has **Customer signs** for
 "Work completed to my satisfaction." Signatures are saved as a few SVG
-strokes and go into backups. **Send as PDF** on a quote or an invoice makes
+strokes and go into backups. From 0.5.44 a quote signature also goes on the
+job's sales order in Odoo, in Odoo's own signature fields (the drawing as a
+PNG, signed by, signed on), as soon as both the order and the signature
+exist; the quote says "Signature saved on it" (`src/lib/signaturePng.ts`). **Send as PDF** on a quote or an invoice makes
 a one-page PDF on the phone (business name and phone, the lines and totals,
 QR codes to pay by Cash App or Venmo, the Zelle handle, the warranty and the
 signature, or a line to sign) and opens the share sheet to text, email,
