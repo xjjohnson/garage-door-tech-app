@@ -56,6 +56,21 @@ interface JobBase extends JobDetails {
   what?: string;
   /** The running list of services and materials for the job (src/lib/ticket.ts). */
   ticket?: Ticket;
+  /** What Odoo was last told about this job after it was made there (src/lib/odooJobs.ts, pushJobChanges). */
+  odooSent?: OdooSent;
+}
+
+/** The notes, steps and done state last written to the job's Odoo order. */
+export interface OdooSent {
+  notes: string;
+  steps: JobSteps;
+  done: boolean;
+}
+
+export function parseOdooSent(v: unknown): OdooSent | undefined {
+  const r = v as Record<string, unknown> | null;
+  if (!r || typeof r !== 'object' || typeof r.notes !== 'string') return undefined;
+  return { notes: r.notes, steps: parseSteps(r.steps) ?? {}, done: r.done === true };
 }
 
 /** When the tech tapped On my way, Arrived and Work done, ms. */
@@ -209,6 +224,7 @@ export function parseJobs(raw: string | null): Job[] {
       ...(parseSteps(j.steps) ? { steps: parseSteps(j.steps) } : {}),
       ...(typeof j.what === 'string' && j.what ? { what: j.what } : {}),
       ...(parseTicket(j.ticket) ? { ticket: parseTicket(j.ticket) } : {}),
+      ...(parseOdooSent(j.odooSent) ? { odooSent: parseOdooSent(j.odooSent) } : {}),
     };
     out.push({ ...base, mode, form: restoreForm<object>(MODE_DEFAULTS[mode], j.form) } as Job);
   }

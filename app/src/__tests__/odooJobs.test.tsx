@@ -4,7 +4,7 @@ import { OdooJobSync } from '../components/OdooJobSync';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, Job, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, ODOO_STORAGE_KEY, OdooClient, toOdooTime } from '../lib/odoo';
-import { applyState, createOdooJob, JOBS_SINCE_KEY, olderJobs, partnerFor, pullSchedule, readJobStates, shouldSend, whatOf, writeVisit } from '../lib/odooJobs';
+import { applyState, createOdooJob, jobChanged, JOBS_SINCE_KEY, olderJobs, partnerFor, pullSchedule, pushJobChanges, readJobStates, sentAtCreate, shouldSend, whatOf, writeVisit } from '../lib/odooJobs';
 import type { OdooTask } from '../lib/odoo';
 import { fetchFsmTemplates, FSM_TEMPLATES_STORAGE_KEY } from '../lib/fsmTemplates';
 import { resetJobsSince } from '../lib/useJobsSince';
@@ -41,7 +41,7 @@ function fakeOdoo() {
     const [, , , model, method, args, kw = {}] = params.args as [string, number, string, string, string, unknown[], Row];
     calls.push({ model, method, args, kw });
     if (method === 'fields_get') {
-      if (model === 'fsm.order') return reply({ name: {}, location_id: {}, person_id: {}, scheduled_date_start: {}, scheduled_duration: {}, stage_id: {}, description: {}, todo: {}, template_id: {}, type: {} });
+      if (model === 'fsm.order') return reply({ name: {}, location_id: {}, person_id: {}, scheduled_date_start: {}, scheduled_duration: {}, stage_id: {}, description: {}, todo: {}, template_id: {}, type: {}, date_start: {}, date_end: {} });
       if (model === 'fsm.template') return reply({ name: {}, instructions: {}, duration: {}, type_id: {}, active: {} });
       if (model === 'fsm.stage') return reply({ name: {}, is_closed: {} });
       if (model === 'res.partner') return reply({ name: {}, customer_rank: {} });
@@ -97,6 +97,11 @@ function fakeOdoo() {
           .filter((o) => ids.includes(o.id as number))
           .map((o) => ({ ...o, person_id: typeof o.person_id === 'number' ? [o.person_id, 'Someone'] : o.person_id })),
       );
+    }
+    if (model === 'fsm.order' && method === 'message_post') return reply(1);
+    if (model === 'fsm.order' && method === 'action_complete') {
+      for (const id of args[0] as number[]) Object.assign(orders.find((o) => o.id === id)!, { stage_id: [9, 'Done'] });
+      return reply(true);
     }
     if (model === 'fsm.order' && method === 'write') {
       const [[id], vals] = args as [number[], Row];
@@ -155,6 +160,40 @@ describe('jobs in Odoo (logic)', () => {
     o.orders[0].person_id = 41;
     o.orders[0].stage_id = [9, 'Done'];
     expect(await readJobStates(c, 'fsm.order', [500])).toEqual([{ id: 500, start: at(14), minutes: 60, personId: 41, done: true }]);
+  });
+
+  it('tells the order about later note edits, steps and Close job', async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    const ref = await createOdooJob(c, 7, { jobId: 'j1', customer: 'Pat', address: '', phone: '', what: 'Tune-up', notes: 'Gate code 12' });
+    const job = { id: 'j1', what: 'Tune-up', notes: 'Gate code 12', status: 'open' as const, odooJob: ref, odooSent: sentAtCreate('Gate code 12') };
+    expect(jobChanged(job)).toBe(false);
+    const edited = { ...job, notes: 'Gate code 34', steps: { onMyWayAt: at(9), arrivedAt: at(10), workDoneAt: at(11) } };
+    expect(jobChanged(edited)).toBe(true);
+    const sent = await pushJobChanges(c, edited);
+    expect(o.orders[0]).toMatchObject({ description: 'Tune-up\nGate code 34\nApp job j1', date_start: toOdooTime(at(10)), date_end: toOdooTime(at(11)) });
+    const notes = o.calls.filter((x) => x.method === 'message_post').map((x) => x.kw.body);
+    expect(notes).toEqual([expect.stringMatching(/^On my way at/), expect.stringMatching(/^Arrived at/), expect.stringMatching(/^Work done at/)]);
+    expect(jobChanged({ ...edited, odooSent: sent })).toBe(false);
+    const closed = await pushJobChanges(c, { ...edited, status: 'done', odooSent: sent });
+    expect(o.orders[0].stage_id).toEqual([9, 'Done']);
+    expect(closed.done).toBe(true);
+    // Already done in Odoo (say from Jobs › Team): not completed twice.
+    const before = o.calls.filter((x) => x.method === 'action_complete').length;
+    await pushJobChanges(c, { ...edited, status: 'done', odooSent: sent });
+    expect(o.calls.filter((x) => x.method === 'action_complete')).toHaveLength(before);
+  });
+
+  it('sends nothing for a job with nothing recorded, and takes its state now as Odoo\'s', async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    o.orders.push({ id: 500, name: 'FSO500', person_id: 40, stage_id: [1, 'New'], description: 'Written in Odoo' });
+    const before = o.calls.length;
+    const steps = { arrivedAt: at(10), workDoneAt: at(11) };
+    const sent = await pushJobChanges(c, { id: 'j1', notes: 'Old note', steps, status: 'done', odooJob: { model: 'fsm.order', id: 500, name: 'FSO500' } });
+    expect(o.calls.length).toBe(before);
+    expect(o.orders[0]).toMatchObject({ description: 'Written in Odoo', stage_id: [1, 'New'] });
+    expect(sent).toEqual({ notes: 'Old note', steps, done: true });
   });
 
   it('works out what the phone’s visit becomes', () => {
@@ -319,6 +358,17 @@ describe('job sync in the background', () => {
     await settle();
     visits = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(visits).toEqual([]);
+  });
+
+  it('sends steps and Close job tapped on the phone to the order', async () => {
+    const o = fakeOdoo();
+    o.orders.push({ id: 500, name: 'FSO500', person_id: 40, scheduled_date_start: false, scheduled_duration: 1, stage_id: [1, 'New'] });
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([base('j1', { odooJob: { model: 'fsm.order', id: 500, name: 'FSO500' }, odooSent: sentAtCreate(''), steps: { arrivedAt: at(10) }, status: 'done' })]));
+    await renderSync(o.fetchFn);
+    await settle();
+    expect(o.orders[0]).toMatchObject({ date_start: toOdooTime(at(10)), stage_id: [9, 'Done'] });
+    const [j] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
+    expect(j.odooSent).toEqual({ notes: '', steps: { arrivedAt: at(10) }, done: true });
   });
 
   it('sends a visit moved on the phone to Odoo', async () => {
