@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { finishCustomerSync, planCustomerSync } from '../lib/customerSync';
 import { OdooError } from '../lib/odoo';
+import { CrampedAddress, crampedAddresses, splitAddresses } from '../lib/odooContacts';
 import { useCustomers } from '../lib/useCustomers';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
@@ -19,6 +20,8 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cramped, setCramped] = useState<CrampedAddress[]>([]);
+  const [fixed, setFixed] = useState<string | null>(null);
   if (status !== 'signedIn' || !client) return null;
 
   const sync = async () => {
@@ -47,8 +50,26 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
         plan.toWrite.length ? `sent ${plural(plan.toWrite.length, 'change')} to Odoo` : '',
       ].filter(Boolean);
       setResult(parts.length ? `Done: ${parts.join(', ')}.` : 'Customers already match Odoo.');
+      setFixed(null);
+      setCramped(await crampedAddresses(client).catch(() => []));
     } catch (e) {
       setError(e instanceof OdooError ? e.message : "Couldn't sync with Odoo. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Contacts with the whole address typed into Street: split only when asked.
+  const split = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const n = await splitAddresses(client, cramped);
+      setFixed(`Split ${plural(n, 'address')} into street, city and ZIP in Odoo.`);
+      setCramped([]);
+    } catch (e) {
+      setError(e instanceof OdooError ? e.message : "Couldn't fix the addresses. Try again.");
+      setCramped(await crampedAddresses(client).catch(() => []));
     } finally {
       setBusy(false);
     }
@@ -64,6 +85,26 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
       {result ? (
         <Text style={styles.note} testID="odoo-customers-result">
           {result}
+        </Text>
+      ) : null}
+      {cramped.length > 0 ? (
+        <View style={styles.box} testID="odoo-cramped">
+          <Text style={styles.note}>
+            {plural(cramped.length, 'contact')} in Odoo {cramped.length === 1 ? 'has' : 'have'} the whole address in Street, so the City and ZIP boxes are empty. For example:
+          </Text>
+          {cramped.slice(0, 3).map((a) => (
+            <Text key={a.id} style={styles.note}>
+              {a.name}: {a.vals.street} · {[a.vals.city, a.vals.zip].filter(Boolean).join(' ')}
+            </Text>
+          ))}
+          <Pressable onPress={split} disabled={busy} accessibilityRole="button" testID="odoo-cramped-fix" style={({ pressed }) => [styles.button, busy && styles.off, pressed && styles.pressed]}>
+            <Text style={styles.buttonText}>{`Split ${cramped.length === 1 ? 'it' : `all ${cramped.length}`} into street, city and ZIP`}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {fixed ? (
+        <Text style={styles.note} testID="odoo-cramped-done">
+          {fixed}
         </Text>
       ) : null}
     </View>

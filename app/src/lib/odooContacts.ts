@@ -113,3 +113,38 @@ export async function searchAddresses(c: Client, q: string, limit = 3): Promise<
   const rows = (await c.call('res.partner', 'search_read', [[['parent_id', '!=', false], ['type', 'in', ['delivery', 'other']], '|', ['street', 'ilike', t], ['name', 'ilike', t]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email', 'parent_id'], limit })) as Record<string, unknown>[];
   return rows.flatMap((r) => (Array.isArray(r.parent_id) ? [{ ...toAddress(r), parentId: r.parent_id[0] as number, parentName: str(r.parent_id[1]) }] : []));
 }
+
+/** A contact whose whole address was typed into Street ("1 Main St, Kyle, TX 78640"), with how it splits. */
+export interface CrampedAddress {
+  id: number;
+  name: string;
+  street: string;
+  /** Odoo's street, city and ZIP for it. */
+  vals: { street: string; city: string; zip: string };
+}
+
+/**
+ * Contacts with the city or ZIP still inside Street and the City or ZIP box
+ * empty, so Odoo's maps, Field Service locations and reports can't use them.
+ */
+export async function crampedAddresses(c: Client, limit = 500): Promise<CrampedAddress[]> {
+  const rows = (await c.call('res.partner', 'search_read', [[['street', 'ilike', ','], '|', ['city', '=', false], ['zip', '=', false]]], { fields: ['name', 'street', 'city', 'zip'], limit, order: 'id asc' })) as Record<string, unknown>[];
+  return rows.flatMap((r) => {
+    const street = str(r.street);
+    const v = addressVals(street) as { street: string | false; city: string | false; zip: string | false };
+    const city = str(r.city) || str(v.city);
+    const zip = str(r.zip) || str(v.zip);
+    if (!v.street || v.street === street || (city === str(r.city) && zip === str(r.zip))) return [];
+    return [{ id: r.id as number, name: str(r.name) || 'Contact', street, vals: { street: v.street, city, zip } }];
+  });
+}
+
+/** Writes the split street, city and ZIP to each contact; returns how many went. */
+export async function splitAddresses(c: Client, list: CrampedAddress[]): Promise<number> {
+  let n = 0;
+  for (const a of list) {
+    await c.call('res.partner', 'write', [[a.id], a.vals]);
+    n++;
+  }
+  return n;
+}

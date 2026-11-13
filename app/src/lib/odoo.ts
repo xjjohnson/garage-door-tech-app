@@ -369,6 +369,21 @@ export class OdooClient {
     return this.readWhere(d, { newest: true, limit, offset });
   }
 
+  /**
+   * A customer's jobs in Odoo, newest first: Field Service orders at a
+   * location they own or are (a property manager's houses included), or tasks
+   * for them or a contact under them.
+   */
+  customerJobs(partnerId: number, limit = 20): Promise<OdooTask[]> {
+    const s = this.session;
+    if (s.kind === 'none' || !partnerId) return Promise.resolve([]);
+    const d: unknown[] =
+      s.kind === 'oca'
+        ? ['|', ['location_id.owner_id', 'child_of', partnerId], ['location_id.partner_id', 'child_of', partnerId]]
+        : [...(s.fsm ? [['is_fsm', '=', true]] : []), ['partner_id', 'child_of', partnerId]];
+    return this.readWhere(d, { newest: true, limit });
+  }
+
   /** Open jobs nobody is assigned to. */
   unassignedTasks(): Promise<OdooTask[]> {
     return this.readJobs(false);

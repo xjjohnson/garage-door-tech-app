@@ -10,6 +10,8 @@ interface AttachmentsApi extends Attachments {
   addPhotos: (jobId: string, uris: string[], kind: PhotoKind, item?: string) => void;
   setPhotoKind: (id: string, kind: PhotoKind) => void;
   removePhoto: (id: string) => void;
+  /** Notes the photo's copy on the job in Odoo. */
+  markPhotoSent: (id: string, odooId: number) => void;
   /** Saves a signature and returns it. */
   sign: (s: Omit<Signature, 'id' | 'at'>) => Signature;
   restoreSignatures: (s: Signature[]) => void;
@@ -56,6 +58,7 @@ export function AttachmentsProvider({ children, media: given }: { children: Reac
     [change],
   );
   const setPhotoKind = useCallback((id: string, kind: PhotoKind) => change((s) => ({ ...s, photos: s.photos.map((p) => (p.id === id ? { ...p, kind } : p)) })), [change]);
+  const markPhotoSent = useCallback((id: string, odooId: number) => change((s) => ({ ...s, photos: s.photos.map((p) => (p.id === id ? { ...p, odooId } : p)) })), [change]);
   const removePhoto = useCallback(
     (id: string) =>
       change((s) => {
@@ -76,8 +79,8 @@ export function AttachmentsProvider({ children, media: given }: { children: Reac
   const restoreSignatures = useCallback((incoming: Signature[]) => change((s) => mergeSignatures(s, incoming)), [change]);
 
   const api = useMemo(
-    () => ({ ...store, loaded, media, addPhotos, setPhotoKind, removePhoto, sign, restoreSignatures }),
-    [store, loaded, media, addPhotos, setPhotoKind, removePhoto, sign, restoreSignatures],
+    () => ({ ...store, loaded, media, addPhotos, setPhotoKind, removePhoto, markPhotoSent, sign, restoreSignatures }),
+    [store, loaded, media, addPhotos, setPhotoKind, removePhoto, markPhotoSent, sign, restoreSignatures],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

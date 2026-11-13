@@ -576,8 +576,9 @@ signal (`src/lib/odooLists.ts`, `src/screens/OdooListScreen.tsx`,
 `src/screens/OdooRecordScreen.tsx`).
 
 **Quotation templates** (`src/lib/odooTemplates.ts`). Odoo quotation
-templates named "Job type · Good", "· Better" and "· Best" (a dash or colon
-works too) price jobs the spring calculator can't, like openers and tune-ups:
+templates named "Job type · Good", "· Better" and "· Best" (a bullet, dash
+or colon works too, or just a space: "Off track • Good", "Off track Better",
+any case, from 0.5.22) price jobs the spring calculator can't, like openers and tune-ups:
 a job whose "What's wrong" is Opener gets its options from the "Opener ·"
 templates, with each line's Odoo product, price and tax. They're saved on the
 phone (`odoo-templates/v1`) and refreshed from Odoo every 10 minutes while
@@ -673,7 +674,12 @@ on in Odoo, and the rest of the sync goes on.
 photos**, a page for that job's **Before**, **After** and **Other** photos,
 from the camera or the gallery, each with **Share** and **Delete**. Photos are
 copied into the app's own folder so they stay when the gallery is cleaned;
-they aren't in backups (only their list is saved). Once the customer picks an
+they aren't in backups (only their list is saved). From 0.5.22, signed in to
+Odoo, each photo also goes to the job in Odoo once the job is there: it's
+attached to the Field Service order (or task) with a "Before photo from the
+app" note in its chatter, a few at a time in the background, and shows
+**In Odoo ✓**. Deleting a photo on the phone leaves Odoo's copy.
+(`src/lib/odooPhotos.ts`, `src/components/OdooPhotoSync.tsx`.) Once the customer picks an
 option, **Customer signs to approve** opens a pad to sign with a finger under
 "I approve the Better option for $X"; an invoice has **Customer signs** for
 "Work completed to my satisfaction." Signatures are saved as a few SVG
@@ -729,6 +735,24 @@ to Odoo, so they need signal; the list read last time shows without.
 a house as the delivery address (Odoo's partner_shipping_id) for the ticket,
 quote and invoice. (`src/lib/odooContacts.ts`, `src/lib/useContactAddresses.ts`,
 `src/components/AddressSheet.tsx`.)
+
+**A customer's page shows Odoo's records** (from 0.5.22). Signed in, a
+customer linked to Odoo shows their real **Jobs** (Field Service orders at
+locations they own or are, so a property manager's houses count), **Quotes**
+(sale.order) and **Invoices** (account.move), theirs and their child
+contacts', newest first, with what they owe in Odoo. Tapping a job opens its
+job page; a quote or invoice opens Odoo's record. Phone jobs and invoices that
+haven't gone to Odoo yet show under **Waiting to go to Odoo**; the phone's
+copies of ones that have are no longer listed twice. The last read is kept per
+customer for no signal (`odoo-customer/v1`). (`src/components/CustomerOdoo.tsx`,
+`OdooClient.customerJobs`, `fetchForCustomer` in `src/lib/odooLists.ts`.)
+
+**Contacts with the whole address in Street** (from 0.5.22). After **Sync
+customers with Odoo**, contacts whose Street holds the city or ZIP while
+Odoo's City or ZIP box is empty ("1300 Main St, Kyle, TX 78640") are listed
+with how they'd split, and **Split all into street, city and ZIP** writes them.
+Nothing changes in Odoo until that's tapped. (`crampedAddresses` in
+`src/lib/odooContacts.ts`.)
 
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an

@@ -6,8 +6,10 @@ import { router } from 'expo-router';
 import { Customer, CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
 import { finishCustomerSync, OdooPartner, planCustomerSync } from '../lib/customerSync';
 import { addressVals, Fetch, OdooClient } from '../lib/odoo';
-import { addAddress, ADDRESSES_STORAGE_KEY, fetchAddresses } from '../lib/odooContacts';
+import { addAddress, ADDRESSES_STORAGE_KEY, crampedAddresses, fetchAddresses, splitAddresses } from '../lib/odooContacts';
 import { renderApp } from '../testing/renderApp';
+import { DEFAULT_MATCH_FORM } from '../lib/forms';
+import { createJob, JOBS_STORAGE_KEY } from '../lib/jobs';
 
 const T0 = Date.UTC(2026, 10, 1);
 const NOW = Date.UTC(2026, 10, 11, 20);
@@ -60,7 +62,7 @@ describe('customer sync with Odoo (plain logic)', () => {
 });
 
 /** A pretend Odoo 19 with a few customers. */
-function fakeOdoo() {
+function fakeOdoo(withApps = false) {
   const partners: Record<string, unknown>[] = [
     { id: 7, name: 'Pat Smith', phone: '555-123-4567', email: 'pat@x.test', street: '1 Oak St', street2: false, city: 'Springfield', zip: '12345', comment: '<p>Dog in yard</p>', write_date: '2026-11-10 12:00:00', customer_rank: 2 },
   ];
@@ -74,6 +76,15 @@ function fakeOdoo() {
     calls.push({ model, method, args });
     if (model === 'res.users') return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
     if (model === 'res.partner' && method === 'fields_get') return reply({ name: {}, phone: {}, email: {}, customer_rank: {}, comment: {} });
+    if (withApps) {
+      if (['fsm.order', 'sale.order', 'account.move'].includes(model) && method === 'fields_get') return reply({ name: {}, scheduled_date_start: {}, todo: {} });
+      if (model === 'fsm.person') return reply([]);
+      if (model === 'fsm.order' && method === 'search_read') return reply([{ id: 5, name: 'FSO/0005', location_id: [3, '9 Elm St'], person_id: false, scheduled_date_start: '2026-11-12 15:00:00', todo: 'Match old spring' }]);
+      if (model === 'fsm.location' && method === 'read') return reply([{ id: 3, name: '9 Elm St', phone: false, street: '9 Elm St', city: 'Buda', zip: '78610' }]);
+      if (model === 'sale.order' && method === 'search_read') return reply([{ id: 40, name: 'S00040', partner_id: [7, 'Pat Smith'], date_order: '2026-11-10 12:00:00', amount_total: 420, state: 'sent', client_order_ref: false }]);
+      if (model === 'account.move' && method === 'search_read')
+        return reply([{ id: 60, name: 'INV/2026/00060', partner_id: [7, 'Pat Smith'], invoice_date: '2026-11-11', invoice_date_due: '2026-11-11', amount_total: 300, amount_residual: 300, state: 'posted', payment_state: 'not_paid', move_type: 'out_invoice', ref: false }]);
+    }
     if (model === 'res.partner' && method === 'search_read') {
       const [first] = args[0] as [string, string, unknown][];
       if (first?.[0] === 'parent_id') return reply(partners.filter((p) => p.parent_id === first[2]));
@@ -208,6 +219,68 @@ describe('a customer\'s addresses in Odoo', () => {
     await settle();
     expect(house.name).toBe('Unit B');
     expect(screen.getByTestId(`customer-address-${house.id}`)).toHaveTextContent(/Unit B · 400 Main St/);
+  });
+});
+
+describe('a customer\'s page shows Odoo\'s jobs, quotes and invoices', () => {
+  const settle = async (n = 10) => {
+    for (let k = 0; k < n; k++) await act(async () => undefined);
+  };
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('lists Odoo\'s records in place of the phone\'s copies, keeping jobs not sent yet', async () => {
+    const o = fakeOdoo(true);
+    jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
+    const job = (id: string, over: object) => ({ ...createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat Smith', address: '9 Elm St', phone: '', notes: '' }, { title: 'Match old spring' }, 1000, id), customerId: 'p', ...over });
+    await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([cust('p', { name: 'Pat Smith', odooId: 7, syncedAt: T0 })]));
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job('sent', { odooJob: { model: 'fsm.order', id: 5, name: 'FSO/0005' } }), job('notyet', { summaryTitle: 'Not sent yet' })]));
+    await renderApp('/team');
+    await settle();
+    await fireEvent.changeText(screen.getByTestId('team-url'), 'x.test');
+    await fireEvent.changeText(screen.getByTestId('team-db'), 'x');
+    await fireEvent.changeText(screen.getByTestId('team-login'), 'j');
+    await fireEvent.changeText(screen.getByTestId('team-secret'), 'k');
+    await fireEvent.press(screen.getByTestId('team-signin-go'));
+    await settle();
+    await act(async () => router.push({ pathname: '/customer/[id]', params: { id: 'p' } }));
+    await settle(14);
+
+    expect(screen.getByTestId('customer-odoo-job-5')).toHaveTextContent(/Match old spring.*9 Elm St.*FSO\/0005/);
+    expect(screen.getByTestId('customer-odoo-quotations-40')).toHaveTextContent(/S00040.*\$420.*Quotation sent/);
+    expect(screen.getByTestId('customer-odoo-invoices-60')).toHaveTextContent(/INV\/2026\/00060.*Not paid|Overdue/);
+    expect(screen.getByTestId('customer-odoo-owed')).toHaveTextContent('Owes $300 in Odoo');
+    expect(screen.queryByTestId('customer-job-sent')).toBeNull();
+    expect(screen.getByTestId('customer-job-notyet')).toBeTruthy();
+    expect(screen.getByText('Waiting to go to Odoo')).toBeTruthy();
+
+    const orderSearch = o.calls.find((x) => x.model === 'fsm.order' && x.method === 'search_read' && JSON.stringify(x.args).includes('child_of'));
+    expect(orderSearch?.args[0]).toEqual(['|', ['location_id.owner_id', 'child_of', 7], ['location_id.partner_id', 'child_of', 7]]);
+    expect(o.calls.find((x) => x.model === 'account.move' && x.method === 'search_read')?.args[0]).toEqual([['move_type', 'in', ['out_invoice', 'out_refund']], ['partner_id', 'child_of', 7]]);
+  });
+});
+
+describe('contacts with the whole address in Street', () => {
+  it('finds them and splits them into street, city and ZIP when asked', async () => {
+    const calls: { method: string; args: unknown[] }[] = [];
+    const rows = [
+      { id: 1, name: 'Walgreens', street: '1300 Main St, Kyle, TX 78640', city: false, zip: false },
+      { id: 2, name: 'Has city', street: '9 Elm St, Unit 4', city: 'Buda', zip: '78610' },
+      { id: 3, name: 'Zip only', street: '5 Oak Ln, Buda', city: false, zip: '78610' },
+    ];
+    const c = { call: async (_m: string, method: string, args: unknown[]) => (calls.push({ method, args }), method === 'search_read' ? rows : true) };
+    const list = await crampedAddresses(c);
+    expect(list).toEqual([
+      { id: 1, name: 'Walgreens', street: '1300 Main St, Kyle, TX 78640', vals: { street: '1300 Main St', city: 'Kyle', zip: '78640' } },
+      { id: 3, name: 'Zip only', street: '5 Oak Ln, Buda', vals: { street: '5 Oak Ln', city: 'Buda', zip: '78610' } },
+    ]);
+    expect(await splitAddresses(c, list)).toBe(2);
+    expect(calls.filter((x) => x.method === 'write').map((x) => x.args)).toEqual([
+      [[1], { street: '1300 Main St', city: 'Kyle', zip: '78640' }],
+      [[3], { street: '5 Oak Ln', city: 'Buda', zip: '78610' }],
+    ]);
   });
 });
 
