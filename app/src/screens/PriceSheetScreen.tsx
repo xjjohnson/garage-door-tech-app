@@ -108,7 +108,7 @@ export function PriceSheetScreen() {
       <SectionTitle>Tax</SectionTitle>
       <MeasureField
         label="Sales tax on parts"
-        hint="Charged on springs and add-ons, not on labor or the service call. Leave blank for none."
+        hint="Only for the phone's estimate while offline; Odoo charges the real tax. Signed in, it is set from Odoo's default sales tax each time the price book updates."
         value={sheet.taxPercent}
         onChange={(taxPercent) => set({ taxPercent })}
         unit="%"

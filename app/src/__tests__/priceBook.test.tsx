@@ -16,6 +16,7 @@ import {
   techKey,
   toggleFavorite,
 } from '../lib/priceBook';
+import { parsePriceSheet, PRICE_SHEET_STORAGE_KEY } from '../lib/prices';
 import { renderApp } from '../testing/renderApp';
 
 type Row = Record<string, unknown>;
@@ -43,6 +44,8 @@ function fakeOdoo({ sales = true } = {}) {
     if (model === 'res.users') return [{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }];
     if (model === 'product.product' && method === 'search_read') return PRODUCTS;
     if (model === 'sale.order.line' && method === 'search_read') return SOLD;
+    if (model === 'res.company' && method === 'search_read') return [{ id: 1, account_sale_tax_id: [7, 'Sales tax 8.25%'] }];
+    if (model === 'account.tax' && method === 'read') return [{ id: 7, amount: 8.25, amount_type: 'percent' }];
     return [];
   };
   const fetchFn: Fetch = async (_url, init) => {
@@ -153,6 +156,8 @@ describe('Price book screen', () => {
     expect(screen.getByTestId('price-book-item-6')).toHaveTextContent(/Nylon roller.*\$219\.99/);
     // Saved for when there's no signal.
     expect(parsePriceBook(await AsyncStorage.getItem(PRICE_BOOK_STORAGE_KEY)).items).toHaveLength(6);
+    // The phone's offline estimate takes Odoo's own sales tax rate.
+    expect(parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY)).taxPercent).toBe('8.25');
 
     await fireEvent.press(screen.getByTestId('price-book-cat-Openers'));
     await settle();
