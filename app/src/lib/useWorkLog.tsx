@@ -10,6 +10,8 @@ interface WorkLogApi extends WorkLog {
   removeShift: (id: string) => void;
   setCentsPerMile: (c: number) => void;
   restore: (incoming: WorkLog) => void;
+  /** Remembers what was sent to Odoo Attendance for a day (does not count as an edit). */
+  markAttendance: (id: string, ref: NonNullable<Shift['odooAtt']>) => void;
 }
 
 const Ctx = createContext<WorkLogApi | null>(null);
@@ -70,7 +72,9 @@ export function WorkLogProvider({ children, now = Date.now }: { children: ReactN
   const setCentsPerMile = useCallback((c: number) => change((l) => ({ ...l, centsPerMile: c })), [change]);
   const restore = useCallback((incoming: WorkLog) => change((l) => mergeWorkLog(l, incoming)), [change]);
 
-  const api = useMemo(() => ({ ...log, loaded, clockIn, clockOut, updateShift, removeShift, setCentsPerMile, restore }), [log, loaded, clockIn, clockOut, updateShift, removeShift, setCentsPerMile, restore]);
+  const markAttendance = useCallback((id: string, ref: NonNullable<Shift['odooAtt']>) => change((l) => ({ ...l, shifts: l.shifts.map((s) => (s.id === id ? { ...s, odooAtt: ref } : s)) })), [change]);
+
+  const api = useMemo(() => ({ ...log, loaded, clockIn, clockOut, updateShift, removeShift, setCentsPerMile, restore, markAttendance }), [log, loaded, clockIn, clockOut, updateShift, removeShift, setCentsPerMile, restore, markAttendance]);
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 
