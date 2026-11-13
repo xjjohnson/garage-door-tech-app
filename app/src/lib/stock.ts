@@ -34,6 +34,11 @@ export interface StockItem {
   odooId?: number;
   /** On hand as Odoo last had it for the truck, so a sync sends only what changed on the phone since. */
   syncedOnHand?: number;
+  /** Reorder point and fill-to as Odoo's replenishment rule last had them; a different min or par on the phone is sent. Unset on items from before this was kept: they're taken as matching, so nothing old is written to Odoo. */
+  syncedMin?: number;
+  syncedPar?: number;
+  /** The supplier as Odoo last had it on the product; a different one on the phone is added to the product's vendors. */
+  syncedSupplier?: string;
 }
 
 export interface Supplier {
@@ -55,6 +60,8 @@ export interface PartUse {
   at: number;
   /** How many actually came off the truck count, when it had fewer than `qty` (so undo doesn't add more than was taken). */
   off?: number;
+  /** When the use was noted on the job's order in Odoo. */
+  sentAt?: number;
 }
 
 /** A purchase order sent to a supplier through Odoo. */
@@ -104,7 +111,7 @@ export const DEFAULT_TRUCK = 'Truck 1';
  * the next sync brings in what Odoo has there. Phone-only items are kept.
  */
 export function switchTruck(store: StockStore, truck: TruckLink, now: number): StockStore {
-  return { ...store, truck: { ...truck, syncedAt: 0 }, items: store.items.map((i) => (i.odooId !== undefined ? { ...i, onHand: 0, syncedOnHand: 0, updatedAt: now } : i)) };
+  return { ...store, truck: { ...truck, syncedAt: 0 }, items: store.items.map((i) => (i.odooId !== undefined ? { ...i, onHand: 0, syncedOnHand: 0, syncedMin: undefined, syncedPar: undefined, updatedAt: now } : i)) };
 }
 
 export const EMPTY_STOCK: StockStore = { items: [], suppliers: [] };
@@ -244,6 +251,9 @@ export function parseStock(raw: string | null | unknown): StockStore {
         ...(typeof i.barcode === 'string' && i.barcode ? { barcode: i.barcode } : {}),
         ...(id(i.odooId) ? { odooId: id(i.odooId) } : {}),
         ...(typeof i.syncedOnHand === 'number' && i.syncedOnHand >= 0 ? { syncedOnHand: n0(i.syncedOnHand) } : {}),
+        ...(typeof i.syncedMin === 'number' ? { syncedMin: n0(i.syncedMin) } : {}),
+        ...(typeof i.syncedPar === 'number' ? { syncedPar: n0(i.syncedPar) } : {}),
+        ...(typeof i.syncedSupplier === 'string' ? { syncedSupplier: i.syncedSupplier } : {}),
       },
     ];
   });
@@ -256,7 +266,7 @@ export function parseStock(raw: string | null | unknown): StockStore {
     if (!x || typeof x !== 'object') return [];
     const u = x as Record<string, unknown>;
     if (typeof u.id !== 'string' || typeof u.itemId !== 'string' || typeof u.at !== 'number') return [];
-    return [{ id: u.id, itemId: u.itemId, name: s0(u.name), qty: n0(u.qty) || 1, at: u.at, ...(typeof u.jobId === 'string' ? { jobId: u.jobId } : {}), ...(typeof u.off === 'number' && u.off >= 0 ? { off: n0(u.off) } : {}) }];
+    return [{ id: u.id, itemId: u.itemId, name: s0(u.name), qty: n0(u.qty) || 1, at: u.at, ...(typeof u.jobId === 'string' ? { jobId: u.jobId } : {}), ...(typeof u.off === 'number' && u.off >= 0 ? { off: n0(u.off) } : {}), ...(typeof u.sentAt === 'number' ? { sentAt: u.sentAt } : {}) }];
   });
   const purchases = (Array.isArray(d.purchases) ? d.purchases : []).flatMap((x): PurchaseOrder[] => {
     if (!x || typeof x !== 'object') return [];

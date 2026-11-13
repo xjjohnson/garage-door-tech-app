@@ -5,7 +5,7 @@ import { daySummary, dayText, DAY_CLOSE_STORAGE_KEY, parseClosedDays } from '../
 import { Invoice } from '../lib/invoices';
 import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
-import { browseProducts, createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
+import { postPartsUsed, browseProducts, createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
 import { Appointment } from '../lib/schedule';
@@ -40,6 +40,7 @@ function fakeStockOdoo() {
   const quants: { id: number; product: number; qty: number; pending?: number; loc?: number }[] = [{ id: 1, product: 11, qty: 5 }];
   const pickings: Record<number, { state: string; dest: number; lines: { product: number; qty: number }[] }> = {};
   let nextId = 100;
+  const rule = { min: 2, max: 6 };
   const call = async (model: string, method: string, args: unknown[] = [], kw: Record<string, unknown> = {}) => {
     calls.push({ model, method, args, kw });
     const key = `${model}.${method}`;
@@ -57,7 +58,20 @@ function fakeStockOdoo() {
         return quants.filter((q) => (pid === undefined || q.product === pid) && inLoc(q)).map((q) => ({ id: q.id, product_id: [q.product, pname(q.product)], location_id: [q.loc ?? 7, 'Truck'], quantity: q.qty }));
       }
       case 'stock.warehouse.orderpoint.search_read':
-        return [{ id: 1, product_id: [11, pname(11)], product_min_qty: 2, product_max_qty: 6 }];
+        return [{ id: 1, product_id: [11, pname(11)], product_min_qty: rule.min, product_max_qty: rule.max }];
+      case 'stock.warehouse.orderpoint.search':
+        return (args[0] as unknown[][]).some((d) => d[0] === 'product_id' && d[2] === 11) ? [1] : [];
+      case 'stock.warehouse.orderpoint.write':
+        Object.assign(rule, { min: (args[1] as { product_min_qty: number }).product_min_qty, max: (args[1] as { product_max_qty: number }).product_max_qty });
+        return true;
+      case 'stock.warehouse.orderpoint.fields_get':
+        return { trigger: {} };
+      case 'stock.warehouse.orderpoint.create':
+        return 2;
+      case 'product.supplierinfo.search':
+        return [];
+      case 'product.supplierinfo.create':
+        return 9;
       case 'product.product.read':
         return (args[0] as number[]).map((id) => products.find((p) => p.id === id)).filter(Boolean);
       case 'product.supplierinfo.search_read':
@@ -145,7 +159,7 @@ function fakeStockOdoo() {
   };
   const session = { uid: 2, name: 'Justin Johnson', kind: 'oca', fields: [], apps: { products: true, sales: true, invoicing: true } };
   const client = { session, call } as unknown as OdooClient;
-  return { client, calls, quants, pickings, failOn, session, locations, products, untracked };
+  return { client, calls, quants, pickings, failOn, session, locations, products, untracked, rule };
 }
 
 describe('truck stock with Odoo Inventory (plain logic)', () => {
@@ -186,6 +200,31 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     const third = await syncTruck(o.client, second.store, 3000, () => 'new-sensors');
     expect(third.added).toBe(1);
     expect(third.store.items.find((i) => i.id === 'new-sensors')).toMatchObject({ name: 'Safety sensors (pair)', category: 'openers', onHand: 2, odooId: 13, barcode: '777' });
+  });
+
+  it('sends reorder numbers and suppliers changed on the phone, but never old ones', async () => {
+    const o = fakeStockOdoo();
+    // An item saved before reorder numbers were tracked: first sync takes Odoo's, sends nothing.
+    const store: StockStore = { items: [item('r', { name: 'Nylon rollers (10)', onHand: 5, odooId: 11, syncedOnHand: 5, min: 9, par: 20, supplier: 'Old phone vendor' })], suppliers: [] };
+    const first = await syncTruck(o.client, store, 1000);
+    expect(o.calls.filter((c) => c.method === 'write' || c.method === 'create')).toEqual([]);
+    expect(first.store.items[0]).toMatchObject({ min: 2, par: 6, supplier: 'DDM Garage Doors', syncedMin: 2, syncedPar: 6, syncedSupplier: 'DDM Garage Doors' });
+
+    // Now edited on the phone: the rule is written, and a new vendor is put on the product.
+    const edited = { ...first.store, items: first.store.items.map((i) => ({ ...i, min: 4, par: 8, supplier: 'Acme Doors' })) };
+    const second = await syncTruck(o.client, edited, 2000);
+    expect(o.rule).toEqual({ min: 4, max: 8 });
+    expect(o.calls.find((c) => c.model === 'product.supplierinfo' && c.method === 'create')?.args[0]).toMatchObject({ partner_id: 56, product_tmpl_id: 111, sequence: 0 });
+    expect(second.store.items[0]).toMatchObject({ min: 4, par: 8, syncedMin: 4, syncedPar: 8 });
+    expect(second.store.suppliers.find((x) => x.name === 'Acme Doors')).toMatchObject({ odooId: 56 });
+    expect(second.problems).toEqual([]);
+  });
+
+  it('notes parts used on the job order', async () => {
+    const o = fakeStockOdoo();
+    const post = jest.fn(async () => true);
+    await postPartsUsed({ ...o.client, call: post } as unknown as OdooClient, { model: 'fsm.order', id: 500 }, [{ name: 'Spring <250>', qty: 2 }]);
+    expect(post).toHaveBeenCalledWith('fsm.order', 'message_post', [[500]], expect.objectContaining({ body: expect.stringContaining('2 × Spring &lt;250&gt;') }));
   });
 
   it("gives each tech their own truck: by name, else Truck 1, else they pick", async () => {

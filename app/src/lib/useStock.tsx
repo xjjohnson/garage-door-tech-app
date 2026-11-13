@@ -20,6 +20,8 @@ interface StockApi extends StockStore {
   restore: (incoming: StockStore) => void;
   /** Takes parts off the truck for a job. */
   takeParts: (itemId: string, qty: number, jobId?: string) => void;
+  /** Notes that these uses are now on their jobs' orders in Odoo. */
+  markUsesSent: (ids: string[], at: number) => void;
   /** Puts a used part back on the truck. */
   undoUse: (useId: string) => void;
   /** Two-way sync with the truck's Inventory location in Odoo. */
@@ -129,6 +131,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
       }),
     [change],
   );
+  const markUsesSent = useCallback<StockApi['markUsesSent']>((ids, at) => change((s) => ({ ...s, used: (s.used ?? []).map((u) => (ids.includes(u.id) ? { ...u, sentAt: at } : u)) })), [change]);
   const undoUse = useCallback(
     (useId: string) =>
       change((s) => {
@@ -289,8 +292,8 @@ export function StockProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder, chooseTruck, orderForJob, addToOdoo }),
-    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, undoUse, sync, sendOrder, receiveOrder, chooseTruck, orderForJob, addToOdoo],
+    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, undoUse, sync, sendOrder, receiveOrder, chooseTruck, orderForJob, addToOdoo }),
+    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, undoUse, sync, sendOrder, receiveOrder, chooseTruck, orderForJob, addToOdoo],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

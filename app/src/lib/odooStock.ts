@@ -154,6 +154,37 @@ export async function readTruck(client: OdooClient, locationId: number): Promise
   return products.map((p) => ({ ...p, qty: Math.max(0, Math.round(qty.get(p.id) ?? 0)), ...(rule.has(p.id) ? rule.get(p.id) : {}) }));
 }
 
+/**
+ * Sets the truck's replenishment rule for a product (stock.warehouse.orderpoint):
+ * changes the one there, or makes it. A new rule is set to manual, so Odoo
+ * only suggests the order and never buys on its own.
+ */
+export async function writeOrderpoint(client: OdooClient, locationId: number, productId: number, min: number, max: number): Promise<void> {
+  const vals = { product_min_qty: min, product_max_qty: max };
+  const [existing] = (await client.call('stock.warehouse.orderpoint', 'search', [[['product_id', '=', productId], ['location_id', '=', locationId]]], { limit: 1 })) as number[];
+  if (existing) {
+    await client.call('stock.warehouse.orderpoint', 'write', [[existing], vals]);
+    return;
+  }
+  const fields = (await client.call('stock.warehouse.orderpoint', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
+  await client.call('stock.warehouse.orderpoint', 'create', [{ product_id: productId, location_id: locationId, ...vals, ...('trigger' in fields ? { trigger: 'manual' } : {}) }]);
+}
+
+/**
+ * Makes the supplier one of the product's vendors (product.supplierinfo), first
+ * in line, unless they already are. The vendor contact is found or made.
+ * Returns the contact's id.
+ */
+export async function writeSupplierInfo(client: OdooClient, supplier: Supplier, productId: number, priceCents: number): Promise<number> {
+  const partner = await vendorFor(client, supplier);
+  const [row] = (await client.call('product.product', 'read', [[productId]], { fields: ['product_tmpl_id'] })) as Record<string, unknown>[];
+  const tmpl = many2one(row?.product_tmpl_id)?.[0];
+  if (!tmpl) return partner;
+  const [has] = (await client.call('product.supplierinfo', 'search', [[['product_tmpl_id', '=', tmpl], ['partner_id', '=', partner]]], { limit: 1 })) as number[];
+  if (!has) await client.call('product.supplierinfo', 'create', [{ partner_id: partner, product_tmpl_id: tmpl, sequence: 0, ...(priceCents > 0 ? { price: priceCents / 100 } : {}) }]);
+  return partner;
+}
+
 /** The product with this barcode or internal reference, for a scan. */
 export async function findProductByCode(client: OdooClient, code: string): Promise<StockProduct | null> {
   const c = code.trim();
@@ -417,6 +448,36 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
     }
     items.push(i);
   }
+  // Reorder numbers and suppliers changed on the phone since Odoo last had them. Items from before this was
+  // tracked (no synced value) are taken as matching, so nothing old is written to Odoo.
+  const suppliers: Supplier[] = [...store.suppliers];
+  const heldRule = new Set<string>();
+  const heldSupplier = new Set<string>();
+  for (const i of items) {
+    if (i.odooId === undefined || held.has(i.id)) continue;
+    if (i.syncedMin !== undefined && i.syncedPar !== undefined && (i.min !== i.syncedMin || i.par !== i.syncedPar)) {
+      try {
+        await writeOrderpoint(client, truck.locationId, i.odooId, i.min, i.par);
+        sent++;
+      } catch (e) {
+        heldRule.add(i.id);
+        problems.push({ name: i.name, why: `reorder numbers: ${e instanceof Error ? e.message : String(e)}` });
+      }
+    }
+    const want = i.supplier.trim();
+    if (i.syncedSupplier !== undefined && want && want.toLowerCase() !== i.syncedSupplier.trim().toLowerCase()) {
+      try {
+        let at = suppliers.findIndex((x) => x.name.trim().toLowerCase() === want.toLowerCase());
+        if (at < 0) at = suppliers.push({ name: want, phone: '', email: '' }) - 1;
+        const partner = await writeSupplierInfo(client, suppliers[at], i.odooId, i.costCents);
+        suppliers[at] = { ...suppliers[at], odooId: partner };
+        sent++;
+      } catch (e) {
+        heldSupplier.add(i.id);
+        problems.push({ name: i.name, why: `supplier: ${e instanceof Error ? e.message : String(e)}` });
+      }
+    }
+  }
   if (sent > 0) {
     lines = await readTruck(client, truck.locationId);
   } else {
@@ -427,7 +488,6 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
   const fresh = new Map(lines.map((l) => [l.id, l]));
   for (const i of items) if (i.odooId !== undefined && !fresh.has(i.odooId)) fresh.set(i.odooId, { id: i.odooId, name: i.name, code: i.sku, barcode: i.barcode ?? '', costCents: i.costCents, qty: 0 });
 
-  const suppliers: Supplier[] = [...store.suppliers];
   const vendorName = (v: NonNullable<StockProduct['vendor']>) => {
     const at = suppliers.findIndex((s) => s.odooId === v.id || s.name.trim().toLowerCase() === v.name.trim().toLowerCase());
     if (at < 0) suppliers.push({ name: v.name, phone: '', email: '', odooId: v.id });
@@ -446,9 +506,17 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       ...(l.code ? { sku: l.code } : {}),
       ...(l.barcode ? { barcode: l.barcode } : {}),
       ...(l.costCents > 0 ? { costCents: l.costCents } : l.vendor && l.vendor.priceCents > 0 ? { costCents: l.vendor.priceCents } : {}),
-      ...(l.min !== undefined && l.max !== undefined ? { min: Math.round(l.min), par: Math.round(l.max) } : {}),
-      ...(l.vendor ? { supplier: vendorName(l.vendor) } : {}),
+      ...(l.min !== undefined && l.max !== undefined && !heldRule.has(i.id) ? { min: Math.round(l.min), par: Math.round(l.max) } : {}),
+      ...(l.vendor && !heldSupplier.has(i.id) ? { supplier: vendorName(l.vendor) } : {}),
       updatedAt: now,
+    };
+  }).map((i): StockItem => {
+    if (i.odooId === undefined || !fresh.has(i.odooId) || held.has(i.id)) return i;
+    // What Odoo has now counts as sent; an item Odoo refused keeps its old value, so the change goes again next time.
+    return {
+      ...i,
+      ...(heldRule.has(i.id) ? {} : { syncedMin: i.min, syncedPar: i.par }),
+      ...(heldSupplier.has(i.id) ? {} : { syncedSupplier: i.supplier }),
     };
   });
   const known = new Set(out.map((i) => i.odooId).filter((x) => x !== undefined));
@@ -541,4 +609,13 @@ export async function receivePurchaseOrder(client: OdooClient, purchaseId: numbe
     if (r && typeof r === 'object') ok = false;
   }
   return ok;
+}
+
+/**
+ * Notes the parts used on a job in the job's order (its chatter), so Odoo
+ * shows what came off the truck for it. One note per call.
+ */
+export async function postPartsUsed(client: OdooClient, ref: { model: string; id: number }, uses: { name: string; qty: number }[]): Promise<void> {
+  const body = `<p>Parts used from the truck (from the app):</p><ul>${uses.map((u) => `<li>${u.qty} × ${u.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}</ul>`;
+  await client.call(ref.model, 'message_post', [[ref.id]], { body, message_type: 'comment', subtype_xmlid: 'mail.mt_note' });
 }
