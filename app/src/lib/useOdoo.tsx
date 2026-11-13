@@ -93,6 +93,11 @@ export function OdooProvider({ children, fetchFn, secrets: givenSecrets }: { chi
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 
+/** The Odoo sign-in where there is one above; null in a bare component (some tests). */
+export function useOdooIfAny(): OdooApi | null {
+  return useContext(Ctx);
+}
+
 export function useOdoo(): OdooApi {
   const api = useContext(Ctx);
   if (!api) throw new Error('useOdoo needs an OdooProvider above it');

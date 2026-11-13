@@ -157,8 +157,8 @@ export function SyncLine() {
     );
   }
   return (
-    <Pressable onPress={() => router.push('/developer')} accessibilityRole="button" testID="today-sync" style={({ pressed }) => [styles.syncPill, styles.syncWarn, pressed && styles.pressed]}>
-      <Text style={styles.sync}>Not in Odoo yet: {describePending(pending)}</Text>
+    <Pressable onPress={() => router.push('/odoo-waiting')} accessibilityRole="button" accessibilityHint="Shows what's waiting, with Sync now" testID="today-sync" style={({ pressed }) => [styles.syncPill, styles.syncWarn, pressed && styles.pressed]}>
+      <Text style={styles.sync}>Not in Odoo yet: {describePending(pending)} · See and sync ›</Text>
     </Pressable>
   );
 }

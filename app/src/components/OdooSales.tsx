@@ -3,6 +3,7 @@ import { useAppForeground } from '../lib/useAppForeground';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Invoice, invoiceNo, invoiceRef, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
+import { onSyncNow } from '../lib/syncNow';
 import { EmailResult, emailedText, emailInvoice, partnerEmail, PdfFile } from '../lib/odooReports';
 import { pdfName, signedPageHtml } from '../lib/pdf';
 import { Signature, signatureFor } from '../lib/attachments';
@@ -267,6 +268,18 @@ export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
   useAppForeground(() => {
     if (online) pass();
   });
+
+  // Sync now: send waiting invoices straight away, ones that failed lately too.
+  useEffect(
+    () =>
+      online
+        ? onSyncNow(() => {
+            failed.current.clear();
+            return pass();
+          })
+        : undefined,
+    [online, pass],
+  );
 
   return null;
 }

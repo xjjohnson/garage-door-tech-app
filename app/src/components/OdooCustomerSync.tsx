@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { finishCustomerSync, planCustomerSync } from '../lib/customerSync';
 import { OdooError } from '../lib/odoo';
 import { CrampedAddress, crampedAddresses, splitAddresses } from '../lib/odooContacts';
-import { useCustomers } from '../lib/useCustomers';
+import { useCustomerSync } from '../lib/useCustomerSync';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
 
@@ -16,7 +15,7 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
  */
 export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
   const { status, client } = useOdoo();
-  const { customers, apply } = useCustomers();
+  const syncCustomers = useCustomerSync(now);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,28 +29,8 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
     setBusy(true);
     setError(null);
     setResult(null);
-    const before = customers;
     try {
-      const plan = planCustomerSync(before, await client.partners(), now());
-      const created: Record<string, number> = {};
-      const sent = new Set<string>();
-      try {
-        for (const c of plan.toCreate) created[c.id] = await client.createPartner(c);
-        for (const w of plan.toWrite) {
-          await client.writePartner(w.odooId, w.fields);
-          sent.add(w.customerId);
-        }
-      } finally {
-        // Keep whatever made it across, even if Odoo stopped answering part way.
-        apply((current) => finishCustomerSync(current, before, plan, created, sent));
-      }
-      const parts = [
-        plan.added ? `brought in ${plural(plan.added, 'customer')} from Odoo` : '',
-        plan.updated ? `updated ${plan.updated} with Odoo's changes` : '',
-        plan.toCreate.length ? `added ${plan.toCreate.length} to Odoo` : '',
-        plan.toWrite.length ? `sent ${plural(plan.toWrite.length, 'change')} to Odoo` : '',
-      ].filter(Boolean);
-      setResult(parts.length ? `Done: ${parts.join(', ')}.` : 'Customers already match Odoo.');
+      setResult(await syncCustomers());
       setFixed(null);
       setSkip(new Set());
       setCramped(await crampedAddresses(client).catch(() => []));
