@@ -8,6 +8,7 @@ import { OdooCustomerBackgroundSync } from '../components/OdooCustomerBackground
 import { OdooInvoicesSync } from '../components/OdooSales';
 import { OdooJobSync } from '../components/OdooJobSync';
 import { OdooPhotoSync } from '../components/OdooPhotoSync';
+import { OdooSettingsSync } from '../components/OdooSettingsSync';
 import { OdooReportSync } from '../components/OdooReportSync';
 import { OdooAttendanceSync } from '../components/OdooAttendanceSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
@@ -56,6 +57,7 @@ export default function RootLayout() {
                             <OdooCustomerBackgroundSync />
                             <OdooJobSync />
                             <OdooPhotoSync />
+                            <OdooSettingsSync />
                             <OdooReportSync />
                             <OdooAttendanceSync />
                             <OdooInvoicesSync />
