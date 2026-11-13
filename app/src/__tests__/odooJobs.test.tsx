@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { OdooJobSync } from '../components/OdooJobSync';
+import { OdooVisitSync } from '../components/OdooVisitSync';
+import { visitsToClose, visitsToCreate } from '../lib/odooVisits';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, Job, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, ODOO_STORAGE_KEY, OdooClient, toOdooTime } from '../lib/odoo';
@@ -85,7 +87,7 @@ function fakeOdoo(refuseDeleted = false) {
       locations.push({ id: 80 + locations.length, ...(args[0] as Row) });
       return reply(80 + locations.length - 1);
     }
-    if (model === 'fsm.stage' && method === 'search') return reply([9]);
+    if (model === 'fsm.stage' && method === 'search') return reply((args[0] as unknown[][]).some((d) => d[0] === 'name') ? [8] : [9]);
     if (model === 'fsm.order' && method === 'create') {
       const id = 500 + orders.length;
       orders.push({ id, name: `FSO${id}`, person_id: false, scheduled_date_start: false, scheduled_duration: 0, stage_id: [1, 'New'], ...(args[0] as Row) });
@@ -274,6 +276,7 @@ async function renderSync(fetchFn: Fetch) {
         <ScheduleProvider>
           <OdooProvider fetchFn={fetchFn} secrets={SECRETS}>
             <OdooJobSync />
+            <OdooVisitSync />
           </OdooProvider>
         </ScheduleProvider>
       </CustomersProvider>
@@ -422,6 +425,66 @@ describe('job sync in the background', () => {
     const [v] = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(v.start).toBe(at(16, 1));
     expect(v.syncedAt).toBe(5);
+  });
+});
+
+describe('visits as Odoo jobs', () => {
+  const visit = (id: string, over: Partial<Appointment> = {}): Appointment => ({ id, start: at(10, 1), minutes: 60, name: 'Pat Smith', address: '1 Oak St', phone: '555', what: 'Tune-up', status: 'booked', createdAt: 1000, updatedAt: 1000, ...over });
+
+  beforeEach(async () => {
+    resetJobsSince();
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(ODOO_STORAGE_KEY, JSON.stringify(login));
+    await AsyncStorage.setItem(JOBS_SINCE_KEY, '500');
+  });
+  afterEach(async () => {
+    await act(async () => shown?.unmount());
+    shown = null;
+    await settle(5);
+  });
+
+  it('picks the visits to send: new, job-less, booked after sending started', () => {
+    const list = [visit('a-1'), visit('a-2', { createdAt: 100 }), visit('a-3', { jobId: 'j1' }), visit('odoo-9'), visit('a-4', { name: ' ' }), visit('a-5', { status: 'cancelled' })];
+    expect(visitsToCreate(list, 500).map((a) => a.id)).toEqual(['a-1']);
+    expect(visitsToCreate(list, null)).toEqual([]);
+    const done = [visit('odoo-9', { status: 'done', updatedAt: 900, syncedAt: 100 }), visit('odoo-8', { status: 'done', updatedAt: 300, syncedAt: 100 }), visit('odoo-7', { status: 'done', updatedAt: 900, syncedAt: 900 }), visit('a-9', { status: 'done', updatedAt: 900 })];
+    expect(visitsToClose(done, 500).map((a) => a.id)).toEqual(['odoo-9']);
+  });
+
+  it('makes an order for a visit with no job, given to me', async () => {
+    const o = fakeOdoo();
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([visit('a-1'), visit('a-old', { createdAt: 100, name: 'Old Timer' })]));
+    await renderSync(o.fetchFn);
+    await settle();
+    expect(o.orders).toHaveLength(1);
+    expect(o.orders[0]).toMatchObject({ person_id: 40, scheduled_date_start: toOdooTime(at(10, 1)) });
+    expect(String(o.orders[0].description)).toContain('App job visit-a-1');
+    expect(o.partners.map((p) => p.name)).toEqual(['Pat Smith']);
+    const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
+    expect(saved.map((v) => [v.id, v.odooName])).toEqual([['a-old', undefined], ['odoo-500', 'FSO500']]);
+  });
+
+  it('completes the order when a visit is marked done, and cancels it when cancelled', async () => {
+    const o = fakeOdoo();
+    o.orders.push({ id: 500, name: 'FSO500', person_id: 40, scheduled_date_start: toOdooTime(at(9, 1)), scheduled_duration: 1, stage_id: [1, 'New'] }, { id: 501, name: 'FSO501', person_id: 40, scheduled_date_start: toOdooTime(at(11, 1)), scheduled_duration: 1, stage_id: [1, 'New'] });
+    await AsyncStorage.setItem(
+      SCHEDULE_STORAGE_KEY,
+      JSON.stringify([visit('odoo-500', { status: 'done', updatedAt: 900, syncedAt: 100 }), visit('odoo-501', { status: 'cancelled', updatedAt: 900, syncedAt: 100 })]),
+    );
+    await renderSync(o.fetchFn);
+    await settle();
+    expect(o.orders[0].stage_id).toEqual([9, 'Done']);
+    expect(o.orders[1].stage_id).toBe(8);
+    const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
+    expect(saved.map((v) => [v.id, v.status, v.syncedAt])).toEqual([['odoo-500', 'done', 900], ['odoo-501', 'cancelled', 900]]);
+  });
+
+  it('leaves a visit whose order was deleted in Odoo alone', async () => {
+    const o = fakeOdoo();
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([visit('odoo-777', { status: 'cancelled', updatedAt: 900, syncedAt: 100 })]));
+    await renderSync(o.fetchFn);
+    await settle();
+    expect(o.calls.filter((c) => c.method === 'write' || c.method === 'action_complete')).toEqual([]);
   });
 });
 
