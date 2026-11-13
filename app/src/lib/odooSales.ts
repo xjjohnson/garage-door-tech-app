@@ -40,6 +40,8 @@ export interface OdooInvoiceState extends OdooRef {
   tax?: number;
   /** Odoo's invoice lines (read since 0.5.18): the phone shows these once the invoice is in Odoo. */
   lines?: OdooInvoiceLine[];
+  /** Voided on the phone and undone in Odoo (since 0.5.39): "cancelled", or the credit note's number. */
+  voided?: string;
 }
 
 export interface OdooInvoiceLine {
@@ -189,6 +191,40 @@ export async function sendPayments(client: OdooClient, invoiceId: number, paymen
   return sent;
 }
 
+/**
+ * Undoes an invoice in Odoo after it was voided on the phone: a draft is
+ * cancelled; a posted one gets a credit note (Odoo's Reverse button), which
+ * is posted and, while the invoice is still owed, set against it so it shows
+ * as reversed. A paid invoice's credit note stays open for the refund.
+ * Returns "cancelled" or the credit note's number.
+ */
+export async function voidInvoice(client: OdooClient, id: number, reason: string): Promise<string> {
+  const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['state', 'amount_residual'] })) as { state?: string; amount_residual?: number }[];
+  if (!r) throw new Error('That invoice is no longer in Odoo.');
+  if (r.state === 'cancel') return 'cancelled';
+  if (r.state === 'draft') {
+    await client.call('account.move', 'button_cancel', [[id]]);
+    return 'cancelled';
+  }
+  const existing = (await client.call('account.move', 'search_read', [[['reversed_entry_id', '=', id], ['state', '!=', 'cancel']]], { fields: ['id', 'name', 'state'], limit: 1 })) as { id: number; name?: string; state?: string }[];
+  let credit = existing[0];
+  if (!credit) {
+    const context = { active_model: 'account.move', active_ids: [id] };
+    const wizard = (await client.call('account.move.reversal', 'create', [{ move_ids: [[6, 0, [id]]], reason, date: new Date().toISOString().slice(0, 10) }], { context })) as number;
+    await client.call('account.move.reversal', 'reverse_moves', [[wizard]], { context });
+    credit = ((await client.call('account.move', 'search_read', [[['reversed_entry_id', '=', id], ['state', '!=', 'cancel']]], { fields: ['id', 'name', 'state'], limit: 1 })) as { id: number; name?: string; state?: string }[])[0];
+    if (!credit) throw new Error("Odoo didn't make the credit note.");
+  }
+  if (credit.state === 'draft') await client.call('account.move', 'action_post', [[credit.id]]);
+  if ((r.amount_residual ?? 0) > 0) {
+    // Set the credit note against the invoice, like Odoo's "Add" on its outstanding credits.
+    const lines = (await client.call('account.move.line', 'search', [[['move_id', '=', credit.id], ['account_type', '=', 'asset_receivable'], ['reconciled', '=', false]]], { limit: 1 })) as number[];
+    if (lines[0]) await client.call('account.move', 'js_assign_outstanding_line', [[id], lines[0]]);
+  }
+  const [named] = (await client.call('account.move', 'read', [[credit.id]], { fields: ['name'] })) as { name?: string }[];
+  return named?.name || credit.name || `#${credit.id}`;
+}
+
 /** Reads a stored OdooRef. */
 export function parseRef(v: unknown): OdooRef | undefined {
   if (!v || typeof v !== 'object') return undefined;
@@ -210,6 +246,7 @@ export function parseInvoiceState(v: unknown): OdooInvoiceState | undefined {
     sentPayments: Array.isArray(r.sentPayments) ? r.sentPayments.filter((x): x is string => typeof x === 'string') : [],
     checkedAt: n(r.checkedAt),
     ...(typeof r.signatureSent === 'string' ? { signatureSent: r.signatureSent } : {}),
+    ...(typeof r.voided === 'string' && r.voided ? { voided: r.voided } : {}),
     ...(typeof r.untaxed === 'number' ? { untaxed: r.untaxed, tax: n(r.tax) } : {}),
     ...(Array.isArray(r.lines)
       ? {

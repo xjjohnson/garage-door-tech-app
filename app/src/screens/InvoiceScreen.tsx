@@ -233,9 +233,10 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
       {pdfError ? <Text style={styles.meta}>Couldn't make the PDF. Try again, or send it as text.</Text> : null}
       <Action label="Send as text" onPress={() => Share.share({ message: invoiceText(invoice, business) }).catch(() => undefined)} testID="invoice-share" />
       {status === 'void' ? (
-        <Action label="Restore invoice" onPress={() => setVoid(invoice.id, false)} testID="invoice-unvoid" />
+        // Once undone in Odoo (cancelled or a credit note) it can't come back; make a new invoice instead.
+        invoice.odoo?.voided ? null : <Action label="Restore invoice" onPress={() => setVoid(invoice.id, false)} testID="invoice-unvoid" />
       ) : (
-        <ConfirmButton label="Void invoice" armedLabel="Tap again to void" onPress={() => setVoid(invoice.id, true)} testID="invoice-void" />
+        <ConfirmButton label="Void invoice" armedLabel={invoice.odoo ? 'Tap again to void here and in Odoo' : 'Tap again to void'} onPress={() => setVoid(invoice.id, true)} testID="invoice-void" />
       )}
     </View>
   );
