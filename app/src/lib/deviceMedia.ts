@@ -16,6 +16,8 @@ export interface DeviceMedia {
   photoDataUrl?(uri: string): Promise<string | null>;
   /** Makes a PDF from HTML and returns it as base64, to send to Odoo. */
   pdfBase64?(html: string): Promise<string>;
+  /** A saved file (a voice note) as base64, to send to Odoo; null if it can't be read. */
+  fileBase64?(uri: string): Promise<string | null>;
   /** Copies a file (a voice note) into the app's own folder and returns the copy. */
   keepFile?(uri: string, folder: string): Promise<string>;
 }
@@ -92,6 +94,13 @@ export function deviceMedia(): DeviceMedia | null {
       try {
         const ext = (uri.split('?')[0].match(/\.(png|webp)$/i)?.[1] ?? 'jpeg').toLowerCase();
         return `data:image/${ext};base64,${await new fs.File(uri).base64()}`;
+      } catch {
+        return null;
+      }
+    },
+    async fileBase64(uri) {
+      try {
+        return await new fs.File(uri).base64();
       } catch {
         return null;
       }

@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { log } from '../lib/log';
 import { onSyncNow } from '../lib/syncNow';
 import type { OdooPartner } from '../lib/customerSync';
-import { applyState, canSendJobs, createOdooJob, jobChanged, myId, partnerFor, pullSchedule, pushJobChanges, readJobStates, sentAtCreate, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
+import { applyState, canSendJobs, createOdooJob, jobChanged, myId, orphanVisits, partnerFor, pullSchedule, pushJobChanges, readJobStates, sentAtCreate, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
 import { Appointment } from '../lib/schedule';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useCustomers } from '../lib/useCustomers';
@@ -165,6 +165,13 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
         const visits = S2.appointments.filter((a) => !drop.includes(a.id)).map((a) => add.find((x) => x.id === a.id) ?? a);
         const pulled = pullSchedule([...visits, ...add.filter((x) => !visits.some((a) => a.id === x.id))], mine, linked, now());
         if (pulled.add.length || pulled.drop.length) S2.replace(pulled.drop, pulled.add);
+      }
+
+      // 5. Visits left behind by a job that's gone from the phone.
+      const left = orphanVisits(latest.current.schedule.appointments, latest.current.jobsApi.jobs);
+      if (left.length) {
+        latest.current.schedule.replace(left, []);
+        log.warn('odoo', `${left.length} visit(s) removed: their job is gone`);
       }
     } catch (e) {
       log.warn('odoo', `job sync: ${message(e)}`);

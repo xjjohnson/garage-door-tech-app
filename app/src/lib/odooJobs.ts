@@ -344,6 +344,16 @@ export function parseJobRef(v: unknown): OdooJobRef | undefined {
   return (r.model === 'fsm.order' || r.model === 'project.task') && typeof r.id === 'number' ? { model: r.model, id: r.id, name: typeof r.name === 'string' ? r.name : `#${r.id}` } : undefined;
 }
 
+/**
+ * Booked visits whose job isn't on the phone any more (it was deleted here,
+ * or its order was deleted in Odoo): they'd sit on the schedule for good,
+ * since nothing else owns them. Visits with no job at all are left alone.
+ */
+export function orphanVisits(visits: Pick<Appointment, 'id' | 'jobId' | 'status'>[], jobs: Pick<Job, 'id'>[]): string[] {
+  const have = new Set(jobs.map((j) => j.id));
+  return visits.filter((v) => v.status === 'booked' && v.jobId && !have.has(v.jobId)).map((v) => v.id);
+}
+
 /** What a job in Odoo is for, from its notes: the first line that isn't the app's own marker, else its reference. */
 export function whatOf(t: Pick<OdooTask, 'name' | 'notes'>): string {
   return t.notes.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('App job ')) ?? t.name;

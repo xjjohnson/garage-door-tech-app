@@ -1,0 +1,143 @@
+/**
+ * Sends inspection voice notes and signed reports to the job's Field Service
+ * order in the background. Each voice note is attached to the order once the
+ * job is in Odoo, so a lost phone doesn't lose it.
+ *
+ * Sends a signed inspection report to the job's Field Service order in the
+ * background while signed in, so it's in Odoo without the tech tapping Save
+ * to Odoo: a PDF attached to the order, with a chatter note listing the
+ * flagged items. It goes shortly after signing, when the app comes back, and
+ * every few minutes; signing again sends it again. Only reports signed after
+ * this first ran on the phone go on their own, so an update doesn't send old
+ * reports in bulk. Renders nothing.
+ */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { log } from '../lib/log';
+import type { Inspection } from '../lib/inspection';
+import { jobTarget, reportNote, reportsToSend, sendReport, sendVoice, voiceToSend } from '../lib/odooReports';
+import { MAX_ODOO_PDF_BASE64, pdfName } from '../lib/pdf';
+import { inspectionReportHtml } from '../lib/reportFiles';
+import { onSyncNow } from '../lib/syncNow';
+import { useAppForeground } from '../lib/useAppForeground';
+import { useAttachments } from '../lib/useAttachments';
+import { useInvoices } from '../lib/useInvoices';
+import { useJobs } from '../lib/useJobs';
+import { useOdoo } from '../lib/useOdoo';
+
+/** When this phone started sending signed reports on its own. */
+export const REPORT_SYNC_SINCE_KEY = 'johnsons.reportSync.since';
+
+const EVERY_MS = 5 * 60_000;
+const AFTER_CHANGE_MS = 3000;
+/** Voice notes sent in one pass, so a slow signal isn't tied up. */
+const VOICE_BATCH = 4;
+
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+export function OdooReportSync() {
+  const { status, client } = useOdoo();
+  const { jobs, loaded: jobsLoaded, setInspection } = useJobs();
+  const attachments = useAttachments();
+  const { business } = useInvoices();
+  const [since, setSince] = useState<number | null>(null);
+  const running = useRef(false);
+  /** Reports too big for Odoo, by job and signing time, so they aren't remade every pass. */
+  const tooBig = useRef(new Set<string>());
+  const latest = useRef({ jobs, attachments, business });
+  latest.current = { jobs, attachments, business };
+
+  useEffect(() => {
+    let live = true;
+    AsyncStorage.getItem(REPORT_SYNC_SINCE_KEY)
+      .catch(() => null)
+      .then(async (v) => {
+        let at = Number(v);
+        if (!v || !Number.isFinite(at)) {
+          at = Date.now();
+          await AsyncStorage.setItem(REPORT_SYNC_SINCE_KEY, String(at)).catch(() => undefined);
+        }
+        if (live) setSince(at);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const media = attachments.media;
+  const make = media?.pdfBase64;
+  const readFile = media?.fileBase64;
+  const online = status === 'signedIn' && !!client && !!make && attachments.loaded && jobsLoaded && since !== null;
+  const waiting = online ? reportsToSend(jobs, attachments.signatures, since).filter((r) => !tooBig.current.has(`${r.job.id}@${r.signedAt}`)).length + (readFile ? voiceToSend(jobs, since).length : 0) : 0;
+
+  const pass = useCallback(async () => {
+    if (!client || !make || since === null || running.current) return;
+    running.current = true;
+    try {
+      // Voice notes sent this pass (job → note → attachment), put on the job with every save below,
+      // since the saved job may not have caught up with an earlier save yet.
+      const marks = new Map<string, Map<string, number>>();
+      const marked = (jobId: string, insp: Inspection): Inspection => {
+        const m = marks.get(jobId);
+        return m ? { ...insp, voice: insp.voice.map((n) => (m.has(n.id) ? { ...n, odooId: m.get(n.id) } : n)) } : insp;
+      };
+      const current = (jobId: string) => latest.current.jobs.find((j) => j.id === jobId)?.inspection;
+      if (readFile) {
+        for (const { jobId, note, ref } of voiceToSend(latest.current.jobs, since).slice(0, VOICE_BATCH)) {
+          try {
+            const data = await readFile(note.uri);
+            if (!data) continue;
+            const id = await sendVoice(client, ref, note, data);
+            if (!marks.has(jobId)) marks.set(jobId, new Map());
+            marks.get(jobId)!.set(note.id, id);
+            const insp = current(jobId);
+            if (insp) setInspection(jobId, marked(jobId, insp));
+          } catch (e) {
+            log.warn('odoo', `voice note to ${ref.name}: ${message(e)}`);
+            break;
+          }
+        }
+      }
+      const { jobs: all, attachments: a, business: biz } = latest.current;
+      for (const { job, signedAt } of reportsToSend(all, a.signatures, since)) {
+        const key = `${job.id}@${signedAt}`;
+        if (tooBig.current.has(key)) continue;
+        const target = jobTarget(job.odooJob);
+        try {
+          const html = await inspectionReportHtml(job, a, a.media, biz, { inspector: client.session.name || biz.name });
+          const pdf = await make(html);
+          if (pdf.length > MAX_ODOO_PDF_BASE64) {
+            tooBig.current.add(key);
+            log.warn('inspect', `report for ${target.label} is too big for Odoo; use Share PDF`);
+            continue;
+          }
+          await sendReport(client, target, pdfName('Inspection', job.customer), pdf, reportNote(job.inspection));
+          log.info('inspect', `signed report sent to ${target.model} ${target.id}`);
+          // Read the job again: the tech may have changed the inspection while the PDF was made.
+          setInspection(job.id, { ...marked(job.id, current(job.id) ?? job.inspection), sent: { at: Date.now(), to: target.label } });
+        } catch (e) {
+          log.warn('odoo', `report to ${target.label}: ${message(e)}`);
+          break;
+        }
+      }
+    } finally {
+      running.current = false;
+    }
+  }, [client, make, readFile, since, setInspection]);
+
+  useEffect(() => {
+    if (!online || waiting === 0) return;
+    const t = setTimeout(pass, AFTER_CHANGE_MS);
+    return () => clearTimeout(t);
+  }, [online, waiting, pass]);
+
+  useEffect(() => {
+    if (!online) return;
+    const t = setInterval(pass, EVERY_MS);
+    return () => clearInterval(t);
+  }, [online, pass]);
+
+  useAppForeground(useCallback(() => online && pass(), [online, pass]));
+  useEffect(() => (online ? onSyncNow(pass) : undefined), [online, pass]);
+  return null;
+}

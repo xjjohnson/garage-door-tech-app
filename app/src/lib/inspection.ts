@@ -157,6 +157,8 @@ export interface VoiceNote {
   uri: string;
   at: number;
   seconds: number;
+  /** The attachment in Odoo, once it's on the job's order there. */
+  odooId?: number;
 }
 
 export interface Repair {
@@ -451,7 +453,7 @@ export function parseInspection(v: unknown): Inspection | undefined {
   const voice = Array.isArray(d.voice)
     ? d.voice.flatMap((x): VoiceNote[] => {
         const n = (x ?? {}) as Record<string, unknown>;
-        return typeof n.id === 'string' && typeof n.uri === 'string' && n.uri ? [{ id: n.id, uri: n.uri, at: typeof n.at === 'number' ? n.at : 0, seconds: typeof n.seconds === 'number' ? n.seconds : 0 }] : [];
+        return typeof n.id === 'string' && typeof n.uri === 'string' && n.uri ? [{ id: n.id, uri: n.uri, at: typeof n.at === 'number' ? n.at : 0, seconds: typeof n.seconds === 'number' ? n.seconds : 0, ...(typeof n.odooId === 'number' ? { odooId: n.odooId } : {}) }] : [];
       })
     : [];
   return {
