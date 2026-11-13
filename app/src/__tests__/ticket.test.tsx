@@ -29,6 +29,7 @@ import {
   ticketParts,
   ticketRef,
   toQuoteLines,
+  unaccountedParts,
 } from '../lib/ticket';
 import { DeviceMedia } from '../lib/deviceMedia';
 import { parseStock, STOCK_STORAGE_KEY } from '../lib/stock';
@@ -178,6 +179,21 @@ describe('Ticket (logic)', () => {
     expect(parseTicket({ lines: [], estimateAt: 5 })?.estimateAt).toBe(5);
   });
 
+  it('lists ticket parts that are neither on the truck nor marked bought, and parts still on order', () => {
+    let t = addItem(addItem(EMPTY_TICKET, OPENER, 'a'), { ...INSTALL, id: 7, name: 'LCD control panel', kind: 'material' }, 'b');
+    t = addTyped(t, { name: 'Bolt', unitCents: 100, kind: 'material' }, 'c');
+    const items = [{ id: 's1', name: 'Belt drive opener', odooId: 1 }];
+    // The typed-in bolt has no Odoo product, so it isn't held up.
+    expect(unaccountedParts(t, items, 'j1')).toEqual([{ lineId: 'b', name: 'LCD control panel', qty: 1, why: 'not-on-truck' }]);
+    expect(unaccountedParts({ ...t, bought: ['b'] }, items, 'j1')).toEqual([]);
+    // Ordered for this job and not in yet: waits for "Got it"; not counted as parts to take off the truck.
+    const po = [{ jobId: 'j1', lines: [{ itemId: 's1' }] }];
+    expect(unaccountedParts({ ...t, bought: ['b'] }, items, 'j1', po)).toEqual([{ lineId: 'a', name: OPENER.name, qty: 1, why: 'ordered' }]);
+    expect(ticketParts(t, items, [], 'j1', po)).toEqual([]);
+    expect(unaccountedParts({ ...t, bought: ['b'] }, items, 'j1', [{ ...po[0]!, receivedAt: 5 }])).toEqual([]);
+    expect(parseTicket({ lines: [], bought: ['b', 3] })?.bought).toEqual(['b']);
+  });
+
   it('reads saved tickets and ignores damaged lines', () => {
     expect(parseTicket({ lines: [{ id: 'a', name: 'X', qty: 0, unitCents: -5, kind: 'odd' }, { name: 'no id' }], order: { id: 3, name: 'S3' }, totals: { key: 'k', untaxed: 1, tax: 0, total: 1, at: 2 } })).toEqual({
       lines: [{ id: 'a', name: 'X', qty: 1, unitCents: 0, kind: 'material' }],
@@ -313,6 +329,8 @@ describe('Ticket screen', () => {
 
   async function signedIn(fail: { write?: boolean } = {}, net = { down: false }, odooInvoice: Row = { amount_total: 447.89, amount_residual: 447.89 }, before?: () => Promise<void>, houses: Row[] = []) {
     await seed();
+    // The opener is on the truck, so Create invoice isn't held up by parts.
+    await AsyncStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify({ items: [{ id: 's1', name: OPENER.name, odooId: 1, onHand: 5, min: 1, par: 5, category: 'openers', sku: '', supplier: '', costCents: 0, updatedAt: 1 }], suppliers: [] }));
     await before?.();
     const calls: { model: string; method: string; args: unknown[] }[] = [];
     let state = 'draft';
@@ -498,6 +516,36 @@ describe('Ticket screen', () => {
     expect((mockMedia.pdfBase64 as jest.Mock).mock.calls.at(-1)![0]).toMatch(/Customer signature.*Josh.*Work completed/s);
     expect(screen.getByTestId('invoice-sign-odoo')).toHaveTextContent(/Signature added to INV\/2026\/00080 in Odoo/);
     expect(parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY))[0]!.odoo?.signatureSent).toBeTruthy();
+  });
+
+  it("holds Create invoice until a part that isn't on the truck is ordered or marked bought", async () => {
+    await signedIn({}, { down: false }, undefined, async () => {
+      await AsyncStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify({ items: [], suppliers: [] }));
+    });
+    await act(async () => router.navigate('/ticket/j1'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('ticket-add-material'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-cat-Openers'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-pick-1'));
+    await settle();
+    const line = (await saved()).ticket!.lines[0]!;
+    expect(screen.getByTestId('ticket-parts-missing')).toHaveTextContent(new RegExp(OPENER.name));
+    expect(screen.getByTestId('ticket-make-invoice')).toBeDisabled();
+    // Parts used on the job page asks for it too.
+    await fireEvent.press(screen.getByTestId('ticket-parts-open-job'));
+    await settle();
+    expect(screen.getByTestId(`job-part-missing-${line.id}`)).toHaveTextContent(/not on the truck/);
+    await fireEvent.press(screen.getByTestId(`job-part-missing-bought-${line.id}`));
+    await settle();
+    expect(screen.queryByTestId(`job-part-missing-${line.id}`)).toBeNull();
+    expect(screen.getByTestId(`job-part-bought-${line.id}`)).toHaveTextContent(/Bought for this job/);
+    expect((await saved()).ticket?.bought).toEqual([line.id]);
+    await act(async () => router.navigate('/ticket/j1'));
+    await settle();
+    expect(screen.queryByTestId('ticket-parts-missing')).toBeNull();
+    expect(screen.getByTestId('ticket-make-invoice')).not.toBeDisabled();
   });
 
   it("doesn't confirm the old quotation when Odoo can't take the changed lines", async () => {

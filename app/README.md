@@ -603,6 +603,14 @@ invoice. Materials on the ticket that are truck stock items (same Odoo
 product) show under the job's **Parts used**, and Create invoice takes them off
 the truck, less any already taken off by hand for that job.
 
+**Parts that aren't on the truck** (from 0.5.32). A ticket part (an Odoo
+product) that isn't a truck stock item holds up **Create invoice**: the ticket
+lists it and the job's **Parts used** asks for it, with **Order it** (a
+purchase order for the job, searched by the part's name) or **Bought it** (got
+it elsewhere for this job; Undo takes it back). A part ordered for the job
+also holds the invoice until it comes in (**Got it**). Lines typed in by hand,
+with no Odoo product, never hold it up.
+
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
 and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
 customer invoice and credit note, not only the phone's: newest first, 40 at a
