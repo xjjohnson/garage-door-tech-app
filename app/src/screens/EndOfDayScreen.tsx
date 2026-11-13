@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
 import { appMoney, ClosedDay, DAY_CLOSE_STORAGE_KEY, daySummary, dayText, parseClosedDays } from '../lib/endOfDay';
 import { log } from '../lib/log';
+import { postDaySummary } from '../lib/odooDay';
 import { formatMoney } from '../lib/prices';
 import { formatTime } from '../lib/schedule';
 import { unsyncedItems } from '../lib/stock';
@@ -41,11 +42,55 @@ export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
   const closedToday = closed.find((c) => c.day === s.day);
   const notSent = pending.total + unsyncedItems(stock).length;
 
-  useEffect(() => {
-    AsyncStorage.getItem(DAY_CLOSE_STORAGE_KEY)
-      .then((raw) => setClosed(parseClosedDays(raw)))
-      .catch(() => undefined);
+  const saved = useRef(false);
+  const store = useCallback((next: ClosedDay[]) => {
+    setClosed(next);
+    AsyncStorage.setItem(DAY_CLOSE_STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
   }, []);
+
+  // Summaries closed after this release go to Odoo (a note on your employee record); ones still waiting go when you're signed in.
+  const sendWaiting = useCallback(
+    async (list: ClosedDay[]) => {
+      if (!client) return list;
+      let out = list;
+      for (const c of list.filter((x) => x.toOdoo && !x.odooAt)) {
+        try {
+          await postDaySummary(client, c);
+          out = out.map((x) => {
+            if (x !== c) return x;
+            const { toOdoo: _sent, ...rest } = x;
+            return { ...rest, odooAt: now() };
+          });
+        } catch (e) {
+          log.warn('day', `summary not sent to Odoo: ${e instanceof Error ? e.message : String(e)}`);
+          setError(e instanceof Error ? e.message : "Couldn't save the summary in Odoo.");
+          break;
+        }
+      }
+      return out;
+    },
+    [client, now],
+  );
+
+  useEffect(() => {
+    let alive = true;
+    AsyncStorage.getItem(DAY_CLOSE_STORAGE_KEY)
+      .then(async (raw) => {
+        const list = parseClosedDays(raw);
+        if (!alive) return;
+        setClosed(list);
+        if (client && list.some((x) => x.toOdoo && !x.odooAt) && !saved.current) {
+          saved.current = true;
+          const next = await sendWaiting(list);
+          if (alive && next !== list) store(next);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client]);
 
   const close = async () => {
     setBusy(true);
@@ -59,10 +104,10 @@ export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
     }
     const odo = Number.parseInt(odometer, 10);
     if (s.onClock) work.clockOut(Number.isFinite(odo) && odo > 0 ? odo : undefined);
-    const entry: ClosedDay = { day: s.day, at: now(), text: dayText(s, business.name) };
+    const entry: ClosedDay = { day: s.day, at: now(), text: dayText(s, business.name), toOdoo: true };
     const next = [...closed.filter((c) => c.day !== s.day), entry].slice(-90);
-    setClosed(next);
-    AsyncStorage.setItem(DAY_CLOSE_STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
+    store(next);
+    store(await sendWaiting(next));
     log.info('day', `closed: ${s.jobsDone}/${s.jobs} jobs, ${formatMoney(s.taken)} taken`);
     setBusy(false);
   };

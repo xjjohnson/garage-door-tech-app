@@ -100,12 +100,20 @@ export interface ClosedDay {
   day: number;
   at: number;
   text: string;
+  /** Closed after summaries started going to Odoo, and not noted on the employee record yet. Older summaries are never sent. */
+  toOdoo?: true;
+  /** When the summary was noted on the tech's employee record in Odoo. */
+  odooAt?: number;
 }
 
 export function parseClosedDays(raw: string | null): ClosedDay[] {
   try {
     const d = raw ? JSON.parse(raw) : [];
-    return Array.isArray(d) ? d.filter((x): x is ClosedDay => x && typeof x.day === 'number' && typeof x.at === 'number' && typeof x.text === 'string') : [];
+    return Array.isArray(d)
+      ? d
+          .filter((x): x is ClosedDay => x && typeof x.day === 'number' && typeof x.at === 'number' && typeof x.text === 'string')
+          .map((x) => ({ day: x.day, at: x.at, text: x.text, ...(x.toOdoo === true ? { toOdoo: true as const } : {}), ...(typeof x.odooAt === 'number' ? { odooAt: x.odooAt } : {}) }))
+      : [];
   } catch {
     return [];
   }
