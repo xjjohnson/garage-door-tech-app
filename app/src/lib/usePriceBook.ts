@@ -2,7 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { OdooError } from './odoo';
 import { EMPTY_PRICE_BOOK, Favorites, fetchPriceBook, parseFavorites, parsePriceBook, PRICE_BOOK_FAVORITES_KEY, PRICE_BOOK_STORAGE_KEY, PriceBook, techKey, toggleFavorite } from './priceBook';
+import { importOdooProducts, OdooImport } from './prices';
 import { useOdoo } from './useOdoo';
+import { usePriceSheet } from './usePriceSheet';
 
 /** Refresh from Odoo on open when the saved copy is older than this. */
 const STALE_MS = 60 * 60 * 1000;
@@ -17,6 +19,8 @@ export interface PriceBookApi {
   busy: boolean;
   error: string | null;
   signedIn: boolean;
+  /** What the last update changed on the estimate (good / better / best) prices. */
+  sheetResult: Omit<OdooImport, 'sheet'> | null;
 }
 
 /**
@@ -31,6 +35,10 @@ export function usePriceBook(now: () => number = Date.now): PriceBookApi {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tried = useRef(false);
+  const { sheet, update: updateSheet } = usePriceSheet();
+  const sheetRef = useRef(sheet);
+  sheetRef.current = sheet;
+  const [sheetResult, setSheetResult] = useState<Omit<OdooImport, 'sheet'> | null>(null);
   const key = techKey(client?.session);
 
   useEffect(() => {
@@ -56,12 +64,20 @@ export function usePriceBook(now: () => number = Date.now): PriceBookApi {
       const fresh = await fetchPriceBook(client, now());
       setBook(fresh);
       AsyncStorage.setItem(PRICE_BOOK_STORAGE_KEY, JSON.stringify(fresh)).catch(() => undefined);
+      // One update for both: the estimate prices linked to Odoo products follow the book.
+      const products = fresh.items.map((i) => ({ id: i.id, name: i.name, ...(i.code ? { code: i.code } : {}), cents: i.cents }));
+      if (products.length) {
+        const { changed, added, missing } = importOdooProducts(sheetRef.current, products);
+        // Applied to the sheet as it is by then, in case a price was typed while Odoo answered.
+        updateSheet((cur) => importOdooProducts(cur, products).sheet);
+        setSheetResult({ changed, added, missing });
+      }
     } catch (e) {
       setError(e instanceof OdooError ? e.message : "Couldn't load prices from Odoo. Showing the saved copy.");
     } finally {
       setBusy(false);
     }
-  }, [client, now]);
+  }, [client, now, updateSheet]);
 
   useEffect(() => {
     if (!loaded || status !== 'signedIn' || !client || tried.current) return;
@@ -80,5 +96,5 @@ export function usePriceBook(now: () => number = Date.now): PriceBookApi {
     [key],
   );
 
-  return { book, loaded, favorites: favs[key] ?? [], toggle, refresh, busy, error, signedIn: status === 'signedIn' && !!client };
+  return { book, loaded, favorites: favs[key] ?? [], toggle, refresh, busy, error, signedIn: status === 'signedIn' && !!client, sheetResult };
 }

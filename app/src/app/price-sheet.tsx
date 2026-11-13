@@ -1,10 +1,11 @@
 import { Page } from '../components/Page';
-import { PriceSheetScreen } from '../screens/PriceSheetScreen';
+import { PriceBookScreen } from '../screens/PriceBookScreen';
 
+/** /price-sheet: the price book open on its Estimates tab (good / better / best prices). */
 export default function PriceSheetRoute() {
   return (
-    <Page title="Price sheet" testID="prices-sheet">
-      <PriceSheetScreen />
+    <Page title="Price book" testID="prices-sheet">
+      <PriceBookScreen initialTab="estimate" />
     </Page>
   );
 }
