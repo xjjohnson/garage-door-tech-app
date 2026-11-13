@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { Linking } from 'react-native';
+import { createInvoice, INVOICES_STORAGE_KEY, parseInvoices } from '../lib/invoices';
 import { Fetch } from '../lib/odoo';
 import { fetchList, fetchRecord, invoiceStatus, LISTS_STORAGE_KEY, odooWebLink, parseSavedLists } from '../lib/odooLists';
 import { emailRecord } from '../lib/odooReports';
@@ -134,8 +135,9 @@ describe('Odoo lists on Sales', () => {
   };
   afterEach(() => jest.restoreAllMocks());
 
-  async function signIn(o: ReturnType<typeof fakeOdoo>) {
+  async function signIn(o: ReturnType<typeof fakeOdoo>, seed?: () => Promise<void>) {
     await AsyncStorage.clear();
+    await seed?.();
     jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
     await renderApp('/team');
     await settle();
@@ -153,8 +155,8 @@ describe('Odoo lists on Sales', () => {
     await act(async () => router.navigate('/sales'));
     await settle();
     expect(screen.getByTestId('sales-odoo-quotations')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('sales-odoo-invoices'));
-    await settle();
+    // Sales shows Odoo's invoices themselves, not the phone's.
+    expect(screen.queryByTestId('sales-odoo-invoices')).toBeNull();
     expect(screen.getByTestId('odoo-row-3')).toHaveTextContent(/INV\/2026\/00003.*\$398.*Pat Smith.*Overdue/);
     expect(screen.getByTestId('odoo-row-2')).toHaveTextContent(/Paid/);
     // Saved for when there's no signal.
@@ -177,5 +179,31 @@ describe('Odoo lists on Sales', () => {
     expect(o.calls.find((c) => c.method === 'send_mail')).toMatchObject({ args: [[12], 3] });
     await fireEvent.press(screen.getByTestId('odoo-record-open'));
     expect(open).toHaveBeenCalledWith('https://acme.odoo.com/web#id=3&model=account.move&view_type=form');
+  });
+
+  it("mirrors Odoo on the phone's own invoices, and lists the ones not in Odoo yet", async () => {
+    const o = fakeOdoo();
+    const job = { id: 'j1', customer: 'Pat Smith', address: '12 Oak St' };
+    const option = { tier: 'good' as const, available: true, springCount: 2, lines: [{ label: 'Springs', cents: 30000, taxable: true }], subtotal: 30000, tax: 2475, total: 32475 };
+    const inOdoo = { ...createInvoice(job, option, [], 1000, 'i-odoo'), odoo: { id: 3, name: 'INV/2026/00003', total: 32475, residual: 32475, paymentState: 'not_paid', sentPayments: [], checkedAt: 0 } };
+    const phoneOnly = createInvoice({ ...job, id: 'j2', customer: 'Lee Park' }, option, [inOdoo], 2000, 'i-phone');
+    await signIn(o, () => AsyncStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([inOdoo, phoneOnly])));
+    await settle(20);
+
+    // Read back from Odoo in the background: Odoo's lines and totals now.
+    const [mirrored] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY)).filter((i) => i.id === 'i-odoo');
+    expect(mirrored).toMatchObject({ subtotal: 39800, tax: 0, total: 39800, lines: [{ label: '2 springs', cents: 39800, qty: 2 }] });
+    expect(o.calls.some((c) => c.model === 'account.move' && c.method === 'create')).toBe(false);
+
+    await act(async () => router.navigate('/sales'));
+    await settle();
+    expect(screen.getByTestId('invoices-waiting')).toHaveTextContent(/1 invoice made on this phone isn't in Odoo yet/);
+    expect(screen.getByTestId('invoice-i-phone')).toHaveTextContent(/1002 · Lee Park/);
+    expect(screen.queryByTestId('invoice-i-odoo')).toBeNull();
+    // The phone has this one: open it there, with its payments and signature.
+    await fireEvent.press(screen.getByTestId('odoo-row-3'));
+    await settle();
+    expect(screen.getByTestId('invoice-page')).toHaveTextContent(/Invoice INV\/2026\/00003/);
+    expect(screen.getByTestId('invoice-page')).toHaveTextContent(/2 springs/);
   });
 });

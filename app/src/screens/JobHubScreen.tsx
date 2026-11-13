@@ -5,7 +5,7 @@ import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
 import { JobParts } from '../components/JobParts';
 import { checkCounts } from '../lib/inspection';
-import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
+import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { Job, jobName, phoneLink } from '../lib/jobs';
 import { jobInvoice, jobSteps, nextStep, onSiteFor, smsLink, StepId } from '../lib/jobSteps';
 import { log } from '../lib/log';
@@ -144,7 +144,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       <JobParts jobId={job.id} />
       {inv ? (
         <NavRow
-          label={`Invoice ${inv.number}`}
+          label={invoiceLabel(inv)}
           detail={`${STATUS_LABEL[invoiceStatus(inv)]}${balance(inv) > 0 ? ` · ${formatMoney(balance(inv))} owed` : ''}`}
           href={{ pathname: '/invoice/[id]', params: { id: inv.id } }}
           testID="job-open-invoice"
