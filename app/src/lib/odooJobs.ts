@@ -184,8 +184,8 @@ export function jobChanged(job: Pick<Job, 'notes' | 'steps' | 'status' | 'odooJo
  * the notes (the order's description), each step as a note in its chatter
  * (Arrived and Work done also fill the order's actual start and end), and
  * Close job, which completes the order the way Odoo's own button does. A
- * job sent before this release (nothing recorded) sends its steps and done
- * once; its notes go with the next edit.
+ * job with nothing recorded (sent before this release, or opened from Odoo)
+ * sends nothing: its state now is taken as Odoo's, and later changes go.
  * Returns what Odoo now knows.
  */
 export async function pushJobChanges(
@@ -193,9 +193,10 @@ export async function pushJobChanges(
   job: Pick<Job, 'id' | 'notes' | 'steps' | 'status' | 'what' | 'odooJob' | 'odooSent'>,
 ): Promise<OdooSent> {
   const ref = job.odooJob!;
-  // Nothing recorded (sent before this release, or opened from Odoo): the notes on the
-  // phone may be older than Odoo's description, so only later edits replace it.
-  const sent: OdooSent = job.odooSent ?? { notes: job.notes, steps: {}, done: false };
+  // Nothing recorded (sent before this release, or opened from Odoo): what the phone
+  // has now counts as already in Odoo, so only changes from here on go out.
+  if (!job.odooSent) return baseline(job);
+  const sent = job.odooSent;
   const steps = job.steps ?? {};
   const next: OdooSent = { notes: sent.notes, steps: { ...sent.steps }, done: sent.done };
   if (job.notes !== sent.notes) {
@@ -231,6 +232,9 @@ export async function pushJobChanges(
   }
   return next;
 }
+
+/** The job as it is now, taken as what Odoo already has. */
+export const baseline = (job: Pick<Job, 'notes' | 'steps' | 'status'>): OdooSent => ({ notes: job.notes, steps: { ...(job.steps ?? {}) }, done: job.status === 'done' });
 
 /** A note in the order's chatter. Odoo without chatter on the model just doesn't get one. */
 async function note(c: Client, ref: OdooJobRef, body: string): Promise<void> {

@@ -184,13 +184,16 @@ describe('jobs in Odoo (logic)', () => {
     expect(o.calls.filter((x) => x.method === 'action_complete')).toHaveLength(before);
   });
 
-  it("leaves Odoo's description alone for a job with nothing recorded until its notes change", async () => {
+  it('sends nothing for a job with nothing recorded, and takes its state now as Odoo\'s', async () => {
     const o = fakeOdoo();
     const c = await OdooClient.signIn(o.fetchFn, login, 'k');
     o.orders.push({ id: 500, name: 'FSO500', person_id: 40, stage_id: [1, 'New'], description: 'Written in Odoo' });
-    const sent = await pushJobChanges(c, { id: 'j1', notes: '', status: 'open', odooJob: { model: 'fsm.order', id: 500, name: 'FSO500' } });
-    expect(o.orders[0].description).toBe('Written in Odoo');
-    expect(sent).toEqual({ notes: '', steps: {}, done: false });
+    const before = o.calls.length;
+    const steps = { arrivedAt: at(10), workDoneAt: at(11) };
+    const sent = await pushJobChanges(c, { id: 'j1', notes: 'Old note', steps, status: 'done', odooJob: { model: 'fsm.order', id: 500, name: 'FSO500' } });
+    expect(o.calls.length).toBe(before);
+    expect(o.orders[0]).toMatchObject({ description: 'Written in Odoo', stage_id: [1, 'New'] });
+    expect(sent).toEqual({ notes: 'Old note', steps, done: true });
   });
 
   it('works out what the phone’s visit becomes', () => {
