@@ -3,7 +3,7 @@ import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { CUSTOMERS_STORAGE_KEY } from '../lib/customers';
-import { INVOICES_STORAGE_KEY, parseInvoices } from '../lib/invoices';
+import { BUSINESS_STORAGE_KEY, INVOICES_STORAGE_KEY, parseInvoices } from '../lib/invoices';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { jobSteps } from '../lib/jobSteps';
 import { Fetch } from '../lib/odoo';
@@ -214,6 +214,7 @@ describe('Ticket screen', () => {
 
   it('builds the ticket from the price book and by hand, then makes the invoice', async () => {
     await seed();
+    await AsyncStorage.setItem(BUSINESS_STORAGE_KEY, JSON.stringify({ name: 'Johnsons', phone: '', cashtag: 'johnsons', venmo: '', zelle: 'pay@johnsons.test', reviewUrl: '' }));
     await AsyncStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify({ items: [{ id: 's1', name: 'Belt drive opener', odooId: 1, onHand: 5, min: 1, par: 5, category: 'openers', sku: '', supplier: '', costCents: 0, updatedAt: 1 }], suppliers: [] }));
     await renderApp('/job/j1');
     await settle();
@@ -271,7 +272,16 @@ describe('Ticket screen', () => {
 
     // A $200 deposit by check, typed on the ticket.
     await fireEvent.press(screen.getByTestId('ticket-deposit'));
+    // Cash App shows the same QR code as the invoice's Scan to pay; Zelle shows where to send it.
+    await fireEvent.press(within(screen.getByTestId('ticket-deposit-method')).getByText('Cash App'));
+    expect(screen.getByTestId('ticket-deposit-qr')).toHaveTextContent(/Cash App \$johnsons/);
+    expect(screen.getByTestId('ticket-deposit-qr-cashapp')).toBeTruthy();
+    await fireEvent.press(within(screen.getByTestId('ticket-deposit-method')).getByText('Zelle'));
+    expect(screen.getByTestId('ticket-deposit-pay-zelle')).toHaveTextContent('Zelle: send to pay@johnsons.test');
+    await fireEvent.press(within(screen.getByTestId('ticket-deposit-method')).getByText('Venmo'));
+    expect(screen.getByTestId('ticket-deposit-no-handle')).toHaveTextContent(/Add your Venmo/);
     await fireEvent.press(within(screen.getByTestId('ticket-deposit-method')).getByText('Check'));
+    expect(screen.queryByTestId('ticket-deposit-qr')).toBeNull();
     await fireEvent.press(screen.getByTestId('ticket-deposit-amount'));
     const pad = screen.getByTestId('keypad');
     for (const k of ['2', '0', '0']) await fireEvent.press(within(pad).getByTestId(`key-${k}`));
