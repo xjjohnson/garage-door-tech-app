@@ -9,7 +9,7 @@
 import type { OdooClient } from './odoo';
 import { lineValues, OdooRef, parseRef, serviceProduct } from './odooSales';
 import type { PriceBookItem } from './priceBook';
-import { cents as priceCents, OdooLink } from './prices';
+import { cents as priceCents, formatMoney, OdooLink } from './prices';
 import type { QuoteLine, QuoteOption } from './quote';
 
 export type LineKind = 'service' | 'material';
@@ -48,6 +48,8 @@ export interface Ticket {
   shipTo?: ShipTo;
   /** Deposits taken before the work is done; they become the invoice's first payments at Create invoice. */
   deposits?: Deposit[];
+  /** depositsKey of the deposits last written to the quotation in Odoo (as "Deposit received" lines). */
+  depositsSaved?: string;
   /** Ticket material lines (by id) the tech bought for this job rather than took off the truck. */
   bought?: string[];
 }
@@ -71,6 +73,24 @@ export function parseDeposits(v: unknown): Deposit[] {
     if (typeof y.id !== 'string' || !DEPOSIT_METHODS.includes(y.method as Deposit['method']) || typeof y.amount !== 'number' || y.amount <= 0) return [];
     return [{ id: y.id, method: y.method as Deposit['method'], amount: Math.round(y.amount), at: typeof y.at === 'number' ? y.at : 0, reference: typeof y.reference === 'string' ? y.reference : '' }];
   });
+}
+
+const DEPOSIT_LABEL: Record<Deposit['method'], string> = { cash: 'cash', check: 'check', cashapp: 'Cash App', venmo: 'Venmo', zelle: 'Zelle' };
+
+/** Which deposits are on the ticket, to tell when the quotation in Odoo needs them written again. */
+export const depositsKey = (t: Pick<Ticket, 'deposits'> | undefined) => (t?.deposits ?? []).map((d) => `${d.id}:${d.amount}:${d.method}:${d.reference}`).join('|');
+
+/**
+ * The deposits as note lines on the job's quotation in Odoo, so they are kept
+ * there and not only on the phone (Justin, Nov 13). Notes carry no price, so
+ * the quotation's totals don't change; at Create invoice the deposits become
+ * the invoice's first payments.
+ */
+export function depositNotes(t: Pick<Ticket, 'deposits'>): Record<string, unknown>[] {
+  return (t.deposits ?? []).map((d) => ({
+    display_type: 'line_note',
+    name: `Deposit received: ${formatMoney(d.amount)} by ${DEPOSIT_LABEL[d.method]}${d.reference ? ` (${d.method === 'check' ? 'check #' : 'ref '}${d.reference})` : ''}${d.at ? `, ${new Date(d.at).toISOString().slice(0, 10)}` : ''}. Paid toward the invoice.`,
+  }));
 }
 
 /** What the deposits on the ticket add up to, in cents. */
@@ -249,11 +269,11 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
  * no longer a draft (confirmed or cancelled in Odoo) is left alone and a new
  * one is made.
  */
-export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number): Promise<{ order: OdooRef; totals: TicketTotals }> {
+export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string }> {
   const lines = toQuoteLines(t);
   const needService = lines.some((l) => l.cents > 0 && !l.productId);
   const service = needService ? await serviceProduct(client) : 0;
-  const vals = lineValues(lines, {}, () => service, 'product_uom_qty');
+  const vals = [...lineValues(lines, {}, () => service, 'product_uom_qty'), ...depositNotes(t)];
   let order = t.order;
   // The picked delivery address. Nothing picked: a new order gets the customer's own,
   // and an existing one keeps whatever Odoo has (it may have been set there by hand).
@@ -272,6 +292,7 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
   return {
     order: { id: order.id, name: typeof r?.name === 'string' ? r.name : order.name },
     totals: { untaxed: toCents(r?.amount_untaxed), tax: toCents(r?.amount_tax), total: toCents(r?.amount_total), key: linesKey(t.lines), at: now },
+    depositsSaved: depositsKey(t),
   };
 }
 
@@ -309,5 +330,5 @@ export function parseTicket(v: unknown): Ticket | undefined {
     t && typeof t === 'object' && typeof t.key === 'string'
       ? { untaxed: Number(t.untaxed) || 0, tax: Number(t.tax) || 0, total: Number(t.total) || 0, key: t.key, at: Number(t.at) || 0 }
       : undefined;
-  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
+  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
 }

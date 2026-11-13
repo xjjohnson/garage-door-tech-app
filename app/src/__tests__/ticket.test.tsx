@@ -509,6 +509,32 @@ describe('Ticket screen', () => {
     const job = await saved();
     expect(job.ticket?.order).toEqual({ id: 70, name: 'S00070' });
 
+    // A deposit is written to the quotation in Odoo as a note line, so it isn't only on the phone.
+    await fireEvent.press(screen.getByTestId('ticket-deposit'));
+    await fireEvent.press(within(screen.getByTestId('ticket-deposit-method')).getByText('Cash App'));
+    await fireEvent.press(screen.getByTestId('ticket-deposit-amount'));
+    const keys = screen.getByTestId('keypad');
+    for (const k of ['1', '0', '0']) await fireEvent.press(within(keys).getByTestId(`key-${k}`));
+    await fireEvent.press(within(keys).getByTestId('keypad-done'));
+    await fireEvent.press(screen.getByTestId('ticket-deposit-save'));
+    await settle();
+    expect(screen.getByTestId('ticket-deposit-due')).toHaveTextContent(/Saving it on the quotation in Odoo/);
+    await act(async () => jest.advanceTimersByTime(1600));
+    await settle(20);
+    const write = calls.filter((c) => c.model === 'sale.order' && c.method === 'write').at(-1)!;
+    const lines = (write.args[1] as { order_line: [number, number, Row][] }).order_line.map((l) => l[2]);
+    expect(lines.filter((l) => l?.display_type === 'line_note')).toEqual([{ display_type: 'line_note', name: expect.stringMatching(/^Deposit received: \$100 by Cash App, \d{4}-\d\d-\d\d\. Paid toward the invoice\.$/) }]);
+    expect(screen.getByTestId('ticket-deposit-due')).toHaveTextContent(/Saved on quotation S00070 in Odoo/);
+    expect((await saved()).ticket?.depositsSaved).toBeTruthy();
+    // Taken off the ticket: the next write drops the note line.
+    await fireEvent.press(screen.getByTestId(`ticket-deposit-remove-${(await saved()).ticket!.deposits![0]!.id}`));
+    await settle();
+    await act(async () => jest.advanceTimersByTime(1600));
+    await settle(20);
+    const after = calls.filter((c) => c.model === 'sale.order' && c.method === 'write').at(-1)!;
+    expect((after.args[1] as { order_line: [number, number, Row][] }).order_line.some((l) => l[2]?.display_type === 'line_note')).toBe(false);
+    expect((await saved()).ticket?.deposits).toBeUndefined();
+
     await fireEvent.press(screen.getByTestId('ticket-make-invoice'));
     await settle(20);
     expect(calls.find((c) => c.method === 'action_confirm')?.args).toEqual([[70]]);
