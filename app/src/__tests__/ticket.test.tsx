@@ -334,9 +334,14 @@ describe('Ticket screen', () => {
       if (model === 'account.move' && method === 'create') return 80;
       if (model === 'account.move' && method === 'read') return [{ name: 'INV/2026/00080', payment_state: 'not_paid', ...odooInvoice }];
       if (model === 'ir.attachment' && method === 'create') return 90;
-      if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('["parent_id","=",false]')) return [{ id: 70, name: 'Caliber Collision', type: 'contact', street: '6222 Menchaca Rd', city: 'Austin', zip: '78745' }];
-      if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('["parent_id","=",70]')) return [{ id: 71, name: '1901 S Bell Blvd', type: 'delivery', street: '1901 S Bell Blvd', city: 'Cedar Park', zip: '78613' }];
-      if (model === 'res.partner' && method === 'read') return [{ id: (args[0] as number[])[0], name: 'Josh', type: 'contact', street: '12 Oak St', city: 'Austin', zip: '78701' }];
+      // Caliber is in Odoo twice: 69 with nothing, 70 with the houses.
+      if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('["parent_id","=",false]'))
+        return [
+          { id: 69, name: 'Caliber Collision', type: 'contact', street: false, city: false, zip: false, child_ids: [] },
+          { id: 70, name: 'Caliber Collision', type: 'contact', street: false, city: false, zip: false, child_ids: [71] },
+        ];
+      if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('["parent_id","in",[70,69]]')) return [{ id: 71, name: '1901 S Bell Blvd', type: 'delivery', street: '1901 S Bell Blvd', city: 'Cedar Park', zip: '78613' }];
+      if (model === 'res.partner' && method === 'read') return (args[0] as number[]).map((id) => (id === 33 ? { id, name: 'Josh', type: 'contact', street: '12 Oak St', city: 'Austin', zip: '78701' } : { id, name: 'Caliber Collision', type: 'contact', street: false }));
       if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('parent_id')) return houses;
       if (model === 'product.product' && method === 'search_read')
         return [
@@ -428,6 +433,8 @@ describe('Ticket screen', () => {
     await fireEvent.changeText(screen.getByTestId('job-address-search'), 'Ca');
     await act(async () => jest.advanceTimersByTime(500));
     await settle();
+    expect(screen.queryByTestId('job-address-found-69')).toBeNull();
+    expect(screen.getByTestId('job-address-found-70')).toHaveTextContent(/1 under them/);
     await fireEvent.press(screen.getByTestId('job-address-found-70'));
     await settle();
     expect(screen.getByTestId('job-address-customer-name')).toHaveTextContent('Caliber Collision');
