@@ -25,7 +25,7 @@ const CONFIRM_MS = 4000;
  * customer can scan a QR code to pay by Cash App or Venmo with the amount
  * filled in; the tech records each payment by how it came in.
  */
-export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSign?: boolean }) {
+export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
   const { business, addPayment, removePayment, setVoid } = useInvoices();
   const status = invoiceStatus(invoice);
   const warranty = warrantyFor(invoice, useFollowUps().settings);
@@ -39,8 +39,8 @@ export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSig
 
   const attachments = useAttachments();
   const signature = signatureFor(attachments, 'invoice', invoice.id);
-  // Straight after Finish job, the customer signs first.
-  const [signing, setSigning] = useState(!!autoSign && !signature && !invoice.voidedAt);
+  // The signing sheet opens only from its button (Justin, 0.5.26), never by itself.
+  const [signing, setSigning] = useState(false);
   const invoiceOdoo = useInvoiceOdoo();
   const [sigNote, setSigNote] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState(false);
@@ -207,7 +207,7 @@ export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSig
           Signature is on {invoice.odoo.name} in Odoo.
         </Text>
       ) : null}
-      <Action label={signature ? 'Sign again' : 'Customer signs'} onPress={() => setSigning(true)} testID="invoice-sign" />
+      <Action label={signature ? 'Sign again' : 'Customer signs'} primary={!signature && !invoice.voidedAt} onPress={() => setSigning(true)} testID="invoice-sign" />
       <SignatureSheet
         visible={signing}
         title={invoiceLabel(invoice)}

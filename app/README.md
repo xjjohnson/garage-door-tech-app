@@ -547,8 +547,10 @@ payments as before. Good / better / best is now **Estimate**, optional: once
 the customer picks an option, **Put … on the job ticket** adds its lines.
 
 **Finish job and offline invoices** (from 0.5.17). The ticket's button is
-now **Finish job**: it marks the work done, makes the invoice, posts it in
-Odoo and opens it with the signing sheet up. The signed page goes to the
+now **Create invoice** (called Finish job before 0.5.26): it marks the work
+done, makes the invoice, posts it in Odoo and opens it. From 0.5.26 the
+signing sheet no longer pops up; the invoice's **Customer signs** button
+opens it. The signed page goes to the
 invoice in Odoo as a PDF with a note in its chatter. The ticket has a
 **Customer reference** (optional) that goes on the sales order and the
 invoice in Odoo; left empty, the order has none and the invoice keeps
@@ -578,9 +580,9 @@ shows as before.
 is done, the ticket's **Save as estimate** keeps it as the customer's
 estimate: signed in, it is the job's quotation in Odoo (the draft sales
 order), and **Email the estimate** sends Odoo's quotation to the customer's
-email after a confirm. **Finish job** later turns the same ticket into the
+email after a confirm. **Create invoice** later turns the same ticket into the
 invoice. Materials on the ticket that are truck stock items (same Odoo
-product) show under the job's **Parts used**, and Finish job takes them off
+product) show under the job's **Parts used**, and Create invoice takes them off
 the truck, less any already taken off by hand for that job.
 
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
