@@ -85,6 +85,15 @@ async function run() {
   }
 }
 
+/** Saves a point already known for an address (a picked address suggestion), so the map never looks it up. */
+export function rememberPoint(address: string, p: Point) {
+  load().then((c) => {
+    c[addressKey(address)] = { p, t: deps.now() };
+    AsyncStorage.setItem(GEOCODE_STORAGE_KEY, JSON.stringify(c)).catch(() => undefined);
+    notify();
+  });
+}
+
 /** Forgets what was found for an address (or that nothing was) and looks it up again. */
 export function retryGeocode(address: string) {
   load().then((c) => {
