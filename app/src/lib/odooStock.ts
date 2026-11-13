@@ -182,8 +182,9 @@ export async function browseProducts(client: OdooClient, q: string, limit = 80):
   return readProducts(client, ids);
 }
 
+/** Goods matching what's typed; services (labor, trip charges) can't go on a truck. */
 async function findProducts(client: OdooClient, t: string, limit: number): Promise<StockProduct[]> {
-  const ids = (await client.call('product.product', 'search', [['|', '|', ['name', 'ilike', t], ['default_code', 'ilike', t], ['barcode', '=', t]]], { limit, order: 'name asc' })) as number[];
+  const ids = (await client.call('product.product', 'search', [[['type', '!=', 'service'], '|', '|', ['name', 'ilike', t], ['default_code', 'ilike', t], ['barcode', '=', t]]], { limit, order: 'name asc' })) as number[];
   return readProducts(client, ids);
 }
 
