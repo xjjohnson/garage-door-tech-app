@@ -4,9 +4,11 @@ import { OdooJobSync } from '../components/OdooJobSync';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, Job, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, ODOO_STORAGE_KEY, OdooClient, toOdooTime } from '../lib/odoo';
-import { applyState, createOdooJob, JOBS_SINCE_KEY, olderJobs, partnerFor, readJobStates, shouldSend, writeVisit } from '../lib/odooJobs';
+import { applyState, createOdooJob, JOBS_SINCE_KEY, olderJobs, partnerFor, pullSchedule, readJobStates, shouldSend, whatOf, writeVisit } from '../lib/odooJobs';
+import type { OdooTask } from '../lib/odoo';
 import { resetJobsSince } from '../lib/useJobsSince';
 import { renderApp } from '../testing/renderApp';
+import { router } from 'expo-router';
 import { pendingSync } from '../lib/pending';
 import { Appointment, parseSchedule, SCHEDULE_STORAGE_KEY } from '../lib/schedule';
 import { CustomersProvider } from '../lib/useCustomers';
@@ -46,9 +48,26 @@ function fakeOdoo() {
     if (model === 'fsm.person') return reply([{ id: 40, name: 'Justin' }]);
     if (model === 'res.partner' && method === 'search_read') return reply(partners);
     if (model === 'fsm.order' && method === 'search_read') {
-      const [[[, , text]]] = args as [[[string, string, string]]];
-      return reply(orders.filter((o) => String(o.description ?? '').toLowerCase().includes(text.toLowerCase())).map((o) => ({ id: o.id, name: o.name })));
+      const domain = args[0] as unknown[];
+      const marker = domain.length === 1 && Array.isArray(domain[0]) && domain[0][0] === 'description';
+      if (marker) {
+        const text = String((domain[0] as unknown[])[2]);
+        return reply(orders.filter((o) => String(o.description ?? '').toLowerCase().includes(text.toLowerCase())).map((o) => ({ id: o.id, name: o.name })));
+      }
+      // Jobs given to someone, open or not: enough of a domain for the schedule and the Jobs tab.
+      const test = (o: Row, [f, op, v]: unknown[]) => {
+        if (f === 'person_id' && op === '=') return (o.person_id || false) === v;
+        if (f === 'stage_id.is_closed') return (Array.isArray(o.stage_id) && o.stage_id[0] === 9) === v;
+        return true;
+      };
+      const loc = (id: unknown) => locations.find((l) => l.id === id);
+      return reply(
+        orders
+          .filter((o) => domain.every((d) => !Array.isArray(d) || test(o, d)))
+          .map((o) => ({ ...o, location_id: o.location_id ? [o.location_id, String(loc(o.location_id)?.name ?? 'Place')] : false, person_id: typeof o.person_id === 'number' ? [o.person_id, 'Someone'] : false })),
+      );
     }
+    if (model === 'fsm.location' && method === 'read') return reply(locations.filter((l) => (args[0] as number[]).includes(l.id as number)));
     if (model === 'res.partner' && method === 'create') {
       partners.push({ id: 100 + partners.length, ...(args[0] as Row) });
       return reply(100 + partners.length - 1);
@@ -118,6 +137,23 @@ describe('jobs in Odoo (logic)', () => {
     expect(applyState(v, { id: 5, start: at(11), personId: 40, done: false }, 40, 9)).toEqual({ keep: { ...v, start: at(11), updatedAt: 9, syncedAt: 9 } });
     expect(applyState(v, { id: 5, personId: 41, done: false }, 40, 9)).toEqual({ keep: null });
     expect(applyState(v, { id: 5, personId: 0, done: true }, 40, 9)?.keep?.status).toBe('done');
+  });
+
+  it('builds the schedule from the jobs Odoo gives me', () => {
+    const t = (id: number, over: Partial<OdooTask> = {}): OdooTask => ({ id, name: `FO${id}`, customer: 'Atx', phone: '512', address: '1 Oak St, Kyle', start: at(10), stage: 'New', notes: 'Help door trapped\nApp job x', assignees: [40], ...over });
+    const kept: Appointment = { id: 'odoo-3', start: at(8), minutes: 60, name: 'Old', address: '', phone: '', what: 'Tune-up', status: 'booked', createdAt: 1, updatedAt: 1, syncedAt: 1 };
+    const gone: Appointment = { ...kept, id: 'odoo-4' };
+    const started: Appointment = { ...kept, id: 'odoo-6', jobId: 'j6' };
+    const moved: Appointment = { ...kept, id: 'odoo-7', updatedAt: 5 };
+    const { add, drop } = pullSchedule([kept, gone, started, moved], [t(1), t(2, { start: undefined }), t(3, { start: at(11) }), t(5), t(7, { start: at(12) })], new Set([5]), 9);
+    // New: FO1. Moved in Odoo: FO3. No time: FO2. The phone's own job owns FO5. FO7 was moved on the phone and isn't sent yet.
+    expect(add.map((a) => [a.id, a.start, a.name, a.what, a.odooName])).toEqual([
+      ['odoo-1', at(10), 'Atx', 'Help door trapped', 'FO1'],
+      ['odoo-3', at(11), 'Atx', 'Tune-up', 'FO3'],
+    ]);
+    // FO4 is no longer mine and open; the started one stays for the job sync.
+    expect(drop).toEqual(['odoo-4']);
+    expect(whatOf(t(9, { notes: 'App job x' }))).toBe('FO9');
   });
 
   it('counts open jobs not in Odoo yet', () => {
@@ -240,6 +276,25 @@ describe('job sync in the background', () => {
     expect(visits.map((v) => [v.id, v.jobId, v.start, v.minutes])).toEqual([['odoo-500', 'j1', at(15, 1), 120]]);
   });
 
+  it('puts jobs given to me in Odoo on the schedule, and takes them off when they go to someone else', async () => {
+    const o = fakeOdoo();
+    o.locations.push({ id: 71, name: 'Atx', street: '9 Elm St', city: 'Austin', zip: '78701', phone: '512 555 0100' });
+    o.orders.push({ id: 600, name: 'FO0001', location_id: 71, person_id: 40, scheduled_date_start: toOdooTime(at(10, 1)), scheduled_duration: 1.5, stage_id: [1, 'New'], description: 'Help door trapped' });
+    o.orders.push({ id: 601, name: 'FO0002', location_id: 71, person_id: 41, scheduled_date_start: toOdooTime(at(11, 1)), scheduled_duration: 1, stage_id: [1, 'New'] });
+    await renderSync(o.fetchFn);
+    await settle();
+    let visits = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
+    expect(visits.map((v) => [v.id, v.start, v.minutes, v.name, v.address, v.what, v.odooName])).toEqual([['odoo-600', at(10, 1), 90, 'Atx', '9 Elm St, Austin 78701', 'Help door trapped', 'FO0001']]);
+
+    // Given to someone else in Odoo: off my schedule on the next pass.
+    o.orders[0].person_id = 41;
+    await act(async () => shown?.unmount());
+    await renderSync(o.fetchFn);
+    await settle();
+    visits = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
+    expect(visits).toEqual([]);
+  });
+
   it('sends a visit moved on the phone to Odoo', async () => {
     const o = fakeOdoo();
     o.orders.push({ id: 500, name: 'FSO500', person_id: 40, scheduled_date_start: toOdooTime(at(9, 1)), scheduled_duration: 1, stage_id: [1, 'New'] });
@@ -279,5 +334,47 @@ describe('picking older jobs to send', () => {
     const saved = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
     expect(saved.map((j) => j.sendToOdoo)).toEqual([true, false, false]);
     expect(olderJobs(saved, 5000)).toEqual([]);
+  });
+});
+
+describe('the Jobs tab, signed in to Odoo', () => {
+  const settle = async (n = 10) => {
+    for (let i = 0; i < n; i++) await act(async () => undefined);
+  };
+
+  beforeEach(async () => {
+    resetJobsSince();
+    await AsyncStorage.clear();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it("lists Odoo's jobs, and opening one makes the phone's job for it", async () => {
+    const o = fakeOdoo();
+    o.locations.push({ id: 71, name: 'Atx', street: '9 Elm St', city: 'Austin', zip: '78701', phone: '512 555 0100' });
+    o.orders.push({ id: 600, name: 'FO0001', location_id: 71, person_id: 41, scheduled_date_start: toOdooTime(at(10, 1)), scheduled_duration: 1, stage_id: [1, 'New'], description: 'Help door trapped' });
+    o.orders.push({ id: 601, name: 'FO0002', location_id: 71, person_id: 41, stage_id: [9, 'Done'] });
+    jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
+    const app = await renderApp('/team');
+    await settle();
+    await fireEvent.changeText(screen.getByTestId('team-url'), 'acme.odoo.com');
+    await fireEvent.changeText(screen.getByTestId('team-login'), 'j@x.test');
+    await fireEvent.changeText(screen.getByTestId('team-secret'), 'key123');
+    await fireEvent.press(screen.getByTestId('team-signin-go'));
+    await settle();
+    await act(async () => router.navigate('/jobs'));
+    await settle();
+
+    expect(screen.getByTestId('odoo-job-600')).toHaveTextContent(/Atx.*9 Elm St, Austin 78701.*Help door trapped.*FO0001/);
+    // Open is the default filter: the done one isn't listed.
+    expect(screen.queryByTestId('odoo-job-601')).toBeNull();
+    expect(screen.queryByTestId('jobs-empty')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('odoo-job-600'));
+    await settle();
+    expect(app.getPathname()).toMatch(/^\/job\//);
+    const jobs = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
+    expect(jobs).toEqual([expect.objectContaining({ customer: 'Atx', address: '9 Elm St, Austin 78701', what: 'Help door trapped', odooJob: { model: 'fsm.order', id: 600, name: 'FO0001' } })]);
+    // Nothing new went to Odoo for it.
+    expect(o.calls.filter((c) => c.method === 'create')).toEqual([]);
   });
 });

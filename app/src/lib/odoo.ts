@@ -315,20 +315,22 @@ export class OdooClient {
     return this.readWhere([this.assignedTo(who), ...this.open()]);
   }
 
-  private async readWhere(domain: unknown[]): Promise<OdooTask[]> {
+  private async readWhere(domain: unknown[], opts: { newest?: boolean; limit?: number; offset?: number } = {}): Promise<OdooTask[]> {
     const s = this.session;
     if (s.kind === 'none') return [];
+    const dir = opts.newest ? 'desc' : 'asc';
+    const page = { limit: opts.limit ?? 200, ...(opts.offset ? { offset: opts.offset } : {}) };
     if (s.kind === 'oca') {
       const fields = ['name', 'location_id', 'person_id', ...s.fields];
-      const order = this.has('scheduled_date_start') ? 'scheduled_date_start asc, id asc' : 'id asc';
-      const rows = (await this.call('fsm.order', 'search_read', [domain], { fields, limit: 200, order })) as Record<string, unknown>[];
+      const order = this.has('scheduled_date_start') ? `scheduled_date_start ${dir}, id ${dir}` : `id ${dir}`;
+      const rows = (await this.call('fsm.order', 'search_read', [domain], { fields, ...page, order })) as Record<string, unknown>[];
       const locIds = [...new Set(rows.map((r) => (Array.isArray(r.location_id) ? (r.location_id[0] as number) : 0)).filter(Boolean))];
       const locs = locIds.length ? ((await this.call('fsm.location', 'read', [locIds], { fields: await this.contactFields() })) as Record<string, unknown>[]) : [];
       return rows.map((r) => orderToTask(r, locs));
     }
     const fields = ['name', 'partner_id', 'stage_id', s.assignField, ...s.fields];
-    const order = this.has('planned_date_begin') ? 'planned_date_begin asc, id asc' : this.has('date_deadline') ? 'date_deadline asc, id asc' : 'id asc';
-    const rows = (await this.call('project.task', 'search_read', [domain], { fields, limit: 200, order })) as Record<string, unknown>[];
+    const order = this.has('planned_date_begin') ? `planned_date_begin ${dir}, id ${dir}` : this.has('date_deadline') ? `date_deadline ${dir}, id ${dir}` : `id ${dir}`;
+    const rows = (await this.call('project.task', 'search_read', [domain], { fields, ...page, order })) as Record<string, unknown>[];
     const partnerIds = [...new Set(rows.map((r) => (Array.isArray(r.partner_id) ? (r.partner_id[0] as number) : 0)).filter(Boolean))];
     const partners = partnerIds.length
       ? ((await this.call('res.partner', 'read', [partnerIds], { fields: await this.contactFields() })) as Record<string, unknown>[])
@@ -340,6 +342,28 @@ export class OdooClient {
   myTasks(who = this.session.me): Promise<OdooTask[]> {
     if (!who) return Promise.resolve([]);
     return this.readJobs(who);
+  }
+
+  /**
+   * Every job in Odoo, whoever has it, for the Jobs tab: open, done or all,
+   * latest planned first, matching a search on its reference, place or notes.
+   */
+  listJobs(filter: 'open' | 'done' | 'all', search = '', offset = 0, limit = 40): Promise<OdooTask[]> {
+    const s = this.session;
+    if (s.kind === 'none') return Promise.resolve([]);
+    const d: unknown[] = [];
+    if (filter === 'open') d.push(...this.open());
+    if (filter === 'done') {
+      if (s.kind === 'oca') d.push(...(s.closedStage ? [['stage_id.is_closed', '=', true]] : []));
+      else d.push(...(s.fsm ? [['is_fsm', '=', true]] : []), this.has('fsm_done') ? ['fsm_done', '=', true] : ['stage_id.fold', '=', true]);
+    }
+    if (filter === 'all' && s.kind === 'task' && s.fsm) d.push(['is_fsm', '=', true]);
+    const q = search.trim();
+    if (q) {
+      if (s.kind === 'oca') d.push('|', '|', ['name', 'ilike', q], ['location_id', 'ilike', q], ['description', 'ilike', q]);
+      else d.push('|', ['name', 'ilike', q], ['partner_id', 'ilike', q]);
+    }
+    return this.readWhere(d, { newest: true, limit, offset });
   }
 
   /** Open jobs nobody is assigned to. */
