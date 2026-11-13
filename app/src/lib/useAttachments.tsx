@@ -10,7 +10,8 @@ interface AttachmentsApi extends Attachments {
   addPhotos: (jobId: string, uris: string[], kind: PhotoKind, item?: string) => void;
   setPhotoKind: (id: string, kind: PhotoKind) => void;
   removePhoto: (id: string) => void;
-  sign: (s: Omit<Signature, 'id' | 'at'>) => void;
+  /** Saves a signature and returns it. */
+  sign: (s: Omit<Signature, 'id' | 'at'>) => Signature;
   restoreSignatures: (s: Signature[]) => void;
 }
 
@@ -64,7 +65,14 @@ export function AttachmentsProvider({ children, media: given }: { children: Reac
       }),
     [change, media],
   );
-  const sign = useCallback((sig: Omit<Signature, 'id' | 'at'>) => change((s) => ({ ...s, signatures: [...s.signatures, { ...sig, id: newId('sg'), at: Date.now() }] })), [change]);
+  const sign = useCallback(
+    (sig: Omit<Signature, 'id' | 'at'>) => {
+      const saved: Signature = { ...sig, id: newId('sg'), at: Date.now() };
+      change((s) => ({ ...s, signatures: [...s.signatures, saved] }));
+      return saved;
+    },
+    [change],
+  );
   const restoreSignatures = useCallback((incoming: Signature[]) => change((s) => mergeSignatures(s, incoming)), [change]);
 
   const api = useMemo(

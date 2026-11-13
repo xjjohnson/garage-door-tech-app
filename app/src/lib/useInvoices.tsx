@@ -13,6 +13,7 @@ import {
   parseBusiness,
   parseInvoices,
   Payment,
+  withOdoo,
 } from './invoices';
 import { QuoteOption } from './quote';
 
@@ -22,7 +23,8 @@ interface InvoicesApi {
   business: Business;
   setBusiness: (fn: (prev: Business) => Business) => void;
   /** Makes an invoice for a job from the option the customer picked. */
-  create: (job: { id: string; customerId?: string; customer: string; address: string }, option: QuoteOption, source?: 'ticket') => Invoice;
+  /** New invoices go to Odoo on their own once there's signal (OdooInvoicesSync). */
+  create: (job: { id: string; customerId?: string; customer: string; address: string }, option: QuoteOption, source?: 'ticket', ref?: string) => Invoice;
   addPayment: (invoiceId: string, p: Omit<Payment, 'id' | 'at'>) => void;
   removePayment: (invoiceId: string, paymentId: string) => void;
   setVoid: (invoiceId: string, voided: boolean) => void;
@@ -85,9 +87,9 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   );
 
   const create = useCallback<InvoicesApi['create']>(
-    (job, option, source) => {
+    (job, option, source, ref) => {
       const now = Date.now();
-      const inv = createInvoice(job, option, latest.current, now, undefined, source);
+      const inv = createInvoice(job, option, latest.current, now, undefined, source, { ref, autoSend: true });
       change((prev) => [inv, ...prev]);
       return inv;
     },
@@ -113,7 +115,7 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
     [edit],
   );
 
-  const setOdoo = useCallback<InvoicesApi['setOdoo']>((id, odoo) => change((prev) => prev.map((i) => (i.id === id ? { ...i, odoo } : i))), [change]);
+  const setOdoo = useCallback<InvoicesApi['setOdoo']>((id, odoo) => change((prev) => prev.map((i) => (i.id === id ? withOdoo(i, odoo) : i))), [change]);
 
   const setBusiness = useCallback<InvoicesApi['setBusiness']>((fn) => {
     touched.current.business = true;
