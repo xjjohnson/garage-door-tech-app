@@ -63,7 +63,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
         return;
       case 'work':
-        // With a ticket, Finish job there marks the work done and makes the invoice.
+        // With a ticket, Create invoice there marks the work done and makes the invoice.
         if (job.ticket?.lines.length && !inv) router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
         else setStep(job.id, 'workDoneAt', now());
         return;
@@ -180,7 +180,7 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
     case 'quote':
       return 'Next: build the ticket';
     case 'work':
-      return job.ticket?.lines.length && !hasInvoice ? 'Next: finish job' : 'Work done';
+      return job.ticket?.lines.length && !hasInvoice ? 'Next: create invoice' : 'Work done';
     case 'paid':
       return hasInvoice ? 'Next: get paid' : 'Next: make the invoice';
   }

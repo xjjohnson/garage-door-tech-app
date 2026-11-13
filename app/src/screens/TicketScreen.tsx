@@ -112,7 +112,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
           log.warn('ticket', `${job.id}: invoice ${inv.number} not sent to Odoo yet: ${message(e)}`);
         }
       }
-      router.push({ pathname: '/invoice/[id]', params: { id: inv.id, sign: '1' } });
+      router.push({ pathname: '/invoice/[id]', params: { id: inv.id } });
     } catch (e) {
       setError(message(e));
     } finally {
@@ -129,7 +129,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       return;
     }
     const t = odooTotals ? ticket : await sync();
-    setEstimateNote(t?.order ? `Estimate saved in Odoo as quotation ${t.order.name}, ${formatMoney(currentTotals(t)?.total ?? 0)}. Finish job makes it the invoice.` : 'Estimate saved on the phone. It goes to Odoo as a quotation when Odoo can be reached.');
+    setEstimateNote(t?.order ? `Estimate saved in Odoo as quotation ${t.order.name}, ${formatMoney(currentTotals(t)?.total ?? 0)}. Create invoice makes it the invoice.` : 'Estimate saved on the phone. It goes to Odoo as a quotation when Odoo can be reached.');
   };
 
   const askEmail = async () => {
@@ -232,7 +232,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
             </Text>
           ) : ticket.estimateAt ? (
             <Text style={styles.meta} testID="ticket-estimate-note">
-              Saved as an estimate{ticket.order ? ` (quotation ${ticket.order.name} in Odoo)` : ''}. Finish job makes it the invoice.
+              Saved as an estimate{ticket.order ? ` (quotation ${ticket.order.name} in Odoo)` : ''}. Create invoice makes it the invoice.
             </Text>
           ) : null}
           {ticket.estimateAt && ticket.order && client ? (
@@ -256,7 +256,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         </View>
       ) : null}
 
-      {!invoice ? <Action label={making ? 'Finishing...' : 'Finish job'} primary disabled={making || ticket.lines.length === 0 || syncing} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
+      {!invoice ? <Action label={making ? 'Creating the invoice...' : 'Create invoice'} primary disabled={making || ticket.lines.length === 0 || syncing} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
 
       <SectionTitle>Optional</SectionTitle>
       <NavRow

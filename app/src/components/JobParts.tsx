@@ -59,7 +59,7 @@ export function JobParts({ jobId }: { jobId: string }) {
           <Text style={[styles.body, styles.grow]}>
             {p.qty} x {p.name}
           </Text>
-          <Text style={styles.note}>On the ticket; off the truck at Finish job</Text>
+          <Text style={styles.note}>On the ticket; off the truck at Create invoice</Text>
         </View>
       ))}
       {mine.map((u) => (
