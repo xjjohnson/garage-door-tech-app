@@ -225,6 +225,20 @@ export async function voidInvoice(client: OdooClient, id: number, reason: string
   return named?.name || credit.name || `#${credit.id}`;
 }
 
+/**
+ * Saves the customer's quote signature on the sales order in Odoo, in its own
+ * signature fields (the ones Odoo's online signing fills): the drawing as a
+ * PNG, who signed and when. Returns false if this Odoo's sales orders have no
+ * signature field.
+ */
+export async function sendOrderSignature(client: OdooClient, orderId: number, sig: { name: string; at: number; png: string }): Promise<boolean> {
+  const fields = (await client.call('sale.order', 'fields_get', [['signature', 'signed_by', 'signed_on']], { attributes: ['type'] })) as Record<string, unknown>;
+  if (!fields || !('signature' in fields)) return false;
+  const on = new Date(sig.at).toISOString().replace('T', ' ').slice(0, 19);
+  await client.call('sale.order', 'write', [[orderId], { signature: sig.png, ...('signed_by' in fields ? { signed_by: sig.name || 'Customer' } : {}), ...('signed_on' in fields ? { signed_on: on } : {}) }]);
+  return true;
+}
+
 /** Reads a stored OdooRef. */
 export function parseRef(v: unknown): OdooRef | undefined {
   if (!v || typeof v !== 'object') return undefined;

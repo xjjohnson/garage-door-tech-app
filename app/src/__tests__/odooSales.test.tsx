@@ -37,7 +37,8 @@ function fakeOdoo() {
     const key = `${model}.${method}`;
     if (model === 'res.users') return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
     if (method === 'fields_get') {
-      if (['product.product', 'sale.order', 'account.move'].includes(model)) return reply({ name: {}, sale_ok: {}, lst_price: {} });
+      if (model === 'sale.order') return reply({ name: {}, signature: {}, signed_by: {}, signed_on: {} });
+      if (['product.product', 'account.move'].includes(model)) return reply({ name: {}, sale_ok: {}, lst_price: {} });
       if (model === 'res.partner') return reply({ name: {}, customer_rank: {} });
       return missing(model);
     }
@@ -52,6 +53,7 @@ function fakeOdoo() {
       case 'sale.order.create':
         return reply(700);
       case 'sale.order.action_confirm':
+      case 'sale.order.write':
         return reply(true);
       case 'sale.order.read':
         return reply([{ id: 700, name: 'S00012' }]);
@@ -213,6 +215,24 @@ describe('quote and invoice screens with Odoo', () => {
     expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].odooOrder).toEqual({ id: 700, name: 'S00012' });
     // The customer is now an Odoo contact too.
     expect(parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY))[0].odooId).toBe(300);
+
+    // The customer signs the quote: the signature goes on the sales order's own fields in Odoo.
+    await fireEvent.press(screen.getByTestId('quote-sign'));
+    const pad = screen.getByTestId('signature-pad');
+    await fireEvent(pad, 'layout', { nativeEvent: { layout: { width: 300, height: 200 } } });
+    let tick = 0;
+    const touch = (x: number, y: number) => ({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, touches: [], changedTouches: [], identifier: 1, timestamp: Date.now() }, touchHistory: { touchBank: [{ touchActive: true, startPageX: x, startPageY: y, startTimeStamp: 0, currentPageX: x, currentPageY: y, currentTimeStamp: ++tick, previousPageX: x, previousPageY: y, previousTimeStamp: tick - 1 }], numberActiveTouches: 1, indexOfSingleActiveTouch: 0, mostRecentTimeStamp: tick } });
+    await fireEvent(pad, 'responderGrant', touch(10, 10));
+    await fireEvent(pad, 'responderMove', touch(50, 40));
+    await fireEvent(pad, 'responderRelease', touch(50, 40));
+    await fireEvent.press(screen.getByTestId('signature-save'));
+    await settle();
+    const signed = o.calls.find((x) => x.model === 'sale.order' && x.method === 'write')!;
+    expect(signed.args[0]).toEqual([700]);
+    expect(signed.args[1]).toMatchObject({ signed_by: 'Pat Smith', signed_on: expect.stringMatching(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/), signature: expect.stringMatching(/^iVBORw0KGgo/) });
+    expect(screen.getByTestId('quote-odoo-order')).toHaveTextContent('In Odoo as sales order S00012. Signature saved on it.');
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteSignatureSent).toBeTruthy();
+    expect(o.calls.filter((x) => x.model === 'sale.order' && x.method === 'write')).toHaveLength(1);
 
     await fireEvent.press(screen.getByTestId('quote-make-invoice'));
     await settle();

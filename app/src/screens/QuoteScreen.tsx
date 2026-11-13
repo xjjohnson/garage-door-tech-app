@@ -192,7 +192,7 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
               setSigning(false);
             }}
           />
-          {picked ? <OdooQuoteSend job={job} option={picked} /> : null}
+          {picked ? <OdooQuoteSend job={job} option={picked} signature={signature} /> : null}
         </>
       ) : null}
 
