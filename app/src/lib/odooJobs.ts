@@ -73,27 +73,27 @@ export interface OdooJobState {
 const isDeleted = (e: unknown) => e instanceof Error && /does not exist or has been deleted/i.test(e.message);
 
 /**
- * Reads records, telling apart the ones deleted in Odoo: Odoo refuses the
- * whole read when one is gone, so then each is read on its own. Any other
- * error (no access, no signal) is thrown, so nothing is taken for deleted.
+ * Reads records, telling apart the ones deleted in Odoo. Odoo's read leaves a
+ * deleted record out of its answer (some versions refuse the whole read
+ * instead, so then each is read on its own). Any other error (no access, no
+ * signal) is thrown, so nothing is taken for deleted.
  */
 async function readExisting(c: Pick<OdooClient, 'call'>, model: string, ids: number[], fields: string[]): Promise<{ rows: Record<string, unknown>[]; deleted: number[] }> {
+  let rows: Record<string, unknown>[] = [];
   try {
-    return { rows: (await c.call(model, 'read', [ids], { fields })) as Record<string, unknown>[], deleted: [] };
+    rows = (await c.call(model, 'read', [ids], { fields })) as Record<string, unknown>[];
   } catch (e) {
     if (!isDeleted(e)) throw e;
-  }
-  const rows: Record<string, unknown>[] = [];
-  const deleted: number[] = [];
-  for (const id of ids) {
-    try {
-      rows.push(...((await c.call(model, 'read', [[id]], { fields })) as Record<string, unknown>[]));
-    } catch (e) {
-      if (!isDeleted(e)) throw e;
-      deleted.push(id);
+    for (const id of ids) {
+      try {
+        rows.push(...((await c.call(model, 'read', [[id]], { fields })) as Record<string, unknown>[]));
+      } catch (e2) {
+        if (!isDeleted(e2)) throw e2;
+      }
     }
   }
-  return { rows, deleted };
+  const have = new Set(rows.map((r) => r.id));
+  return { rows, deleted: ids.filter((id) => !have.has(id)) };
 }
 
 /** The visit's Odoo id for a job sent to Odoo: phone visits take the Odoo job's id, as Odoo's own jobs do. */

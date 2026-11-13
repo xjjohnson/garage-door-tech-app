@@ -23,6 +23,16 @@ export interface OdooRef {
 }
 
 /** What Odoo says about an invoice the phone sent. */
+/** Odoo has no such invoice any more: it was deleted there. */
+export class InvoiceGone extends Error {
+  constructor() {
+    super('That invoice is no longer in Odoo.');
+  }
+}
+
+/** What `voided` says on an invoice that was deleted in Odoo (the phone's copy is voided). */
+export const DELETED_IN_ODOO = 'deleted';
+
 export interface OdooInvoiceState extends OdooRef {
   /** Cents, with Odoo's taxes. */
   total: number;
@@ -135,7 +145,7 @@ export async function sendInvoice(client: OdooClient, partnerId: number, lines: 
 /** What Odoo says is paid and owed now. */
 export async function readInvoice(client: OdooClient, id: number, sentPayments: string[], now: number = Date.now()): Promise<OdooInvoiceState> {
   const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total', 'amount_residual', 'payment_state', 'invoice_line_ids'] })) as Record<string, unknown>[];
-  if (!r) throw new Error('That invoice is no longer in Odoo.');
+  if (!r) throw new InvoiceGone();
   const lines = await readLines(client, r.invoice_line_ids);
   return {
     id,
@@ -200,7 +210,7 @@ export async function sendPayments(client: OdooClient, invoiceId: number, paymen
  */
 export async function voidInvoice(client: OdooClient, id: number, reason: string): Promise<string> {
   const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['state', 'amount_residual', 'journal_id'] })) as { state?: string; amount_residual?: number; journal_id?: unknown }[];
-  if (!r) throw new Error('That invoice is no longer in Odoo.');
+  if (!r) throw new InvoiceGone();
   if (r.state === 'cancel') return 'cancelled';
   if (r.state === 'draft') {
     await client.call('account.move', 'button_cancel', [[id]]);

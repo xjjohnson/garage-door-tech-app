@@ -28,7 +28,7 @@ const at = (h: number, dayOffset = 0) => {
 type Row = Record<string, unknown>;
 
 /** A pretend Odoo with OCA Field Service. This user is worker 40. */
-function fakeOdoo() {
+function fakeOdoo(refuseDeleted = false) {
   const orders: Row[] = [];
   const locations: Row[] = [{ id: 70, name: 'Pat Smith', partner_id: 7, owner_id: 7, street: '1 Oak St' }];
   const partners: Row[] = [];
@@ -93,8 +93,8 @@ function fakeOdoo() {
     }
     if (model === 'fsm.order' && method === 'read') {
       const ids = args[0] as number[];
-      // Like Odoo: the whole read is refused when one of the orders was deleted.
-      if (ids.some((id) => !orders.some((o) => o.id === id))) return error('Record does not exist or has been deleted.\n(Record: fsm.order, User: 2)');
+      // Odoo's read leaves out the orders that were deleted; some versions refuse instead.
+      if (refuseDeleted && ids.some((id) => !orders.some((o) => o.id === id))) return error('Record does not exist or has been deleted.\n(Record: fsm.order, User: 2)');
       return reply(
         orders
           .filter((o) => ids.includes(o.id as number))
@@ -341,8 +341,8 @@ describe('job sync in the background', () => {
     expect(pat?.odooId).toBe(100);
   });
 
-  it('takes a job deleted in Odoo, and its visit, off the phone', async () => {
-    const o = fakeOdoo();
+  it.each([false, true])('takes a job deleted in Odoo, and its visit, off the phone (Odoo refuses the read: %s)', async (refuse) => {
+    const o = fakeOdoo(refuse);
     o.orders.push({ id: 500, name: 'FSO500', person_id: 40, scheduled_date_start: toOdooTime(at(15, 1)), scheduled_duration: 1, stage_id: [1, 'New'] });
     await AsyncStorage.setItem(
       JOBS_STORAGE_KEY,

@@ -12,7 +12,7 @@ import { inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
 import { Job } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
-import { confirmOrderFor, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendOrderSignature, sendPayments, sendSignature, voidInvoice } from '../lib/odooSales';
+import { confirmOrderFor, DELETED_IN_ODOO, InvoiceGone, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendOrderSignature, sendPayments, sendSignature, voidInvoice } from '../lib/odooSales';
 import { signaturePng } from '../lib/signaturePng';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { QuoteOption } from '../lib/quote';
@@ -116,7 +116,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
   const partner = usePartner();
   const { sheet } = usePriceSheet();
   const { jobs, setOdooOrder } = useJobs();
-  const { setOdoo, business } = useInvoices();
+  const { setOdoo, setVoid, business } = useInvoices();
   const attachments = useAttachments();
   const online = status === 'signedIn' && client && client.session.apps.invoicing ? client : null;
 
@@ -185,7 +185,31 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     return state;
   };
 
+  /**
+   * An invoice deleted in Odoo: the phone's copy is voided and marked as deleted there, so it
+   * stops counting as owed and nothing more is sent or read for it.
+   */
+  const markGone = (invoice: Invoice): OdooInvoiceState | undefined => {
+    const o = invoice.odoo ?? posted.get(invoice.id);
+    if (!o) return undefined;
+    if (!invoice.voidedAt) setVoid(invoice.id, true);
+    const state = { ...o, voided: DELETED_IN_ODOO, checkedAt: now() };
+    posted.set(invoice.id, state);
+    setOdoo(invoice.id, state);
+    log.warn('odoo', `invoice ${invoiceNo(invoice)} was deleted in Odoo, so it is voided on the phone`);
+    return state;
+  };
+
   const send = async (invoice: Invoice, opts: { sig?: Signature; order?: OdooRef } = {}): Promise<OdooInvoiceState | undefined> => {
+    try {
+      return await sendOnce(invoice, opts);
+    } catch (e) {
+      if (e instanceof InvoiceGone) return markGone(invoice) ?? Promise.reject(e);
+      throw e;
+    }
+  };
+
+  const sendOnce = async (invoice: Invoice, opts: { sig?: Signature; order?: OdooRef } = {}): Promise<OdooInvoiceState | undefined> => {
     if (!online) return undefined;
     // One send per invoice at a time: Finish job, the invoice screen and the background sync can all ask.
     const running = inFlight.get(invoice.id);
@@ -206,7 +230,13 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
   const refresh = async (invoice: Invoice): Promise<OdooInvoiceState | undefined> => {
     const o = invoice.odoo;
     if (!online || !o || inFlight.has(invoice.id)) return undefined;
-    const fresh = await readInvoice(online, o.id, o.sentPayments, now());
+    let fresh: OdooInvoiceState;
+    try {
+      fresh = await readInvoice(online, o.id, o.sentPayments, now());
+    } catch (e) {
+      if (e instanceof InvoiceGone) return markGone(invoice);
+      throw e;
+    }
     const state = { ...fresh, ...(o.signatureSent ? { signatureSent: o.signatureSent } : {}), ...(o.voided ? { voided: o.voided } : {}) };
     posted.set(invoice.id, state);
     setOdoo(invoice.id, state);
@@ -272,7 +302,7 @@ export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
       // What Odoo says now about invoices already there: paid in Odoo, changed lines.
       const t = now();
       const stale = latest.current.invoices
-        .filter((i) => i.odoo && !latest.current.pending(i) && (!DONE.includes(i.odoo.paymentState) || !i.odoo.lines) && t - i.odoo.checkedAt > REFRESH_MS)
+        .filter((i) => i.odoo && i.odoo.voided !== DELETED_IN_ODOO && !latest.current.pending(i) && (!DONE.includes(i.odoo.paymentState) || !i.odoo.lines) && t - i.odoo.checkedAt > REFRESH_MS)
         .slice(0, REFRESH_BATCH);
       for (const inv of stale) {
         try {
@@ -411,7 +441,7 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
       {o && o.untaxed === undefined && o.total !== invoice.total ? <Text style={styles.meta}>Odoo’s total differs from this phone’s because Odoo adds its own taxes.</Text> : null}
       {invoice.voidedAt && o ? (
         <Text style={styles.meta} testID="invoice-odoo-void">
-          {o.voided === 'cancelled' ? `Voided: ${o.name} is cancelled in Odoo.` : o.voided ? `Voided: credit note ${o.voided} reverses it in Odoo${o.paymentState === 'paid' || o.paymentState === 'in_payment' ? '. It was paid, so refund the customer from that credit note in Odoo.' : '.'}` : 'Voided on the phone. It is cancelled in Odoo (a credit note if posted) once the phone has signal.'}
+          {o.voided === DELETED_IN_ODOO ? 'Voided: this invoice was deleted in Odoo, so it no longer counts as owed.' : o.voided === 'cancelled' ? `Voided: ${o.name} is cancelled in Odoo.` : o.voided ? `Voided: credit note ${o.voided} reverses it in Odoo${o.paymentState === 'paid' || o.paymentState === 'in_payment' ? '. It was paid, so refund the customer from that credit note in Odoo.' : '.'}` : 'Voided on the phone. It is cancelled in Odoo (a credit note if posted) once the phone has signal.'}
         </Text>
       ) : null}
       {online && !o?.voided ? <Button label={busy ? 'Working...' : invoice.voidedAt ? 'Void it in Odoo now' : o ? 'Sync with Odoo' : 'Send to Odoo now'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
