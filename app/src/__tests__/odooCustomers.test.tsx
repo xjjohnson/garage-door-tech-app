@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { Customer, CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
 import { finishCustomerSync, OdooPartner, planCustomerSync } from '../lib/customerSync';
 import { addressVals, Fetch, OdooClient } from '../lib/odoo';
-import { addAddress, addressLine, ADDRESSES_STORAGE_KEY, searchContacts, crampedAddresses, fetchAddresses, splitAddresses, splitStreet } from '../lib/odooContacts';
+import { addAddress, addressLine, ADDRESSES_STORAGE_KEY, addressChoices, searchCustomers, crampedAddresses, fetchAddresses, splitAddresses, splitStreet } from '../lib/odooContacts';
 import { renderApp } from '../testing/renderApp';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, JOBS_STORAGE_KEY } from '../lib/jobs';
@@ -340,16 +340,25 @@ describe('splitting crammed addresses from the Customers tab', () => {
 });
 
 describe('picking the delivery address', () => {
-  it('finds another customer in Odoo to use as the delivery address, leaving out the job\'s own', async () => {
+  it('finds customers in Odoo by name, once each, and lists all of a customer\'s addresses', async () => {
     const calls: unknown[][] = [];
-    const client = { call: async (...a: unknown[]) => (calls.push(a), [{ id: 50, name: 'Front gate', type: 'delivery', street: '5 Pine Rd', city: 'Kyle', zip: '78640', parent_id: [40, 'Acme HOA'] }, { id: 51, name: 'Pat Lee', type: 'contact', street: '7 Ash Ln', city: '', zip: '', parent_id: false }]) };
-    expect(await searchContacts(client, 'a', 33)).toEqual([]);
-    const found = await searchContacts(client, 'pine', 33);
-    expect(found.map((f) => [f.id, f.parentName, f.address])).toEqual([
-      [50, 'Acme HOA', '5 Pine Rd, Kyle 78640'],
-      [51, '', '7 Ash Ln'],
+    const client = { call: async (...a: unknown[]) => (calls.push(a), [{ id: 40, name: 'Caliber Collision', type: 'contact', street: '6222 Menchaca Rd', city: 'Austin', zip: '78745' }, { id: 40, name: 'Caliber Collision', type: 'contact', street: '6222 Menchaca Rd', city: 'Austin', zip: '78745' }, { id: 41, name: 'Cal Smith', type: 'contact', street: '', city: '', zip: '' }]) };
+    expect(await searchCustomers(client, 'c')).toEqual([]);
+    expect(await searchCustomers(client, 'ca')).toEqual([
+      { id: 40, name: 'Caliber Collision', address: '6222 Menchaca Rd, Austin 78745' },
+      { id: 41, name: 'Cal Smith', address: '' },
     ]);
-    expect((calls[0][2] as unknown[][])[0]).toEqual(expect.arrayContaining([['id', '!=', 33]]));
+    expect((calls[0][2] as unknown[][])[0]).toEqual(expect.arrayContaining([['parent_id', '=', false]]));
+    const list = addressChoices({ id: 40, address: '' }, [
+      { id: 50, type: 'delivery', name: '1901 S Bell Blvd', address: '1901 S Bell Blvd, Cedar Park 78613', phone: '', email: '' },
+      { id: 51, type: 'contact', name: 'Pat', address: '', phone: '', email: '' },
+      { id: 52, type: 'invoice', name: '', address: 'PO Box 9, Austin', phone: '', email: '' },
+    ]);
+    expect(list.map((c) => [c.id, c.title, c.line])).toEqual([
+      [40, 'Main address', 'No address in Odoo'],
+      [50, 'House (delivery)', '1901 S Bell Blvd, Cedar Park 78613'],
+      [52, expect.any(String), 'PO Box 9, Austin'],
+    ]);
   });
 
   it('leaves out an address name that only repeats the street', () => {
