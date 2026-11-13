@@ -8,7 +8,7 @@ import { SignatureSheet } from '../components/SignaturePad';
 import { signatureFor } from '../lib/attachments';
 import { invoiceHtml, pdfName } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
-import { balance, Invoice, invoiceStatus, invoiceText, optionLabel, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
+import { balance, Invoice, invoiceLabel, invoiceStatus, invoiceText, optionLabel, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { cents, formatMoney, TIER_LABEL } from '../lib/prices';
 import { textLink, warrantyFor } from '../lib/followups';
@@ -32,7 +32,7 @@ export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSig
   const phone = useCustomers().customers.find((c) => c.id === invoice.customerId)?.phone ?? '';
   const review = reviewLink(business) ? textLink(phone, reviewRequestText(invoice, business)) : undefined;
   const due = balance(invoice);
-  const links = payLinks(business, due, `Invoice ${invoice.number}`);
+  const links = payLinks(business, due, invoiceLabel(invoice));
   const scannable = links.filter((l) => l.url);
   const [qrFor, setQrFor] = useState<PayMethod | null>(null);
   const shownQr = scannable.find((l) => l.method === qrFor) ?? scannable[0];
@@ -51,7 +51,7 @@ export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSig
   const sendPdf = () => {
     if (!attachments.media) return;
     setPdfError(false);
-    attachments.media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(`Invoice ${invoice.number}`, invoice.billTo)).catch(() => setPdfError(true));
+    attachments.media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(invoiceLabel(invoice), invoice.billTo)).catch(() => setPdfError(true));
   };
 
   const [method, setMethod] = useState<PayMethod>('cash');
@@ -66,7 +66,7 @@ export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSig
   return (
     <View style={styles.stack} testID="invoice">
       <View style={styles.top}>
-        <Text style={styles.number}>Invoice {invoice.number}</Text>
+        <Text style={styles.number}>{invoiceLabel(invoice)}</Text>
         <Text style={[styles.badge, status === 'paid' && styles.badgePaid, status === 'void' && styles.badgeVoid]} testID="invoice-status">
           {STATUS_LABEL[status]}
         </Text>
@@ -210,7 +210,7 @@ export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSig
       <Action label={signature ? 'Sign again' : 'Customer signs'} onPress={() => setSigning(true)} testID="invoice-sign" />
       <SignatureSheet
         visible={signing}
-        title={`Invoice ${invoice.number}`}
+        title={invoiceLabel(invoice)}
         agreement="Work completed to my satisfaction."
         initialName={invoice.billTo}
         onCancel={() => setSigning(false)}

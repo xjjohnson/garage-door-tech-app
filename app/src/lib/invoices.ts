@@ -65,8 +65,19 @@ export const invoiceRef = (inv: Pick<Invoice, 'ref' | 'number'>) => inv.ref?.tri
 
 /** The invoice with what Odoo said: once Odoo has priced it, its tax and totals are the ones shown. */
 export function withOdoo(inv: Invoice, odoo: OdooInvoiceState): Invoice {
-  return { ...inv, odoo, ...(odoo.untaxed !== undefined ? { subtotal: odoo.untaxed, tax: odoo.tax ?? 0, total: odoo.total } : {}) };
+  return {
+    ...inv,
+    odoo,
+    ...(odoo.untaxed !== undefined ? { subtotal: odoo.untaxed, tax: odoo.tax ?? 0, total: odoo.total } : {}),
+    // Odoo's lines once it has them, so the phone and Odoo show the same invoice.
+    ...(odoo.lines?.length ? { lines: odoo.lines.map((l): QuoteLine => ({ label: l.label, cents: l.cents, taxable: false, ...(l.qty !== 1 ? { qty: l.qty } : {}) })) } : {}),
+  };
 }
+
+/** The invoice's number as the customer sees it: Odoo's ("INV/2026/00080") once it's in Odoo, else the phone's. */
+export const invoiceNo = (inv: Pick<Invoice, 'number' | 'odoo'>) => inv.odoo?.name || inv.number;
+/** "Invoice INV/2026/00080", or "Invoice 1004" before it's in Odoo. */
+export const invoiceLabel = (inv: Pick<Invoice, 'number' | 'odoo'>) => `Invoice ${invoiceNo(inv)}`;
 
 /** "Better option", or "Job ticket" for an invoice made from the ticket. */
 export function optionLabel(inv: Pick<Invoice, 'tier' | 'source'>): string {
@@ -151,7 +162,7 @@ export function createInvoice(
 /** Text the customer can read: what was done, what's owed, and how to pay. */
 export function invoiceText(inv: Invoice, business: Business): string {
   const out: string[] = [];
-  out.push(`${business.name || 'Garage door service'}: invoice ${inv.number}`);
+  out.push(`${business.name || 'Garage door service'}: invoice ${invoiceNo(inv)}`);
   out.push(`${inv.billTo || 'Customer'}${inv.address ? `, ${inv.address}` : ''} · ${formatJobDate(inv.createdAt)}`);
   out.push('');
   for (const l of inv.lines) out.push(`- ${l.label}: ${formatMoney(l.cents)}`);
@@ -162,7 +173,7 @@ export function invoiceText(inv: Invoice, business: Business): string {
   const due = balance(inv);
   out.push(due > 0 ? `Amount due: ${formatMoney(due)}` : 'Paid in full. Thank you!');
   if (due > 0) {
-    const ways = payLinks(business, due, `Invoice ${inv.number}`);
+    const ways = payLinks(business, due, invoiceLabel(inv));
     if (ways.length > 0) {
       out.push('');
       out.push('Pay by:');

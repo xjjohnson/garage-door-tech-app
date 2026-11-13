@@ -1,11 +1,15 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Action } from '../components/Buttons';
 import { ChipOption, Segmented } from '../components/controls';
-import { balance, invoiceStatus, sortInvoices, STATUS_LABEL } from '../lib/invoices';
+import { useInvoiceOdoo } from '../components/OdooSales';
+import { balance, Invoice, invoiceNo, invoiceStatus, sortInvoices, STATUS_LABEL } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
 import { useInvoices } from '../lib/useInvoices';
+import { useOdoo } from '../lib/useOdoo';
+import { OdooListScreen } from './OdooListScreen';
 import { colors, touch, type } from '../theme';
 
 type Filter = 'owed' | 'paid' | 'all';
@@ -15,8 +19,81 @@ const FILTERS: ChipOption<Filter>[] = [
   { label: 'All', value: 'all' },
 ];
 
-/** Every invoice, money still owed first, with the total owed at the top. */
-export function InvoicesScreen() {
+/**
+ * Invoices. Signed in to Odoo with Invoicing, these are Odoo's: its own list,
+ * with the phone's only for invoices still waiting to go there. Otherwise the
+ * invoices kept on this phone, money still owed first.
+ */
+export function InvoicesScreen({ now = Date.now }: { now?: () => number }) {
+  const { status, client } = useOdoo();
+  if (status === 'signedIn' && client?.session.apps.invoicing) return <OdooInvoices now={now} />;
+  return <PhoneInvoices />;
+}
+
+/** Odoo's invoice list, under the phone's invoices that aren't in Odoo yet. */
+function OdooInvoices({ now }: { now: () => number }) {
+  const { invoices } = useInvoices();
+  const { send } = useInvoiceOdoo(now);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const waiting = sortInvoices(invoices.filter((i) => !i.odoo && !i.voidedAt));
+  const byOdoo = useMemo(() => new Map(invoices.filter((i) => i.odoo).map((i) => [i.odoo!.id, i.id])), [invoices]);
+  const sendAll = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      for (const i of waiting) await send(i);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't reach Odoo. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={styles.stack} testID="invoices">
+      {waiting.length > 0 ? (
+        <View style={styles.stack} testID="invoices-waiting">
+          <Text style={styles.detail}>
+            {waiting.length === 1 ? '1 invoice' : `${waiting.length} invoices`} made on this phone {waiting.length === 1 ? "isn't" : "aren't"} in Odoo yet
+          </Text>
+          {waiting.map((i) => (
+            <InvoiceRow key={i.id} invoice={i} />
+          ))}
+          <Action label={busy ? 'Sending...' : 'Send to Odoo now'} disabled={busy} onPress={sendAll} testID="invoices-send-all" />
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+        </View>
+      ) : null}
+      <OdooListScreen kind="invoices" now={now} openLocal={(id) => byOdoo.get(id)} />
+    </View>
+  );
+}
+
+function InvoiceRow({ invoice: i }: { invoice: Invoice }) {
+  const s = invoiceStatus(i);
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: i.id } })}
+      accessibilityRole="button"
+      testID={`invoice-${i.id}`}
+      style={({ pressed }) => [styles.item, s === 'paid' && styles.itemPaid, pressed && styles.pressed]}
+    >
+      <View style={styles.row}>
+        <Text style={styles.name} numberOfLines={1}>
+          {invoiceNo(i)} · {i.billTo || i.address || 'Customer'}
+        </Text>
+        <Text style={[styles.badge, s === 'paid' && styles.badgePaid, s === 'void' && styles.badgeVoid]}>{STATUS_LABEL[s]}</Text>
+      </View>
+      <Text style={styles.detail}>
+        {formatMoney(i.total)}
+        {s === 'partial' ? `, ${formatMoney(balance(i))} still owed` : ''}
+      </Text>
+      <Text style={styles.meta}>{formatJobDate(i.createdAt)}</Text>
+    </Pressable>
+  );
+}
+
+/** Every invoice on this phone, money still owed first, with the total owed at the top. */
+function PhoneInvoices() {
   const { invoices, loaded } = useInvoices();
   const [filter, setFilter] = useState<Filter>('owed');
   const owed = invoices.filter((i) => ['unpaid', 'partial'].includes(invoiceStatus(i)));
@@ -40,30 +117,9 @@ export function InvoicesScreen() {
         </View>
       ) : null}
       {invoices.length > 0 && shown.length === 0 ? <Text style={styles.meta}>None here.</Text> : null}
-      {shown.map((i) => {
-        const s = invoiceStatus(i);
-        return (
-          <Pressable
-            key={i.id}
-            onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: i.id } })}
-            accessibilityRole="button"
-            testID={`invoice-${i.id}`}
-            style={({ pressed }) => [styles.item, s === 'paid' && styles.itemPaid, pressed && styles.pressed]}
-          >
-            <View style={styles.row}>
-              <Text style={styles.name} numberOfLines={1}>
-                {i.number} · {i.billTo || i.address || 'Customer'}
-              </Text>
-              <Text style={[styles.badge, s === 'paid' && styles.badgePaid, s === 'void' && styles.badgeVoid]}>{STATUS_LABEL[s]}</Text>
-            </View>
-            <Text style={styles.detail}>
-              {formatMoney(i.total)}
-              {s === 'partial' ? `, ${formatMoney(balance(i))} still owed` : ''}
-            </Text>
-            <Text style={styles.meta}>{formatJobDate(i.createdAt)}</Text>
-          </Pressable>
-        );
-      })}
+      {shown.map((i) => (
+        <InvoiceRow key={i.id} invoice={i} />
+      ))}
     </View>
   );
 }
@@ -84,4 +140,5 @@ const styles = StyleSheet.create({
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.safety },
+  error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
 });
