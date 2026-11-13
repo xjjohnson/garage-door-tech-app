@@ -649,14 +649,28 @@ print or save it (`src/lib/pdf.ts`, `src/lib/attachments.ts`,
 `src/lib/deviceMedia.ts`, AsyncStorage `attachments/v1`). **Send as text**
 still sends the plain-text version.
 
+**Jobs and schedule from Odoo** (from 0.5.20). Signed in to Odoo, the Jobs
+tab lists Odoo's own Field Service orders (or tasks), whoever has them, with
+Open, Done and All and a search on customer, address or job number, instead
+of the jobs kept on the phone. A job still waiting to go to Odoo shows above
+them. Tapping an Odoo job opens its job page; the first time, the phone makes
+its side of the job (ticket, photos, inspection), tied to that Odoo job, so
+nothing new is made in Odoo. The last open list read is kept for no signal.
+The Schedule fills itself from Odoo too: every open job given to you with a
+time becomes a visit, moves when Odoo moves it and goes when it's given to
+someone else. A visit moved on the phone goes to Odoo first. Not signed in,
+the Jobs tab and Schedule work from the phone as before.
+(`src/components/OdooJobsList.tsx`, `pullSchedule` in `src/lib/odooJobs.ts`,
+`OdooClient.listJobs`, `useOpenOdooJob` in `src/lib/useStartJob.ts`.)
+
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an
 API key from Odoo's My Preferences > Account Security). The key is kept in the
 phone's keystore (`expo-secure-store`), never in AsyncStorage or backups, and
 the app signs in again on its own when it opens. **My jobs** lists the open
-jobs Odoo assigns to you, with Directions and Call; **Add to schedule** (or
-**Put all on my schedule**) puts them on the Schedule as visits, and **Mark
-done** closes a Field Service job the way Odoo's own button does.
+jobs Odoo assigns to you, with Directions, Call and **Open job**. Jobs given
+to you with a time come onto the Schedule on their own (from 0.5.20), and
+**Mark done** closes a Field Service job the way Odoo's own button does.
 **Dispatch** lists unassigned jobs with a button for each tech to give it to,
 and **A tech's jobs** shows one tech's list with buttons to move a job to
 someone else. Jobs are Odoo Field Service tasks when that app is installed,
@@ -778,7 +792,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures, Odoo team), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header (with the house mark, Settings button and version), update banners, the sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Today, as a list or a map |
-| `(tabs)/jobs.tsx` | `/jobs` | Saved jobs; Mine / Team (dispatch board) for dispatchers |
+| `(tabs)/jobs.tsx` | `/jobs` | Odoo's jobs when signed in (else the phone's); Mine / Team (dispatch board) for dispatchers |
 | `(tabs)/sales.tsx` | `/sales` | Follow-ups, price sheet, quotes to invoice, invoices |
 | `(tabs)/customers.tsx` | `/customers` | The customer list |
 | `(tabs)/tools.tsx` | `/tools` | Every tool and setting |

@@ -2,14 +2,16 @@
  * Keeps the phone's jobs and Odoo's Field Service orders in step, in the
  * background while signed in: new jobs go to Odoo (so they show on Jobs ›
  * Team), a visit booked or moved on the phone moves the order, and an order
- * given a time or a worker in Odoo moves or removes the phone's visit. Runs
+ * given a time or a worker in Odoo moves or removes the phone's visit. Every
+ * open job given to me in Odoo with a time shows on the schedule, wherever it
+ * was made. Runs
  * shortly after a change, when the app comes back, and every few minutes.
  * Renders nothing.
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { log } from '../lib/log';
 import type { OdooPartner } from '../lib/customerSync';
-import { applyState, canSendJobs, createOdooJob, myId, partnerFor, readJobStates, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
+import { applyState, canSendJobs, createOdooJob, myId, partnerFor, pullSchedule, readJobStates, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
 import { Appointment } from '../lib/schedule';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useCustomers } from '../lib/useCustomers';
@@ -50,13 +52,16 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
 
       // 1. New jobs (and older ones the tech picked) become Odoo jobs.
       const toSend = J.jobs.filter((j) => shouldSend(j, from) && now() - (failed.current.get(j.id) ?? 0) > RETRY_MS).slice(0, BATCH);
+      // Odoo jobs made in this pass: the phone's job owns their visit.
+      const madeNow: number[] = [];
       // Odoo's contacts, read once a pass and only when a job needs one.
       let known: Promise<OdooPartner[]> | undefined;
       for (const job of toSend) {
         // Started from a visit that came from Odoo: it's that Odoo job already.
         const fromOdoo = visits.find((a) => a.jobId === job.id && /^odoo-\d+$/.test(a.id));
         if (fromOdoo) {
-          J.setOdooJob(job.id, { model: client.session.kind === 'oca' ? 'fsm.order' : 'project.task', id: Number(fromOdoo.id.slice(5)), name: fromOdoo.what || fromOdoo.name });
+          J.setOdooJob(job.id, { model: client.session.kind === 'oca' ? 'fsm.order' : 'project.task', id: Number(fromOdoo.id.slice(5)), name: fromOdoo.odooName || fromOdoo.what || fromOdoo.name });
+          madeNow.push(Number(fromOdoo.id.slice(5)));
           continue;
         }
         try {
@@ -70,6 +75,7 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
           const visit = bookedFor(job.id);
           const ref = await createOdooJob(client, partnerId, { jobId: job.id, customer: job.customer, address: job.address, phone: job.phone, what: job.what ?? '', notes: job.notes }, visit);
           J.setOdooJob(job.id, ref);
+          madeNow.push(ref.id);
           if (visit) {
             const t = now();
             S.replace([visit.id], [{ ...visit, id: visitId(ref), updatedAt: t, syncedAt: t }]);
@@ -102,9 +108,8 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
 
       // 3. What Odoo says now: the time and worker set by whoever dispatches.
       const sent = latest.current.jobsApi.jobs.filter((j) => j.odooJob && j.status === 'open');
-      if (sent.length === 0) return;
-      const model = sent[0].odooJob!.model;
-      const states = await readJobStates(client, model, sent.filter((j) => j.odooJob!.model === model).map((j) => j.odooJob!.id));
+      const model = sent[0]?.odooJob!.model;
+      const states = model ? await readJobStates(client, model, sent.filter((j) => j.odooJob!.model === model).map((j) => j.odooJob!.id)) : [];
       const me = myId(client);
       const add: Appointment[] = [];
       const drop: string[] = [];
@@ -128,6 +133,15 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
         else drop.push(v.id);
       }
       if (add.length || drop.length) S2.replace(drop, add);
+
+      // 4. The rest of my schedule: every open job given to me in Odoo with a time.
+      if (me) {
+        const mine = await client.myTasks();
+        const linked = new Set([...latest.current.jobsApi.jobs.flatMap((j) => (j.odooJob ? [j.odooJob.id] : [])), ...madeNow]);
+        const visits = S2.appointments.filter((a) => !drop.includes(a.id)).map((a) => add.find((x) => x.id === a.id) ?? a);
+        const pulled = pullSchedule([...visits, ...add.filter((x) => !visits.some((a) => a.id === x.id))], mine, linked, now());
+        if (pulled.add.length || pulled.drop.length) S2.replace(pulled.drop, pulled.add);
+      }
     } catch (e) {
       log.warn('odoo', `job sync: ${message(e)}`);
     } finally {
