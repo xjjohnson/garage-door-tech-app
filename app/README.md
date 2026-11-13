@@ -443,15 +443,17 @@ option with no spring of that rating says so instead of a price, and a job
 whose calculator shows a STOP gets no quote until it's fixed
 (`src/lib/quote.ts`).
 
-**Price sheet.** Opened from the top of Jobs or from a quote: service call,
+**Price sheet** (from 0.5.19, the **Estimates** tab of the price book; Jobs,
+Sales and Settings open the price book, and a quote's Set prices opens it on
+that tab at `/price-sheet`). Service call,
 spring labor, a price per spring for each option, add-ons (named freely,
 each ticked for Good, Better and/or Best; add or remove any) and the tax
 rate. Prices are entered on the keypad and saved on the phone as they're
 typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
 
 **Prices from Odoo.** When signed in to Odoo (Jobs > Team) and Odoo has
-products, **Import prices from Odoo** at the top of the price sheet brings in
-every product that can be sold (`sale_ok`) with its sales price
+products, the price book's **Update from Odoo** (also run when the saved
+book is over an hour old) brings onto the estimate prices every product that can be sold (`sale_ok`) with its sales price
 (`product.product` `lst_price`). Products not linked to a line yet become
 add-ons ticked on no option, folded under **Show N more Odoo items** until a
 tier is picked. Any line can be linked to an Odoo product (**Link to Odoo
@@ -868,7 +870,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `new-job.tsx` | `/new-job` | A new job in three answers |
 | `setup.tsx` | `/setup` | Odoo setup check |
 | `developer.tsx` | `/developer` | Developer screen (7 taps on the version) |
-| `price-sheet.tsx` | `/price-sheet` | The price sheet, a full page |
+| `price-sheet.tsx` | `/price-sheet` | The price book open on its Estimates tab (the price sheet) |
 | `odoo-product.tsx` | `/odoo-product?line=…` | Pick the Odoo product a price-sheet line follows |
 | `quote/[id].tsx` | `/quote/<job id>` | One job's quote, a full page |
 | `backup.tsx` | `/backup` | Back up and restore jobs and prices, a full page |

@@ -85,7 +85,7 @@ describe('Settings', () => {
     expect(app.getPathname()).toBe('/settings');
     for (const [id, path] of [
       ['settings-business', '/business'],
-      ['settings-price-sheet', '/price-sheet'],
+      ['settings-price-book', '/price-book'],
       ['settings-odoo', '/team'],
       ['settings-backup', '/backup'],
     ] as const) {
