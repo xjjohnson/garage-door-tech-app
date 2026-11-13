@@ -116,3 +116,48 @@ export function parseTemplates(raw: string | null): TemplateSets {
     return {};
   }
 }
+
+/**
+ * The templates that price a spring job: the job type's own ("New door · Good"),
+ * else "Springs · Good" / "Spring · Good" / "Spring replacement · Good".
+ */
+export function springTemplatesFor(sets: TemplateSets, what: string | undefined) {
+  return templatesFor(sets, what) ?? sets['springs'] ?? sets['spring'] ?? sets['spring replacement'];
+}
+
+/** The template line that is the spring itself: says "spring" and isn't labor. */
+const isSpringLine = (label: string) => /spring/i.test(label) && !/labou?r|install|service/i.test(label);
+
+/**
+ * Good / better / best for a spring job, priced from Odoo templates. The
+ * calculator still picks the spring for each option (size and cycle life);
+ * the template gives the products and prices. The template's spring line
+ * takes the calculator's spring count and size as its quantity and label.
+ */
+export function springTemplateQuote(springs: Quote, set: TemplateSets[string], sheet: Pick<PriceSheet, 'taxPercent'>, extra: QuoteLine[] = []): Quote {
+  if (springs.blocked) return springs;
+  const taxRate = cents(sheet.taxPercent) / 10_000;
+  return {
+    options: springs.options.map((base): QuoteOption => {
+      if (!base.available) return base;
+      const t = set.tiers[base.tier];
+      if (!t || t.length === 0) return { ...base, available: false, reason: `No "${set.type} · ${TIER_LABEL[base.tier]}" template in Odoo`, lines: [], subtotal: 0, tax: 0, total: 0 };
+      const springLabel = base.lines[0]?.label ?? 'Springs';
+      const count = Math.max(1, base.springCount);
+      let springDone = false;
+      const lines: QuoteLine[] = [
+        ...t.map((l): QuoteLine => {
+          if (!springDone && isSpringLine(l.label)) {
+            springDone = true;
+            return { label: springLabel, cents: l.unitCents * count, taxable: l.taxable, productId: l.productId, qty: count };
+          }
+          return { label: l.qty !== 1 ? `${l.label} × ${l.qty}` : l.label, cents: Math.round(l.unitCents * l.qty), taxable: l.taxable, productId: l.productId, ...(l.qty !== 1 ? { qty: l.qty } : {}) };
+        }),
+        ...extra,
+      ];
+      const subtotal = lines.reduce((n, l) => n + l.cents, 0);
+      const tax = Math.round(lines.filter((l) => l.taxable).reduce((n, l) => n + l.cents, 0) * taxRate);
+      return { ...base, lines, subtotal, tax, total: subtotal + tax };
+    }),
+  };
+}
