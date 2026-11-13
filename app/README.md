@@ -596,9 +596,12 @@ longer has a Springs row (the calculators are under Tools).
 background or with **Void it in Odoo now**: a draft is cancelled; a posted
 one gets a credit note (Odoo's Reverse, in the invoice's own journal; fixed in 0.5.45), posted and set against the invoice
 while it is still owed. Whatever the customer had already paid (a paid or a
-part-paid invoice) stays open on the credit note, for the refund, and the
-invoice says how much to give back ("The customer had paid $50, so refund them
-$50", from 0.5.59). After that the phone's **Restore invoice** is gone; make a new
+part-paid invoice) is refunded on the credit note in Odoo automatically (from
+0.5.60): a payment on the credit note in the journal the invoice's payment went
+into, by the matching outbound payment method where the journal has one, so the
+credit note ends up Paid. The invoice says how much to hand back ("The customer
+had paid $50, and the refund is recorded on the credit note in Odoo, so hand $50
+back"). After that the phone's **Restore invoice** is gone; make a new
 invoice instead (`voidInvoice` in `src/lib/odooSales.ts`).
 
 **Invoices mirror Odoo** (from 0.5.18). Signed in to Odoo with Invoicing,
