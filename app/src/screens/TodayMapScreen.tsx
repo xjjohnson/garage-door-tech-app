@@ -4,7 +4,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import RNWebView, { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { Action } from '../components/Buttons';
 import { formatMiles, googleNavLink, googleRouteLink, googleSearchLink, miles, Point, wazeNavLink } from '../lib/geocode';
-import { balance, invoiceStatus } from '../lib/invoices';
+import { balance, invoiceLabel, invoiceStatus } from '../lib/invoices';
 import { phoneLink } from '../lib/jobs';
 import { MapData, mapHtml, MapPin, parseMapMessage, PinKind, setDataScript } from '../lib/mapHtml';
 import { OdooError, OdooPlace } from '../lib/odoo';
@@ -104,7 +104,7 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
       kind: 'owed',
       label: '$',
       title: `${i.billTo || 'Customer'} owes ${formatMoney(balance(i))}`,
-      detail: `Invoice ${i.number} · ${i.address}`,
+      detail: `${invoiceLabel(i)} · ${i.address}`,
       address: i.address,
       phone: '',
       ...(i.customerId ? { customerId: i.customerId } : {}),

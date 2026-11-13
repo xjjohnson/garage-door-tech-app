@@ -19,7 +19,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * search by number or customer, filter by status, tap one for its lines. The
  * last list read is kept, so it still shows with no signal.
  */
-export function OdooListScreen({ kind, now = Date.now }: { kind: ListKind; now?: () => number }) {
+export function OdooListScreen({ kind, now = Date.now, openLocal }: { kind: ListKind; now?: () => number; openLocal?: (odooId: number) => string | undefined }) {
   const { status, client } = useOdoo();
   const [rows, setRows] = useState<OdooListRow[] | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -87,7 +87,7 @@ export function OdooListScreen({ kind, now = Date.now }: { kind: ListKind; now?:
         <Text style={styles.meta} testID="odoo-list-off">
           {status === 'signedIn' ? `This Odoo user can't open ${kind === 'quotations' ? 'Sales' : 'Invoicing'}.` : 'Sign in to Odoo (Jobs › Team) to see this list.'}
         </Text>
-        {rows?.length ? <Rows kind={kind} rows={rows} now={now()} /> : null}
+        {rows?.length ? <Rows kind={kind} rows={rows} now={now()} openLocal={openLocal} /> : null}
       </View>
     );
   }
@@ -111,19 +111,24 @@ export function OdooListScreen({ kind, now = Date.now }: { kind: ListKind; now?:
           Couldn't read Odoo: {error}
         </Text>
       ) : null}
-      {rows === null ? <Text style={styles.meta}>Reading Odoo...</Text> : rows.length === 0 ? <Text style={styles.meta} testID="odoo-list-empty">Nothing here.</Text> : <Rows kind={kind} rows={rows} now={now()} />}
+      {rows === null ? <Text style={styles.meta}>Reading Odoo...</Text> : rows.length === 0 ? <Text style={styles.meta} testID="odoo-list-empty">Nothing here.</Text> : <Rows kind={kind} rows={rows} now={now()} openLocal={openLocal} />}
       {more ? <Action label={busy ? 'Reading...' : 'Show more'} disabled={busy} onPress={() => load(rows?.length ?? 0)} testID="odoo-list-more" /> : null}
     </View>
   );
 }
 
-function Rows({ kind, rows, now }: { kind: ListKind; rows: OdooListRow[]; now: number }) {
+/** Rows open Odoo's record, or the phone's own invoice (payments, signature) when openLocal knows it. */
+function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRow[]; now: number; openLocal?: (odooId: number) => string | undefined }) {
   return (
     <View style={styles.stack}>
       {rows.map((r) => (
         <Pressable
           key={r.id}
-          onPress={() => router.push({ pathname: '/odoo-record/[kind]/[id]', params: { kind, id: String(r.id) } })}
+          onPress={() => {
+            const local = openLocal?.(r.id);
+            if (local) router.push({ pathname: '/invoice/[id]', params: { id: local } });
+            else router.push({ pathname: '/odoo-record/[kind]/[id]', params: { kind, id: String(r.id) } });
+          }}
           accessibilityRole="button"
           testID={`odoo-row-${r.id}`}
           style={({ pressed }) => [styles.row, pressed && styles.pressed]}

@@ -5,7 +5,7 @@ import { Customer, CustomerFields, customerName, emailLink, summarize } from '..
 import { formatJobDate, MODE_LABEL, phoneLink } from '../lib/jobs';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
-import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
+import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { AddressSheet } from '../components/AddressSheet';
@@ -94,7 +94,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
           style={({ pressed }) => [styles.job, pressed && styles.pressed]}
         >
           <Text style={styles.jobTitle}>
-            Invoice {i.number} · {STATUS_LABEL[invoiceStatus(i)]}
+            {invoiceLabel(i)} · {STATUS_LABEL[invoiceStatus(i)]}
           </Text>
           <Text style={styles.meta}>
             {formatMoney(i.total)} · {formatJobDate(i.createdAt)}

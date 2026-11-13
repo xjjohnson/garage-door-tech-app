@@ -17,7 +17,7 @@ import { Repair, repairLines, withRepairs } from '../lib/inspection';
 import { usesSprings } from '../lib/jobTypes';
 import { templateQuote, templatesFor } from '../lib/odooTemplates';
 import { useQuoteTemplates } from '../lib/useQuoteTemplates';
-import { invoiceStatus } from '../lib/invoices';
+import { invoiceNo, invoiceStatus } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
@@ -190,7 +190,7 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
 
       {invoice ? (
         <Action
-          label={`Open invoice ${invoice.number}`}
+          label={`Open invoice ${invoiceNo(invoice)}`}
           primary
           onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: invoice.id } })}
           testID="quote-open-invoice"

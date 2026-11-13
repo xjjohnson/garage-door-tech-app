@@ -551,6 +551,17 @@ totals replace the phone's estimate. **Send to Odoo now** on the invoice is
 the manual backup; older invoices only go with that button. The Job page no
 longer has a Springs row (the calculators are under Tools).
 
+**Invoices mirror Odoo** (from 0.5.18). Signed in to Odoo with Invoicing,
+Sales › Invoices (and Jobs › Invoices) is Odoo's own invoice list, with the
+phone's invoices shown above it only while they aren't in Odoo yet (with
+**Send to Odoo now**). Tapping an Odoo invoice the phone also has opens the
+phone's copy, for payments and the signature. Once an invoice is in Odoo, the
+phone shows Odoo's number ("INV/2026/00080"), lines and totals everywhere
+(job, ticket, customer, follow-ups, PDF, payment links), and the background
+sync reads invoices still owed again every 10 minutes, a few at a time, so
+one paid in Odoo shows paid on the phone. Signed out, the phone's own list
+shows as before.
+
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
 and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
 customer invoice and credit note, not only the phone's: newest first, 40 at a

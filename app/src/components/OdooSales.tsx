@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppForeground } from '../lib/useAppForeground';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Invoice, invoiceRef, PAY_LABEL } from '../lib/invoices';
+import { Invoice, invoiceNo, invoiceRef, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
 import { EmailResult, emailedText, emailInvoice, partnerEmail, PdfFile } from '../lib/odooReports';
 import { pdfName, signedPageHtml } from '../lib/pdf';
@@ -168,6 +168,17 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     }
   };
 
+  /** Reads what Odoo says about an invoice already there (paid, lines, totals), changing nothing in Odoo. */
+  const refresh = async (invoice: Invoice): Promise<OdooInvoiceState | undefined> => {
+    const o = invoice.odoo;
+    if (!online || !o || inFlight.has(invoice.id)) return undefined;
+    const fresh = await readInvoice(online, o.id, o.sentPayments, now());
+    const state = { ...fresh, ...(o.signatureSent ? { signatureSent: o.signatureSent } : {}) };
+    posted.set(invoice.id, state);
+    setOdoo(invoice.id, state);
+    return state;
+  };
+
   /** Whether this invoice still has something to send to Odoo. */
   const pending = (invoice: Invoice): boolean => {
     if (invoice.voidedAt && !invoice.odoo) return false;
@@ -177,7 +188,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     return invoice.payments.some((p) => !o.sentPayments.includes(p.id)) || (!!s && o.signatureSent !== s.id && !!attachments.media?.pdfBase64);
   };
 
-  return { client: online, send, pending };
+  return { client: online, send, pending, refresh };
 }
 
 const WAITING = "Not in Odoo yet. It goes to Odoo on its own once the phone is signed in and has signal, and then Odoo's tax and total replace the phone's estimate.";
@@ -186,6 +197,10 @@ const SYNC_EVERY_MS = 3 * 60_000;
 const SYNC_AFTER_CHANGE_MS = 4000;
 /** An invoice Odoo refused isn't tried again for this long (the Send button still works). */
 const SYNC_RETRY_MS = 10 * 60_000;
+/** Invoices in Odoo are read again after this long, a few at a time, until paid. */
+const REFRESH_MS = 10 * 60_000;
+const REFRESH_BATCH = 10;
+const DONE = ['paid', 'in_payment', 'reversed', 'invoicing_legacy'];
 
 /**
  * Sends invoices made on the phone to Odoo in the background once there's
@@ -196,9 +211,9 @@ const SYNC_RETRY_MS = 10 * 60_000;
 export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
   const { invoices, loaded } = useInvoices();
   const jobsApi = useJobs();
-  const { client, send, pending } = useInvoiceOdoo(now);
-  const latest = useRef({ invoices, send, pending });
-  latest.current = { invoices, send, pending };
+  const { client, send, pending, refresh } = useInvoiceOdoo(now);
+  const latest = useRef({ invoices, send, pending, refresh });
+  latest.current = { invoices, send, pending, refresh };
   const running = useRef(false);
   const failed = useRef(new Map<string, number>());
   const online = !!client && loaded && jobsApi.loaded;
@@ -217,6 +232,18 @@ export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
         } catch (e) {
           failed.current.set(inv.id, now());
           log.warn('odoo', `invoice ${fresh.number} not sent: ${message(e)}`);
+        }
+      }
+      // What Odoo says now about invoices already there: paid in Odoo, changed lines.
+      const t = now();
+      const stale = latest.current.invoices
+        .filter((i) => i.odoo && !latest.current.pending(i) && (!DONE.includes(i.odoo.paymentState) || !i.odoo.lines) && t - i.odoo.checkedAt > REFRESH_MS)
+        .slice(0, REFRESH_BATCH);
+      for (const inv of stale) {
+        try {
+          await latest.current.refresh(inv);
+        } catch (e) {
+          log.warn('odoo', `invoice ${invoiceNo(inv)} not read: ${message(e)}`);
         }
       }
     } finally {

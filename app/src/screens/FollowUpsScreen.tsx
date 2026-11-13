@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { invoiceNo } from '../lib/invoices';
 import { useMemo } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MeasureField, SectionTitle } from '../components/controls';
@@ -47,7 +48,7 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
               {f.invoice.address ? `, ${f.invoice.address}` : ''}
             </Text>
             <Text style={styles.meta}>
-              {overdue ? 'Due since' : 'Due'} {formatJobDate(f.due)} · from invoice {f.invoice.number}, {formatJobDate(f.invoice.createdAt)}
+              {overdue ? 'Due since' : 'Due'} {formatJobDate(f.due)} · from invoice {invoiceNo(f.invoice)}, {formatJobDate(f.invoice.createdAt)}
             </Text>
             {sms ? (
               <Action label="Text the customer" primary onPress={() => Linking.openURL(sms).catch(() => undefined)} testID={`followup-text-${id}`} />

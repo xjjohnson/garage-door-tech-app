@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SectionTitle } from '../components/controls';
-import { PAY_LABEL, PAY_METHODS } from '../lib/invoices';
+import { invoiceNo, PAY_LABEL, PAY_METHODS } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
 import { monthLabel, percent, PeriodStats, snapshot } from '../lib/stats';
@@ -62,7 +62,7 @@ export function StatsScreen({ now = Date.now }: { now?: () => number }) {
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         >
           <Text style={styles.buttonText}>
-            Oldest unpaid: {s.oldestOwed.number}, {s.oldestOwed.billTo || 'customer'}, since {formatJobDate(s.oldestOwed.createdAt)}
+            Oldest unpaid: {invoiceNo(s.oldestOwed)}, {s.oldestOwed.billTo || 'customer'}, since {formatJobDate(s.oldestOwed.createdAt)}
           </Text>
         </Pressable>
       ) : null}

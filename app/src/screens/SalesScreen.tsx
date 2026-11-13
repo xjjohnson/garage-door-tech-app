@@ -33,7 +33,6 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
       <NavRow label="Price book" detail="Odoo's products and prices, by category" href="/price-book" testID="sales-price-book" />
       <NavRow label="Price sheet" detail="Parts and labor for quotes" href="/price-sheet" testID="sales-price-sheet" />
       {odoo?.sales ? <NavRow label="Odoo quotations" detail="Every quotation and sales order in Odoo" href="/odoo-list/quotations" testID="sales-odoo-quotations" /> : null}
-      {odoo?.invoicing ? <NavRow label="Odoo invoices" detail="Every invoice in Odoo, paid and not" href="/odoo-list/invoices" testID="sales-odoo-invoices" /> : null}
       {toInvoice.length > 0 ? (
         <>
           <SectionTitle>Said yes, no invoice yet</SectionTitle>
@@ -48,9 +47,9 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
           ))}
         </>
       ) : null}
-      <SectionTitle>Invoices on this phone</SectionTitle>
-      <InvoicesScreen />
-      <Text style={styles.meta}>Quotes and invoices go to Odoo Sales and Invoicing from each quote and invoice.</Text>
+      <SectionTitle>{odoo?.invoicing ? 'Invoices in Odoo' : 'Invoices on this phone'}</SectionTitle>
+      <InvoicesScreen now={now} />
+      <Text style={styles.meta}>{odoo?.invoicing ? 'Invoices made on the phone go to Odoo on their own once there is signal.' : 'Sign in to Odoo (Jobs › Team) to see and send invoices there.'}</Text>
     </View>
   );
 }
