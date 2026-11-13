@@ -10,7 +10,7 @@ import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, unaccountedParts } from '../lib/ticket';
+import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useStock } from '../lib/useStock';
@@ -54,15 +54,15 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const run = useRef(0);
 
   const sync = async (): Promise<Ticket | undefined> => {
-    if (!client || ticket.lines.length === 0) return;
+    if (!client || (ticket.lines.length === 0 && !ticket.deposits?.length && !ticket.order)) return;
     const n = ++run.current;
     setSyncing(true);
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
       const r = await syncTicket(client, pid, ticket, ticketRef(ticket), now());
-      if (n === run.current) setTicket(job.id, (t) => ({ ...t, order: r.order, totals: r.totals }));
-      return { ...ticket, order: r.order, totals: r.totals };
+      if (n === run.current) setTicket(job.id, (t) => ({ ...t, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved }));
+      return { ...ticket, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved };
     } catch (e) {
       if (n === run.current) setError(message(e));
     } finally {
@@ -73,8 +73,10 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   syncRef.current = sync;
 
   // Ask Odoo for totals a moment after the lines stop changing (not after the invoice is made).
-  const stale = !!client && ticket.lines.length > 0 && !odooTotals && !invoice;
-  const key = ticket.lines.map((l) => `${l.id}:${l.qty}:${l.unitCents}`).join('|');
+  // Deposits are written to the quotation too, so they're kept in Odoo and not only on the phone.
+  const depositsUnsaved = (ticket.depositsSaved ?? '') !== depositsKey(ticket);
+  const stale = !!client && !invoice && ((ticket.lines.length > 0 && !odooTotals) || depositsUnsaved);
+  const key = `${ticket.lines.map((l) => `${l.id}:${l.qty}:${l.unitCents}`).join('|')}#${depositsKey(ticket)}`;
   useEffect(() => {
     if (!stale) return;
     const t = setTimeout(() => syncRef.current(), SYNC_DELAY_MS);
@@ -231,6 +233,13 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         <Deposits
           business={business}
           note={`Deposit, ${jobName(job)}`}
+          saved={
+            !depositsUnsaved && ticket.order
+              ? `Saved on quotation ${ticket.order.name} in Odoo; it becomes a payment on the invoice.`
+              : client
+                ? 'Saving it on the quotation in Odoo...'
+                : 'Kept on the phone until you sign in to Odoo; it becomes a payment on the invoice.'
+          }
           deposits={ticket.deposits ?? []}
           total={shown.total}
           onAdd={(d) => setTicket(job.id, (t) => ({ ...t, deposits: [...(t.deposits ?? []), { ...d, id: newId('d', now()), at: now() }] }))}
@@ -309,7 +318,7 @@ const METHOD_OPTIONS: ChipOption<PayMethod>[] = PAY_METHODS.map((m) => ({ label:
  * the ticket until Create invoice, which records them as the invoice's first
  * payments, so Odoo gets them with the invoice.
  */
-function Deposits({ business, note, deposits, total, onAdd, onRemove }: { business: Business; note: string; deposits: Deposit[]; total: number; onAdd: (d: Omit<Deposit, 'id' | 'at'>) => void; onRemove: (id: string) => void }) {
+function Deposits({ business, note, saved, deposits, total, onAdd, onRemove }: { business: Business; note: string; saved: string; deposits: Deposit[]; total: number; onAdd: (d: Omit<Deposit, 'id' | 'at'>) => void; onRemove: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState<PayMethod>('cash');
   const [amount, setAmount] = useState('');
@@ -336,7 +345,7 @@ function Deposits({ business, note, deposits, total, onAdd, onRemove }: { busine
       ))}
       {taken > 0 ? (
         <Text style={styles.meta} testID="ticket-deposit-due">
-          {formatMoney(taken)} taken as a deposit. {formatMoney(Math.max(0, total - taken))} due when the work is done. It goes to Odoo as a payment on the invoice.
+          {formatMoney(taken)} taken as a deposit. {formatMoney(Math.max(0, total - taken))} due when the work is done. {saved}
         </Text>
       ) : null}
       {open ? (

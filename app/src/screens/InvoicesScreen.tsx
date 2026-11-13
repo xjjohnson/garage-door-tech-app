@@ -41,13 +41,19 @@ function OdooInvoices({ now }: { now: () => number }) {
   const sendAll = async () => {
     setBusy(true);
     setError(null);
-    try {
-      for (const i of waiting) await send(i);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't reach Odoo. Try again.");
-    } finally {
-      setBusy(false);
+    // Every waiting invoice is tried, oldest first; one Odoo refuses doesn't stop the rest.
+    const failed: string[] = [];
+    let reason = '';
+    for (const i of [...waiting].reverse()) {
+      try {
+        await send(i);
+      } catch (e) {
+        failed.push(invoiceNo(i));
+        reason = e instanceof Error ? e.message : "Couldn't reach Odoo.";
+      }
     }
+    if (failed.length) setError(`${failed.length === 1 ? `Invoice ${failed[0]} didn't` : `Invoices ${failed.join(', ')} didn't`} go to Odoo: ${reason} Try again.`);
+    setBusy(false);
   };
   return (
     <View style={styles.stack} testID="invoices">
@@ -59,7 +65,7 @@ function OdooInvoices({ now }: { now: () => number }) {
           {waiting.map((i) => (
             <InvoiceRow key={i.id} invoice={i} />
           ))}
-          <Action label={busy ? 'Sending...' : 'Send to Odoo now'} disabled={busy} onPress={sendAll} testID="invoices-send-all" />
+          <Action label={busy ? 'Sending...' : waiting.length === 1 ? 'Send it to Odoo now' : `Send all ${waiting.length} to Odoo now`} disabled={busy} onPress={sendAll} testID="invoices-send-all" />
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
       ) : null}

@@ -6,7 +6,7 @@ import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { INVOICES_STORAGE_KEY, PAY_LABEL, parseInvoices } from '../lib/invoices';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, OdooClient } from '../lib/odoo';
-import { lineValues, readInvoice, sendInvoice, sendOrder, sendPayments, SERVICE_PRODUCT_CODE } from '../lib/odooSales';
+import { lineValues, readInvoice, sendInvoice, sendOrder, sendPayments, SERVICE_PRODUCT_CODE, voidInvoice } from '../lib/odooSales';
 import { DEFAULT_PRICE_SHEET, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
 import { buildQuote, QuoteLine } from '../lib/quote';
 import { renderApp } from '../testing/renderApp';
@@ -26,7 +26,7 @@ type Call = { model: string; method: string; args: unknown[]; kw: Record<string,
 function fakeOdoo() {
   const calls: Call[] = [];
   const products: { id: number; default_code: string }[] = [];
-  const moves: Record<number, { residual: number; total: number; state: string }> = {};
+  const moves: Record<number, { residual: number; total: number; state: string; posted?: string; name?: string; reverses?: number }> = {};
   const fetchFn: Fetch = async (_url, init) => {
     const { params } = JSON.parse(init.body);
     const reply = (result: unknown) => ({ ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, result }) });
@@ -64,11 +64,31 @@ function fakeOdoo() {
         return reply(900);
       }
       case 'account.move.action_post':
+        if ((args[0] as number[])[0] === 901) moves[901] = { ...moves[901], posted: 'posted', name: 'RINV/2026/00001' };
         return reply(true);
       case 'account.move.read': {
-        const m = moves[900];
-        return reply([{ id: 900, name: 'INV/2026/00007', amount_total: m.total / 100, amount_residual: m.residual / 100, payment_state: m.state }]);
+        const id = (args[0] as number[])[0] ?? 900;
+        const m = moves[id];
+        return reply([{ id, name: m.name ?? 'INV/2026/00007', state: m.posted ?? 'posted', amount_total: m.total / 100, amount_residual: m.residual / 100, payment_state: m.state }]);
       }
+      case 'account.move.button_cancel':
+        moves[900].posted = 'cancel';
+        return reply(true);
+      case 'account.move.search_read': {
+        const found = Object.entries(moves).filter(([, m]) => m.reverses === 900 && m.posted !== 'cancel');
+        return reply(found.map(([id, m]) => ({ id: Number(id), name: m.name, state: m.posted })));
+      }
+      case 'account.move.reversal.create':
+        return reply(60);
+      case 'account.move.reversal.reverse_moves':
+        moves[901] = { residual: moves[900].total, total: moves[900].total, state: 'not_paid', posted: 'draft', name: '/', reverses: 900 };
+        return reply(true);
+      case 'account.move.line.search':
+        return reply([9011]);
+      case 'account.move.js_assign_outstanding_line':
+        moves[900].residual = 0;
+        moves[900].state = 'reversed';
+        return reply(true);
       case 'account.journal.search': {
         const d = args[0] as [string, string, unknown][];
         return reply(d[0][2] === 'cash' ? [] : [11]);
@@ -85,7 +105,7 @@ function fakeOdoo() {
     }
     return missing(model);
   };
-  return { fetchFn, calls };
+  return { fetchFn, calls, moves };
 }
 
 const login = { url: 'x.test', db: 'x', login: 'j' };
@@ -138,6 +158,29 @@ describe('quotes and invoices to Odoo (plain logic)', () => {
   });
 });
 
+describe('voiding an invoice in Odoo', () => {
+  it('reverses a posted invoice with a credit note set against it, and cancels a draft', async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    o.moves[900] = { residual: 35900, total: 35900, state: 'not_paid' };
+    expect(await voidInvoice(c, 900, 'Voided in the app')).toBe('RINV/2026/00001');
+    const wiz = o.calls.find((x) => x.model === 'account.move.reversal' && x.method === 'create')!;
+    expect(wiz.args[0]).toMatchObject({ move_ids: [[6, 0, [900]]], reason: 'Voided in the app' });
+    expect(o.calls.find((x) => x.method === 'js_assign_outstanding_line')?.args).toEqual([[900], 9011]);
+    expect(o.moves[900].state).toBe('reversed');
+    // Asked again: the credit note is already there, so no second one.
+    expect(await voidInvoice(c, 900, 'Voided in the app')).toBe('RINV/2026/00001');
+    expect(o.calls.filter((x) => x.model === 'account.move.reversal' && x.method === 'create')).toHaveLength(1);
+
+    const d = fakeOdoo();
+    const c2 = await OdooClient.signIn(d.fetchFn, login, 'k');
+    d.moves[900] = { residual: 100, total: 100, state: 'not_paid', posted: 'draft' };
+    expect(await voidInvoice(c2, 900, 'x')).toBe('cancelled');
+    expect(d.calls.some((x) => x.method === 'button_cancel')).toBe(true);
+    expect(d.calls.some((x) => x.model === 'account.move.reversal')).toBe(false);
+  });
+});
+
 describe('quote and invoice screens with Odoo', () => {
   const settle = async (n = 10) => {
     for (let k = 0; k < n; k++) await act(async () => undefined);
@@ -182,5 +225,18 @@ describe('quote and invoice screens with Odoo', () => {
     await fireEvent.press(screen.getByTestId('invoice-odoo-send'));
     await settle();
     expect(o.calls.filter((x) => x.model === 'account.move' && x.method === 'create')).toHaveLength(1);
+
+    // Voided on the phone: Odoo gets a credit note, and the invoice can't be restored after that.
+    await fireEvent.press(screen.getByTestId('invoice-void'));
+    expect(screen.getByTestId('invoice-void')).toHaveTextContent('Tap again to void here and in Odoo');
+    await fireEvent.press(screen.getByTestId('invoice-void'));
+    await settle();
+    expect(screen.getByTestId('invoice-odoo-send')).toHaveTextContent('Void it in Odoo now');
+    await fireEvent.press(screen.getByTestId('invoice-odoo-send'));
+    await settle();
+    expect(screen.getByTestId('invoice-odoo-void')).toHaveTextContent('Voided: credit note RINV/2026/00001 reverses it in Odoo.');
+    expect(parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY))[0].odoo?.voided).toBe('RINV/2026/00001');
+    expect(screen.queryByTestId('invoice-unvoid')).toBeNull();
+    expect(screen.queryByTestId('invoice-odoo-send')).toBeNull();
   });
 });

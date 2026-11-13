@@ -451,6 +451,11 @@ payments; they go to Odoo as payments on that invoice like any other.
 Picking Cash App or Venmo for a deposit shows the same QR code as the
 invoice's Scan to pay, with the deposit amount filled in (from 0.5.32); Zelle
 shows where to send it.
+From 0.5.38 each deposit is also kept in Odoo: signed in, the ticket writes
+it to the job's draft quotation as a note line ("Deposit received: $100 by
+Cash App, 2026-11-13. Paid toward the invoice."). A note carries no price, so
+Odoo's totals don't change; taking the deposit off the ticket removes the line.
+Offline, it is written the next time the ticket can reach Odoo.
 
 **Which address the ticket is for** (from 0.5.28). When the job's customer
 is linked to an Odoo contact with houses (delivery or other addresses under
@@ -583,10 +588,19 @@ totals replace the phone's estimate. **Send to Odoo now** on the invoice is
 the manual backup; older invoices only go with that button. The Job page no
 longer has a Springs row (the calculators are under Tools).
 
+**Voids go to Odoo** (from 0.5.39). Voiding an invoice that is in Odoo
+(**Tap again to void here and in Odoo**) undoes it there too, in the
+background or with **Void it in Odoo now**: a draft is cancelled; a posted
+one gets a credit note (Odoo's Reverse), posted and set against the invoice
+while it is still owed. A paid invoice's credit note stays open, for the
+refund. After that the phone's **Restore invoice** is gone; make a new
+invoice instead (`voidInvoice` in `src/lib/odooSales.ts`).
+
 **Invoices mirror Odoo** (from 0.5.18). Signed in to Odoo with Invoicing,
 Sales › Invoices (and Jobs › Invoices) is Odoo's own invoice list, with the
 phone's invoices shown above it only while they aren't in Odoo yet (with
-**Send to Odoo now**). Tapping an Odoo invoice the phone also has opens the
+**Send all N to Odoo now**, which from 0.5.39 tries every one, oldest first,
+and names any Odoo refused). Tapping an Odoo invoice the phone also has opens the
 phone's copy, for payments and the signature. Once an invoice is in Odoo, the
 phone shows Odoo's number ("INV/2026/00080"), lines and totals everywhere
 (job, ticket, customer, follow-ups, PDF, payment links), and the background

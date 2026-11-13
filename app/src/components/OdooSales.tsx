@@ -12,7 +12,7 @@ import { inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
 import { Job } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
-import { confirmOrderFor, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendPayments, sendSignature } from '../lib/odooSales';
+import { confirmOrderFor, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendPayments, sendSignature, voidInvoice } from '../lib/odooSales';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { QuoteOption } from '../lib/quote';
 import { useCustomers } from '../lib/useCustomers';
@@ -137,6 +137,16 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       posted.set(invoice.id, state);
       setOdoo(invoice.id, state);
     }
+    if (invoice.voidedAt) {
+      // Voided on the phone: undone in Odoo too (draft cancelled, or a credit note); nothing more is sent for it.
+      if (state.voided) return state;
+      const voided = await voidInvoice(c, state.id, `Voided in the app (invoice ${invoiceRef(invoice)})`);
+      const fresh = await readInvoice(c, state.id, state.sentPayments, now()).catch(() => state!);
+      state = { ...fresh, ...(state.signatureSent ? { signatureSent: state.signatureSent } : {}), voided };
+      posted.set(invoice.id, state);
+      setOdoo(invoice.id, state);
+      return state;
+    }
     const unsent = invoice.payments.filter((p) => !state!.sentPayments.includes(p.id));
     const sent = [...state.sentPayments];
     let signatureSent = state.signatureSent;
@@ -145,7 +155,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       signatureSent = (await attachSignature(c, invoice, state, opts.sig)).signatureSent;
     } finally {
       const fresh = await readInvoice(c, state.id, sent, now()).catch(() => ({ ...state!, sentPayments: sent }));
-      state = { ...fresh, ...(signatureSent ? { signatureSent } : {}) };
+      state = { ...fresh, ...(signatureSent ? { signatureSent } : {}), ...(state.voided ? { voided: state.voided } : {}) };
       posted.set(invoice.id, state);
       setOdoo(invoice.id, state);
     }
@@ -174,7 +184,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     const o = invoice.odoo;
     if (!online || !o || inFlight.has(invoice.id)) return undefined;
     const fresh = await readInvoice(online, o.id, o.sentPayments, now());
-    const state = { ...fresh, ...(o.signatureSent ? { signatureSent: o.signatureSent } : {}) };
+    const state = { ...fresh, ...(o.signatureSent ? { signatureSent: o.signatureSent } : {}), ...(o.voided ? { voided: o.voided } : {}) };
     posted.set(invoice.id, state);
     setOdoo(invoice.id, state);
     return state;
@@ -182,8 +192,8 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
 
   /** Whether this invoice still has something to send to Odoo. */
   const pending = (invoice: Invoice): boolean => {
-    if (invoice.voidedAt && !invoice.odoo) return false;
     const o = invoice.odoo ?? posted.get(invoice.id);
+    if (invoice.voidedAt) return !!o && !o.voided;
     if (!o) return true;
     const s = signatureFor(attachments, 'invoice', invoice.id);
     return invoice.payments.some((p) => !o.sentPayments.includes(p.id)) || (!!s && o.signatureSent !== s.id && !!attachments.media?.pdfBase64);
@@ -223,7 +233,8 @@ export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
     if (running.current) return;
     running.current = true;
     try {
-      const todo = latest.current.invoices.filter((i) => i.autoSend && latest.current.pending(i) && now() - (failed.current.get(i.id) ?? 0) > SYNC_RETRY_MS);
+      // New invoices go on their own; so does a void of any invoice already in Odoo.
+      const todo = latest.current.invoices.filter((i) => (i.autoSend || (i.voidedAt && i.odoo)) && latest.current.pending(i) && now() - (failed.current.get(i.id) ?? 0) > SYNC_RETRY_MS);
       for (const inv of todo) {
         // The newest copy: an earlier one in this pass may have changed it.
         const fresh = latest.current.invoices.find((i) => i.id === inv.id) ?? inv;
@@ -375,8 +386,12 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
         </Text>
       )}
       {o && o.untaxed === undefined && o.total !== invoice.total ? <Text style={styles.meta}>Odoo’s total differs from this phone’s because Odoo adds its own taxes.</Text> : null}
-      {invoice.voidedAt && o ? <Text style={styles.meta}>Voided on the phone; cancel it in Odoo with a credit note.</Text> : null}
-      {online ? <Button label={busy ? 'Working...' : o ? 'Sync with Odoo' : 'Send to Odoo now'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
+      {invoice.voidedAt && o ? (
+        <Text style={styles.meta} testID="invoice-odoo-void">
+          {o.voided === 'cancelled' ? `Voided: ${o.name} is cancelled in Odoo.` : o.voided ? `Voided: credit note ${o.voided} reverses it in Odoo${o.paymentState === 'paid' || o.paymentState === 'in_payment' ? '. It was paid, so refund the customer from that credit note in Odoo.' : '.'}` : 'Voided on the phone. It is cancelled in Odoo (a credit note if posted) once the phone has signal.'}
+        </Text>
+      ) : null}
+      {online && !o?.voided ? <Button label={busy ? 'Working...' : invoice.voidedAt ? 'Void it in Odoo now' : o ? 'Sync with Odoo' : 'Send to Odoo now'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
       {online && o && !invoice.voidedAt ? (
         confirm ? (
           <View style={styles.stack} testID="invoice-odoo-email-confirm">
