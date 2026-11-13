@@ -603,7 +603,7 @@ invoice. Materials on the ticket that are truck stock items (same Odoo
 product) show under the job's **Parts used**, and Create invoice takes them off
 the truck, less any already taken off by hand for that job.
 
-**Parts that aren't on the truck** (from 0.5.33). A ticket part (an Odoo
+**Parts that aren't on the truck** (from 0.5.34). A ticket part (an Odoo
 product) that isn't a truck stock item holds up **Create invoice**: the ticket
 lists it and the job's **Parts used** asks for it, with **Order it** (a
 purchase order for the job, searched by the part's name) or **Bought it** (got
