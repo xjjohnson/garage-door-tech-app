@@ -22,6 +22,8 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
   const [error, setError] = useState<string | null>(null);
   const [cramped, setCramped] = useState<CrampedAddress[]>([]);
   const [fixed, setFixed] = useState<string | null>(null);
+  // Contacts left out of the split (unticked).
+  const [skip, setSkip] = useState<Set<number>>(new Set());
   if (status !== 'signedIn' || !client) return null;
 
   const sync = async () => {
@@ -51,6 +53,7 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
       ].filter(Boolean);
       setResult(parts.length ? `Done: ${parts.join(', ')}.` : 'Customers already match Odoo.');
       setFixed(null);
+      setSkip(new Set());
       setCramped(await crampedAddresses(client).catch(() => []));
     } catch (e) {
       setError(e instanceof OdooError ? e.message : "Couldn't sync with Odoo. Try again.");
@@ -64,9 +67,10 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
     setBusy(true);
     setError(null);
     try {
-      const n = await splitAddresses(client, cramped);
-      setFixed(`Split ${plural(n, 'address')} into street, city and ZIP in Odoo.`);
-      setCramped([]);
+      const picked = cramped.filter((a) => !skip.has(a.id));
+      const n = await splitAddresses(client, picked);
+      setFixed(`Split ${n} ${n === 1 ? 'address' : 'addresses'} into street, city and ZIP in Odoo.`);
+      setCramped((list) => list.filter((a) => skip.has(a.id)));
     } catch (e) {
       setError(e instanceof OdooError ? e.message : "Couldn't fix the addresses. Try again.");
       setCramped(await crampedAddresses(client).catch(() => []));
@@ -90,15 +94,39 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
       {cramped.length > 0 ? (
         <View style={styles.box} testID="odoo-cramped">
           <Text style={styles.note}>
-            {plural(cramped.length, 'contact')} in Odoo {cramped.length === 1 ? 'has' : 'have'} the whole address in Street, so the City and ZIP boxes are empty. For example:
+            {plural(cramped.length, 'contact')} in Odoo {cramped.length === 1 ? 'has' : 'have'} the whole address in Street, so the City and ZIP boxes are empty. Here is what each becomes. Untick any to leave alone.
           </Text>
-          {cramped.slice(0, 3).map((a) => (
-            <Text key={a.id} style={styles.note}>
-              {a.name}: {a.vals.street} · {[a.vals.city, a.vals.zip].filter(Boolean).join(' ')}
-            </Text>
-          ))}
-          <Pressable onPress={split} disabled={busy} accessibilityRole="button" testID="odoo-cramped-fix" style={({ pressed }) => [styles.button, busy && styles.off, pressed && styles.pressed]}>
-            <Text style={styles.buttonText}>{`Split ${cramped.length === 1 ? 'it' : `all ${cramped.length}`} into street, city and ZIP`}</Text>
+          {cramped.map((a) => {
+            const on = !skip.has(a.id);
+            return (
+              <Pressable
+                key={a.id}
+                onPress={() =>
+                  setSkip((cur) => {
+                    const next = new Set(cur);
+                    if (on) next.add(a.id);
+                    else next.delete(a.id);
+                    return next;
+                  })
+                }
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on }}
+                testID={`odoo-cramped-${a.id}`}
+                style={({ pressed }) => [styles.pick, pressed && styles.pressed]}
+              >
+                <Text style={styles.tick}>{on ? '☑' : '☐'}</Text>
+                <View style={styles.grow}>
+                  <Text style={styles.pickName}>{a.name}</Text>
+                  <Text style={styles.note}>Now: {a.street}</Text>
+                  <Text style={styles.note}>
+                    Becomes: {[a.vals.street, a.vals.street2].filter(Boolean).join(', ')} · {a.vals.city} {a.vals.zip}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+          <Pressable onPress={split} disabled={busy || skip.size >= cramped.length} accessibilityRole="button" testID="odoo-cramped-fix" style={({ pressed }) => [styles.button, (busy || skip.size >= cramped.length) && styles.off, pressed && styles.pressed]}>
+            <Text style={styles.buttonText}>{`Split ${plural(cramped.length - skip.size, 'ticked contact')} into street, city and ZIP`}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -118,5 +146,9 @@ const styles = StyleSheet.create({
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   off: { opacity: 0.5 },
+  pick: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', minHeight: touch.min, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg },
+  tick: { fontSize: 24, color: colors.text },
+  grow: { flex: 1 },
+  pickName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.safety },
 });

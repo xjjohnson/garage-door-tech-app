@@ -119,31 +119,54 @@ export interface CrampedAddress {
   id: number;
   name: string;
   street: string;
-  /** Odoo's street, city and ZIP for it. */
-  vals: { street: string; city: string; zip: string };
+  /** Odoo's street, street2, city and ZIP for it. */
+  vals: { street: string; street2: string; city: string; zip: string };
+}
+
+/**
+ * Splits "400 Main St, Suite 200, Kyle, TX 78640" into street "400 Main St",
+ * street2 "Suite 200", city "Kyle" and ZIP "78640". Only a line that clearly
+ * ends in a town (letters only) and then a ZIP splits; with no ZIP in it, only
+ * when the contact already has that ZIP and the line is "street, town[, TX]".
+ * Anything else ("Smith Plaza, Building B") is left alone.
+ */
+export function splitStreet(line: string, zipAlready = ''): CrampedAddress['vals'] | null {
+  const m = /^(.+?)[\s,]+(\d{5})(?:-\d{4})?\s*$/.exec(line.trim());
+  const zip = m ? m[2] : zipAlready;
+  const rest = (m ? m[1] : line).replace(/[\s,]+(?:TX|Texas)\.?$/i, '');
+  const parts = rest.split(',').map((t) => t.trim()).filter(Boolean);
+  if (!zip || parts.length < 2) return null;
+  if (!m && parts.length !== 2) return null;
+  const city = parts[parts.length - 1];
+  if (!/^[A-Za-z][A-Za-z .'-]*$/.test(city) || /\b(suite|ste|unit|apt|bldg|building|floor|fl)\b/i.test(city)) return null;
+  const street = parts[0];
+  if (!/\d/.test(street)) return null;
+  return { street, street2: parts.slice(1, -1).join(', '), city, zip };
 }
 
 /**
  * Contacts with the city or ZIP still inside Street and the City or ZIP box
  * empty, so Odoo's maps, Field Service locations and reports can't use them.
+ * Only ones that split cleanly (see splitStreet) are offered.
  */
 export async function crampedAddresses(c: Client, limit = 500): Promise<CrampedAddress[]> {
-  const rows = (await c.call('res.partner', 'search_read', [[['street', 'ilike', ','], '|', ['city', '=', false], ['zip', '=', false]]], { fields: ['name', 'street', 'city', 'zip'], limit, order: 'id asc' })) as Record<string, unknown>[];
+  const rows = (await c.call('res.partner', 'search_read', [[['street', 'ilike', ','], '|', ['city', '=', false], ['zip', '=', false]]], { fields: ['name', 'street', 'street2', 'city', 'zip'], limit, order: 'id asc' })) as Record<string, unknown>[];
   return rows.flatMap((r) => {
     const street = str(r.street);
-    const v = addressVals(street) as { street: string | false; city: string | false; zip: string | false };
-    const city = str(r.city) || str(v.city);
-    const zip = str(r.zip) || str(v.zip);
-    if (!v.street || v.street === street || (city === str(r.city) && zip === str(r.zip))) return [];
-    return [{ id: r.id as number, name: str(r.name) || 'Contact', street, vals: { street: v.street, city, zip } }];
+    const v = splitStreet(street, str(r.zip));
+    if (!v) return [];
+    // Never overwrite a Street 2, City or ZIP Odoo already has with something else.
+    if ((str(r.city) && str(r.city).toLowerCase() !== v.city.toLowerCase()) || (str(r.zip) && str(r.zip) !== v.zip)) return [];
+    if (v.street2 && str(r.street2)) return [];
+    return [{ id: r.id as number, name: str(r.name) || 'Contact', street, vals: { ...v, street2: v.street2 || str(r.street2) } }];
   });
 }
 
-/** Writes the split street, city and ZIP to each contact; returns how many went. */
+/** Writes the split street, street2, city and ZIP to each contact; returns how many went. */
 export async function splitAddresses(c: Client, list: CrampedAddress[]): Promise<number> {
   let n = 0;
   for (const a of list) {
-    await c.call('res.partner', 'write', [[a.id], a.vals]);
+    await c.call('res.partner', 'write', [[a.id], { street: a.vals.street, street2: a.vals.street2 || false, city: a.vals.city, zip: a.vals.zip }]);
     n++;
   }
   return n;

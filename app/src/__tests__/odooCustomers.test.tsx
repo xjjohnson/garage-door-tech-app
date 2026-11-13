@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { Customer, CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
 import { finishCustomerSync, OdooPartner, planCustomerSync } from '../lib/customerSync';
 import { addressVals, Fetch, OdooClient } from '../lib/odoo';
-import { addAddress, ADDRESSES_STORAGE_KEY, crampedAddresses, fetchAddresses, splitAddresses } from '../lib/odooContacts';
+import { addAddress, ADDRESSES_STORAGE_KEY, crampedAddresses, fetchAddresses, splitAddresses, splitStreet } from '../lib/odooContacts';
 import { renderApp } from '../testing/renderApp';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, JOBS_STORAGE_KEY } from '../lib/jobs';
@@ -88,6 +88,7 @@ function fakeOdoo(withApps = false) {
     if (model === 'res.partner' && method === 'search_read') {
       const [first] = args[0] as [string, string, unknown][];
       if (first?.[0] === 'parent_id') return reply(partners.filter((p) => p.parent_id === first[2]));
+      if (first?.[0] === 'street') return reply(partners.filter((p) => String(p.street ?? '').includes(',') && (!p.city || !p.zip)));
       return reply(partners.filter((p) => (p.customer_rank as number) > 0));
     }
     if (model === 'res.partner' && method === 'create') {
@@ -263,24 +264,78 @@ describe('a customer\'s page shows Odoo\'s jobs, quotes and invoices', () => {
 });
 
 describe('contacts with the whole address in Street', () => {
-  it('finds them and splits them into street, city and ZIP when asked', async () => {
+  it('splits only lines that clearly end in a town and ZIP', () => {
+    expect(splitStreet('1300 Main St, Kyle, TX 78640')).toEqual({ street: '1300 Main St', street2: '', city: 'Kyle', zip: '78640' });
+    expect(splitStreet('400 Main St, Suite 200, Kyle, TX 78640-1234')).toEqual({ street: '400 Main St', street2: 'Suite 200', city: 'Kyle', zip: '78640' });
+    expect(splitStreet('5 Oak Ln, Buda', '78610')).toEqual({ street: '5 Oak Ln', street2: '', city: 'Buda', zip: '78610' });
+    expect(splitStreet('Smith Plaza, Building B')).toBeNull();
+    expect(splitStreet('Smith Plaza, Building B', '78640')).toBeNull();
+    expect(splitStreet('9 Elm St, Unit 4 78610')).toBeNull();
+    expect(splitStreet('5 Oak Ln, Suite 2, Buda', '78610')).toBeNull();
+  });
+
+  it('finds them and splits them when asked, never overwriting what Odoo has', async () => {
     const calls: { method: string; args: unknown[] }[] = [];
     const rows = [
-      { id: 1, name: 'Walgreens', street: '1300 Main St, Kyle, TX 78640', city: false, zip: false },
-      { id: 2, name: 'Has city', street: '9 Elm St, Unit 4', city: 'Buda', zip: '78610' },
-      { id: 3, name: 'Zip only', street: '5 Oak Ln, Buda', city: false, zip: '78610' },
+      { id: 1, name: 'Walgreens', street: '1300 Main St, Kyle, TX 78640', street2: false, city: false, zip: false },
+      { id: 2, name: 'Has city', street: '9 Elm St, Austin 78701', street2: false, city: 'Buda', zip: false },
+      { id: 3, name: 'Zip only', street: '5 Oak Ln, Buda', street2: false, city: false, zip: '78610' },
+      { id: 4, name: 'Plaza', street: 'Smith Plaza, Building B', street2: false, city: false, zip: false },
+      { id: 5, name: 'Suite', street: '400 Main St, Suite 200, Kyle, TX 78640', street2: false, city: false, zip: false },
     ];
     const c = { call: async (_m: string, method: string, args: unknown[]) => (calls.push({ method, args }), method === 'search_read' ? rows : true) };
     const list = await crampedAddresses(c);
-    expect(list).toEqual([
-      { id: 1, name: 'Walgreens', street: '1300 Main St, Kyle, TX 78640', vals: { street: '1300 Main St', city: 'Kyle', zip: '78640' } },
-      { id: 3, name: 'Zip only', street: '5 Oak Ln, Buda', vals: { street: '5 Oak Ln', city: 'Buda', zip: '78610' } },
+    expect(list.map((a) => [a.id, a.vals])).toEqual([
+      [1, { street: '1300 Main St', street2: '', city: 'Kyle', zip: '78640' }],
+      [3, { street: '5 Oak Ln', street2: '', city: 'Buda', zip: '78610' }],
+      [5, { street: '400 Main St', street2: 'Suite 200', city: 'Kyle', zip: '78640' }],
     ]);
-    expect(await splitAddresses(c, list)).toBe(2);
+    expect(await splitAddresses(c, list.slice(1))).toBe(2);
     expect(calls.filter((x) => x.method === 'write').map((x) => x.args)).toEqual([
-      [[1], { street: '1300 Main St', city: 'Kyle', zip: '78640' }],
-      [[3], { street: '5 Oak Ln', city: 'Buda', zip: '78610' }],
+      [[3], { street: '5 Oak Ln', street2: false, city: 'Buda', zip: '78610' }],
+      [[5], { street: '400 Main St', street2: 'Suite 200', city: 'Kyle', zip: '78640' }],
     ]);
+  });
+});
+
+describe('splitting crammed addresses from the Customers tab', () => {
+  const settle = async (n = 10) => {
+    for (let k = 0; k < n; k++) await act(async () => undefined);
+  };
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('lists every one with what it becomes and splits only the ticked ones', async () => {
+    const o = fakeOdoo();
+    o.partners.push(
+      { id: 8, name: 'Walgreens', street: '1300 Main St, Kyle, TX 78640', street2: false, city: false, zip: false, customer_rank: 1, write_date: '2026-11-10 12:00:00' },
+      { id: 9, name: 'HEB', street: '400 Main St, Suite 200, Kyle, TX 78640', street2: false, city: false, zip: false, customer_rank: 1, write_date: '2026-11-10 12:00:00' },
+    );
+    jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
+    await renderApp('/team');
+    await settle();
+    await fireEvent.changeText(screen.getByTestId('team-url'), 'x.test');
+    await fireEvent.changeText(screen.getByTestId('team-db'), 'x');
+    await fireEvent.changeText(screen.getByTestId('team-login'), 'j');
+    await fireEvent.changeText(screen.getByTestId('team-secret'), 'k');
+    await fireEvent.press(screen.getByTestId('team-signin-go'));
+    await settle();
+    await act(async () => router.push('/customers'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('odoo-customers-sync'));
+    await settle(14);
+    expect(screen.getByTestId('odoo-cramped-8')).toHaveTextContent(/Walgreens.*Becomes: 1300 Main St · Kyle 78640/);
+    expect(screen.getByTestId('odoo-cramped-9')).toHaveTextContent(/Becomes: 400 Main St, Suite 200 · Kyle 78640/);
+    await fireEvent.press(screen.getByTestId('odoo-cramped-9'));
+    expect(screen.getByTestId('odoo-cramped-fix')).toHaveTextContent('Split 1 ticked contact into street, city and ZIP');
+    await fireEvent.press(screen.getByTestId('odoo-cramped-fix'));
+    await settle();
+    expect(o.partners.find((p) => p.id === 8)).toMatchObject({ street: '1300 Main St', street2: false, city: 'Kyle', zip: '78640' });
+    expect(o.partners.find((p) => p.id === 9)).toMatchObject({ street: '400 Main St, Suite 200, Kyle, TX 78640', city: false });
+    expect(screen.getByTestId('odoo-cramped-done')).toHaveTextContent(/^Split 1 address into street, city and ZIP in Odoo\.$/);
+    expect(screen.getByTestId('odoo-cramped-9')).toBeTruthy();
   });
 });
 

@@ -749,9 +749,12 @@ customer for no signal (`odoo-customer/v1`). (`src/components/CustomerOdoo.tsx`,
 
 **Contacts with the whole address in Street** (from 0.5.22). After **Sync
 customers with Odoo**, contacts whose Street holds the city or ZIP while
-Odoo's City or ZIP box is empty ("1300 Main St, Kyle, TX 78640") are listed
-with how they'd split, and **Split all into street, city and ZIP** writes them.
-Nothing changes in Odoo until that's tapped. (`crampedAddresses` in
+Odoo's City or ZIP box is empty ("1300 Main St, Kyle, TX 78640") are listed,
+every one with what it becomes and a tick to leave it out, and **Split N
+ticked contacts** writes them. A middle part ("Suite 200") goes to Street 2.
+Only lines that clearly end in a town and a ZIP are offered ("Smith Plaza,
+Building B" is left alone), and a City, ZIP or Street 2 Odoo already has is
+never overwritten. Nothing changes in Odoo until that's tapped. (`crampedAddresses` in
 `src/lib/odooContacts.ts`.)
 
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
