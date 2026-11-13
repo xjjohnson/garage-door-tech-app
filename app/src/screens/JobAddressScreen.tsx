@@ -14,7 +14,7 @@ import { Action, NavRow } from '../components/Buttons';
 import { Customer } from '../lib/customers';
 import { invoiceStatus } from '../lib/invoices';
 import { Job } from '../lib/jobs';
-import { addressChoices, fetchCustomer, FoundCustomer, searchCustomers } from '../lib/odooContacts';
+import { addressChoices, ContactAddress, fetchCustomerAddresses, FoundCustomer, sameNameCustomers, searchCustomers } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
 import { useCustomersIfAny } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
@@ -44,20 +44,25 @@ export function JobAddressScreen({ job }: { job: Job }) {
   const [other, setOther] = useState<FoundCustomer | null>(null);
   const [changing, setChanging] = useState(false);
   const viewId = other?.id ?? partnerId;
-  const { addresses } = useContactAddresses(viewId);
-  const [main, setMain] = useState<FoundCustomer | null>(null);
+  // Read last time, for no signal (the job's own customer only).
+  const { addresses: saved } = useContactAddresses(partnerId);
+  const [read, setRead] = useState<{ id: number; mains: FoundCustomer[]; under: ContactAddress[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setMain(null);
     if (!client || !viewId) return;
     let live = true;
-    fetchCustomer(client, viewId)
-      .then((c) => live && c && setMain(c))
-      .catch(() => undefined);
+    setError(null);
+    (async () => {
+      // The same customer can be in Odoo twice with one name; their addresses are listed together.
+      const ids = other ? other.ids : [viewId, ...(await sameNameCustomers(client, viewId, customer?.name || job.customer).catch(() => []))];
+      const got = await fetchCustomerAddresses(client, ids);
+      if (live) setRead({ id: viewId, ...got });
+    })().catch((e: unknown) => live && setError(message(e)));
     return () => {
       live = false;
     };
-  }, [client, viewId]);
+  }, [client, viewId, other, customer?.name, job.customer]);
 
   // A new address makes Odoo's totals stale, so the quotation is sent again with it.
   const pick = (id: number, address: string) => {
@@ -73,10 +78,12 @@ export function JobAddressScreen({ job }: { job: Job }) {
     );
   }
 
-  const ownMain = main?.address || (other ? other.address : customer?.address || job.address);
-  const choices = addressChoices({ id: viewId, address: ownMain }, addresses);
+  const fresh = read && read.id === viewId ? read : null;
+  const [first, ...more] = fresh?.mains ?? [];
+  const mainAddress = first?.address || (other ? other.address : customer?.address || job.address);
+  const choices = addressChoices({ id: viewId, address: mainAddress }, fresh ? fresh.under : other ? [] : saved, more.filter((m) => m.address));
   const chosen = job.ticket?.shipTo?.id ?? partnerId;
-  const name = other ? other.name : main?.name || customer?.name || job.customer;
+  const name = other ? other.name : first?.name || customer?.name || job.customer;
 
   return (
     <View style={styles.stack} testID="job-address">
@@ -96,6 +103,8 @@ export function JobAddressScreen({ job }: { job: Job }) {
             </Text>
             {other ? <Action label={`Back to ${customer?.name || 'the job’s customer'}`} onPress={() => setOther(null)} testID="job-address-back" /> : null}
           </View>
+          {error ? <Text style={styles.error}>Couldn&apos;t read Odoo: {error}</Text> : null}
+          {client && !fresh ? <Text style={styles.note}>Reading Odoo...</Text> : null}
           {other ? <Text style={styles.note}>The job&apos;s customer is still billed. This address goes on as the delivery address.</Text> : null}
           <View style={styles.stack} accessibilityRole="radiogroup">
             {choices.map((o) => {
@@ -161,7 +170,7 @@ function CustomerSearch({ onPick }: { onPick: (c: FoundCustomer) => void }) {
       {found.map((c) => (
         <Pressable key={c.id} onPress={() => onPick(c)} accessibilityRole="button" testID={`job-address-found-${c.id}`} style={({ pressed }) => [styles.option, pressed && styles.pressed]}>
           <Text style={styles.line}>{c.name || 'No name'}</Text>
-          <Text style={styles.title}>{c.address || 'No address in Odoo'}</Text>
+          <Text style={styles.title}>{[c.address || 'No address of their own', c.under ? `${c.under} under them` : ''].filter(Boolean).join(' · ')}</Text>
         </Pressable>
       ))}
     </View>

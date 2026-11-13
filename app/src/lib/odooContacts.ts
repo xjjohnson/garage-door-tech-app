@@ -8,6 +8,7 @@
  */
 import type { OdooClient } from './odoo';
 import { addressVals } from './odoo';
+import { likeExact } from './odooStock';
 import { fillRegion, regionVals } from './odooRegion';
 
 type Client = Pick<OdooClient, 'call'>;
@@ -121,20 +122,48 @@ export async function searchAddresses(c: Client, q: string, limit = 3): Promise<
   return rows.flatMap((r) => (Array.isArray(r.parent_id) ? [{ ...toAddress(r), parentId: r.parent_id[0] as number, parentName: str(r.parent_id[1]) }] : []));
 }
 
-/** A customer in Odoo (a top-level contact), found by name or street. */
+/**
+ * A customer in Odoo found by name or street. Odoo can hold the same customer
+ * twice (two top-level contacts with one name, the addresses under only one
+ * of them), so contacts with the same name are one customer here: `ids` holds
+ * them all, the one with the most addresses under it first.
+ */
 export interface FoundCustomer {
   id: number;
+  ids: number[];
   name: string;
   address: string;
+  /** How many contacts are under them in Odoo (all of the same-name contacts together). */
+  under: number;
 }
 
-/** Customers in Odoo (contacts with no parent) whose name or street matches what's typed. */
+const nameKey = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Customers in Odoo (contacts with no parent) whose name or street matches what's typed, one per name. */
 export async function searchCustomers(c: Client, q: string, limit = 10): Promise<FoundCustomer[]> {
   const t = q.trim();
   if (t.length < 2) return [];
-  const rows = (await c.call('res.partner', 'search_read', [[['parent_id', '=', false], '|', ['name', 'ilike', t], ['street', 'ilike', t]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email'], limit, order: 'name asc' })) as Record<string, unknown>[];
+  const rows = (await c.call('res.partner', 'search_read', [[['parent_id', '=', false], '|', ['name', 'ilike', t], ['street', 'ilike', t]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email', 'child_ids'], limit: limit * 3, order: 'name asc' })) as Record<string, unknown>[];
+  const groups = new Map<string, { a: ContactAddress; under: number }[]>();
   const seen = new Set<number>();
-  return rows.map(toAddress).flatMap((a) => (seen.has(a.id) ? [] : (seen.add(a.id), [{ id: a.id, name: a.name, address: a.address }])));
+  for (const r of rows) {
+    const a = toAddress(r);
+    if (seen.has(a.id)) continue;
+    seen.add(a.id);
+    const k = nameKey(a.name) || `#${a.id}`;
+    groups.set(k, [...(groups.get(k) ?? []), { a, under: Array.isArray(r.child_ids) ? r.child_ids.length : 0 }]);
+  }
+  return [...groups.values()].slice(0, limit).map((g) => {
+    const sorted = [...g].sort((x, y) => y.under - x.under || x.a.id - y.a.id);
+    return { id: sorted[0].a.id, ids: sorted.map((x) => x.a.id), name: sorted[0].a.name, address: sorted.find((x) => x.a.address)?.a.address ?? '', under: g.reduce((n, x) => n + x.under, 0) };
+  });
+}
+
+/** The other top-level contacts in Odoo with exactly this customer's name (the same customer entered twice). */
+export async function sameNameCustomers(c: Client, id: number, name: string): Promise<number[]> {
+  if (!name.trim()) return [];
+  const ids = (await c.call('res.partner', 'search', [[['parent_id', '=', false], ['id', '!=', id], ['name', '=ilike', likeExact(name.trim())]]], { limit: 5 })) as number[];
+  return Array.isArray(ids) ? ids.filter((x) => typeof x === 'number') : [];
 }
 
 /** One address a job can be at: the customer's own (main) or one under them. */
@@ -146,20 +175,33 @@ export interface AddressChoice {
 }
 
 /**
- * Every address a customer has: their own first, then each contact under
- * them that has an address (houses, billing, people, the rest).
+ * Every address a customer has: their own (main) first, then each contact
+ * under them that has an address (houses, billing, people, the rest). The
+ * same address twice shows once.
  */
-export function addressChoices(main: { id: number; address: string }, under: ContactAddress[]): AddressChoice[] {
-  const rest = under.filter((a) => a.address.trim()).map((a) => ({ id: a.id, title: typeLabel(a.type), line: addressLine(a), address: a.address }));
-  return [{ id: main.id, title: 'Main address', line: main.address || 'No address in Odoo', address: main.address }, ...rest];
+export function addressChoices(main: { id: number; address: string }, under: ContactAddress[], more: { id: number; address: string }[] = []): AddressChoice[] {
+  const out: AddressChoice[] = [{ id: main.id, title: 'Main address', line: main.address || 'No address in Odoo', address: main.address }];
+  const seen = new Set([nameKey(main.address)]);
+  const add = (x: AddressChoice) => {
+    const k = nameKey(x.address);
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    out.push(x);
+  };
+  for (const m of more) add({ id: m.id, title: 'Main address', line: m.address, address: m.address });
+  for (const a of under) add({ id: a.id, title: typeLabel(a.type), line: addressLine(a), address: a.address });
+  return out;
 }
 
-/** A customer's own name and address in Odoo. */
-export async function fetchCustomer(c: Client, id: number): Promise<FoundCustomer | undefined> {
-  const [r] = (await c.call('res.partner', 'read', [[id]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email'] })) as Record<string, unknown>[];
-  if (!r) return undefined;
-  const a = toAddress(r);
-  return { id: a.id, name: a.name, address: a.address };
+/** Customers' own addresses in Odoo, and every contact under any of them. */
+export async function fetchCustomerAddresses(c: Client, ids: number[]): Promise<{ mains: FoundCustomer[]; under: ContactAddress[] }> {
+  if (ids.length === 0) return { mains: [], under: [] };
+  const fields = ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email'];
+  const [own, kids] = await Promise.all([c.call('res.partner', 'read', [ids], { fields }) as Promise<Record<string, unknown>[]>, c.call('res.partner', 'search_read', [[['parent_id', 'in', ids]]], { fields, order: 'id asc', limit: 500 }) as Promise<Record<string, unknown>[]>]);
+  const mains = (Array.isArray(own) ? own : []).map(toAddress).map((a) => ({ id: a.id, ids: [a.id], name: a.name, address: a.address, under: 0 }));
+  mains.sort((x, y) => ids.indexOf(x.id) - ids.indexOf(y.id));
+  const under = (Array.isArray(kids) ? kids : []).map(toAddress).sort((a, b) => TYPES.indexOf(a.type) - TYPES.indexOf(b.type));
+  return { mains, under };
 }
 
 /** A contact whose whole address was typed into Street ("1 Main St, Kyle, TX 78640"), with how it splits. */
