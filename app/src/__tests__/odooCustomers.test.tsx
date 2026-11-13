@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { Customer, CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
 import { finishCustomerSync, OdooPartner, planCustomerSync } from '../lib/customerSync';
 import { addressVals, Fetch, OdooClient } from '../lib/odoo';
-import { addAddress, ADDRESSES_STORAGE_KEY, crampedAddresses, fetchAddresses, splitAddresses, splitStreet } from '../lib/odooContacts';
+import { addAddress, addressLine, ADDRESSES_STORAGE_KEY, crampedAddresses, fetchAddresses, splitAddresses, splitStreet } from '../lib/odooContacts';
 import { renderApp } from '../testing/renderApp';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, JOBS_STORAGE_KEY } from '../lib/jobs';
@@ -340,6 +340,12 @@ describe('splitting crammed addresses from the Customers tab', () => {
 });
 
 describe('picking the delivery address', () => {
+  it('leaves out an address name that only repeats the street', () => {
+    expect(addressLine({ name: '1901 south bell boulevard', address: '1901 South Bell Boulevard, Cedar Park 78613' })).toBe('1901 South Bell Boulevard, Cedar Park 78613');
+    expect(addressLine({ name: 'Rental', address: '9 Elm St, Austin' })).toBe('Rental · 9 Elm St, Austin');
+    expect(addressLine({ name: '', address: '9 Elm St' })).toBe('9 Elm St');
+  });
+
   it('offers the main address and the houses read last time, and says which contact it is', async () => {
     // The tests above render the whole app, which leaves Jest on fake timers.
     jest.useRealTimers();

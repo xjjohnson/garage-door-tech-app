@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { AddressPicker } from '../components/AddressPicker';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle, Segmented } from '../components/controls';
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
@@ -12,7 +11,6 @@ import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
 import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
-import { useCustomersIfAny } from '../lib/useCustomers';
 import { useJobs } from '../lib/useJobs';
 import { useStock } from '../lib/useStock';
 import { EmailResult, emailedText, emailRecord, partnerEmail } from '../lib/odooReports';
@@ -38,9 +36,6 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const { sheet } = usePriceSheet();
   const client = useSalesOdoo();
   const partner = usePartner();
-  const customers = useCustomersIfAny();
-  // The customer's Odoo contact, for picking which of their addresses this is for.
-  const odooPartnerId = customers?.customers.find((c) => c.id === job.customerId)?.odooId;
   const ticket = job.ticket ?? EMPTY_TICKET;
   const odooTotals = currentTotals(ticket);
   const shown = odooTotals ?? estimateTotals(ticket, sheet.taxPercent);
@@ -193,16 +188,6 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         {jobName(job)}
         {job.customer && (ticket.shipTo?.address || job.address) ? `, ${ticket.shipTo?.address || job.address}` : ''}
       </Text>
-      {!invoice && odooPartnerId ? (
-        <AddressPicker
-          partnerId={odooPartnerId}
-          mainAddress={job.address}
-          value={ticket.shipTo?.id}
-          // A new address makes Odoo's totals stale, so the quotation is sent again with it.
-          onChange={(id, address) => setTicket(job.id, (t) => ({ ...t, shipTo: { id, address }, totals: undefined }))}
-          testID="ticket-address"
-        />
-      ) : null}
       {invoice ? (
         <NavRow label={`${invoiceLabel(invoice)} made`} detail="Changes to the ticket now don't change the invoice" href={{ pathname: '/invoice/[id]', params: { id: invoice.id } }} testID="ticket-invoice" />
       ) : null}

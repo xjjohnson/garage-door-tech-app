@@ -342,7 +342,7 @@ describe('Ticket screen', () => {
     return { calls, setState: (v: string) => (state = v) };
   }
 
-  it('sends the house picked on the ticket as the delivery address on the quotation and the invoice', async () => {
+  it('sends the house picked on the job as the delivery address on the quotation and the invoice', async () => {
     const { calls } = await signedIn(
       {},
       { down: false },
@@ -354,11 +354,19 @@ describe('Ticket screen', () => {
       },
       [{ id: 12, name: 'Rental', type: 'delivery', street: '9 Elm St', city: 'Austin', zip: '78701' }],
     );
-    await act(async () => router.navigate('/ticket/j1'));
+    await act(async () => router.navigate('/job/j1'));
     await settle();
-    await fireEvent.press(await screen.findByTestId('ticket-address-12'));
+    await fireEvent.press(await screen.findByTestId('job-open-address'));
+    await settle();
+    expect(screen.getByTestId('job-address-12')).toHaveTextContent(/Rental · 9 Elm St/);
+    await fireEvent.press(screen.getByTestId('job-address-12'));
     await settle();
     expect((await saved()).ticket?.shipTo).toMatchObject({ id: 12 });
+    expect(screen.getByTestId('job-open-address')).toHaveTextContent(/9 Elm St/);
+    await act(async () => router.navigate('/ticket/j1'));
+    await settle();
+    expect(screen.queryByTestId('ticket-address')).toBeNull();
+    expect(screen.getByTestId('ticket')).toHaveTextContent(/9 Elm St/);
     await fireEvent.press(screen.getByTestId('ticket-add-material'));
     await settle();
     await fireEvent.press(screen.getByTestId('price-book-cat-Openers'));

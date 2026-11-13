@@ -83,7 +83,12 @@ export async function saveAddress(c: Client, id: number, f: AddressFields): Prom
 }
 
 /** What one line of the address list says: "400 Main St, Kyle 78640" or "Unit 4 · 400 Main St". */
-export const addressLine = (a: Pick<ContactAddress, 'name' | 'address'>) => [a.name, a.address].filter(Boolean).join(' · ');
+/** An address with its name, leaving the name out when it only repeats the street. */
+export const addressLine = (a: Pick<ContactAddress, 'name' | 'address'>) => {
+  const name = a.name.trim();
+  const repeats = !!name && a.address.trim().toLowerCase().startsWith(name.toLowerCase());
+  return [repeats ? '' : name, a.address].filter(Boolean).join(' · ');
+};
 
 /** The addresses read last time, by Odoo contact, so they show with no signal. */
 export function parseSavedAddresses(raw: string | null): Record<string, ContactAddress[]> {
