@@ -3,11 +3,14 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
+import type { AddressSuggestion } from '../lib/addressSuggest';
 import { Customer, suggestCustomers } from '../lib/customers';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { DEFAULT_JOB_TYPES } from '../lib/jobTypes';
 import { log } from '../lib/log';
+import { useAddressSuggestions } from '../lib/useAddressSuggestions';
 import { useCustomers } from '../lib/useCustomers';
+import { rememberPoint } from '../lib/useGeocode';
 import { useJobs } from '../lib/useJobs';
 import { colors, touch, type } from '../theme';
 
@@ -28,6 +31,9 @@ export function NewJobScreen() {
   const [what, setWhat] = useState<string>(DEFAULT_JOB_TYPES[0]);
   const [when, setWhen] = useState<When>('now');
   const suggestions = picked ? [] : suggestCustomers(customers, name);
+  // After a pick (a customer or a suggested address) the address list stays closed until it's edited.
+  const [addressPicked, setAddressPicked] = useState(false);
+  const places = useAddressSuggestions(address, addressPicked || !!picked);
   const canStart = name.trim() !== '' || address.trim() !== '';
 
   const pick = (c: Customer) => {
@@ -35,6 +41,14 @@ export function NewJobScreen() {
     setName(c.name);
     setAddress(c.address);
     setPhone(c.phone);
+  };
+
+  const pickPlace = (a: AddressSuggestion) => {
+    const c = a.customerId ? customers.find((x) => x.id === a.customerId) : undefined;
+    if (c && !name.trim()) pick(c);
+    else setAddress(a.address);
+    if (a.point) rememberPoint(a.address, a.point);
+    setAddressPicked(true);
   };
 
   const start = () => {
@@ -67,7 +81,27 @@ export function NewJobScreen() {
         </Pressable>
       ))}
       {picked ? <Text style={styles.meta}>Saved customer{picked.odooId ? ', in Odoo' : ''}.</Text> : null}
-      <TextInput value={address} onChangeText={setAddress} placeholder="Address" placeholderTextColor={colors.muted} accessibilityLabel="Address" testID="new-job-address" style={styles.input} />
+      <TextInput
+        value={address}
+        onChangeText={(v) => {
+          setAddress(v);
+          setAddressPicked(false);
+        }}
+        placeholder="Address"
+        placeholderTextColor={colors.muted}
+        autoCorrect={false}
+        textContentType="fullStreetAddress"
+        autoComplete="street-address"
+        accessibilityLabel="Address"
+        testID="new-job-address"
+        style={styles.input}
+      />
+      {places.map((a, i) => (
+        <Pressable key={`${a.customerId ?? 'map'}-${a.address}`} onPress={() => pickPlace(a)} accessibilityRole="button" testID={`new-job-place-${i}`} style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}>
+          <Text style={styles.suggestName}>{a.name ? a.name : a.street || a.address}</Text>
+          <Text style={styles.suggestSub}>{a.name ? `${a.address} · Saved customer` : [a.city, a.zip].filter(Boolean).join(' ')}</Text>
+        </Pressable>
+      ))}
       <TextInput value={phone} onChangeText={setPhone} placeholder="Phone" placeholderTextColor={colors.muted} keyboardType="phone-pad" accessibilityLabel="Phone" testID="new-job-phone" style={styles.input} />
 
       <Text style={styles.label}>What's wrong</Text>
