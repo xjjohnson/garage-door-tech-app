@@ -269,6 +269,16 @@ invoice. The big button is always the next step. Below are the inspection,
 spring calculator, quote, photos, invoice and customer. **+ New job** on
 Today makes one from three answers: who, what's wrong, and now or later.
 
+**Address autofill on New job** (from 0.5.16). As the address is typed, saved
+customers (Odoo contacts come in as customers) whose address or name matches
+show first, then street addresses from Photon (photon.komoot.io, OpenStreetMap
+data, no key), leaning toward Kyle, Buda and Austin. It asks 300 ms after the
+last key, from four characters with a letter in them. Tapping one fills the
+address as "400 Main St, Kyle, TX 78640" and keeps its map point, so the map
+doesn't look it up again; tapping a saved customer fills their name and phone
+too. With no signal the box still takes typing, it just shows no map
+suggestions. (`src/lib/addressSuggest.ts`, `src/lib/useAddressSuggestions.ts`.)
+
 **Sales** has follow-ups, the price sheet, accepted quotes still to invoice,
 and the invoices. **Tools** holds the spring calculator, door weight,
 Diagnose, Manuals, truck stock, time and miles, the schedule, business
