@@ -4,6 +4,7 @@ import { Linking, StyleSheet, Text, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
 import { JobParts } from '../components/JobParts';
+import { jobAddress, useJobPartnerId } from './JobAddressScreen';
 import { checkCounts } from '../lib/inspection';
 import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { Job, jobName, phoneLink } from '../lib/jobs';
@@ -35,6 +36,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   }, []);
 
   const job = jobs.find((j) => j.id === id);
+  const partnerId = useJobPartnerId(job);
   if (!job) return <Text style={styles.note}>{loaded ? "That job isn't saved on this phone any more." : 'Loading...'}</Text>;
 
   const visit = appointments.filter((a) => a.jobId === job.id && a.status === 'booked').sort((a, b) => a.start - b.start)[0];
@@ -43,7 +45,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const inv = jobInvoice(job, invoices);
   const site = onSiteFor(job.steps?.arrivedAt, now());
   const tel = phoneLink(job.phone);
-  const maps = mapsLink(job.address);
+  const maps = mapsLink(jobAddress(job));
 
   const go = (step: StepId) => {
     log.info('job', `${job.id} step ${step}`);
@@ -81,7 +83,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
           {jobName(job)}
           {job.what ? ` · ${job.what}` : ''}
         </Text>
-        {job.address ? <Text style={styles.sub}>{job.address}</Text> : null}
+        {jobAddress(job) ? <Text style={styles.sub}>{jobAddress(job)}</Text> : null}
         <Text style={styles.sub} testID="job-hub-status">
           {job.status === 'done' && steps.every((x) => x.done) ? 'Finished' : site ? `On site ${site}` : job.steps?.onMyWayAt ? `On the way since ${formatTime(job.steps.onMyWayAt)}` : 'Not started'}
         </Text>
@@ -145,6 +147,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         />
       ) : null}
       {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
+      {partnerId ? <NavRow label="Address" detail={`${jobAddress(job) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
       {job.notes ? (
         <View style={styles.card}>
           <Text style={styles.label}>Notes</Text>

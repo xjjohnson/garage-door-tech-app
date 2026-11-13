@@ -83,7 +83,12 @@ export async function saveAddress(c: Client, id: number, f: AddressFields): Prom
 }
 
 /** What one line of the address list says: "400 Main St, Kyle 78640" or "Unit 4 · 400 Main St". */
-export const addressLine = (a: Pick<ContactAddress, 'name' | 'address'>) => [a.name, a.address].filter(Boolean).join(' · ');
+/** An address with its name, leaving the name out when it only repeats the street. */
+export const addressLine = (a: Pick<ContactAddress, 'name' | 'address'>) => {
+  const name = a.name.trim();
+  const repeats = !!name && a.address.trim().toLowerCase().startsWith(name.toLowerCase());
+  return [repeats ? '' : name, a.address].filter(Boolean).join(' · ');
+};
 
 /** The addresses read last time, by Odoo contact, so they show with no signal. */
 export function parseSavedAddresses(raw: string | null): Record<string, ContactAddress[]> {
@@ -114,6 +119,23 @@ export async function searchAddresses(c: Client, q: string, limit = 3): Promise<
   if (t.length < 3) return [];
   const rows = (await c.call('res.partner', 'search_read', [[['parent_id', '!=', false], ['type', 'in', ['delivery', 'other']], '|', ['street', 'ilike', t], ['name', 'ilike', t]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email', 'parent_id'], limit })) as Record<string, unknown>[];
   return rows.flatMap((r) => (Array.isArray(r.parent_id) ? [{ ...toAddress(r), parentId: r.parent_id[0] as number, parentName: str(r.parent_id[1]) }] : []));
+}
+
+/** Any contact in Odoo, for using another customer as a job's delivery address. */
+export interface FoundContact extends ContactAddress {
+  /** The company or person the contact is under, if any. */
+  parentName: string;
+}
+
+/**
+ * Contacts in Odoo whose name or street matches what's typed, leaving out
+ * the job's own customer: another customer whose address the job is at.
+ */
+export async function searchContacts(c: Client, q: string, notId: number, limit = 8): Promise<FoundContact[]> {
+  const t = q.trim();
+  if (t.length < 2) return [];
+  const rows = (await c.call('res.partner', 'search_read', [[['id', '!=', notId], '|', ['name', 'ilike', t], ['street', 'ilike', t]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email', 'parent_id'], limit, order: 'name asc' })) as Record<string, unknown>[];
+  return rows.map((r) => ({ ...toAddress(r), parentName: Array.isArray(r.parent_id) ? str(r.parent_id[1]) : '' }));
 }
 
 /** A contact whose whole address was typed into Street ("1 Main St, Kyle, TX 78640"), with how it splits. */
