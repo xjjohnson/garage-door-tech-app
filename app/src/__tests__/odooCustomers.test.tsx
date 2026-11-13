@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { Customer, CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
 import { finishCustomerSync, OdooPartner, planCustomerSync } from '../lib/customerSync';
 import { addressVals, Fetch, OdooClient } from '../lib/odoo';
-import { addAddress, addressLine, ADDRESSES_STORAGE_KEY, crampedAddresses, fetchAddresses, splitAddresses, splitStreet } from '../lib/odooContacts';
+import { addAddress, addressLine, ADDRESSES_STORAGE_KEY, searchContacts, crampedAddresses, fetchAddresses, splitAddresses, splitStreet } from '../lib/odooContacts';
 import { renderApp } from '../testing/renderApp';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { createJob, JOBS_STORAGE_KEY } from '../lib/jobs';
@@ -340,6 +340,18 @@ describe('splitting crammed addresses from the Customers tab', () => {
 });
 
 describe('picking the delivery address', () => {
+  it('finds another customer in Odoo to use as the delivery address, leaving out the job\'s own', async () => {
+    const calls: unknown[][] = [];
+    const client = { call: async (...a: unknown[]) => (calls.push(a), [{ id: 50, name: 'Front gate', type: 'delivery', street: '5 Pine Rd', city: 'Kyle', zip: '78640', parent_id: [40, 'Acme HOA'] }, { id: 51, name: 'Pat Lee', type: 'contact', street: '7 Ash Ln', city: '', zip: '', parent_id: false }]) };
+    expect(await searchContacts(client, 'a', 33)).toEqual([]);
+    const found = await searchContacts(client, 'pine', 33);
+    expect(found.map((f) => [f.id, f.parentName, f.address])).toEqual([
+      [50, 'Acme HOA', '5 Pine Rd, Kyle 78640'],
+      [51, '', '7 Ash Ln'],
+    ]);
+    expect((calls[0][2] as unknown[][])[0]).toEqual(expect.arrayContaining([['id', '!=', 33]]));
+  });
+
   it('leaves out an address name that only repeats the street', () => {
     expect(addressLine({ name: '1901 south bell boulevard', address: '1901 South Bell Boulevard, Cedar Park 78613' })).toBe('1901 South Bell Boulevard, Cedar Park 78613');
     expect(addressLine({ name: 'Rental', address: '9 Elm St, Austin' })).toBe('Rental · 9 Elm St, Austin');
