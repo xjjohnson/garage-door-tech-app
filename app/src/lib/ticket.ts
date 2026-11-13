@@ -42,6 +42,35 @@ export interface Ticket {
   totals?: TicketTotals;
   /** The customer reference typed on the ticket; goes on the sales order and the invoice in Odoo. */
   ref?: string;
+  /** When the ticket was saved as an estimate for the customer (its quotation in Odoo). */
+  estimateAt?: number;
+}
+
+/** A ticket material that is a part on the truck, and how many of it still have to come off the truck for the job. */
+export interface TicketPart {
+  itemId: string;
+  name: string;
+  qty: number;
+}
+
+/**
+ * Parts used, filtered down from the ticket: each material on the ticket that
+ * is a truck item (same Odoo product), less what was already taken off the
+ * truck for this job by hand.
+ */
+export function ticketParts(t: Ticket | undefined, items: { id: string; name: string; odooId?: number }[], used: { itemId: string; qty: number; jobId?: string }[], jobId: string): TicketPart[] {
+  if (!t) return [];
+  const want = new Map<string, TicketPart>();
+  for (const l of t.lines) {
+    if (l.kind !== 'material' || !l.productId) continue;
+    const item = items.find((i) => i.odooId === l.productId);
+    if (!item) continue;
+    const cur = want.get(item.id);
+    want.set(item.id, { itemId: item.id, name: item.name, qty: (cur?.qty ?? 0) + l.qty });
+  }
+  return [...want.values()]
+    .map((p) => ({ ...p, qty: p.qty - used.filter((u) => u.jobId === jobId && u.itemId === p.itemId).reduce((n, u) => n + u.qty, 0) }))
+    .filter((p) => p.qty > 0);
 }
 
 /** The ticket's customer reference as typed; empty means none (Justin, Nov 13). */
@@ -194,5 +223,5 @@ export function parseTicket(v: unknown): Ticket | undefined {
     t && typeof t === 'object' && typeof t.key === 'string'
       ? { untaxed: Number(t.untaxed) || 0, tax: Number(t.tax) || 0, total: Number(t.total) || 0, key: t.key, at: Number(t.at) || 0 }
       : undefined;
-  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}) };
+  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}) };
 }

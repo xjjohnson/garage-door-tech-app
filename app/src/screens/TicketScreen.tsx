@@ -9,9 +9,11 @@ import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketRef } from '../lib/ticket';
+import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
+import { useStock } from '../lib/useStock';
+import { EmailResult, emailedText, emailRecord, partnerEmail } from '../lib/odooReports';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type } from '../theme';
 
@@ -41,6 +43,11 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
+  const stock = useStock();
+  const [estimateNote, setEstimateNote] = useState<string | null>(null);
+  const [emailTo, setEmailTo] = useState<{ pid: number; email: string } | null>(null);
+  const [emailed, setEmailed] = useState<EmailResult | null>(null);
+  const [emailing, setEmailing] = useState(false);
   const run = useRef(0);
 
   const sync = async (): Promise<Ticket | undefined> => {
@@ -95,6 +102,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       if (t.order && !tied) setError(`Made the invoice from the phone's lines and estimate. Quotation ${t.order.name} in Odoo was left as it is.`);
       const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t));
       if (!job.steps?.workDoneAt) setStep(job.id, 'workDoneAt', now());
+      // Parts used filter down from the ticket: what's on it from the truck comes off the truck now.
+      for (const p of ticketParts(t, stock.items, stock.used ?? [], job.id)) stock.takeParts(p.itemId, p.qty, job.id);
       // Post it in Odoo now, so the customer signs Odoo's invoice; if that fails, the invoice screen can send it later.
       if (invoiceOdoo.client) {
         try {
@@ -108,6 +117,46 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       setError(message(e));
     } finally {
       setMaking(false);
+    }
+  };
+
+  /** Saves the ticket as the customer's estimate: its quotation in Odoo, ready to email. */
+  const saveEstimate = async () => {
+    setTicket(job.id, (t) => ({ ...t, estimateAt: now() }));
+    setEmailed(null);
+    if (!client) {
+      setEstimateNote('Estimate saved on the phone. Sign in to Odoo to make it a quotation there.');
+      return;
+    }
+    const t = odooTotals ? ticket : await sync();
+    setEstimateNote(t?.order ? `Estimate saved in Odoo as quotation ${t.order.name}, ${formatMoney(currentTotals(t)?.total ?? 0)}. Finish job makes it the invoice.` : 'Estimate saved on the phone. It goes to Odoo as a quotation when Odoo can be reached.');
+  };
+
+  const askEmail = async () => {
+    if (!client) return;
+    setEmailing(true);
+    setError(null);
+    try {
+      const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
+      setEmailTo({ pid, email: await partnerEmail(client, pid) });
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setEmailing(false);
+    }
+  };
+
+  const sendEmail = async () => {
+    if (!client || !emailTo || !ticket.order) return;
+    const { pid } = emailTo;
+    setEmailTo(null);
+    setEmailing(true);
+    try {
+      setEmailed(await emailRecord(client, 'sale.order', ticket.order.id, pid));
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setEmailing(false);
     }
   };
 
@@ -170,6 +219,39 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       ) : null}
 
       {!invoice ? <CustomerRef value={ticket.ref ?? ''} placeholder="Optional" onChange={(ref) => setTicket(job.id, (t) => ({ ...t, ref }))} /> : null}
+
+      {!invoice ? (
+        <View style={styles.refBox} testID="ticket-estimate-box">
+          <Action label={ticket.estimateAt ? 'Save the estimate again' : 'Save as estimate'} disabled={making || syncing || ticket.lines.length === 0} onPress={saveEstimate} testID="ticket-save-estimate" />
+          {estimateNote ? (
+            <Text style={styles.meta} testID="ticket-estimate-note">
+              {estimateNote}
+            </Text>
+          ) : ticket.estimateAt ? (
+            <Text style={styles.meta} testID="ticket-estimate-note">
+              Saved as an estimate{ticket.order ? ` (quotation ${ticket.order.name} in Odoo)` : ''}. Finish job makes it the invoice.
+            </Text>
+          ) : null}
+          {ticket.estimateAt && ticket.order && client ? (
+            emailTo ? (
+              <>
+                <Text style={styles.meta}>
+                  Email {emailTo.email} Odoo's quotation {ticket.order.name}?
+                </Text>
+                <Action label={`Send to ${emailTo.email}`} primary onPress={sendEmail} testID="ticket-estimate-email-send" />
+                <Action label="Cancel" onPress={() => setEmailTo(null)} testID="ticket-estimate-email-cancel" />
+              </>
+            ) : (
+              <Action label={emailing ? 'Working...' : 'Email the estimate'} disabled={emailing} onPress={askEmail} testID="ticket-estimate-email" />
+            )
+          ) : null}
+          {emailed ? (
+            <Text style={emailed.state === 'failed' ? styles.error : styles.meta} testID="ticket-estimate-emailed">
+              {emailedText(emailed)}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       {!invoice ? <Action label={making ? 'Finishing...' : 'Finish job'} primary disabled={making || ticket.lines.length === 0 || syncing} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
 

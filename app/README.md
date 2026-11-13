@@ -558,6 +558,15 @@ sync reads invoices still owed again every 10 minutes, a few at a time, so
 one paid in Odoo shows paid on the phone. Signed out, the phone's own list
 shows as before.
 
+**Save as estimate and parts from the ticket** (from 0.5.23). Before the work
+is done, the ticket's **Save as estimate** keeps it as the customer's
+estimate: signed in, it is the job's quotation in Odoo (the draft sales
+order), and **Email the estimate** sends Odoo's quotation to the customer's
+email after a confirm. **Finish job** later turns the same ticket into the
+invoice. Materials on the ticket that are truck stock items (same Odoo
+product) show under the job's **Parts used**, and Finish job takes them off
+the truck, less any already taken off by hand for that job.
+
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
 and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
 customer invoice and credit note, not only the phone's: newest first, 40 at a

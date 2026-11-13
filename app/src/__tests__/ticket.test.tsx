@@ -25,10 +25,12 @@ import {
   syncTicket,
   Ticket,
   ticketOption,
+  ticketParts,
   ticketRef,
   toQuoteLines,
 } from '../lib/ticket';
 import { DeviceMedia } from '../lib/deviceMedia';
+import { parseStock, STOCK_STORAGE_KEY } from '../lib/stock';
 import { renderApp } from '../testing/renderApp';
 
 const mockMedia: jest.Mocked<DeviceMedia> = {
@@ -152,6 +154,18 @@ describe('Ticket (logic)', () => {
     expect(calls.find((c) => c.method === 'action_confirm')?.args).toEqual([[70]]);
   });
 
+  it('filters parts used down from the ticket: truck items not taken off yet', () => {
+    let t = addItem(addItem(addItem(EMPTY_TICKET, OPENER, 'a'), OPENER, 'b'), INSTALL, 'c');
+    t = addTyped(t, { name: 'Bolt', unitCents: 100, kind: 'material' }, 'd');
+    const items = [{ id: 's1', name: 'Belt drive opener', odooId: 1 }, { id: 's2', name: 'Rollers', odooId: 9 }];
+    expect(ticketParts(t, items, [], 'j1')).toEqual([{ itemId: 's1', name: 'Belt drive opener', qty: 2 }]);
+    // One already taken off by hand for this job; another job's doesn't count.
+    expect(ticketParts(t, items, [{ itemId: 's1', qty: 1, jobId: 'j1' }, { itemId: 's1', qty: 5, jobId: 'j2' }], 'j1')).toEqual([{ itemId: 's1', name: 'Belt drive opener', qty: 1 }]);
+    expect(ticketParts(t, items, [{ itemId: 's1', qty: 2, jobId: 'j1' }], 'j1')).toEqual([]);
+    expect(ticketParts(undefined, items, [], 'j1')).toEqual([]);
+    expect(parseTicket({ lines: [], estimateAt: 5 })?.estimateAt).toBe(5);
+  });
+
   it('reads saved tickets and ignores damaged lines', () => {
     expect(parseTicket({ lines: [{ id: 'a', name: 'X', qty: 0, unitCents: -5, kind: 'odd' }, { name: 'no id' }], order: { id: 3, name: 'S3' }, totals: { key: 'k', untaxed: 1, tax: 0, total: 1, at: 2 } })).toEqual({
       lines: [{ id: 'a', name: 'X', qty: 1, unitCents: 0, kind: 'material' }],
@@ -188,6 +202,7 @@ describe('Ticket screen', () => {
 
   it('builds the ticket from the price book and by hand, then makes the invoice', async () => {
     await seed();
+    await AsyncStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify({ items: [{ id: 's1', name: 'Belt drive opener', odooId: 1, onHand: 5, min: 1, par: 5, category: 'openers', sku: '', supplier: '', costCents: 0, updatedAt: 1 }], suppliers: [] }));
     await renderApp('/job/j1');
     await settle();
     expect(screen.getByTestId('job-step-quote')).toHaveTextContent('Ticket');
@@ -236,10 +251,20 @@ describe('Ticket screen', () => {
     // 400 + 200 + 25 = 625, tax 8.25% of 400 = 33.
     expect(screen.getByTestId('ticket-total')).toHaveTextContent('$658');
 
+    // Saved as an estimate (no Odoo here: on the phone).
+    await fireEvent.press(screen.getByTestId('ticket-save-estimate'));
+    await settle();
+    expect(screen.getByTestId('ticket-estimate-note')).toHaveTextContent(/Estimate saved on the phone/);
+    expect((await saved()).ticket?.estimateAt).toBeGreaterThan(0);
+
     await fireEvent.press(screen.getByTestId('ticket-make-invoice'));
     await settle();
     const [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
     expect(inv).toMatchObject({ jobId: 'j1', source: 'ticket', subtotal: 62500, tax: 3300, total: 65800 });
+    // The two openers on the ticket came off the truck.
+    const stock = parseStock(await AsyncStorage.getItem(STOCK_STORAGE_KEY));
+    expect(stock.items[0]!.onHand).toBe(3);
+    expect(stock.used).toEqual([expect.objectContaining({ itemId: 's1', qty: 2, jobId: 'j1' })]);
     expect(inv!.lines).toHaveLength(3);
     expect(screen.getByText(/Job ticket/)).toBeTruthy();
 
@@ -325,6 +350,10 @@ describe('Ticket screen', () => {
     await settle(20);
     expect(screen.getByTestId('ticket-totals-source')).toHaveTextContent(/Odoo's numbers, from quotation S00070/);
     expect(screen.getByTestId('ticket-total')).toHaveTextContent('$447.89');
+    await fireEvent.press(screen.getByTestId('ticket-save-estimate'));
+    await settle();
+    expect(screen.getByTestId('ticket-estimate-note')).toHaveTextContent(/Estimate saved in Odoo as quotation S00070, \$447\.89/);
+    expect(screen.getByTestId('ticket-estimate-email')).toBeTruthy();
     const job = await saved();
     expect(job.ticket?.order).toEqual({ id: 70, name: 'S00070' });
 
