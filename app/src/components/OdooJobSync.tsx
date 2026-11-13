@@ -68,12 +68,15 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
           continue;
         }
         try {
+          // Wait until the job is linked to its customer on the phone (moments after it's saved), so the
+          // contact made in Odoo is remembered on that customer and Customers' sync doesn't make a second one.
           const c = C.customers.find((x) => x.id === job.customerId);
-          let partnerId = c?.odooId;
+          if (!c) continue;
+          let partnerId = c.odooId;
           if (!partnerId) {
             known ??= client.partners();
-            partnerId = await partnerFor(client, c ?? { name: job.customer.trim() || job.address.trim(), phone: job.phone, email: '', address: job.address, notes: '' }, known);
-            if (c) C.apply((prev) => prev.map((x) => (x.id === c.id ? { ...x, odooId: partnerId, syncedAt: x.updatedAt } : x)));
+            partnerId = await partnerFor(client, c, known);
+            C.apply((prev) => prev.map((x) => (x.id === c.id ? { ...x, odooId: partnerId, syncedAt: x.updatedAt } : x)));
           }
           const visit = bookedFor(job.id);
           const ref = await createOdooJob(client, partnerId, { jobId: job.id, customer: job.customer, address: job.address, phone: job.phone, what: job.what ?? '', notes: job.notes }, visit);
@@ -132,6 +135,13 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
         const job = sent.find((j) => j.odooJob!.id === st.id)!;
         const id = `odoo-${st.id}`;
         const v = S2.appointments.find((a) => a.id === id);
+        if (st.deleted) {
+          // Deleted in Odoo: the phone's copy and its visits go too, so Today stops showing it.
+          drop.push(...S2.appointments.filter((a) => a.id === id || a.jobId === job.id).map((a) => a.id));
+          latest.current.jobsApi.remove(job.id);
+          log.info('odoo', `job ${job.id} removed: ${job.odooJob!.name} was deleted in Odoo`);
+          continue;
+        }
         if (v && v.updatedAt > (v.syncedAt ?? 0)) continue; // the phone's change goes first, next pass
         if (!v) {
           // Given a time and given to me in Odoo: put it on my schedule.
