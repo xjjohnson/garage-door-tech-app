@@ -12,7 +12,7 @@ import { inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
 import { Job } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
-import { confirmOrderFor, DELETED_IN_ODOO, InvoiceGone, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendOrderSignature, sendPayments, sendSignature, voidInvoice } from '../lib/odooSales';
+import { confirmOrderFor, DELETED_IN_ODOO, InvoiceGone, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendOrderSignature, sendPayments, sendSignature, voidInvoice, voidNote } from '../lib/odooSales';
 import { signaturePng } from '../lib/signaturePng';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { QuoteOption } from '../lib/quote';
@@ -163,9 +163,9 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     if (invoice.voidedAt) {
       // Voided on the phone: undone in Odoo too (draft cancelled, or a credit note); nothing more is sent for it.
       if (state.voided) return state;
-      const voided = await voidInvoice(c, state.id, `Voided in the app (invoice ${invoiceRef(invoice)})`);
+      const { voided, refund } = await voidInvoice(c, state.id, `Voided in the app (invoice ${invoiceRef(invoice)})`);
       const fresh = await readInvoice(c, state.id, state.sentPayments, now()).catch(() => state!);
-      state = { ...fresh, ...(state.signatureSent ? { signatureSent: state.signatureSent } : {}), voided };
+      state = { ...fresh, ...(state.signatureSent ? { signatureSent: state.signatureSent } : {}), voided, ...(refund > 0 ? { refund } : {}) };
       posted.set(invoice.id, state);
       setOdoo(invoice.id, state);
       return state;
@@ -178,7 +178,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       signatureSent = (await attachSignature(c, invoice, state, opts.sig)).signatureSent;
     } finally {
       const fresh = await readInvoice(c, state.id, sent, now()).catch(() => ({ ...state!, sentPayments: sent }));
-      state = { ...fresh, ...(signatureSent ? { signatureSent } : {}), ...(state.voided ? { voided: state.voided } : {}) };
+      state = { ...fresh, ...(signatureSent ? { signatureSent } : {}), ...(state.voided ? { voided: state.voided } : {}), ...(state.refund ? { refund: state.refund } : {}) };
       posted.set(invoice.id, state);
       setOdoo(invoice.id, state);
     }
@@ -237,7 +237,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       if (e instanceof InvoiceGone) return markGone(invoice);
       throw e;
     }
-    const state = { ...fresh, ...(o.signatureSent ? { signatureSent: o.signatureSent } : {}), ...(o.voided ? { voided: o.voided } : {}) };
+    const state = { ...fresh, ...(o.signatureSent ? { signatureSent: o.signatureSent } : {}), ...(o.voided ? { voided: o.voided } : {}), ...(o.refund ? { refund: o.refund } : {}) };
     posted.set(invoice.id, state);
     setOdoo(invoice.id, state);
     return state;
@@ -441,7 +441,7 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
       {o && o.untaxed === undefined && o.total !== invoice.total ? <Text style={styles.meta}>Odoo’s total differs from this phone’s because Odoo adds its own taxes.</Text> : null}
       {invoice.voidedAt && o ? (
         <Text style={styles.meta} testID="invoice-odoo-void">
-          {o.voided === DELETED_IN_ODOO ? 'Voided: this invoice was deleted in Odoo, so it no longer counts as owed.' : o.voided === 'cancelled' ? `Voided: ${o.name} is cancelled in Odoo.` : o.voided ? `Voided: credit note ${o.voided} reverses it in Odoo${o.paymentState === 'paid' || o.paymentState === 'in_payment' ? '. It was paid, so refund the customer from that credit note in Odoo.' : '.'}` : 'Voided on the phone. It is cancelled in Odoo (a credit note if posted) once the phone has signal.'}
+          {voidNote(o)}
         </Text>
       ) : null}
       {online && !o?.voided ? <Button label={busy ? 'Working...' : invoice.voidedAt ? 'Void it in Odoo now' : o ? 'Sync with Odoo' : 'Send to Odoo now'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
