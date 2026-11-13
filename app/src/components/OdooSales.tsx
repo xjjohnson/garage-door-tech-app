@@ -163,9 +163,9 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     if (invoice.voidedAt) {
       // Voided on the phone: undone in Odoo too (draft cancelled, or a credit note); nothing more is sent for it.
       if (state.voided) return state;
-      const { voided, refund } = await voidInvoice(c, state.id, `Voided in the app (invoice ${invoiceRef(invoice)})`);
+      const { voided, refund, refundPaid } = await voidInvoice(c, state.id, `Voided in the app (invoice ${invoiceRef(invoice)})`);
       const fresh = await readInvoice(c, state.id, state.sentPayments, now()).catch(() => state!);
-      state = { ...fresh, ...(state.signatureSent ? { signatureSent: state.signatureSent } : {}), voided, ...(refund > 0 ? { refund } : {}) };
+      state = { ...fresh, ...(state.signatureSent ? { signatureSent: state.signatureSent } : {}), voided, ...(refund > 0 ? { refund } : {}), ...(refundPaid ? { refundPaid } : {}) };
       posted.set(invoice.id, state);
       setOdoo(invoice.id, state);
       return state;
@@ -178,7 +178,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       signatureSent = (await attachSignature(c, invoice, state, opts.sig)).signatureSent;
     } finally {
       const fresh = await readInvoice(c, state.id, sent, now()).catch(() => ({ ...state!, sentPayments: sent }));
-      state = { ...fresh, ...(signatureSent ? { signatureSent } : {}), ...(state.voided ? { voided: state.voided } : {}), ...(state.refund ? { refund: state.refund } : {}) };
+      state = { ...fresh, ...(signatureSent ? { signatureSent } : {}), ...(state.voided ? { voided: state.voided } : {}), ...(state.refund ? { refund: state.refund } : {}), ...(state.refundPaid ? { refundPaid: true } : {}) };
       posted.set(invoice.id, state);
       setOdoo(invoice.id, state);
     }
@@ -237,7 +237,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       if (e instanceof InvoiceGone) return markGone(invoice);
       throw e;
     }
-    const state = { ...fresh, ...(o.signatureSent ? { signatureSent: o.signatureSent } : {}), ...(o.voided ? { voided: o.voided } : {}), ...(o.refund ? { refund: o.refund } : {}) };
+    const state = { ...fresh, ...(o.signatureSent ? { signatureSent: o.signatureSent } : {}), ...(o.voided ? { voided: o.voided } : {}), ...(o.refund ? { refund: o.refund } : {}), ...(o.refundPaid ? { refundPaid: true } : {}) };
     posted.set(invoice.id, state);
     setOdoo(invoice.id, state);
     return state;

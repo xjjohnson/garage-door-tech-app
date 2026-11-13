@@ -52,8 +52,10 @@ export interface OdooInvoiceState extends OdooRef {
   lines?: OdooInvoiceLine[];
   /** Voided on the phone and undone in Odoo (since 0.5.39): "cancelled", or the credit note's number. */
   voided?: string;
-  /** Cents still owed back to the customer after a void (what they had paid, left open on the credit note). */
+  /** Cents the customer had paid on a voided invoice: what is refunded to them on the credit note. */
   refund?: number;
+  /** The refund was recorded in Odoo as a payment on the credit note, so it is Paid there. */
+  refundPaid?: boolean;
 }
 
 export interface OdooInvoiceLine {
@@ -207,17 +209,20 @@ export async function sendPayments(client: OdooClient, invoiceId: number, paymen
  * Undoes an invoice in Odoo after it was voided on the phone: a draft is
  * cancelled; a posted one gets a credit note (Odoo's Reverse button), which
  * is posted and, while the invoice is still owed, set against it so it shows
- * as reversed. What the customer had already paid stays open on the credit
- * note for the refund, whether the invoice was paid or only part paid.
- * Returns "cancelled" or the credit note's number, and the cents left open.
+ * as reversed. What the customer had already paid (a paid or part-paid
+ * invoice) stays open on the credit note, and is refunded there: a payment on
+ * the credit note in the same journal, and the same payment method where the
+ * journal has it, as the one it came in by (Justin, Nov 13).
+ * Returns "cancelled" or the credit note's number, the cents refunded, and
+ * whether the refund is recorded in Odoo.
  */
-export async function voidInvoice(client: OdooClient, id: number, reason: string): Promise<{ voided: string; refund: number }> {
+export async function voidInvoice(client: OdooClient, id: number, reason: string): Promise<{ voided: string; refund: number; refundPaid: boolean }> {
   const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['state', 'amount_residual', 'journal_id'] })) as { state?: string; amount_residual?: number; journal_id?: unknown }[];
   if (!r) throw new InvoiceGone();
-  if (r.state === 'cancel') return { voided: 'cancelled', refund: 0 };
+  if (r.state === 'cancel') return { voided: 'cancelled', refund: 0, refundPaid: false };
   if (r.state === 'draft') {
     await client.call('account.move', 'button_cancel', [[id]]);
-    return { voided: 'cancelled', refund: 0 };
+    return { voided: 'cancelled', refund: 0, refundPaid: false };
   }
   const existing = (await client.call('account.move', 'search_read', [[['reversed_entry_id', '=', id], ['state', '!=', 'cancel']]], { fields: ['id', 'name', 'state'], limit: 1 })) as { id: number; name?: string; state?: string }[];
   let credit = existing[0];
@@ -238,16 +243,60 @@ export async function voidInvoice(client: OdooClient, id: number, reason: string
   }
   // What is still open on the credit note is what was paid on the invoice: the customer is owed it back.
   const [named] = (await client.call('account.move', 'read', [[credit.id]], { fields: ['name', 'amount_residual'] })) as { name?: string; amount_residual?: number }[];
-  return { voided: named?.name || credit.name || `#${credit.id}`, refund: Math.max(0, Math.round((named?.amount_residual ?? 0) * 100)) };
+  const refund = Math.max(0, Math.round((named?.amount_residual ?? 0) * 100));
+  if (refund > 0) await refundCredit(client, id, credit.id, refund);
+  return { voided: named?.name || credit.name || `#${credit.id}`, refund, refundPaid: refund > 0 };
+}
+
+/**
+ * Pays the customer back on a credit note, like Odoo's Pay button on it: in
+ * the journal the invoice's payment went into, and the matching outbound
+ * payment method line when the journal has one (otherwise Odoo's default).
+ */
+async function refundCredit(client: OdooClient, invoiceId: number, creditId: number, cents: number): Promise<void> {
+  let journal: number | undefined;
+  let methodLine: number | undefined;
+  const [inv] = (await client.call('account.move', 'read', [[invoiceId]], { fields: ['payment_ids'] })) as { payment_ids?: number[] }[];
+  const paymentIds = Array.isArray(inv?.payment_ids) ? inv.payment_ids : [];
+  if (paymentIds.length) {
+    const pays = (await client.call('account.payment', 'read', [paymentIds], { fields: ['journal_id', 'payment_method_line_id', 'date'] })) as { journal_id?: unknown; payment_method_line_id?: unknown; date?: string }[];
+    const last = [...pays].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')))[0];
+    journal = Array.isArray(last?.journal_id) && typeof last.journal_id[0] === 'number' ? last.journal_id[0] : undefined;
+    const lineId = Array.isArray(last?.payment_method_line_id) && typeof last.payment_method_line_id[0] === 'number' ? last.payment_method_line_id[0] : undefined;
+    if (journal && lineId) {
+      const [line] = (await client.call('account.payment.method.line', 'read', [[lineId]], { fields: ['payment_method_id'] })) as { payment_method_id?: unknown }[];
+      const method = Array.isArray(line?.payment_method_id) && typeof line.payment_method_id[0] === 'number' ? line.payment_method_id[0] : undefined;
+      if (method) {
+        const out = (await client.call('account.payment.method.line', 'search', [[['journal_id', '=', journal], ['payment_type', '=', 'outbound'], ['payment_method_id', '=', method]]], { limit: 1 })) as number[];
+        methodLine = out[0];
+      }
+    }
+  }
+  if (!journal) {
+    const found = (await client.call('account.journal', 'search', [[['type', 'in', ['bank', 'cash']]]], { limit: 1 })) as number[];
+    journal = found[0];
+  }
+  if (!journal) throw new Error('Odoo has no bank or cash journal to record the refund in.');
+  const context = { active_model: 'account.move', active_ids: [creditId] };
+  const wizard = (await client.call(
+    'account.payment.register',
+    'create',
+    [{ amount: cents / 100, payment_date: new Date().toISOString().slice(0, 10), journal_id: journal, ...(methodLine ? { payment_method_line_id: methodLine } : {}), communication: 'Refund of a voided invoice' }],
+    { context },
+  )) as number;
+  await client.call('account.payment.register', 'action_create_payments', [[wizard]], { context });
 }
 
 /** What the invoice screen says about a voided invoice that is (or is going to be) undone in Odoo. */
-export function voidNote(o: Pick<OdooInvoiceState, 'name' | 'voided' | 'refund'>): string {
+export function voidNote(o: Pick<OdooInvoiceState, 'name' | 'voided' | 'refund' | 'refundPaid'>): string {
   if (o.voided === DELETED_IN_ODOO) return 'Voided: this invoice was deleted in Odoo, so it no longer counts as owed.';
   if (o.voided === 'cancelled') return `Voided: ${o.name} is cancelled in Odoo.`;
   if (!o.voided) return 'Voided on the phone. It is cancelled in Odoo (a credit note if posted) once the phone has signal.';
-  const back = o.refund ? ` The customer had paid ${formatMoney(o.refund)}, so refund them ${formatMoney(o.refund)} from that credit note in Odoo.` : '';
-  return `Voided: credit note ${o.voided} reverses it in Odoo.${back}`;
+  if (!o.refund) return `Voided: credit note ${o.voided} reverses it in Odoo.`;
+  const paid = formatMoney(o.refund);
+  return o.refundPaid
+    ? `Voided: credit note ${o.voided} reverses it in Odoo. The customer had paid ${paid}, and the refund is recorded on the credit note in Odoo, so hand ${paid} back.`
+    : `Voided: credit note ${o.voided} reverses it in Odoo. The customer had paid ${paid}, so refund them ${paid} from that credit note in Odoo.`;
 }
 
 /**
@@ -287,6 +336,7 @@ export function parseInvoiceState(v: unknown): OdooInvoiceState | undefined {
     ...(typeof r.signatureSent === 'string' ? { signatureSent: r.signatureSent } : {}),
     ...(typeof r.voided === 'string' && r.voided ? { voided: r.voided } : {}),
     ...(typeof r.refund === 'number' && r.refund > 0 ? { refund: r.refund } : {}),
+    ...(r.refundPaid === true ? { refundPaid: true } : {}),
     ...(typeof r.untaxed === 'number' ? { untaxed: r.untaxed, tax: n(r.tax) } : {}),
     ...(Array.isArray(r.lines)
       ? {
