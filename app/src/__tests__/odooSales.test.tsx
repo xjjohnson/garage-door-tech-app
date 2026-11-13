@@ -6,7 +6,7 @@ import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { INVOICES_STORAGE_KEY, PAY_LABEL, parseInvoices } from '../lib/invoices';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, OdooClient } from '../lib/odoo';
-import { lineValues, readInvoice, sendInvoice, sendOrder, sendPayments, SERVICE_PRODUCT_CODE, voidInvoice } from '../lib/odooSales';
+import { InvoiceGone, lineValues, readInvoice, sendInvoice, sendOrder, sendPayments, SERVICE_PRODUCT_CODE, voidInvoice } from '../lib/odooSales';
 import { DEFAULT_PRICE_SHEET, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
 import { buildQuote, QuoteLine } from '../lib/quote';
 import { renderApp } from '../testing/renderApp';
@@ -71,6 +71,8 @@ function fakeOdoo() {
       case 'account.move.read': {
         const id = (args[0] as number[])[0] ?? 900;
         const m = moves[id];
+        // Odoo's read leaves out an invoice that was deleted.
+        if (!m) return reply([]);
         return reply([{ id, name: m.name ?? 'INV/2026/00007', journal_id: [1, 'Customer Invoices'], state: m.posted ?? 'posted', amount_total: m.total / 100, amount_residual: m.residual / 100, payment_state: m.state }]);
       }
       case 'account.move.button_cancel':
@@ -182,6 +184,56 @@ describe('voiding an invoice in Odoo', () => {
     expect(await voidInvoice(c2, 900, 'x')).toBe('cancelled');
     expect(d.calls.some((x) => x.method === 'button_cancel')).toBe(true);
     expect(d.calls.some((x) => x.model === 'account.move.reversal')).toBe(false);
+  });
+});
+
+describe('an invoice deleted in Odoo', () => {
+  const settle = async (n = 10) => {
+    for (let k = 0; k < n; k++) await act(async () => undefined);
+  };
+  afterEach(() => jest.restoreAllMocks());
+
+  it('is told apart when read or voided', async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    await expect(readInvoice(c, 123, [])).rejects.toBeInstanceOf(InvoiceGone);
+    await expect(voidInvoice(c, 123, 'x')).rejects.toBeInstanceOf(InvoiceGone);
+  });
+
+  it('is voided on the phone once, and never read or sent again', async () => {
+    const base = { jobId: 'j1', billTo: 'Pat', address: '', tier: 'good', lines: [], subtotal: 100, tax: 0, total: 100, payments: [], createdAt: 1, updatedAt: 1 };
+    const state = { id: 321, name: 'INV/2026/00009', total: 100, residual: 100, paymentState: 'not_paid', sentPayments: [], checkedAt: 1 };
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(
+      INVOICES_STORAGE_KEY,
+      JSON.stringify([
+        { ...base, id: 'i1', number: '1001', odoo: state },
+        { ...base, id: 'i2', number: '1002', voidedAt: 5, autoSend: true, odoo: { ...state, id: 322, name: 'INV/2026/00010' } },
+      ]),
+    );
+    const o = fakeOdoo();
+    jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
+    await renderApp('/team');
+    await settle();
+    await fireEvent.changeText(screen.getByTestId('team-url'), login.url);
+    await fireEvent.changeText(screen.getByTestId('team-db'), login.db);
+    await fireEvent.changeText(screen.getByTestId('team-login'), login.login);
+    await fireEvent.changeText(screen.getByTestId('team-secret'), 'k');
+    await fireEvent.press(screen.getByTestId('team-signin-go'));
+    await settle(30);
+    const saved = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
+    // The one read in the background and the one whose void was waiting both end up voided and deleted.
+    expect(saved.map((i) => [i.id, !!i.voidedAt, i.odoo?.voided])).toEqual([
+      ['i1', true, 'deleted'],
+      ['i2', true, 'deleted'],
+    ]);
+    const reads = o.calls.filter((x) => x.model === 'account.move' && x.method === 'read').length;
+    // Later passes (every few minutes) leave them alone.
+    await act(async () => {
+      jest.advanceTimersByTime(25 * 60_000);
+    });
+    await settle(30);
+    expect(o.calls.filter((x) => x.model === 'account.move' && x.method === 'read')).toHaveLength(reads);
   });
 });
 
