@@ -5,19 +5,22 @@ import { SectionTitle, Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
 import { categoryLevel, fetchedLabel, itemsByIds, PriceBookItem, searchItems, sortByName } from '../lib/priceBook';
 import { usePriceBook } from '../lib/usePriceBook';
+import { PriceSheetScreen } from './PriceSheetScreen';
 import { colors, touch, type } from '../theme';
 
-type Tab = 'all' | 'favorites';
+export type PriceBookTab = 'all' | 'favorites' | 'estimate';
 
 /**
  * Odoo's products and prices, browsed by category with search, the tech's
- * own favorites and what sells most. With onPick, tapping an item picks it
- * (for adding to a job); without, the price book is just for looking up.
+ * own favorites and what sells most, plus the good / better / best estimate
+ * prices (what was the price sheet). With onPick, tapping an item picks it
+ * (for adding to a job); without, the price book is for looking up and
+ * setting estimate prices. One Update from Odoo refreshes both.
  */
-export function PriceBookScreen({ onPick, now = Date.now }: { onPick?: (item: PriceBookItem) => void; now?: () => number }) {
-  const { book, loaded, favorites, toggle, refresh, busy, error, signedIn } = usePriceBook(now);
+export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all' }: { onPick?: (item: PriceBookItem) => void; now?: () => number; initialTab?: PriceBookTab }) {
+  const { book, loaded, favorites, toggle, refresh, busy, error, signedIn, sheetResult } = usePriceBook(now);
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<Tab>('all');
+  const [tab, setTab] = useState<PriceBookTab>(onPick ? 'all' : initialTab);
   const [path, setPath] = useState<string[]>([]);
 
   const found = useMemo(() => searchItems(book.items, query), [book.items, query]);
@@ -27,10 +30,29 @@ export function PriceBookScreen({ onPick, now = Date.now }: { onPick?: (item: Pr
   const favSet = useMemo(() => new Set(favorites), [favorites]);
 
   const row = (i: PriceBookItem) => <ItemRow key={i.id} item={i} favorite={favSet.has(i.id)} onToggle={() => toggle(i.id)} onPick={onPick} />;
-  const searching = query.trim().length > 0;
+  const searching = query.trim().length > 0 && tab !== 'estimate';
+  const tabs = (
+    <Segmented
+      options={[
+        { value: 'all', label: 'All' },
+        { value: 'favorites', label: favorites.length ? `Favorites (${favorites.length})` : 'Favorites' },
+        ...(onPick ? [] : [{ value: 'estimate' as const, label: 'Estimates' }]),
+      ]}
+      value={tab}
+      onChange={setTab}
+      testID="price-book-tabs"
+    />
+  );
 
   return (
     <View style={styles.stack} testID="price-book">
+      {tab === 'estimate' ? (
+        <>
+          {tabs}
+          <Text style={styles.note}>Good, better and best prices for spring estimates. Lines linked to an Odoo product take its price on Update from Odoo.</Text>
+          <PriceSheetScreen />
+        </>
+      ) : (
       <TextInput
         value={query}
         onChangeText={setQuery}
@@ -42,22 +64,15 @@ export function PriceBookScreen({ onPick, now = Date.now }: { onPick?: (item: Pr
         testID="price-book-search"
         style={styles.input}
       />
-      {searching ? (
+      )}
+      {tab === 'estimate' ? null : searching ? (
         <>
           <SectionTitle>{found.length === 1 ? '1 match' : `${found.length} matches`}</SectionTitle>
           {found.length === 0 ? <Text style={styles.note}>Nothing matches “{query.trim()}”.</Text> : found.map(row)}
         </>
       ) : (
         <>
-          <Segmented
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'favorites', label: favorites.length ? `Favorites (${favorites.length})` : 'Favorites' },
-            ]}
-            value={tab}
-            onChange={setTab}
-            testID="price-book-tabs"
-          />
+          {tabs}
           {tab === 'favorites' ? (
             favItems.length === 0 ? (
               <Text style={styles.note}>Tap the star on any item to keep it here. Favorites are yours alone.</Text>
@@ -95,6 +110,14 @@ export function PriceBookScreen({ onPick, now = Date.now }: { onPick?: (item: Pr
         </>
       )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {sheetResult && !onPick ? (
+        <Text style={styles.meta} testID="price-book-sheet-result">
+          Estimate prices:{' '}
+          {sheetResult.added ? `added ${sheetResult.added} Odoo ${sheetResult.added === 1 ? 'item' : 'items'} (pick Good, Better or Best under Estimates to quote one). ` : ''}
+          {sheetResult.changed.length ? `Updated ${sheetResult.changed.map((c) => `${c.label} to $${c.to}`).join(', ')}.` : sheetResult.added ? '' : 'all match Odoo.'}
+          {sheetResult.missing.length ? ` No longer in Odoo: ${sheetResult.missing.join(', ')}.` : ''}
+        </Text>
+      ) : null}
       <Text style={styles.meta} testID="price-book-updated">
         {busy ? 'Updating from Odoo...' : fetchedLabel(book.fetchedAt, now())}. Prices, categories and descriptions are edited in Odoo.
       </Text>
