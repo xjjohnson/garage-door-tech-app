@@ -13,6 +13,7 @@ import type { OdooClient, OdooTask } from './odoo';
 import { odooTime, toOdooTime } from './odoo';
 import type { Appointment } from './schedule';
 import { templateNamed, templateVals } from './fsmTemplates';
+import { regionVals } from './odooRegion';
 import { addressParts } from './geocode';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
@@ -87,7 +88,7 @@ export async function locationFor(c: Client, partnerId: number, job: Pick<JobFor
     if (same) return same.id;
   }
   const name = at.street || job.customer.trim() || 'Customer';
-  return (await c.call('fsm.location', 'create', [{ name, owner_id: partnerId, ...(at.street ? { street: at.street } : {}), ...(at.city ? { city: at.city } : {}), ...(at.zip ? { zip: at.zip } : {}) }])) as number;
+  return (await c.call('fsm.location', 'create', [{ name, owner_id: partnerId, ...(at.street ? { street: at.street } : {}), ...(at.city ? { city: at.city } : {}), ...(at.zip ? { zip: at.zip } : {}), ...(at.street ? await regionVals(c, job.address) : {}) }])) as number;
 }
 
 const visitVals = (c: Client, visit: Pick<Appointment, 'start' | 'minutes'> | undefined): Record<string, unknown> => {
