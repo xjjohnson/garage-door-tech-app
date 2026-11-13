@@ -597,7 +597,7 @@ background or with **Void it in Odoo now**: a draft is cancelled; a posted
 one gets a credit note (Odoo's Reverse, in the invoice's own journal; fixed in 0.5.45), posted and set against the invoice
 while it is still owed. Whatever the customer had already paid (a paid or a
 part-paid invoice) is refunded on the credit note in Odoo automatically (from
-0.5.59): a payment on the credit note in the journal the invoice's payment went
+0.5.60): a payment on the credit note in the journal the invoice's payment went
 into, by the matching outbound payment method where the journal has one, so the
 credit note ends up Paid. The invoice says how much to hand back ("The customer
 had paid $50, and the refund is recorded on the credit note in Odoo, so hand $50
