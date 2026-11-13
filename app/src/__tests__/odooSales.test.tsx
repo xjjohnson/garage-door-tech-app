@@ -6,7 +6,7 @@ import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { INVOICES_STORAGE_KEY, PAY_LABEL, parseInvoices } from '../lib/invoices';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, OdooClient } from '../lib/odoo';
-import { InvoiceGone, lineValues, readInvoice, sendInvoice, sendOrder, sendPayments, SERVICE_PRODUCT_CODE, voidInvoice } from '../lib/odooSales';
+import { InvoiceGone, lineValues, readInvoice, sendInvoice, sendOrder, sendPayments, SERVICE_PRODUCT_CODE, voidInvoice, voidNote } from '../lib/odooSales';
 import { DEFAULT_PRICE_SHEET, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
 import { buildQuote, QuoteLine } from '../lib/quote';
 import { renderApp } from '../testing/renderApp';
@@ -91,10 +91,14 @@ function fakeOdoo() {
         return reply(true);
       case 'account.move.line.search':
         return reply([9011]);
-      case 'account.move.js_assign_outstanding_line':
-        moves[900].residual = 0;
-        moves[900].state = 'reversed';
+      case 'account.move.js_assign_outstanding_line': {
+        // The credit note is set against what is still owed; any rest stays open on it.
+        const applied = Math.min(moves[900].residual, moves[901].residual);
+        moves[900].residual -= applied;
+        moves[901].residual -= applied;
+        moves[900].state = moves[900].residual === 0 ? 'reversed' : 'partial';
         return reply(true);
+      }
       case 'account.journal.search': {
         const d = args[0] as [string, string, unknown][];
         return reply(d[0][2] === 'cash' ? [] : [11]);
@@ -169,21 +173,43 @@ describe('voiding an invoice in Odoo', () => {
     const o = fakeOdoo();
     const c = await OdooClient.signIn(o.fetchFn, login, 'k');
     o.moves[900] = { residual: 35900, total: 35900, state: 'not_paid' };
-    expect(await voidInvoice(c, 900, 'Voided in the app')).toBe('RINV/2026/00001');
+    expect(await voidInvoice(c, 900, 'Voided in the app')).toEqual({ voided: 'RINV/2026/00001', refund: 0 });
     const wiz = o.calls.find((x) => x.model === 'account.move.reversal' && x.method === 'create')!;
     expect(wiz.args[0]).toMatchObject({ move_ids: [[6, 0, [900]]], reason: 'Voided in the app', journal_id: 1 });
     expect(o.calls.find((x) => x.method === 'js_assign_outstanding_line')?.args).toEqual([[900], 9011]);
     expect(o.moves[900].state).toBe('reversed');
     // Asked again: the credit note is already there, so no second one.
-    expect(await voidInvoice(c, 900, 'Voided in the app')).toBe('RINV/2026/00001');
+    expect(await voidInvoice(c, 900, 'Voided in the app')).toEqual({ voided: 'RINV/2026/00001', refund: 0 });
     expect(o.calls.filter((x) => x.model === 'account.move.reversal' && x.method === 'create')).toHaveLength(1);
+
+    // Part paid ($50 of $99.99): the credit note clears the $49.99 owed, and the $50 paid is owed back.
+    const p = fakeOdoo();
+    const c3 = await OdooClient.signIn(p.fetchFn, login, 'k');
+    p.moves[900] = { residual: 4999, total: 9999, state: 'partial' };
+    expect(await voidInvoice(c3, 900, 'Voided in the app')).toEqual({ voided: 'RINV/2026/00001', refund: 5000 });
+    expect(p.moves[900].residual).toBe(0);
+    expect(p.moves[901].residual).toBe(5000);
+    // Fully paid: nothing to clear, the whole payment is owed back.
+    const f = fakeOdoo();
+    const c4 = await OdooClient.signIn(f.fetchFn, login, 'k');
+    f.moves[900] = { residual: 0, total: 9999, state: 'paid' };
+    expect(await voidInvoice(c4, 900, 'Voided in the app')).toEqual({ voided: 'RINV/2026/00001', refund: 9999 });
 
     const d = fakeOdoo();
     const c2 = await OdooClient.signIn(d.fetchFn, login, 'k');
     d.moves[900] = { residual: 100, total: 100, state: 'not_paid', posted: 'draft' };
-    expect(await voidInvoice(c2, 900, 'x')).toBe('cancelled');
+    expect(await voidInvoice(c2, 900, 'x')).toEqual({ voided: 'cancelled', refund: 0 });
     expect(d.calls.some((x) => x.method === 'button_cancel')).toBe(true);
     expect(d.calls.some((x) => x.model === 'account.move.reversal')).toBe(false);
+  });
+});
+
+describe('what a voided invoice says', () => {
+  it('names the refund owed for a paid or part-paid invoice, and nothing for an unpaid one', () => {
+    expect(voidNote({ name: 'INV/1', voided: 'RINV/1' })).toBe('Voided: credit note RINV/1 reverses it in Odoo.');
+    expect(voidNote({ name: 'INV/1', voided: 'RINV/1', refund: 5000 })).toBe('Voided: credit note RINV/1 reverses it in Odoo. The customer had paid $50, so refund them $50 from that credit note in Odoo.');
+    expect(voidNote({ name: 'INV/1', voided: 'cancelled' })).toBe('Voided: INV/1 is cancelled in Odoo.');
+    expect(voidNote({ name: 'INV/1' })).toMatch(/once the phone has signal/);
   });
 });
 
