@@ -8,10 +8,11 @@
 import type { OdooPartner } from './customerSync';
 import type { CustomerFields } from './customers';
 import { phoneKey } from './customers';
-import type { Job } from './jobs';
+import type { Job, JobSteps, OdooSent } from './jobs';
 import type { OdooClient, OdooTask } from './odoo';
 import { odooTime, toOdooTime } from './odoo';
 import type { Appointment } from './schedule';
+import { formatTime } from './schedule';
 import { templateNamed, templateVals } from './fsmTemplates';
 import { regionVals } from './odooRegion';
 import { addressParts } from './geocode';
@@ -162,6 +163,86 @@ export async function partnerFor(c: Pick<OdooClient, 'partners' | 'createPartner
 export async function writeVisit(c: Client, ref: OdooJobRef, visit: Pick<Appointment, 'start' | 'minutes'>): Promise<void> {
   const vals = visitVals(c, visit);
   if (Object.keys(vals).length) await c.call(ref.model, 'write', [[ref.id], vals]);
+}
+
+/** What a job made in Odoo has been told so far, for one made just now. */
+export const sentAtCreate = (notes: string): OdooSent => ({ notes, steps: {}, done: false });
+
+const STEP_NOTE: Record<keyof JobSteps, string> = { onMyWayAt: 'On my way', arrivedAt: 'Arrived', workDoneAt: 'Work done' };
+
+/** True when the phone has changes to the job that its Odoo order hasn't been told. */
+export function jobChanged(job: Pick<Job, 'notes' | 'steps' | 'status' | 'odooJob' | 'odooSent'>): boolean {
+  if (!job.odooJob) return false;
+  const sent = job.odooSent;
+  if (!sent) return true;
+  const steps = job.steps ?? {};
+  return sent.notes !== job.notes || sent.done !== (job.status === 'done') || (Object.keys(STEP_NOTE) as (keyof JobSteps)[]).some((k) => steps[k] !== sent.steps[k]);
+}
+
+/**
+ * Tells the job's Odoo order what changed on the phone since it was made:
+ * the notes (the order's description), each step as a note in its chatter
+ * (Arrived and Work done also fill the order's actual start and end), and
+ * Close job, which completes the order the way Odoo's own button does. A
+ * job with nothing recorded (sent before this release, or opened from Odoo)
+ * sends nothing: its state now is taken as Odoo's, and later changes go.
+ * Returns what Odoo now knows.
+ */
+export async function pushJobChanges(
+  c: Client & { markDone?: (id: number) => Promise<void> },
+  job: Pick<Job, 'id' | 'notes' | 'steps' | 'status' | 'what' | 'odooJob' | 'odooSent'>,
+): Promise<OdooSent> {
+  const ref = job.odooJob!;
+  // Nothing recorded (sent before this release, or opened from Odoo): what the phone
+  // has now counts as already in Odoo, so only changes from here on go out.
+  if (!job.odooSent) return baseline(job);
+  const sent = job.odooSent;
+  const steps = job.steps ?? {};
+  const next: OdooSent = { notes: sent.notes, steps: { ...sent.steps }, done: sent.done };
+  if (job.notes !== sent.notes) {
+    if (has(c, 'description')) {
+      const description = ref.model === 'fsm.order' ? describe({ what: job.what ?? '', notes: job.notes, jobId: job.id } as JobForOdoo) : [job.notes.trim(), jobMarker(job.id)].filter(Boolean).join('\n');
+      await c.call(ref.model, 'write', [[ref.id], { description }]);
+    }
+    next.notes = job.notes;
+  }
+  for (const k of Object.keys(STEP_NOTE) as (keyof JobSteps)[]) {
+    const at = steps[k];
+    if (at === sent.steps[k]) continue;
+    if (at !== undefined) {
+      const vals: Record<string, unknown> = {};
+      if (ref.model === 'fsm.order' && k === 'arrivedAt' && has(c, 'date_start')) vals.date_start = toOdooTime(at);
+      if (ref.model === 'fsm.order' && k === 'workDoneAt' && has(c, 'date_end')) vals.date_end = toOdooTime(at);
+      if (Object.keys(vals).length) await c.call(ref.model, 'write', [[ref.id], vals]);
+      await note(c, ref, `${STEP_NOTE[k]} at ${formatTime(at)} (from the app)`);
+      next.steps[k] = at;
+    } else {
+      await note(c, ref, `${STEP_NOTE[k]} undone (from the app)`);
+      delete next.steps[k];
+    }
+  }
+  const done = job.status === 'done';
+  if (done !== sent.done) {
+    if (done && c.markDone) {
+      const [state] = await readJobStates(c, ref.model, [ref.id]);
+      if (state && !state.done) await c.markDone(ref.id);
+    }
+    if (!done) await note(c, ref, 'Job reopened on the phone (from the app)');
+    next.done = done;
+  }
+  return next;
+}
+
+/** The job as it is now, taken as what Odoo already has. */
+export const baseline = (job: Pick<Job, 'notes' | 'steps' | 'status'>): OdooSent => ({ notes: job.notes, steps: { ...(job.steps ?? {}) }, done: job.status === 'done' });
+
+/** A note in the order's chatter. Odoo without chatter on the model just doesn't get one. */
+async function note(c: Client, ref: OdooJobRef, body: string): Promise<void> {
+  try {
+    await c.call(ref.model, 'message_post', [[ref.id]], { body, message_type: 'comment', subtype_xmlid: 'mail.mt_note' });
+  } catch {
+    // No chatter here: the step's time still went to the order when it has a field for it.
+  }
 }
 
 /** Reads the time, worker and done state of Odoo jobs. Ones that are gone are left out. */

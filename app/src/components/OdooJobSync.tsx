@@ -1,7 +1,8 @@
 /**
  * Keeps the phone's jobs and Odoo's Field Service orders in step, in the
  * background while signed in: new jobs go to Odoo (so they show on Jobs ›
- * Team), a visit booked or moved on the phone moves the order, and an order
+ * Team), later note edits, steps and Close job go to the order, a visit
+ * booked or moved on the phone moves the order, and an order
  * given a time or a worker in Odoo moves or removes the phone's visit. Every
  * open job given to me in Odoo with a time shows on the schedule, wherever it
  * was made. Runs
@@ -12,7 +13,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { log } from '../lib/log';
 import { onSyncNow } from '../lib/syncNow';
 import type { OdooPartner } from '../lib/customerSync';
-import { applyState, canSendJobs, createOdooJob, myId, partnerFor, pullSchedule, readJobStates, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
+import { applyState, canSendJobs, createOdooJob, jobChanged, myId, partnerFor, pullSchedule, pushJobChanges, readJobStates, sentAtCreate, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
 import { Appointment } from '../lib/schedule';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useCustomers } from '../lib/useCustomers';
@@ -62,6 +63,7 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
         const fromOdoo = visits.find((a) => a.jobId === job.id && /^odoo-\d+$/.test(a.id));
         if (fromOdoo) {
           J.setOdooJob(job.id, { model: client.session.kind === 'oca' ? 'fsm.order' : 'project.task', id: Number(fromOdoo.id.slice(5)), name: fromOdoo.odooName || fromOdoo.what || fromOdoo.name });
+          J.setOdooSent(job.id, sentAtCreate(job.notes));
           madeNow.push(Number(fromOdoo.id.slice(5)));
           continue;
         }
@@ -76,6 +78,7 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
           const visit = bookedFor(job.id);
           const ref = await createOdooJob(client, partnerId, { jobId: job.id, customer: job.customer, address: job.address, phone: job.phone, what: job.what ?? '', notes: job.notes }, visit);
           J.setOdooJob(job.id, ref);
+          J.setOdooSent(job.id, sentAtCreate(job.notes));
           madeNow.push(ref.id);
           if (visit) {
             const t = now();
@@ -104,6 +107,16 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
           else fresh.schedule.markSynced(v.id, v.updatedAt);
         } catch (e) {
           log.warn('odoo', `visit for job ${job.id} not sent: ${message(e)}`);
+        }
+      }
+
+      // 2b. Notes, steps (On my way, Arrived, Work done) and Close job changed on the phone.
+      for (const job of latest.current.jobsApi.jobs.filter((j) => jobChanged(j) && !madeNow.includes(j.odooJob!.id) && now() - (failed.current.get(`edit:${j.id}`) ?? 0) > RETRY_MS).slice(0, BATCH)) {
+        try {
+          latest.current.jobsApi.setOdooSent(job.id, await pushJobChanges(client, job));
+        } catch (e) {
+          failed.current.set(`edit:${job.id}`, now());
+          log.warn('odoo', `changes to job ${job.id} not sent: ${message(e)}`);
         }
       }
 

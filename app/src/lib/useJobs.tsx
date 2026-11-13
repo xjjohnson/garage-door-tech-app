@@ -4,7 +4,7 @@ import type { OdooJobRef } from './odooJobs';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { mergeJobs, MergeResult } from './backup';
 import { Inspection, Repair } from './inspection';
-import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, JobSteps, parseJobs } from './jobs';
+import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, JobSteps, OdooSent, parseJobs } from './jobs';
 import { EMPTY_TICKET, Ticket } from './ticket';
 
 interface JobsApi {
@@ -37,6 +37,8 @@ interface JobsApi {
   setQuoteLines: (id: string, lines: Repair[]) => void;
   /** Records a job hub step (On my way, Arrived, Work done), or clears it with undefined. */
   setStep: (id: string, step: keyof JobSteps, at: number | undefined) => void;
+  /** Remembers what the job's Odoo order was last told. Not counted as a change to the job. */
+  setOdooSent: (id: string, sent: OdooSent) => void;
   /** Changes the job's ticket (src/lib/ticket.ts). */
   setTicket: (id: string, fn: (prev: Ticket) => Ticket) => void;
 }
@@ -174,6 +176,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   );
 
   const setOdooJob = useCallback<JobsApi['setOdooJob']>((id, odooJob) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooJob } : j))), [change]);
+  const setOdooSent = useCallback<JobsApi['setOdooSent']>((id, odooSent) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooSent } : j))), [change]);
   const setOdooOrder = useCallback<JobsApi['setOdooOrder']>((id, odooOrder) => change((prev) => prev.map((j) => (j.id === id ? { ...j, odooOrder } : j))), [change]);
   const setQuoteSignatureSent = useCallback<JobsApi['setQuoteSignatureSent']>((id, quoteSignatureSent) => change((prev) => prev.map((j) => (j.id === id ? { ...j, quoteSignatureSent } : j))), [change]);
 
@@ -198,8 +201,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setOdooSent }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setOdooSent],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }
