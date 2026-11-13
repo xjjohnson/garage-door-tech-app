@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createProduct, searchProducts, StockProduct } from '../lib/odooStock';
 import { findByCode, openPurchases, StockItem } from '../lib/stock';
+import { ticketParts } from '../lib/ticket';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useStock } from '../lib/useStock';
@@ -28,7 +29,9 @@ export function JobParts({ jobId }: { jobId: string }) {
   useTruckSync();
   const mine = (used ?? []).filter((u) => u.jobId === jobId);
   const waiting = openPurchases(purchases).filter((p) => p.jobId === jobId);
-  const customer = jobs.find((j) => j.id === jobId)?.customer ?? '';
+  const job = jobs.find((j) => j.id === jobId);
+  const customer = job?.customer ?? '';
+  const fromTicket = ticketParts(job?.ticket, items, used ?? [], jobId);
 
   const run = async (key: string, fn: () => Promise<string>) => {
     setBusy(key);
@@ -50,7 +53,15 @@ export function JobParts({ jobId }: { jobId: string }) {
   return (
     <View style={styles.card} testID="job-parts">
       <Text style={styles.label}>Parts used</Text>
-      {mine.length === 0 ? <Text style={styles.body}>None yet. They come off the truck stock.</Text> : null}
+      {mine.length === 0 && fromTicket.length === 0 ? <Text style={styles.body}>None yet. Materials on the ticket show here and come off the truck stock.</Text> : null}
+      {fromTicket.map((p) => (
+        <View key={`t-${p.itemId}`} style={styles.line} testID={`job-part-ticket-${p.itemId}`}>
+          <Text style={[styles.body, styles.grow]}>
+            {p.qty} x {p.name}
+          </Text>
+          <Text style={styles.note}>On the ticket; off the truck at Finish job</Text>
+        </View>
+      ))}
       {mine.map((u) => (
         <View key={u.id} style={styles.line}>
           <Text style={[styles.body, styles.grow]}>

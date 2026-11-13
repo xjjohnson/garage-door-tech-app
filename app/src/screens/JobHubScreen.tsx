@@ -171,7 +171,8 @@ function ticketDetail(job: Job): string {
   const t = job.ticket;
   if (!t || t.lines.length === 0) return 'Services and materials from the price book';
   const shown = currentTotals(t)?.total ?? subtotal(t);
-  return `${t.lines.length === 1 ? '1 item' : `${t.lines.length} items`} · ${formatMoney(shown)}${currentTotals(t) ? '' : ' before tax'}`;
+  const est = t.estimateAt ? `Estimate${t.order ? ` ${t.order.name}` : ''} · ` : '';
+  return `${est}${t.lines.length === 1 ? '1 item' : `${t.lines.length} items`} · ${formatMoney(shown)}${currentTotals(t) ? '' : ' before tax'}`;
 }
 
 function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
