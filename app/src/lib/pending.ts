@@ -22,14 +22,38 @@ export interface Pending {
   total: number;
 }
 
+/** The records themselves, for the Waiting for Odoo list. */
+export interface PendingItems {
+  customers: Customer[];
+  jobs: Job[];
+  quotes: Job[];
+  invoices: Invoice[];
+  /** Invoices in Odoo with payments Odoo hasn't recorded, and how many. */
+  payments: { invoice: Invoice; count: number }[];
+}
+
 /** `since`: when the phone started sending jobs (src/lib/useJobsSince.ts); older jobs count only once picked. */
-export function pendingSync(customers: Customer[], jobs: Job[], invoices: Invoice[], since: number | null = 0): Pending {
-  const c = customers.filter((x) => !x.odooId || x.updatedAt > (x.syncedAt ?? 0)).length;
-  const q = jobs.filter((j) => j.accepted && !j.odooOrder).length;
+export function pendingItems(customers: Customer[], jobs: Job[], invoices: Invoice[], since: number | null = 0): PendingItems {
   const live = invoices.filter((i) => !i.voidedAt);
-  const inv = live.filter((i) => !i.odoo).length;
-  const pay = live.reduce((n, i) => n + (i.odoo ? i.payments.filter((p) => !i.odoo!.sentPayments.includes(p.id)).length : 0), 0);
-  const j = jobs.filter((x) => shouldSend(x, since)).length;
+  return {
+    customers: customers.filter((x) => !x.odooId || x.updatedAt > (x.syncedAt ?? 0)),
+    jobs: jobs.filter((x) => shouldSend(x, since)),
+    quotes: jobs.filter((j) => j.accepted && !j.odooOrder),
+    invoices: live.filter((i) => !i.odoo),
+    payments: live.flatMap((i) => {
+      const count = i.odoo ? i.payments.filter((p) => !i.odoo!.sentPayments.includes(p.id)).length : 0;
+      return count ? [{ invoice: i, count }] : [];
+    }),
+  };
+}
+
+export function pendingSync(customers: Customer[], jobs: Job[], invoices: Invoice[], since: number | null = 0): Pending {
+  const it = pendingItems(customers, jobs, invoices, since);
+  const c = it.customers.length;
+  const j = it.jobs.length;
+  const q = it.quotes.length;
+  const inv = it.invoices.length;
+  const pay = it.payments.reduce((n, x) => n + x.count, 0);
   return { customers: c, jobs: j, quotes: q, invoices: inv, payments: pay, total: c + j + q + inv + pay };
 }
 

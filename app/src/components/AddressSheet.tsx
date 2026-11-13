@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipRow } from './controls';
 import { ADDRESS_TYPES, AddressFields, AddressType, EMPTY_ADDRESS } from '../lib/odooContacts';
@@ -29,13 +30,14 @@ export function AddressSheet({
   onCancel: () => void;
 }) {
   const [f, setF] = useState<AddressFields>(initial ?? EMPTY_ADDRESS);
+  const kb = useKeyboardHeight();
   useEffect(() => {
     if (visible) setF(initial ?? EMPTY_ADDRESS);
   }, [visible, initial]);
   const canSave = !busy && (f.address.trim() !== '' || f.name.trim() !== '');
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={[styles.backdrop, Platform.OS !== 'ios' && kb > 0 && { paddingBottom: kb }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.dismiss} onPress={onCancel} accessibilityLabel="Cancel" />
         <View style={styles.sheet} testID="address-sheet">
           <View style={styles.titleRow}>

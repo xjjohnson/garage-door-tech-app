@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { log } from '../lib/log';
+import { onSyncNow } from '../lib/syncNow';
 import { photosToSend, sendPhoto } from '../lib/odooPhotos';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useAttachments } from '../lib/useAttachments';
@@ -64,5 +65,6 @@ export function OdooPhotoSync() {
   }, [online, pass]);
 
   useAppForeground(useCallback(() => online && pass(), [online, pass]));
+  useEffect(() => (online ? onSyncNow(pass) : undefined), [online, pass]);
   return null;
 }

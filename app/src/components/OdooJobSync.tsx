@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { log } from '../lib/log';
+import { onSyncNow } from '../lib/syncNow';
 import type { OdooPartner } from '../lib/customerSync';
 import { applyState, canSendJobs, createOdooJob, myId, partnerFor, pullSchedule, readJobStates, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
 import { Appointment } from '../lib/schedule';
@@ -166,6 +167,15 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
   useAppForeground(() => {
     if (online) pass();
   });
+
+  // Sync now: try every job again straight away, even ones Odoo refused a moment ago.
+  useEffect(() => {
+    if (!online) return;
+    return onSyncNow(() => {
+      failed.current.clear();
+      return pass();
+    });
+  }, [online, pass]);
 
   return null;
 }

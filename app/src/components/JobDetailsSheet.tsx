@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { suggestCustomers } from '../lib/customers';
 import { EMPTY_DETAILS, JobDetails } from '../lib/jobs';
@@ -32,6 +33,7 @@ export function JobDetailsSheet({
   onCancel: () => void;
 }) {
   const [details, setDetails] = useState<JobDetails>(initial);
+  const kb = useKeyboardHeight();
   useEffect(() => {
     if (visible) setDetails(initial);
   }, [visible, initial]);
@@ -41,7 +43,7 @@ export function JobDetailsSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={[styles.backdrop, Platform.OS !== 'ios' && kb > 0 && { paddingBottom: kb }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.dismiss} onPress={onCancel} accessibilityLabel="Cancel" />
         <View style={styles.sheet} testID="job-sheet">
           <View style={styles.titleRow}>

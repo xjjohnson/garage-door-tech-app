@@ -133,4 +133,27 @@ describe('New job address autofill', () => {
     expect(screen.getByTestId('new-job-name').props.value).toBe('Pat Lee');
     expect(screen.getByTestId('new-job-address').props.value).toBe('12 Elm St, Buda, TX 78610');
   });
+
+  it('suggests addresses when editing a customer and fills the picked one', async () => {
+    await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([customer({ address: '' })]));
+    await renderApp('/customer/c1');
+    await settle();
+    await fireEvent.press(screen.getByTestId('customer-edit'));
+    const field = screen.getByTestId('customer-field-address');
+    await fireEvent(field, 'focus');
+    await fireEvent.changeText(field, '400 Main');
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_MS);
+    });
+    await settle();
+    expect(screen.getByTestId('customer-place-0')).toHaveTextContent(/400 Main St.*Kyle 78640/);
+    await fireEvent.press(screen.getByTestId('customer-place-0'));
+    await settle();
+    expect(screen.queryByTestId('customer-place-0')).toBeNull();
+    expect(screen.getByTestId('customer-field-address').props.value).toBe('400 Main St, Kyle, TX 78640');
+    await fireEvent.press(screen.getByTestId('customer-sheet-save'));
+    await settle();
+    const saved = JSON.parse((await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY)) ?? '[]');
+    expect(saved[0].address).toBe('400 Main St, Kyle, TX 78640');
+  });
 });

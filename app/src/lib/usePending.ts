@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Pending, pendingSync } from './pending';
+import { Pending, PendingItems, pendingItems, pendingSync } from './pending';
 import { useCustomers } from './useCustomers';
 import { useInvoices } from './useInvoices';
 import { useJobs } from './useJobs';
@@ -12,4 +12,13 @@ export function usePending(): Pending {
   const { invoices } = useInvoices();
   const since = useJobsSince();
   return useMemo(() => pendingSync(customers, jobs, invoices, since), [customers, jobs, invoices, since]);
+}
+
+/** The records waiting to go to Odoo. */
+export function usePendingItems(): PendingItems {
+  const { customers } = useCustomers();
+  const { jobs } = useJobs();
+  const { invoices } = useInvoices();
+  const since = useJobsSince();
+  return useMemo(() => pendingItems(customers, jobs, invoices, since), [customers, jobs, invoices, since]);
 }
