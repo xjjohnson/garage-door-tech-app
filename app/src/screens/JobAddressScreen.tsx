@@ -10,11 +10,12 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AddressSheet } from '../components/AddressSheet';
 import { Action, NavRow } from '../components/Buttons';
 import { Customer } from '../lib/customers';
 import { invoiceStatus } from '../lib/invoices';
 import { Job } from '../lib/jobs';
-import { addressChoices, ContactAddress, fetchCustomerAddresses, FoundCustomer, sameNameCustomers, searchCustomers } from '../lib/odooContacts';
+import { addAddress, AddressFields, addressChoices, ContactAddress, fetchCustomerAddresses, FoundCustomer, sameNameCustomers, searchCustomers } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
 import { useCustomersIfAny } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
@@ -48,6 +49,9 @@ export function JobAddressScreen({ job }: { job: Job }) {
   const { addresses: saved } = useContactAddresses(partnerId);
   const [read, setRead] = useState<{ id: number; mains: FoundCustomer[]; under: ContactAddress[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!client || !viewId) return;
@@ -68,6 +72,22 @@ export function JobAddressScreen({ job }: { job: Job }) {
   const pick = (id: number, address: string) => {
     setTicket(job.id, (t) => ({ ...t, shipTo: { id, address }, totals: undefined }));
     if (router.canGoBack()) router.back();
+  };
+
+  // A new address goes under the customer being shown in Odoo (a contact under theirs), then is the job's.
+  const add = async (f: AddressFields) => {
+    if (!client || !viewId) return;
+    setSaving(true);
+    setAddError(null);
+    try {
+      const id = await addAddress(client, viewId, f);
+      setAdding(false);
+      pick(id, f.address);
+    } catch (e) {
+      setAddError(message(e));
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!partnerId || !viewId) {
@@ -124,6 +144,8 @@ export function JobAddressScreen({ job }: { job: Job }) {
               );
             })}
           </View>
+          {client ? <Action label={`+ Add an address for ${name || 'this customer'}`} onPress={() => (setAddError(null), setAdding(true))} testID="job-address-add" /> : null}
+          <AddressSheet visible={adding} busy={saving} error={addError} onSave={add} onCancel={() => setAdding(false)} />
           {changing ? (
             <CustomerSearch
               onPick={(c) => {
