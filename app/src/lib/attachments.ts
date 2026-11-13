@@ -19,6 +19,8 @@ export interface JobPhoto {
   at: number;
   /** The inspection item it shows ("d:<door>:rollers"), when taken from the inspection. */
   item?: string;
+  /** The copy on the job in Odoo (an ir.attachment id), once sent. */
+  odooId?: number;
 }
 
 export type SignedFor = 'quote' | 'invoice' | 'inspection';
@@ -91,7 +93,7 @@ export function parseAttachments(raw: string | null | unknown): Attachments {
   const photos = (Array.isArray(d.photos) ? d.photos : []).flatMap((x): JobPhoto[] => {
     const p = (x ?? {}) as Record<string, unknown>;
     if (typeof p.id !== 'string' || typeof p.jobId !== 'string' || typeof p.uri !== 'string' || !p.uri) return [];
-    return [{ id: p.id, jobId: p.jobId, uri: p.uri, kind: PHOTO_KINDS.includes(p.kind as PhotoKind) ? (p.kind as PhotoKind) : 'other', at: n0(p.at), ...(typeof p.item === 'string' && p.item ? { item: p.item } : {}) }];
+    return [{ id: p.id, jobId: p.jobId, uri: p.uri, kind: PHOTO_KINDS.includes(p.kind as PhotoKind) ? (p.kind as PhotoKind) : 'other', at: n0(p.at), ...(typeof p.item === 'string' && p.item ? { item: p.item } : {}), ...(typeof p.odooId === 'number' && p.odooId > 0 ? { odooId: p.odooId } : {}) }];
   });
   const signatures = (Array.isArray(d.signatures) ? d.signatures : []).flatMap((x): Signature[] => {
     const s = (x ?? {}) as Record<string, unknown>;

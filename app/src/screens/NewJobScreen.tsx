@@ -7,6 +7,7 @@ import type { AddressSuggestion } from '../lib/addressSuggest';
 import { Customer, suggestCustomers } from '../lib/customers';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { DEFAULT_JOB_TYPES } from '../lib/jobTypes';
+import { useFsmTemplates } from '../lib/useFsmTemplates';
 import { log } from '../lib/log';
 import { useAddressSuggestions } from '../lib/useAddressSuggestions';
 import { useCustomers } from '../lib/useCustomers';
@@ -28,7 +29,11 @@ export function NewJobScreen() {
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [picked, setPicked] = useState<Customer | null>(null);
-  const [what, setWhat] = useState<string>(DEFAULT_JOB_TYPES[0]);
+  const templates = useFsmTemplates();
+  // Odoo's Field Service templates when it has some, otherwise the built-in kinds of job.
+  const kinds = templates.length ? templates.map((t) => t.name) : [...DEFAULT_JOB_TYPES];
+  const [chosen, setWhat] = useState<string | null>(null);
+  const what = chosen && kinds.includes(chosen) ? chosen : kinds[0];
   const [when, setWhen] = useState<When>('now');
   const suggestions = picked ? [] : suggestCustomers(customers, name);
   // After a pick (a customer or a suggested address) the address list stays closed until it's edited.
@@ -46,7 +51,9 @@ export function NewJobScreen() {
   const pickPlace = (a: AddressSuggestion) => {
     const c = a.customerId ? customers.find((x) => x.id === a.customerId) : undefined;
     if (c && !name.trim()) pick(c);
-    else setAddress(a.address);
+    // A house under a customer: their details, at this house.
+    if (a.addressId || !c || name.trim()) setAddress(a.address);
+    if (a.addressId && !c && !name.trim() && a.customerName) setName(a.customerName);
     if (a.point) rememberPoint(a.address, a.point);
     setAddressPicked(true);
   };
@@ -99,13 +106,13 @@ export function NewJobScreen() {
       {places.map((a, i) => (
         <Pressable key={`${a.customerId ?? 'map'}-${a.address}`} onPress={() => pickPlace(a)} accessibilityRole="button" testID={`new-job-place-${i}`} style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}>
           <Text style={styles.suggestName}>{a.name ? a.name : a.street || a.address}</Text>
-          <Text style={styles.suggestSub}>{a.name ? `${a.address} · Saved customer` : [a.city, a.zip].filter(Boolean).join(' ')}</Text>
+          <Text style={styles.suggestSub}>{a.name ? `${a.address} · ${a.addressId ? 'House in Odoo' : 'Saved customer'}` : [a.city, a.zip].filter(Boolean).join(' ')}</Text>
         </Pressable>
       ))}
       <TextInput value={phone} onChangeText={setPhone} placeholder="Phone" placeholderTextColor={colors.muted} keyboardType="phone-pad" accessibilityLabel="Phone" testID="new-job-phone" style={styles.input} />
 
       <Text style={styles.label}>What's wrong</Text>
-      <ChipRow options={DEFAULT_JOB_TYPES.map((t) => ({ label: t, value: t }))} value={what} onChange={setWhat} testID="new-job-what" />
+      <ChipRow options={kinds.map((t) => ({ label: t, value: t }))} value={what} onChange={setWhat} testID="new-job-what" />
 
       <Text style={styles.label}>When</Text>
       <ChipRow

@@ -27,6 +27,7 @@ function fakeStockOdoo() {
     { id: 11, name: 'Nylon rollers (10)', default_code: 'ROL-10', barcode: '0123456789012', standard_price: 18.5, product_tmpl_id: [111, 'Rollers'] },
     { id: 12, name: '.250 x 2" x 30" torsion spring', default_code: 'SPR-250-30', barcode: '', standard_price: 24, product_tmpl_id: [112, 'Spring'] },
     { id: 13, name: 'Safety sensors (pair)', default_code: '', barcode: '777', standard_price: 0, product_tmpl_id: [113, 'Sensors'], categ_id: [5, 'All / Openers'] },
+    { id: 14, name: 'Roller replacement labor', default_code: 'LAB-ROL', barcode: '', standard_price: 0, product_tmpl_id: [114, 'Labor'], type: 'service' },
   ];
   const failOn: { writes?: number } = {};
   /** Templates Odoo keeps no stock of: a consumable (Track Inventory off) or a service. */
@@ -64,12 +65,15 @@ function fakeStockOdoo() {
       case 'product.product.search': {
         const d = JSON.stringify(args[0]);
         // Browsing goods to add to the truck.
-        if (((args[0] as unknown[][])[0] ?? [])[0] === 'type') return products.map((p) => p.id);
-        // A typed search (Part not on the truck): name contains the words.
-        if ((args[0] as unknown[])[0] === '|') {
-          const t = String(((args[0] as unknown[][])[2] as unknown[])[2]).toLowerCase();
-          return products.filter((p) => p.name.toLowerCase().includes(t) || p.default_code.toLowerCase().includes(t) || p.barcode === t).map((p) => p.id);
+        const dom = args[0] as unknown[];
+        const goods = (p: { type?: string }) => !(dom[0] as unknown[])?.[0] || (dom[0] as unknown[])[0] !== 'type' || p.type !== 'service';
+        // A typed search (adding a part, or one not on the truck): goods whose name, reference or barcode match.
+        const nameLike = dom.find((x) => Array.isArray(x) && x[0] === 'name' && x[1] === 'ilike') as unknown[] | undefined;
+        if (nameLike) {
+          const t = String(nameLike[2]).toLowerCase();
+          return products.filter((p) => goods(p) && (p.name.toLowerCase().includes(t) || p.default_code.toLowerCase().includes(t) || p.barcode === t)).map((p) => p.id);
         }
+        if ((dom[0] as unknown[])?.[0] === 'type') return products.filter(goods).map((p) => p.id);
         const hit = products.find((p) => (p.barcode && d.includes(`"${p.barcode}"`)) || (p.default_code && d.toLowerCase().includes(`"${p.default_code.toLowerCase()}"`)) || d.toLowerCase().includes(`"${p.name.toLowerCase().replace(/"/g, '\\"')}"`));
         return hit ? [hit.id] : [];
       }
@@ -290,7 +294,9 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     expect(all.map((p) => p.id)).toEqual([11, 12, 13]);
     expect(o.calls.find((c) => c.method === 'search')?.args[0]).toEqual([['type', '!=', 'service']]);
     expect(all.find((p) => p.id === 13)).toMatchObject({ category: 'Openers', barcode: '777' });
-    expect((await browseProducts(o.client, 'ROL-10')).map((p) => p.id)).toEqual([11]);
+    // Typing "rol" matches the rollers and the roller labor; the labor is a service, so it isn't offered.
+    expect((await browseProducts(o.client, 'rol')).map((p) => p.id)).toEqual([11]);
+    expect(o.calls.filter((c) => c.method === 'search').pop()?.args[0]).toEqual([['type', '!=', 'service'], '|', '|', ['name', 'ilike', 'rol'], ['default_code', 'ilike', 'rol'], ['barcode', '=', 'rol']]);
   });
 
   it('makes a new stocked product, finds products by what is typed, and keeps one item per product', async () => {

@@ -27,7 +27,11 @@ describe('quotation templates', () => {
     expect(tierFromName('Opener · Good')).toEqual({ type: 'Opener', tier: 'good' });
     expect(tierFromName('Tune-up - Better')).toEqual({ type: 'Tune-up', tier: 'better' });
     expect(tierFromName('Broken spring: BEST')).toEqual({ type: 'Broken spring', tier: 'best' });
+    expect(tierFromName('Off track • Good')).toEqual({ type: 'Off track', tier: 'good' });
+    expect(tierFromName('Off track Better')).toEqual({ type: 'Off track', tier: 'better' });
+    expect(tierFromName('off track best')).toEqual({ type: 'off track', tier: 'best' });
     expect(tierFromName('Default template')).toBeNull();
+    expect(tierFromName('Best')).toBeNull();
   });
 
   it('fetches templates with their products, prices and taxes', async () => {

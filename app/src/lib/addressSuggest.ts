@@ -23,6 +23,11 @@ export interface AddressSuggestion {
   customerId?: string;
   /** For a customer: their name, shown above the address. */
   name?: string;
+  /** For a house under a customer's Odoo contact: that address's own contact, and the customer's. */
+  addressId?: number;
+  odooCustomerId?: number;
+  /** For a house under a customer's Odoo contact: the customer's name. */
+  customerName?: string;
 }
 
 const STATE_ABBR: Record<string, string> = { Texas: 'TX' };
@@ -41,22 +46,33 @@ interface PhotonFeature {
 
 const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-/** One Photon result as an address, or null when it isn't a US street or house. */
-export function fromPhoton(f: PhotonFeature): AddressSuggestion | null {
+/** The house number at the start of what's typed ("400 Main" gives "400"). */
+export const typedNumber = (q: string) => /^\s*(\d+[a-z]?)\s/i.exec(q)?.[1] ?? '';
+
+/**
+ * One Photon result as an address, or null when it isn't a US street or
+ * house. Many houses around Kyle aren't numbered in OpenStreetMap, so a
+ * street with no number takes the number typed (`number`); its map point is
+ * then the street's, not the house's, so it's dropped and the map looks the
+ * full address up instead.
+ */
+export function fromPhoton(f: PhotonFeature, number = ''): AddressSuggestion | null {
   const p = f.properties ?? {};
   if (s(p.countrycode).toUpperCase() !== 'US') return null;
   const road = s(p.street) || (s(p.type) === 'street' ? s(p.name) : '');
   if (!road) return null;
-  const street = [s(p.housenumber), road].filter(Boolean).join(' ');
+  const own = s(p.housenumber);
+  const street = [own || number, road].filter(Boolean).join(' ');
   const city = s(p.city) || s(p.town) || s(p.village) || s(p.locality) || s(p.district) || s(p.county);
   const state = STATE_ABBR[s(p.state)] ?? s(p.state);
   const zip = s(p.postcode).slice(0, 5);
   const address = [street, city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
   const [lon, lat] = f.geometry?.coordinates ?? [];
-  return { address, street, city, zip, ...(typeof lat === 'number' && typeof lon === 'number' ? { point: { lat, lon } } : {}) };
+  const exact = !!own || !number;
+  return { address, street, city, zip, ...(exact && typeof lat === 'number' && typeof lon === 'number' ? { point: { lat, lon } } : {}) };
 }
 
-/** Addresses for what's been typed, best first, no repeats. Throws when the network or Photon fails. */
+/** Addresses for what's been typed, best first, no repeats, with the typed house number. Throws when the network or Photon fails. */
 export async function suggestAddresses(fetchFn: GeoFetch, q: string, near: Point = HOME_AREA): Promise<AddressSuggestion[]> {
   if (!worthAsking(q)) return [];
   const res = await fetchFn(photonUrl(q, near), { headers: { Accept: 'application/json', 'User-Agent': 'Johnsons-field-app (garage door service)' } });
@@ -64,8 +80,11 @@ export async function suggestAddresses(fetchFn: GeoFetch, q: string, near: Point
   const data = (await res.json()) as { features?: PhotonFeature[] };
   const seen = new Set<string>();
   const out: AddressSuggestion[] = [];
-  for (const f of data.features ?? []) {
-    const a = fromPhoton(f);
+  const number = typedNumber(q);
+  // Numbered houses first, then streets with the typed number put on.
+  const features = [...(data.features ?? [])].sort((a, b) => Number(!s(a.properties?.housenumber)) - Number(!s(b.properties?.housenumber)));
+  for (const f of features) {
+    const a = fromPhoton(f, number);
     if (!a || seen.has(a.address.toLowerCase())) continue;
     seen.add(a.address.toLowerCase());
     out.push(a);

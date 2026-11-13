@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { cleanCustomer, Customer, CustomerFields, CUSTOMERS_STORAGE_KEY, linkJobs, mergeCustomers, parseCustomers } from './customers';
+import { cleanCustomer, Customer, CustomerFields, CUSTOMERS_STORAGE_KEY, linkJobs, mergeCustomers, newCustomerId, parseCustomers } from './customers';
 import { useJobs } from './useJobs';
 
 interface CustomersApi {
@@ -8,6 +8,8 @@ interface CustomersApi {
   loaded: boolean;
   /** Saves a customer's details and copies the new name and phone onto their jobs. */
   update: (id: string, fields: CustomerFields) => void;
+  /** Adds a customer typed in by hand; the Odoo sync makes their contact. */
+  add: (fields: CustomerFields) => Customer;
   /** Adds a backup's customers; when both have one, the copy changed last wins. */
   restore: (incoming: Customer[]) => void;
   /** Replaces the list (for the Odoo sync), copying changed names and phones onto jobs. */
@@ -72,6 +74,14 @@ export function CustomersProvider({ children }: { children: ReactNode }) {
     [renameCustomer],
   );
 
+  const add = useCallback<CustomersApi['add']>((fields) => {
+    const now = Date.now();
+    const c: Customer = { ...cleanCustomer(fields), id: newCustomerId(now), createdAt: now, updatedAt: now };
+    touched.current = true;
+    setCustomers((prev) => [...prev, c]);
+    return c;
+  }, []);
+
   const restore = useCallback<CustomersApi['restore']>((incoming) => {
     touched.current = true;
     setCustomers((prev) => mergeCustomers(prev, incoming));
@@ -95,7 +105,7 @@ export function CustomersProvider({ children }: { children: ReactNode }) {
     [renameCustomer],
   );
 
-  const api = useMemo(() => ({ customers, loaded, update, restore, apply }), [customers, loaded, update, restore, apply]);
+  const api = useMemo(() => ({ customers, loaded, update, add, restore, apply }), [customers, loaded, update, add, restore, apply]);
   return <CustomersContext.Provider value={api}>{children}</CustomersContext.Provider>;
 }
 
