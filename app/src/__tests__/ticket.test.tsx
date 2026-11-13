@@ -463,6 +463,23 @@ describe('Ticket screen', () => {
     expect(calls.some((c) => c.model === 'res.partner' && c.method === 'search_read' && JSON.stringify(c.args).includes('["parent_id","=",false]'))).toBe(true);
   });
 
+  it('adds a new address under the customer in Odoo from the job address page and uses it', async () => {
+    const { calls } = await signedIn({}, { down: false }, undefined, async () => {
+      await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([{ id: 'c1', name: 'Josh', phone: '', email: '', address: '', notes: '', createdAt: 1, updatedAt: 1, odooId: 33, syncedAt: 1 }]));
+      const [job] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
+      await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, customerId: 'c1', address: '' }]));
+    });
+    await act(async () => router.navigate('/job-address/j1'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('job-address-add'));
+    await fireEvent.changeText(screen.getByTestId('address-field-address'), '5 Pine Rd, Kyle 78640');
+    await fireEvent.press(screen.getByTestId('address-sheet-save'));
+    await settle();
+    const made = calls.find((c) => c.model === 'res.partner' && c.method === 'create')!;
+    expect(made.args[0]).toMatchObject({ parent_id: 33, type: 'delivery', street: '5 Pine Rd', city: 'Kyle', zip: '78640' });
+    expect((await saved()).ticket?.shipTo).toEqual({ id: 55, address: '5 Pine Rd, Kyle 78640' });
+  });
+
   it('asks Odoo for the tax and total, and confirms the quotation with the invoice', async () => {
     const { calls } = await signedIn();
     await act(async () => router.navigate('/ticket/j1'));
