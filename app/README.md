@@ -598,7 +598,7 @@ one gets a credit note (Odoo's Reverse, in the invoice's own journal; fixed in 0
 while it is still owed. Whatever the customer had already paid (a paid or a
 part-paid invoice) stays open on the credit note, for the refund, and the
 invoice says how much to give back ("The customer had paid $50, so refund them
-$50", from 0.5.57). After that the phone's **Restore invoice** is gone; make a new
+$50", from 0.5.59). After that the phone's **Restore invoice** is gone; make a new
 invoice instead (`voidInvoice` in `src/lib/odooSales.ts`).
 
 **Invoices mirror Odoo** (from 0.5.18). Signed in to Odoo with Invoicing,
