@@ -23,6 +23,8 @@ export interface Shift {
   miles?: number;
   note: string;
   updatedAt: number;
+  /** The Odoo Attendance record this day went to, and the times it holds, so a later edit is sent again. */
+  odooAtt?: { id: number; start: number; end?: number };
 }
 
 export interface WorkLog {
@@ -112,6 +114,13 @@ export function workLogCsv(shifts: Shift[], centsPerMile: number, now: number): 
   return rows.map((r) => r.map(csvCell).join(',')).join('\n');
 }
 
+function attRef(v: unknown): { odooAtt?: NonNullable<Shift['odooAtt']> } {
+  if (!v || typeof v !== 'object') return {};
+  const a = v as Record<string, unknown>;
+  if (typeof a.id !== 'number' || typeof a.start !== 'number') return {};
+  return { odooAtt: { id: a.id, start: a.start, ...(typeof a.end === 'number' ? { end: a.end } : {}) } };
+}
+
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined);
 
 export function parseWorkLog(raw: string | null | unknown): WorkLog {
@@ -143,6 +152,7 @@ export function parseWorkLog(raw: string | null | unknown): WorkLog {
         ...(miles !== undefined ? { miles } : {}),
         note: typeof s.note === 'string' ? s.note : '',
         updatedAt: typeof s.updatedAt === 'number' ? s.updatedAt : s.start,
+        ...attRef(s.odooAtt),
       },
     ];
   });
@@ -154,7 +164,7 @@ export function mergeWorkLog(current: WorkLog, incoming: WorkLog): WorkLog {
   const byId = new Map(current.shifts.map((s) => [s.id, s]));
   for (const s of incoming.shifts) {
     const mine = byId.get(s.id);
-    if (!mine || s.updatedAt > mine.updatedAt) byId.set(s.id, s);
+    if (!mine || s.updatedAt > mine.updatedAt) byId.set(s.id, { ...s, ...(s.odooAtt || !mine?.odooAtt ? {} : { odooAtt: mine.odooAtt }) });
   }
   return { shifts: [...byId.values()], centsPerMile: incoming.centsPerMile };
 }
