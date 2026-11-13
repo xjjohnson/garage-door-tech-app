@@ -37,6 +37,9 @@ export function WaitingScreen() {
     } catch (e) {
       notes.push(`Customers didn't sync: ${message(e)}`);
     }
+    // Let the screen take in the customers' new Odoo ids before jobs go, so a
+    // job uses its customer's contact instead of looking for one.
+    await new Promise((r) => setTimeout(r, 50));
     await requestSyncNow();
     log.info('odoo', 'sync now');
     setResult([...notes, 'Sent what goes on its own. Anything still listed needs the step shown under it.'].join(' '));
@@ -68,8 +71,8 @@ export function WaitingScreen() {
             testID={`waiting-quote-${j.id}`}
             title={`${j.customer.trim() || 'No name'} · ${TIER_LABEL[j.accepted!.tier]} ${formatMoney(j.accepted!.total)}`}
             detail={[j.what || j.summaryTitle || MODE_LABEL[j.mode], j.address].filter(Boolean).join(' · ')}
-            how="Picked by the customer, not sent yet. Open it and tap Send to Odoo as a sales order."
-            onPress={() => router.push({ pathname: '/quote/[id]', params: { id: j.id } })}
+            how={j.ticket?.lines.length ? 'Picked by the customer, not in Odoo yet. Open its ticket and tap Save as estimate.' : 'Picked by the customer, not sent yet. Open it and tap Send to Odoo as a sales order.'}
+            onPress={() => (j.ticket?.lines.length ? router.push({ pathname: '/ticket/[id]', params: { id: j.id } }) : router.push({ pathname: '/quote/[id]', params: { id: j.id } }))}
           />
         ))}
       </Group>

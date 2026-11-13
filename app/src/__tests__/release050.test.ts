@@ -98,7 +98,8 @@ describe('not synced yet', () => {
       { id: 'c2', odooId: 3, updatedAt: 5, syncedAt: 5 },
       { id: 'c3', odooId: 4, updatedAt: 9, syncedAt: 5 },
     ] as Customer[];
-    const jobs = [job({ accepted: { tier: 'good' } as Job['accepted'] })];
+    // Invoices for another job: a job with an invoice already carries its picked option.
+    const jobs = [job({ id: 'j2', accepted: { tier: 'good' } as Job['accepted'] })];
     const invoices = [
       invoice(),
       invoice({ id: 'i2', voidedAt: 3 }),

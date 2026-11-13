@@ -15,6 +15,11 @@ describe('what is waiting for Odoo', () => {
     const cust = { id: 'c1', name: 'Sam', phone: '', email: '', address: '', notes: '', createdAt: 1, updatedAt: 1 };
     const it = pendingItems([cust], [quoted, job('j2', { accepted: { tier: 'good', total: 1, at: 1 }, odooOrder: { id: 9, name: 'S9' } })], [], 0);
     expect(it.quotes.map((j) => j.id)).toEqual(['q1']);
+    // A ticket's quotation in Odoo, or an invoice for the job, carries the picked option.
+    const onTicket = job('t1', { accepted: { tier: 'good', total: 1, at: 1 }, ticket: { lines: [], order: { id: 3, name: 'S3' } } });
+    const invoiced = job('i1', { accepted: { tier: 'good', total: 1, at: 1 } });
+    const inv = { id: 'inv1', jobId: 'i1' } as never;
+    expect(pendingItems([], [quoted, onTicket, invoiced], [inv], 0).quotes.map((j) => j.id)).toEqual(['q1']);
     expect(it.customers.map((c) => c.id)).toEqual(['c1']);
     expect(pendingSync([cust], [quoted], [], 0)).toMatchObject({ quotes: 1, customers: 1 });
   });

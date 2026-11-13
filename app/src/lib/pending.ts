@@ -13,7 +13,7 @@ export interface Pending {
   customers: number;
   /** Open jobs not yet in Odoo as Field Service orders. */
   jobs: number;
-  /** Accepted quotes not yet sent as sales orders. */
+  /** Picked options not in Odoo yet: no sales order, no ticket quotation, no invoice. */
   quotes: number;
   /** Invoices not yet in Odoo. */
   invoices: number;
@@ -38,7 +38,9 @@ export function pendingItems(customers: Customer[], jobs: Job[], invoices: Invoi
   return {
     customers: customers.filter((x) => !x.odooId || x.updatedAt > (x.syncedAt ?? 0)),
     jobs: jobs.filter((x) => shouldSend(x, since)),
-    quotes: jobs.filter((j) => j.accepted && !j.odooOrder),
+    // A picked option not in Odoo yet. A ticket's draft quotation in Odoo, or an
+    // invoice for the job, already carries it.
+    quotes: jobs.filter((j) => j.accepted && !j.odooOrder && !j.ticket?.order && !invoices.some((i) => i.jobId === j.id && !i.voidedAt)),
     invoices: live.filter((i) => !i.odoo),
     payments: live.flatMap((i) => {
       const count = i.odoo ? i.payments.filter((p) => !i.odoo!.sentPayments.includes(p.id)).length : 0;
