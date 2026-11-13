@@ -139,7 +139,7 @@ export function createInvoice(
   now: number,
   id: string = newId('i', now),
   source?: 'ticket',
-  extra: { ref?: string; autoSend?: boolean; shipTo?: ShipTo } = {},
+  extra: { ref?: string; autoSend?: boolean; shipTo?: ShipTo; payments?: Payment[] } = {},
 ): Invoice {
   return {
     id,
@@ -153,7 +153,7 @@ export function createInvoice(
     subtotal: option.subtotal,
     tax: option.tax,
     total: option.total,
-    payments: [],
+    payments: (extra.payments ?? []).map((p) => ({ ...p })),
     createdAt: now,
     updatedAt: now,
     ...(source ? { source } : {}),

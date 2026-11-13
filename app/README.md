@@ -443,6 +443,12 @@ option with no spring of that rating says so instead of a price, and a job
 whose calculator shows a STOP gets no quote until it's fixed
 (`src/lib/quote.ts`).
 
+**Deposits** (from 0.5.29). Optional on any job: the ticket's **Take a
+deposit** records an amount typed each time, by cash, check, Cash App, Venmo
+or Zelle, and shows what's still due when the work is done. Deposits stay on
+the ticket until **Create invoice**, which makes them the invoice's first
+payments; they go to Odoo as payments on that invoice like any other.
+
 **Which address the ticket is for** (from 0.5.28). When the job's customer
 is linked to an Odoo contact with houses (delivery or other addresses under
 it, such as a property manager's rentals), the ticket shows them to pick

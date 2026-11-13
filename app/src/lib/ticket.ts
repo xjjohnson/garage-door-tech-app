@@ -46,7 +46,33 @@ export interface Ticket {
   estimateAt?: number;
   /** The delivery address picked on the ticket (an address under the customer's Odoo contact); partner_shipping_id in Odoo. */
   shipTo?: ShipTo;
+  /** Deposits taken before the work is done; they become the invoice's first payments at Create invoice. */
+  deposits?: Deposit[];
 }
+
+/** A deposit taken on the ticket: the same shape as an invoice payment. */
+export interface Deposit {
+  id: string;
+  method: 'cash' | 'check' | 'cashapp' | 'venmo' | 'zelle';
+  /** Cents. */
+  amount: number;
+  at: number;
+  reference: string;
+}
+
+const DEPOSIT_METHODS: Deposit['method'][] = ['cash', 'check', 'cashapp', 'venmo', 'zelle'];
+
+export function parseDeposits(v: unknown): Deposit[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((d): Deposit[] => {
+    const y = (d ?? {}) as Record<string, unknown>;
+    if (typeof y.id !== 'string' || !DEPOSIT_METHODS.includes(y.method as Deposit['method']) || typeof y.amount !== 'number' || y.amount <= 0) return [];
+    return [{ id: y.id, method: y.method as Deposit['method'], amount: Math.round(y.amount), at: typeof y.at === 'number' ? y.at : 0, reference: typeof y.reference === 'string' ? y.reference : '' }];
+  });
+}
+
+/** What the deposits on the ticket add up to, in cents. */
+export const depositTotal = (t: Pick<Ticket, 'deposits'> | undefined) => (t?.deposits ?? []).reduce((n, d) => n + d.amount, 0);
 
 /** A delivery address: the Odoo contact id to use as partner_shipping_id, and its address for display. */
 export interface ShipTo {
@@ -239,5 +265,5 @@ export function parseTicket(v: unknown): Ticket | undefined {
     t && typeof t === 'object' && typeof t.key === 'string'
       ? { untaxed: Number(t.untaxed) || 0, tax: Number(t.tax) || 0, total: Number(t.total) || 0, key: t.key, at: Number(t.at) || 0 }
       : undefined;
-  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}) };
+  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}) };
 }

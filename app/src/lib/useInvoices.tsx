@@ -25,7 +25,7 @@ interface InvoicesApi {
   setBusiness: (fn: (prev: Business) => Business) => void;
   /** Makes an invoice for a job from the option the customer picked. */
   /** New invoices go to Odoo on their own once there's signal (OdooInvoicesSync). */
-  create: (job: { id: string; customerId?: string; customer: string; address: string }, option: QuoteOption, source?: 'ticket', ref?: string, shipTo?: ShipTo) => Invoice;
+  create: (job: { id: string; customerId?: string; customer: string; address: string }, option: QuoteOption, source?: 'ticket', ref?: string, shipTo?: ShipTo, payments?: Payment[]) => Invoice;
   addPayment: (invoiceId: string, p: Omit<Payment, 'id' | 'at'>) => void;
   removePayment: (invoiceId: string, paymentId: string) => void;
   setVoid: (invoiceId: string, voided: boolean) => void;
@@ -88,9 +88,9 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   );
 
   const create = useCallback<InvoicesApi['create']>(
-    (job, option, source, ref, shipTo) => {
+    (job, option, source, ref, shipTo, payments) => {
       const now = Date.now();
-      const inv = createInvoice(job, option, latest.current, now, undefined, source, { ref, autoSend: true, shipTo });
+      const inv = createInvoice(job, option, latest.current, now, undefined, source, { ref, autoSend: true, shipTo, payments });
       change((prev) => [inv, ...prev]);
       return inv;
     },

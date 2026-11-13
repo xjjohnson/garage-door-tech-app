@@ -2,14 +2,14 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
-import { SectionTitle, Segmented } from '../components/controls';
+import { ChipOption, ChipRow, MeasureField, SectionTitle, Segmented } from '../components/controls';
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
-import { invoiceLabel, invoiceStatus } from '../lib/invoices';
+import { invoiceLabel, invoiceStatus, newId, PAY_LABEL, PAY_METHODS, PayMethod } from '../lib/invoices';
 import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef } from '../lib/ticket';
+import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useStock } from '../lib/useStock';
@@ -100,7 +100,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         }
       }
       if (t.order && !tied) setError(`Made the invoice from the phone's lines and estimate. Quotation ${t.order.name} in Odoo was left as it is.`);
-      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t), t.shipTo);
+      // Deposits taken on the ticket become the invoice's first payments.
+      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t), t.shipTo, t.deposits);
       if (!job.steps?.workDoneAt) setStep(job.id, 'workDoneAt', now());
       // Parts used filter down from the ticket: what's on it from the truck comes off the truck now.
       for (const p of ticketParts(t, stock.items, stock.used ?? [], job.id)) stock.takeParts(p.itemId, p.qty, job.id);
@@ -224,6 +225,15 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       {!invoice ? <CustomerRef value={ticket.ref ?? ''} placeholder="Optional" onChange={(ref) => setTicket(job.id, (t) => ({ ...t, ref }))} /> : null}
 
       {!invoice ? (
+        <Deposits
+          deposits={ticket.deposits ?? []}
+          total={shown.total}
+          onAdd={(d) => setTicket(job.id, (t) => ({ ...t, deposits: [...(t.deposits ?? []), { ...d, id: newId('d', now()), at: now() }] }))}
+          onRemove={(id) => setTicket(job.id, (t) => ({ ...t, deposits: (t.deposits ?? []).filter((d) => d.id !== id) }))}
+        />
+      ) : null}
+
+      {!invoice ? (
         <View style={styles.refBox} testID="ticket-estimate-box">
           <Action label={ticket.estimateAt ? 'Save the estimate again' : 'Save as estimate'} disabled={making || syncing || ticket.lines.length === 0} onPress={saveEstimate} testID="ticket-save-estimate" />
           {estimateNote ? (
@@ -265,6 +275,84 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         href={{ pathname: '/quote/[id]', params: { id: job.id } }}
         testID="ticket-estimate"
       />
+    </View>
+  );
+}
+
+const METHOD_OPTIONS: ChipOption<PayMethod>[] = PAY_METHODS.map((m) => ({ label: PAY_LABEL[m], value: m }));
+
+/**
+ * Deposits (optional, any job): the amount is typed each time. They stay on
+ * the ticket until Create invoice, which records them as the invoice's first
+ * payments, so Odoo gets them with the invoice.
+ */
+function Deposits({ deposits, total, onAdd, onRemove }: { deposits: Deposit[]; total: number; onAdd: (d: Omit<Deposit, 'id' | 'at'>) => void; onRemove: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [method, setMethod] = useState<PayMethod>('cash');
+  const [amount, setAmount] = useState('');
+  const [reference, setReference] = useState('');
+  const taken = depositTotal({ deposits });
+  const amountCents = cents(amount);
+  return (
+    <View style={styles.refBox} testID="ticket-deposits">
+      {deposits.map((d) => (
+        <View key={d.id} style={styles.totalRow} testID={`ticket-deposit-${d.id}`}>
+          <Text style={styles.totalLabel}>
+            Deposit, {PAY_LABEL[d.method]}
+            {d.reference ? ` (${d.method === 'check' ? '#' : ''}${d.reference})` : ''}
+          </Text>
+          <View style={styles.controls}>
+            <Text style={styles.totalValue}>{formatMoney(d.amount)}</Text>
+            <Pressable onPress={() => onRemove(d.id)} accessibilityRole="button" accessibilityLabel="Remove deposit" testID={`ticket-deposit-remove-${d.id}`} style={({ pressed }) => [styles.small, pressed && styles.pressed]}>
+              <Text style={styles.smallText}>✕</Text>
+            </Pressable>
+          </View>
+        </View>
+      ))}
+      {taken > 0 ? (
+        <Text style={styles.meta} testID="ticket-deposit-due">
+          {formatMoney(taken)} taken as a deposit. {formatMoney(Math.max(0, total - taken))} due when the work is done. It goes to Odoo as a payment on the invoice.
+        </Text>
+      ) : null}
+      {open ? (
+        <>
+          <ChipRow options={METHOD_OPTIONS} value={method} onChange={setMethod} scroll testID="ticket-deposit-method" />
+          <MeasureField label="Deposit" value={amount} onChange={setAmount} unit="dollars" allowFraction={false} testID="ticket-deposit-amount" />
+          {method !== 'cash' ? (
+            <TextInput
+              value={reference}
+              onChangeText={setReference}
+              placeholder={method === 'check' ? 'Check number (optional)' : 'Note (optional)'}
+              placeholderTextColor={colors.muted}
+              keyboardType={method === 'check' ? 'number-pad' : 'default'}
+              accessibilityLabel={method === 'check' ? 'Check number' : 'Deposit note'}
+              testID="ticket-deposit-reference"
+              style={styles.input}
+            />
+          ) : null}
+          {total > 0 && amountCents + taken > total ? (
+            <Text style={styles.error} testID="ticket-deposit-over">
+              That's more than the ticket's {formatMoney(total)} total. Odoo would show the extra as an overpayment.
+            </Text>
+          ) : null}
+          <Action
+            label={amountCents > 0 ? `Take ${formatMoney(amountCents)} by ${PAY_LABEL[method]}` : 'Enter the deposit'}
+            primary
+            disabled={amountCents <= 0}
+            onPress={() => {
+              if (amountCents <= 0) return;
+              onAdd({ method, amount: amountCents, reference: method === 'cash' ? '' : reference });
+              setAmount('');
+              setReference('');
+              setOpen(false);
+            }}
+            testID="ticket-deposit-save"
+          />
+          <Action label="Cancel" onPress={() => setOpen(false)} testID="ticket-deposit-cancel" />
+        </>
+      ) : (
+        <Action label={taken > 0 ? 'Take another deposit' : 'Take a deposit'} onPress={() => setOpen(true)} testID="ticket-deposit" />
+      )}
     </View>
   );
 }
