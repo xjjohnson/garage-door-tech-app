@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle, Segmented } from '../components/controls';
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
-import { invoiceStatus } from '../lib/invoices';
+import { invoiceLabel, invoiceStatus } from '../lib/invoices';
 import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
@@ -137,7 +137,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         {job.customer && job.address ? `, ${job.address}` : ''}
       </Text>
       {invoice ? (
-        <NavRow label={`Invoice ${invoice.number} made`} detail="Changes to the ticket now don't change the invoice" href={{ pathname: '/invoice/[id]', params: { id: invoice.id } }} testID="ticket-invoice" />
+        <NavRow label={`${invoiceLabel(invoice)} made`} detail="Changes to the ticket now don't change the invoice" href={{ pathname: '/invoice/[id]', params: { id: invoice.id } }} testID="ticket-invoice" />
       ) : null}
 
       {section('service')}

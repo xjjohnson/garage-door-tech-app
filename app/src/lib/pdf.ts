@@ -6,7 +6,7 @@
 import qrcode from 'qrcode-generator';
 import { Signature, signatureSvg } from './attachments';
 import { formatJobDate } from './jobs';
-import { balance, Business, Invoice, invoiceStatus, optionLabel, paid, PAY_LABEL, payLinks, STATUS_LABEL } from './invoices';
+import { balance, Business, Invoice, invoiceLabel, invoiceStatus, optionLabel, paid, PAY_LABEL, payLinks, STATUS_LABEL } from './invoices';
 import { formatMoney, TIER_LABEL } from './prices';
 import { Quote } from './quote';
 
@@ -62,14 +62,14 @@ export function invoiceHtml(inv: Invoice, business: Business, sig?: Signature, e
   const payments = inv.payments
     .map((p) => `<tr><td>${escapeHtml(`${PAY_LABEL[p.method]}${p.reference ? ` #${p.reference}` : ''}, ${formatJobDate(p.at)}`)}</td><td class="amt">-${formatMoney(p.amount)}</td></tr>`)
     .join('');
-  const ways = due > 0 && status !== 'void' ? payLinks(business, due, `Invoice ${inv.number}`) : [];
+  const ways = due > 0 && status !== 'void' ? payLinks(business, due, invoiceLabel(inv)) : [];
   const pay = ways.length
     ? `<h2>Pay ${formatMoney(due)}</h2><div class="pay">${ways
         .map((w) => `<div>${w.url ? qrSvg(w.url) : ''}<div><b>${escapeHtml(w.label)}</b> ${escapeHtml(w.handle)}</div></div>`)
         .join('')}</div><p class="muted">Cash and check are welcome too.</p>`
     : '';
   const body =
-    header(business, `<div><b>Invoice ${escapeHtml(inv.number)}</b></div><div>${escapeHtml(formatJobDate(inv.createdAt))}</div><div class="badge">${STATUS_LABEL[status]}</div>`) +
+    header(business, `<div><b>${escapeHtml(invoiceLabel(inv))}</b></div><div>${escapeHtml(formatJobDate(inv.createdAt))}</div><div class="badge">${STATUS_LABEL[status]}</div>`) +
     `<h2>Bill to</h2><div>${escapeHtml(inv.billTo || 'Customer')}</div>${inv.address ? `<div>${escapeHtml(inv.address)}</div>` : ''}` +
     `<table><tr><th>${escapeHtml(optionLabel(inv))}</th><th class="amt">Amount</th></tr>${rows}` +
     (inv.tax > 0 ? `<tr><td>Subtotal</td><td class="amt">${formatMoney(inv.subtotal)}</td></tr><tr><td>Tax</td><td class="amt">${formatMoney(inv.tax)}</td></tr>` : '') +
@@ -80,7 +80,7 @@ export function invoiceHtml(inv: Invoice, business: Business, sig?: Signature, e
     pay +
     signatureBlock(sig, 'Work completed to my satisfaction.') +
     (business.phone ? `<p class="muted">Questions? Call ${escapeHtml(business.phone)}.</p>` : '');
-  return page(`Invoice ${inv.number}`, body);
+  return page(invoiceLabel(inv), body);
 }
 
 export function quoteHtml(job: { customer: string; address: string; savedAt: number; accepted?: { tier: string } }, quote: Quote, business: Business, sig?: Signature, now = Date.now()): string {

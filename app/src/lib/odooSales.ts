@@ -38,6 +38,15 @@ export interface OdooInvoiceState extends OdooRef {
   /** Odoo's amounts before tax and its tax, cents (read since 0.5.17). */
   untaxed?: number;
   tax?: number;
+  /** Odoo's invoice lines (read since 0.5.18): the phone shows these once the invoice is in Odoo. */
+  lines?: OdooInvoiceLine[];
+}
+
+export interface OdooInvoiceLine {
+  label: string;
+  qty: number;
+  /** The line's amount before tax, cents. */
+  cents: number;
 }
 
 /** The product a line without a linked Odoo product goes in as. */
@@ -123,8 +132,9 @@ export async function sendInvoice(client: OdooClient, partnerId: number, lines: 
 
 /** What Odoo says is paid and owed now. */
 export async function readInvoice(client: OdooClient, id: number, sentPayments: string[], now: number = Date.now()): Promise<OdooInvoiceState> {
-  const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total', 'amount_residual', 'payment_state'] })) as Record<string, unknown>[];
+  const [r] = (await client.call('account.move', 'read', [[id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total', 'amount_residual', 'payment_state', 'invoice_line_ids'] })) as Record<string, unknown>[];
   if (!r) throw new Error('That invoice is no longer in Odoo.');
+  const lines = await readLines(client, r.invoice_line_ids);
   return {
     id,
     name: typeof r.name === 'string' ? r.name : `#${id}`,
@@ -134,7 +144,19 @@ export async function readInvoice(client: OdooClient, id: number, sentPayments: 
     sentPayments,
     checkedAt: now,
     ...(typeof r.amount_untaxed === 'number' ? { untaxed: toCents(r.amount_untaxed), tax: toCents(r.amount_tax) } : {}),
+    ...(lines ? { lines } : {}),
   };
+}
+
+/** The invoice's product lines as Odoo has them (sections and notes left out). */
+async function readLines(client: OdooClient, ids: unknown): Promise<OdooInvoiceLine[] | undefined> {
+  if (!Array.isArray(ids) || ids.length === 0) return undefined;
+  const rows = await client.call('account.move.line', 'read', [ids], { fields: ['name', 'quantity', 'price_subtotal', 'display_type', 'sequence'] });
+  if (!Array.isArray(rows)) return undefined;
+  return (rows as Record<string, unknown>[])
+    .filter((l) => !l.display_type || l.display_type === 'product')
+    .sort((a, b) => (Number(a.sequence) || 0) - (Number(b.sequence) || 0))
+    .map((l) => ({ label: (typeof l.name === 'string' ? l.name : '').split('\n')[0], qty: typeof l.quantity === 'number' ? l.quantity : 1, cents: toCents(l.price_subtotal) }));
 }
 
 /** Cash goes to a cash journal; checks and the payment apps to the bank. */
@@ -189,6 +211,15 @@ export function parseInvoiceState(v: unknown): OdooInvoiceState | undefined {
     checkedAt: n(r.checkedAt),
     ...(typeof r.signatureSent === 'string' ? { signatureSent: r.signatureSent } : {}),
     ...(typeof r.untaxed === 'number' ? { untaxed: r.untaxed, tax: n(r.tax) } : {}),
+    ...(Array.isArray(r.lines)
+      ? {
+          lines: r.lines.flatMap((l): OdooInvoiceLine[] => {
+            if (!l || typeof l !== 'object') return [];
+            const y = l as Record<string, unknown>;
+            return [{ label: typeof y.label === 'string' ? y.label : '', qty: n(y.qty) || 1, cents: n(y.cents) }];
+          }),
+        }
+      : {}),
   };
 }
 

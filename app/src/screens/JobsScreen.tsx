@@ -6,7 +6,7 @@ import { JobDetailsSheet } from '../components/JobDetailsSheet';
 import { formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { checkCounts } from '../lib/inspection';
-import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
+import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { StatsCard } from './StatsScreen';
@@ -193,7 +193,7 @@ function JobCard({
         ) : null}
         {invoice ? (
           <Text style={styles.accepted} testID={`job-invoice-${job.id}`}>
-            Invoice {invoice.number}: {STATUS_LABEL[invoiceStatus(invoice)]}
+            {invoiceLabel(invoice)}: {STATUS_LABEL[invoiceStatus(invoice)]}
             {invoiceStatus(invoice) !== 'paid' ? `, ${formatMoney(balance(invoice))} owed` : ''}
           </Text>
         ) : null}
