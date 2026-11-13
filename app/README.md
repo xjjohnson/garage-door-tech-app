@@ -673,6 +673,14 @@ the same as picking the template on Odoo's own form. With no templates in
 Odoo, New job keeps the built-in kinds. (`src/lib/fsmTemplates.ts`,
 `src/lib/useFsmTemplates.ts`.)
 
+**One Field Service location per house** (from 0.5.21, Justin's call). A job
+sent to Odoo goes to the customer's location at that street when Odoo has one
+(matched loosely: "9 Pine Rd" and "9 pine road" are the same), otherwise to a
+new location named by the street, owned by the customer. So a property
+manager's houses each get their own location, repeat visits reuse it, and no
+new location is named after the customer. A job with no address uses the
+customer's first location.
+
 **Customers: add, edit and house addresses** (from 0.5.21). **+ Add customer**
 on the Customers tab adds one by hand; the Odoo sync makes their contact. An
 edit now sends the address (as Odoo's street, city and ZIP) and notes to Odoo

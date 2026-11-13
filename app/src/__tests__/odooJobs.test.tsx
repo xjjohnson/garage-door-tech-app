@@ -29,7 +29,7 @@ type Row = Record<string, unknown>;
 /** A pretend Odoo with OCA Field Service. This user is worker 40. */
 function fakeOdoo() {
   const orders: Row[] = [];
-  const locations: Row[] = [{ id: 70, partner_id: 7, owner_id: 7 }];
+  const locations: Row[] = [{ id: 70, name: 'Pat Smith', partner_id: 7, owner_id: 7, street: '1 Oak St' }];
   const partners: Row[] = [];
   const templates: Row[] = [];
   const calls: { model: string; method: string; args: unknown[]; kw: Row }[] = [];
@@ -76,9 +76,9 @@ function fakeOdoo() {
       partners.push({ id: 100 + partners.length, ...(args[0] as Row) });
       return reply(100 + partners.length - 1);
     }
-    if (model === 'fsm.location' && method === 'search') {
+    if (model === 'fsm.location' && method === 'search_read') {
       const [, a, b] = args[0] as [string, [string, string, number], [string, string, number]];
-      return reply(locations.filter((l) => l.partner_id === a[2] || l.owner_id === b[2]).map((l) => l.id));
+      return reply(locations.filter((l) => l.partner_id === a[2] || l.owner_id === b[2]));
     }
     if (model === 'fsm.location' && method === 'create') {
       locations.push({ id: 80 + locations.length, ...(args[0] as Row) });
@@ -118,10 +118,18 @@ describe('jobs in Odoo (logic)', () => {
     expect(ref).toEqual({ model: 'fsm.order', id: 500, name: 'FSO500' });
     expect(o.orders[0]).toMatchObject({ location_id: 70, person_id: 40, description: 'Tune-up\nDog in yard\nApp job j1', scheduled_date_start: toOdooTime(at(9, 1)), scheduled_duration: 1.5 });
 
-    // No visit, and a customer with no location yet: a new location, and nobody assigned.
+    // No visit, and a customer with no location yet: a new location named by the street, and nobody assigned.
     await createOdooJob(c, 8, { jobId: 'j2', customer: 'Lee', address: '2 Elm', phone: '', what: 'Opener', notes: '' });
-    expect(o.locations.at(-1)).toMatchObject({ partner_id: 8, owner_id: 8 });
+    expect(o.locations.at(-1)).toMatchObject({ name: '2 Elm', owner_id: 8, street: '2 Elm' });
     expect(o.orders[1]).toMatchObject({ location_id: o.locations.at(-1)!.id, person_id: false, scheduled_date_start: false });
+
+    // One location per house: Pat's other house gets its own, and the next job there reuses it.
+    await createOdooJob(c, 7, { jobId: 'j3', customer: 'Pat', address: '9 Pine Rd, Kyle, TX 78640', phone: '', what: '', notes: '' });
+    expect(o.locations.at(-1)).toMatchObject({ name: '9 Pine Rd', owner_id: 7, street: '9 Pine Rd', city: 'Kyle', zip: '78640' });
+    const pine = o.locations.at(-1)!.id;
+    await createOdooJob(c, 7, { jobId: 'j4', customer: 'Pat', address: '9 pine road kyle', phone: '', what: '', notes: '' });
+    expect(o.orders[3].location_id).toBe(pine);
+    expect(o.locations).toHaveLength(3);
   });
 
   it('a job whose kind is a Field Service template carries it, like picking it in Odoo', async () => {
