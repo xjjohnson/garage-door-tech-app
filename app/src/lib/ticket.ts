@@ -48,6 +48,8 @@ export interface Ticket {
   shipTo?: ShipTo;
   /** Deposits taken before the work is done; they become the invoice's first payments at Create invoice. */
   deposits?: Deposit[];
+  /** Ticket material lines (by id) the tech bought for this job rather than took off the truck. */
+  bought?: string[];
 }
 
 /** A deposit taken on the ticket: the same shape as an invoice payment. */
@@ -85,6 +87,42 @@ export function parseShipTo(v: unknown): ShipTo | undefined {
   return s && typeof s.id === 'number' && s.id > 0 ? { id: s.id, address: typeof s.address === 'string' ? s.address : '' } : undefined;
 }
 
+const onOrder = (itemId: string, purchases: { jobId?: string; receivedAt?: number; lines: { itemId: string }[] }[], jobId: string) =>
+  purchases.some((po) => po.jobId === jobId && !po.receivedAt && po.lines.some((l) => l.itemId === itemId));
+
+/** A ticket part that isn't accounted for yet: not a truck item, or ordered for the job and not in yet. */
+export interface UnaccountedPart {
+  lineId: string;
+  name: string;
+  qty: number;
+  /** "ordered" when a purchase order for this job has it and it hasn't come in. */
+  why: 'not-on-truck' | 'ordered';
+}
+
+/**
+ * Ticket parts (materials from Odoo products) that Parts used can't account
+ * for: not on the truck and not marked bought for the job, or ordered for the
+ * job and not received yet. Create invoice waits until there are none, so
+ * every part on the invoice is logged somewhere. Typed-in lines are left out.
+ */
+export function unaccountedParts(
+  t: Ticket | undefined,
+  items: { id: string; odooId?: number }[],
+  jobId: string,
+  purchases: { jobId?: string; receivedAt?: number; lines: { itemId: string }[] }[] = [],
+): UnaccountedPart[] {
+  if (!t) return [];
+  return t.lines.flatMap((l): UnaccountedPart[] => {
+    if (l.kind !== 'material' || !l.productId || t.bought?.includes(l.id)) return [];
+    const item = items.find((i) => i.odooId === l.productId);
+    if (!item) return [{ lineId: l.id, name: l.name, qty: l.qty, why: 'not-on-truck' }];
+    return onOrder(item.id, purchases, jobId) ? [{ lineId: l.id, name: l.name, qty: l.qty, why: 'ordered' }] : [];
+  });
+}
+
+/** Ticket lines marked bought for the job (not truck stock). */
+export const boughtParts = (t: Ticket | undefined) => (t?.lines ?? []).filter((l) => t?.bought?.includes(l.id));
+
 /** A ticket material that is a part on the truck, and how many of it still have to come off the truck for the job. */
 export interface TicketPart {
   itemId: string;
@@ -97,13 +135,19 @@ export interface TicketPart {
  * is a truck item (same Odoo product), less what was already taken off the
  * truck for this job by hand.
  */
-export function ticketParts(t: Ticket | undefined, items: { id: string; name: string; odooId?: number }[], used: { itemId: string; qty: number; jobId?: string }[], jobId: string): TicketPart[] {
+export function ticketParts(
+  t: Ticket | undefined,
+  items: { id: string; name: string; odooId?: number }[],
+  used: { itemId: string; qty: number; jobId?: string }[],
+  jobId: string,
+  purchases: { jobId?: string; receivedAt?: number; lines: { itemId: string }[] }[] = [],
+): TicketPart[] {
   if (!t) return [];
   const want = new Map<string, TicketPart>();
   for (const l of t.lines) {
-    if (l.kind !== 'material' || !l.productId) continue;
+    if (l.kind !== 'material' || !l.productId || t.bought?.includes(l.id)) continue;
     const item = items.find((i) => i.odooId === l.productId);
-    if (!item) continue;
+    if (!item || onOrder(item.id, purchases, jobId)) continue;
     const cur = want.get(item.id);
     want.set(item.id, { itemId: item.id, name: item.name, qty: (cur?.qty ?? 0) + l.qty });
   }
@@ -265,5 +309,5 @@ export function parseTicket(v: unknown): Ticket | undefined {
     t && typeof t === 'object' && typeof t.key === 'string'
       ? { untaxed: Number(t.untaxed) || 0, tax: Number(t.tax) || 0, total: Number(t.total) || 0, key: t.key, at: Number(t.at) || 0 }
       : undefined;
-  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}) };
+  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
 }
