@@ -36,7 +36,7 @@
       "fallbackToCacheTimeout": 0
     },
     "extra": {
-      "release": "0.5.44",
+      "release": "0.5.45",
       "eas": {
         "projectId": "2b70a853-c332-49ea-8fde-4678952d9d87"
       }

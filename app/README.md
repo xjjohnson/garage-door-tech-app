@@ -591,7 +591,7 @@ longer has a Springs row (the calculators are under Tools).
 **Voids go to Odoo** (from 0.5.39). Voiding an invoice that is in Odoo
 (**Tap again to void here and in Odoo**) undoes it there too, in the
 background or with **Void it in Odoo now**: a draft is cancelled; a posted
-one gets a credit note (Odoo's Reverse), posted and set against the invoice
+one gets a credit note (Odoo's Reverse, in the invoice's own journal; fixed in 0.5.45), posted and set against the invoice
 while it is still owed. A paid invoice's credit note stays open, for the
 refund. After that the phone's **Restore invoice** is gone; make a new
 invoice instead (`voidInvoice` in `src/lib/odooSales.ts`).
