@@ -117,7 +117,8 @@ describe('quotes in the app', () => {
     await fireEvent.press(await screen.findByTestId('job-toggle-j1'));
     await fireEvent.press(screen.getByTestId('job-quote-j1'));
 
-    expect(screen.getByTestId('quote-no-prices')).toBeTruthy();
+    // No Springs templates in Odoo yet: the old price sheet prices it.
+    expect(screen.getByTestId('quote-no-spring-templates')).toHaveTextContent(/which has no prices yet/);
     await fireEvent.press(screen.getByTestId('quote-set-prices'));
     expect(screen.getByTestId('price-sheet')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('price-spring-good'));
@@ -127,7 +128,7 @@ describe('quotes in the app', () => {
     expect(parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY)).springLabor).toBe('150');
     // Closing the price sheet goes back to the quote, now priced.
     await fireEvent.press(screen.getByTestId('prices-sheet-close'));
-    expect(screen.queryByTestId('quote-no-prices')).toBeNull();
+    expect(screen.getByTestId('quote-no-spring-templates')).not.toHaveTextContent(/which has no prices yet/);
     // 2 × $60 + $150 labor, no tax set.
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$270');
     await fireEvent.press(screen.getByTestId('quote-accept-good'));

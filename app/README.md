@@ -443,9 +443,19 @@ option with no spring of that rating says so instead of a price, and a job
 whose calculator shows a STOP gets no quote until it's fixed
 (`src/lib/quote.ts`).
 
-**Price sheet** (from 0.5.19, the **Estimates** tab of the price book; Jobs,
-Sales and Settings open the price book, and a quote's Set prices opens it on
-that tab at `/price-sheet`). Service call,
+**Good / better / best from Odoo templates** (from 0.5.24). Spring jobs are
+priced from Odoo quotation templates named "Springs · Good", "Springs ·
+Better" and "Springs · Best" (or the job type's own, like "New door · Good").
+The calculator still picks each option's spring (size and cycle life); the
+template's spring line takes that count and size, and its other lines
+(labor, rollers, cables) come as they are, with Odoo's prices and taxes. The
+price book no longer has an Estimates tab, and the Job page no longer has an
+Estimate row: good / better / best is the optional row at the bottom of the
+ticket. Until the Springs templates exist, a spring quote says so and still
+uses the old price sheet below, reached from that notice.
+
+**Price sheet** (old, the fallback for spring quotes until Odoo has Springs
+templates; at `/price-sheet` from the quote's notice). Service call,
 spring labor, a price per spring for each option, add-ons (named freely,
 each ticked for Good, Better and/or Best; add or remove any) and the tax
 rate. Prices are entered on the keypad and saved on the phone as they're

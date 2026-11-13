@@ -23,7 +23,7 @@ export function PriceSheetScreen() {
 
   return (
     <View style={styles.stack} testID="price-sheet">
-      <Text style={styles.note}>Quotes use these prices as they are when the quote is opened.</Text>
+      <Text style={styles.note}>Spring quotes use these prices only until Odoo has quotation templates named "Springs · Good", "Springs · Better" and "Springs · Best". Once those exist, Odoo sets the prices.</Text>
 
       <SectionTitle first>On every option</SectionTitle>
       <Money label="Service call" value={sheet.serviceCall} onChange={(serviceCall) => set({ serviceCall })} testID="price-service" />

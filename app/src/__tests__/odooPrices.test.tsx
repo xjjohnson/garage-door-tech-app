@@ -116,11 +116,13 @@ describe('Estimate prices in the price book, with Odoo', () => {
     await settle();
     expect(screen.getByTestId('team-apps')).toHaveTextContent(/^Found in your Odoo: Field Service, Sales, Invoicing, Products\./);
 
+    await act(async () => router.push('/price-book'));
+    await settle();
+    await settle();
     await act(async () => router.push('/price-sheet'));
     await settle();
-    // Opening it reads Odoo's prices once; the estimate prices follow the same update.
+    // The price book's Update from Odoo (run on opening it once) brought Odoo's items onto the old sheet.
     await settle();
-    expect(screen.getByTestId('price-book-sheet-result')).toHaveTextContent(/added 3 Odoo items/);
     let saved = parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY));
     expect(saved.addOns.filter((a) => isSpareOdooItem(saved, a)).map((a) => a.name)).toEqual(['Service call', 'Torsion spring 25k', 'Nylon rollers (10)']);
 
