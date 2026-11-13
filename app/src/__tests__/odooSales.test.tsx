@@ -71,7 +71,7 @@ function fakeOdoo() {
       case 'account.move.read': {
         const id = (args[0] as number[])[0] ?? 900;
         const m = moves[id];
-        return reply([{ id, name: m.name ?? 'INV/2026/00007', state: m.posted ?? 'posted', amount_total: m.total / 100, amount_residual: m.residual / 100, payment_state: m.state }]);
+        return reply([{ id, name: m.name ?? 'INV/2026/00007', journal_id: [1, 'Customer Invoices'], state: m.posted ?? 'posted', amount_total: m.total / 100, amount_residual: m.residual / 100, payment_state: m.state }]);
       }
       case 'account.move.button_cancel':
         moves[900].posted = 'cancel';
@@ -81,6 +81,8 @@ function fakeOdoo() {
         return reply(found.map(([id, m]) => ({ id: Number(id), name: m.name, state: m.posted })));
       }
       case 'account.move.reversal.create':
+        // Like Odoo 19 over RPC: no journal given, no wizard.
+        if (!(args[0] as { journal_id?: number }).journal_id) return { ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, error: { message: 'Odoo Server Error', data: { name: 'odoo.exceptions.ValidationError', message: "Missing required value for the field 'Journal' (journal_id)" } } }) };
         return reply(60);
       case 'account.move.reversal.reverse_moves':
         moves[901] = { residual: moves[900].total, total: moves[900].total, state: 'not_paid', posted: 'draft', name: '/', reverses: 900 };
@@ -167,7 +169,7 @@ describe('voiding an invoice in Odoo', () => {
     o.moves[900] = { residual: 35900, total: 35900, state: 'not_paid' };
     expect(await voidInvoice(c, 900, 'Voided in the app')).toBe('RINV/2026/00001');
     const wiz = o.calls.find((x) => x.model === 'account.move.reversal' && x.method === 'create')!;
-    expect(wiz.args[0]).toMatchObject({ move_ids: [[6, 0, [900]]], reason: 'Voided in the app' });
+    expect(wiz.args[0]).toMatchObject({ move_ids: [[6, 0, [900]]], reason: 'Voided in the app', journal_id: 1 });
     expect(o.calls.find((x) => x.method === 'js_assign_outstanding_line')?.args).toEqual([[900], 9011]);
     expect(o.moves[900].state).toBe('reversed');
     // Asked again: the credit note is already there, so no second one.
