@@ -778,6 +778,14 @@ Building B" is left alone), and a City, ZIP or Street 2 Odoo already has is
 never overwritten. Nothing changes in Odoo until that's tapped. (`crampedAddresses` in
 `src/lib/odooContacts.ts`.)
 
+**State and country on addresses** (from 0.5.25). Odoo leaves State and
+Country empty unless they're picked, so whatever the app saves with an
+address (a new or edited customer, a house address, the address split, a new
+Field Service location) gets Texas and United States where those are still
+empty. A State or Country Odoo already has is never changed, and an address
+that names another state ("Tulsa, OK 74101") is left alone. Texas is looked up
+once per sign-in in res.country.state. (`src/lib/odooRegion.ts`.)
+
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an
 API key from Odoo's My Preferences > Account Security). The key is kept in the

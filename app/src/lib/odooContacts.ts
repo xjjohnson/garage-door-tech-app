@@ -8,6 +8,7 @@
  */
 import type { OdooClient } from './odoo';
 import { addressVals } from './odoo';
+import { fillRegion, regionVals } from './odooRegion';
 
 type Client = Pick<OdooClient, 'call'>;
 
@@ -73,11 +74,12 @@ function vals(f: AddressFields): Record<string, unknown> {
 /** Adds an address under the customer's contact. Returns its id. */
 export async function addAddress(c: Client, partnerId: number, f: AddressFields): Promise<number> {
   const v = Object.fromEntries(Object.entries(vals(f)).filter(([, x]) => x !== false));
-  return (await c.call('res.partner', 'create', [{ parent_id: partnerId, ...v }])) as number;
+  return (await c.call('res.partner', 'create', [{ parent_id: partnerId, ...v, ...(await regionVals(c, f.address)) }])) as number;
 }
 
 export async function saveAddress(c: Client, id: number, f: AddressFields): Promise<void> {
   await c.call('res.partner', 'write', [[id], vals(f)]);
+  await fillRegion(c, 'res.partner', [id], f.address);
 }
 
 /** What one line of the address list says: "400 Main St, Kyle 78640" or "Unit 4 · 400 Main St". */
@@ -167,6 +169,7 @@ export async function splitAddresses(c: Client, list: CrampedAddress[]): Promise
   let n = 0;
   for (const a of list) {
     await c.call('res.partner', 'write', [[a.id], { street: a.vals.street, street2: a.vals.street2 || false, city: a.vals.city, zip: a.vals.zip }]);
+    await fillRegion(c, 'res.partner', [a.id], a.street);
     n++;
   }
   return n;

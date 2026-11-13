@@ -12,6 +12,7 @@ import type { CustomerFields } from './customers';
 import type { OdooPartner } from './customerSync';
 import { pretendOffline } from './devFlags';
 import { log } from './log';
+import { fillRegion, regionVals } from './odooRegion';
 import { Appointment } from './schedule';
 
 export const ODOO_STORAGE_KEY = 'odoo/v1';
@@ -282,18 +283,20 @@ export class OdooClient {
   /** Makes a contact in Odoo for a customer from the phone, marked as a customer. Returns its id. */
   async createPartner(f: CustomerFields): Promise<number> {
     const pf = await this.partnerFields();
-    const vals: Record<string, unknown> = { name: f.name, phone: f.phone || false, email: f.email || false, ...filled(addressVals(f.address)), comment: f.notes ? escapeHtml(f.notes) : false };
+    const vals: Record<string, unknown> = { name: f.name, phone: f.phone || false, email: f.email || false, ...filled(addressVals(f.address)), ...(await regionVals(this, f.address)), comment: f.notes ? escapeHtml(f.notes) : false };
     if (pf.includes('customer_rank')) vals.customer_rank = 1;
     return (await this.call('res.partner', 'create', [vals])) as number;
   }
 
   /** Sends a customer's changed name, phone, email, address or notes to Odoo. */
-  writePartner(id: number, f: Partial<CustomerFields>): Promise<unknown> {
+  async writePartner(id: number, f: Partial<CustomerFields>): Promise<unknown> {
     const vals: Record<string, unknown> = {};
     for (const k of ['name', 'phone', 'email'] as const) if (f[k] !== undefined) vals[k] = f[k] || false;
     if (f.address !== undefined) Object.assign(vals, addressVals(f.address));
     if (f.notes !== undefined) vals.comment = f.notes ? escapeHtml(f.notes) : false;
-    return this.call('res.partner', 'write', [[id], vals]);
+    const done = await this.call('res.partner', 'write', [[id], vals]);
+    if (f.address) await fillRegion(this, 'res.partner', [id], f.address);
+    return done;
   }
 
   /** Marking done works with either Field Service app. */
