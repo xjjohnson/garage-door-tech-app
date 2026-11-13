@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createProduct, searchProducts, StockProduct } from '../lib/odooStock';
 import { findByCode, openPurchases, StockItem } from '../lib/stock';
-import { ticketParts } from '../lib/ticket';
+import { boughtParts, ticketParts, unaccountedParts } from '../lib/ticket';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useStock } from '../lib/useStock';
@@ -20,10 +20,10 @@ import { BarcodeScanner } from './BarcodeScanner';
 export function JobParts({ jobId }: { jobId: string }) {
   const { items, used, purchases, takeParts, undoUse, orderForJob, receiveOrder } = useStock();
   const { client } = useOdoo();
-  const { jobs } = useJobs();
+  const { jobs, setTicket } = useJobs();
   const [scanning, setScanning] = useState(false);
   const [picking, setPicking] = useState(false);
-  const [ordering, setOrdering] = useState(false);
+  const [ordering, setOrdering] = useState<string | false>(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   useTruckSync();
@@ -31,7 +31,10 @@ export function JobParts({ jobId }: { jobId: string }) {
   const waiting = openPurchases(purchases).filter((p) => p.jobId === jobId);
   const job = jobs.find((j) => j.id === jobId);
   const customer = job?.customer ?? '';
-  const fromTicket = ticketParts(job?.ticket, items, used ?? [], jobId);
+  const fromTicket = ticketParts(job?.ticket, items, used ?? [], jobId, purchases);
+  const missing = unaccountedParts(job?.ticket, items, jobId, purchases).filter((p) => p.why === 'not-on-truck');
+  const bought = boughtParts(job?.ticket);
+  const markBought = (lineId: string, on: boolean) => setTicket(jobId, (t) => ({ ...t, bought: on ? [...(t.bought ?? []), lineId] : (t.bought ?? []).filter((x) => x !== lineId) }));
 
   const run = async (key: string, fn: () => Promise<string>) => {
     setBusy(key);
@@ -53,7 +56,30 @@ export function JobParts({ jobId }: { jobId: string }) {
   return (
     <View style={styles.card} testID="job-parts">
       <Text style={styles.label}>Parts used</Text>
-      {mine.length === 0 && fromTicket.length === 0 ? <Text style={styles.body}>None yet. Materials on the ticket show here and come off the truck stock.</Text> : null}
+      {missing.map((p) => (
+        <View key={`m-${p.lineId}`} style={styles.waiting} testID={`job-part-missing-${p.lineId}`}>
+          <Text style={styles.body}>
+            {p.qty} x {p.name}
+          </Text>
+          <Text style={styles.note}>On the ticket but not on the truck. Order it, or say you bought it for this job, before Create invoice.</Text>
+          <View style={styles.row}>
+            <Button label="Order it" onPress={() => (client ? setOrdering(p.name) : setNote('Sign in to Odoo (Team) to order a part for this job.'))} testID={`job-part-missing-order-${p.lineId}`} />
+            <Button label="Bought it" onPress={() => markBought(p.lineId, true)} testID={`job-part-missing-bought-${p.lineId}`} />
+          </View>
+        </View>
+      ))}
+      {bought.map((l) => (
+        <View key={`b-${l.id}`} style={styles.line} testID={`job-part-bought-${l.id}`}>
+          <Text style={[styles.body, styles.grow]}>
+            {l.qty} x {l.name}
+          </Text>
+          <Text style={styles.note}>Bought for this job</Text>
+          <Pressable onPress={() => markBought(l.id, false)} accessibilityRole="button" accessibilityLabel={`${l.name} wasn't bought for this job`} testID={`job-part-bought-undo-${l.id}`} style={styles.undo}>
+            <Text style={styles.undoText}>Undo</Text>
+          </Pressable>
+        </View>
+      ))}
+      {mine.length === 0 && fromTicket.length === 0 && missing.length === 0 && bought.length === 0 ? <Text style={styles.body}>None yet. Materials on the ticket show here and come off the truck stock.</Text> : null}
       {fromTicket.map((p) => (
         <View key={`t-${p.itemId}`} style={styles.line} testID={`job-part-ticket-${p.itemId}`}>
           <Text style={[styles.body, styles.grow]}>
@@ -103,7 +129,7 @@ export function JobParts({ jobId }: { jobId: string }) {
       </View>
       <Button
         label="Part not on the truck"
-        onPress={() => (client ? setOrdering(true) : setNote('Sign in to Odoo (Team) to order a part for this job.'))}
+        onPress={() => (client ? setOrdering('') : setNote('Sign in to Odoo (Team) to order a part for this job.'))}
         testID="job-parts-order"
       />
       <BarcodeScanner
@@ -118,8 +144,9 @@ export function JobParts({ jobId }: { jobId: string }) {
         onClose={() => setScanning(false)}
       />
       <TruckPicker visible={picking} items={items} onPick={(i) => { setPicking(false); take(i); }} onClose={() => setPicking(false)} />
-      {ordering && client ? (
+      {ordering !== false && client ? (
         <OrderSheet
+          initial={ordering}
           search={(q) => searchProducts(client, q)}
           make={async (name) => ({ id: await createProduct(client, { name }), name, code: '', barcode: '', costCents: 0 })}
           onClose={() => setOrdering(false)}
@@ -144,8 +171,8 @@ interface PartOrder {
 }
 
 /** Finds the part in Odoo (or makes it), then how many, who from, and pickup or delivery. Sending is the last tap. */
-function OrderSheet({ search, make, onSend, onClose }: { search: (q: string) => Promise<StockProduct[]>; make: (name: string) => Promise<StockProduct>; onSend: (o: PartOrder) => void; onClose: () => void }) {
-  const [q, setQ] = useState('');
+function OrderSheet({ initial = '', search, make, onSend, onClose }: { initial?: string; search: (q: string) => Promise<StockProduct[]>; make: (name: string) => Promise<StockProduct>; onSend: (o: PartOrder) => void; onClose: () => void }) {
+  const [q, setQ] = useState(initial);
   const [found, setFound] = useState<StockProduct[] | null>(null);
   const [looking, setLooking] = useState(false);
   const [err, setErr] = useState<string | null>(null);

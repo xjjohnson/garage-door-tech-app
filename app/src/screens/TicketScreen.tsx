@@ -10,7 +10,7 @@ import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit } from '../lib/ticket';
+import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, unaccountedParts } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useStock } from '../lib/useStock';
@@ -45,6 +45,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const [error, setError] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
   const stock = useStock();
+  // Every ticket part has to be accounted for in Parts used before the invoice (Justin, 0.5.33).
+  const missingParts = unaccountedParts(ticket, stock.items, job.id, stock.purchases);
   const [estimateNote, setEstimateNote] = useState<string | null>(null);
   const [emailTo, setEmailTo] = useState<{ pid: number; email: string } | null>(null);
   const [emailed, setEmailed] = useState<EmailResult | null>(null);
@@ -105,7 +107,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t), t.shipTo, t.deposits);
       if (!job.steps?.workDoneAt) setStep(job.id, 'workDoneAt', now());
       // Parts used filter down from the ticket: what's on it from the truck comes off the truck now.
-      for (const p of ticketParts(t, stock.items, stock.used ?? [], job.id)) stock.takeParts(p.itemId, p.qty, job.id);
+      for (const p of ticketParts(t, stock.items, stock.used ?? [], job.id, stock.purchases)) stock.takeParts(p.itemId, p.qty, job.id);
       // Post it in Odoo now, so the customer signs Odoo's invoice; if that fails, the invoice screen can send it later.
       if (invoiceOdoo.client) {
         try {
@@ -269,7 +271,25 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         </View>
       ) : null}
 
-      {!invoice ? <Action label={making ? 'Creating the invoice...' : 'Create invoice'} primary disabled={making || ticket.lines.length === 0 || syncing} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
+      {!invoice && missingParts.length > 0 ? (
+        <View style={styles.refBox} testID="ticket-parts-missing">
+          <Text style={styles.error}>
+            Before the invoice, account for {missingParts.length === 1 ? 'this part' : 'these parts'} in Parts used:
+          </Text>
+          {missingParts.map((p) => (
+            <View key={p.lineId} style={styles.refBox}>
+              <Text style={styles.label}>
+                {p.qty} x {p.name}: {p.why === 'ordered' ? "ordered, not in yet. Tap Got it on the order when it's in." : 'not on the truck.'}
+              </Text>
+              {p.why === 'not-on-truck' ? (
+                <Action label="Bought it for this job" onPress={() => setTicket(job.id, (t) => ({ ...t, bought: [...(t.bought ?? []), p.lineId] }))} testID={`ticket-part-bought-${p.lineId}`} />
+              ) : null}
+            </View>
+          ))}
+          <Action label="Parts used on the job" onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })} testID="ticket-parts-open-job" />
+        </View>
+      ) : null}
+      {!invoice ? <Action label={making ? 'Creating the invoice...' : 'Create invoice'} primary disabled={making || ticket.lines.length === 0 || syncing || missingParts.length > 0} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
 
       <SectionTitle>Optional</SectionTitle>
       <NavRow
