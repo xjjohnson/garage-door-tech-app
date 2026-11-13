@@ -6,6 +6,7 @@ import { createJob, Job, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, ODOO_STORAGE_KEY, OdooClient, toOdooTime } from '../lib/odoo';
 import { applyState, createOdooJob, JOBS_SINCE_KEY, olderJobs, partnerFor, pullSchedule, readJobStates, shouldSend, whatOf, writeVisit } from '../lib/odooJobs';
 import type { OdooTask } from '../lib/odoo';
+import { fetchFsmTemplates, FSM_TEMPLATES_STORAGE_KEY } from '../lib/fsmTemplates';
 import { resetJobsSince } from '../lib/useJobsSince';
 import { renderApp } from '../testing/renderApp';
 import { router } from 'expo-router';
@@ -30,6 +31,7 @@ function fakeOdoo() {
   const orders: Row[] = [];
   const locations: Row[] = [{ id: 70, partner_id: 7, owner_id: 7 }];
   const partners: Row[] = [];
+  const templates: Row[] = [];
   const calls: { model: string; method: string; args: unknown[]; kw: Row }[] = [];
   const fetchFn: Fetch = async (_url, init) => {
     const { params } = JSON.parse(init.body);
@@ -39,7 +41,8 @@ function fakeOdoo() {
     const [, , , model, method, args, kw = {}] = params.args as [string, number, string, string, string, unknown[], Row];
     calls.push({ model, method, args, kw });
     if (method === 'fields_get') {
-      if (model === 'fsm.order') return reply({ name: {}, location_id: {}, person_id: {}, scheduled_date_start: {}, scheduled_duration: {}, stage_id: {}, description: {} });
+      if (model === 'fsm.order') return reply({ name: {}, location_id: {}, person_id: {}, scheduled_date_start: {}, scheduled_duration: {}, stage_id: {}, description: {}, todo: {}, template_id: {}, type: {} });
+      if (model === 'fsm.template') return reply({ name: {}, instructions: {}, duration: {}, type_id: {}, active: {} });
       if (model === 'fsm.stage') return reply({ name: {}, is_closed: {} });
       if (model === 'res.partner') return reply({ name: {}, customer_rank: {} });
       return error(`Object ${model} doesn't exist`);
@@ -67,6 +70,7 @@ function fakeOdoo() {
           .map((o) => ({ ...o, location_id: o.location_id ? [o.location_id, String(loc(o.location_id)?.name ?? 'Place')] : false, person_id: typeof o.person_id === 'number' ? [o.person_id, 'Someone'] : false })),
       );
     }
+    if (model === 'fsm.template' && method === 'search_read') return reply(templates);
     if (model === 'fsm.location' && method === 'read') return reply(locations.filter((l) => (args[0] as number[]).includes(l.id as number)));
     if (model === 'res.partner' && method === 'create') {
       partners.push({ id: 100 + partners.length, ...(args[0] as Row) });
@@ -101,7 +105,7 @@ function fakeOdoo() {
     }
     return error(`${model}.${method}`);
   };
-  return { fetchFn, orders, locations, partners, calls };
+  return { fetchFn, orders, locations, partners, calls, templates };
 }
 
 const login = { url: 'acme.odoo.com', db: 'acme', login: 'j@x.test' };
@@ -118,6 +122,20 @@ describe('jobs in Odoo (logic)', () => {
     await createOdooJob(c, 8, { jobId: 'j2', customer: 'Lee', address: '2 Elm', phone: '', what: 'Opener', notes: '' });
     expect(o.locations.at(-1)).toMatchObject({ partner_id: 8, owner_id: 8 });
     expect(o.orders[1]).toMatchObject({ location_id: o.locations.at(-1)!.id, person_id: false, scheduled_date_start: false });
+  });
+
+  it('a job whose kind is a Field Service template carries it, like picking it in Odoo', async () => {
+    const o = fakeOdoo();
+    o.templates.push({ id: 3, name: 'Broken spring', instructions: 'Check both cables', duration: 1.5, type_id: [2, 'Repair'] });
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    await createOdooJob(c, 7, { jobId: 'j1', customer: 'Pat', address: '', phone: '', what: 'broken spring', notes: '' });
+    expect(o.orders[0]).toMatchObject({ template_id: 3, todo: 'Check both cables', type: 2, scheduled_duration: 1.5 });
+    // A booked visit keeps its own length; a kind with no template sets none.
+    await createOdooJob(c, 7, { jobId: 'j2', customer: 'Pat', address: '', phone: '', what: 'Broken spring', notes: '' }, { start: at(9, 1), minutes: 60 });
+    expect(o.orders[1]).toMatchObject({ template_id: 3, scheduled_duration: 1 });
+    await createOdooJob(c, 7, { jobId: 'j3', customer: 'Pat', address: '', phone: '', what: 'Gate', notes: '' });
+    expect(o.orders[2].template_id).toBeUndefined();
+    expect(await fetchFsmTemplates(c)).toEqual([{ id: 3, name: 'Broken spring', instructions: 'Check both cables', minutes: 90, typeId: 2 }]);
   });
 
   it('moves the order, and reads back time, worker and done', async () => {
@@ -376,5 +394,23 @@ describe('the Jobs tab, signed in to Odoo', () => {
     expect(jobs).toEqual([expect.objectContaining({ customer: 'Atx', address: '9 Elm St, Austin 78701', what: 'Help door trapped', odooJob: { model: 'fsm.order', id: 600, name: 'FO0001' } })]);
     // Nothing new went to Odoo for it.
     expect(o.calls.filter((c) => c.method === 'create')).toEqual([]);
+  });
+});
+
+describe('New job offers Odoo\'s Field Service templates', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it('lists the templates read last time as the kinds of job, and saves the picked one', async () => {
+    await AsyncStorage.setItem(FSM_TEMPLATES_STORAGE_KEY, JSON.stringify([{ id: 3, name: 'Broken spring', instructions: '' }, { id: 4, name: 'Gate service', instructions: '' }]));
+    await renderApp('/new-job');
+    for (let i = 0; i < 5; i++) await act(async () => undefined);
+    expect(screen.getByTestId('new-job-what')).toHaveTextContent(/Broken spring.*Gate service/);
+    expect(screen.queryByText('Off track')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('new-job-name'), 'Sam Ortiz');
+    await fireEvent.press(screen.getByText('Gate service'));
+    await fireEvent.press(screen.getByTestId('new-job-start'));
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].what).toBe('Gate service');
   });
 });

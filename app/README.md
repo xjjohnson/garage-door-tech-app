@@ -663,6 +663,16 @@ the Jobs tab and Schedule work from the phone as before.
 (`src/components/OdooJobsList.tsx`, `pullSchedule` in `src/lib/odooJobs.ts`,
 `OdooClient.listJobs`, `useOpenOdooJob` in `src/lib/useStartJob.ts`.)
 
+**New job from Odoo's Field Service templates** (from 0.5.21). When Odoo has
+Field Service templates (Field Service › Configuration › Templates), New job
+offers them as the kinds of job in place of the built-in list (Broken spring,
+Off track...). The list read last time is kept for no signal. When the job
+goes to Odoo, the order gets that template, its instructions, order type and
+categories, and its planned length unless a visit was booked with its own,
+the same as picking the template on Odoo's own form. With no templates in
+Odoo, New job keeps the built-in kinds. (`src/lib/fsmTemplates.ts`,
+`src/lib/useFsmTemplates.ts`.)
+
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an
 API key from Odoo's My Preferences > Account Security). The key is kept in the

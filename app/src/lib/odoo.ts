@@ -164,7 +164,7 @@ export function toOdooTime(ms: number): string {
 const TASK_OPTIONAL = ['planned_date_begin', 'date_deadline', 'description', 'partner_phone', 'fsm_done'];
 const PARTNER_OPTIONAL = ['customer_rank', 'mobile', 'partner_latitude', 'partner_longitude'];
 const PRODUCT_OPTIONAL = ['sale_ok', 'default_code', 'categ_id', 'type', 'description_sale'];
-const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end', 'scheduled_duration'];
+const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end', 'scheduled_duration', 'template_id', 'type', 'category_ids'];
 
 export class OdooClient {
   constructor(

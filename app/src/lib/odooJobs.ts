@@ -12,6 +12,7 @@ import type { Job } from './jobs';
 import type { OdooClient, OdooTask } from './odoo';
 import { odooTime, toOdooTime } from './odoo';
 import type { Appointment } from './schedule';
+import { templateNamed, templateVals } from './fsmTemplates';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
 
@@ -103,7 +104,8 @@ export async function createOdooJob(c: Client, partnerId: number, job: JobForOdo
   if (found) return found;
   if (s.kind === 'oca') {
     const location_id = await locationFor(c, partnerId, job);
-    const vals: Record<string, unknown> = { location_id, ...visitVals(c, visit) };
+    const template = await templateNamed(c, job.what);
+    const vals: Record<string, unknown> = { location_id, ...(template ? templateVals(c, template, !!visit) : {}), ...visitVals(c, visit) };
     if (has(c, 'description') && describe(job)) vals.description = describe(job);
     if (visit && s.me) vals.person_id = s.me;
     const id = (await c.call('fsm.order', 'create', [vals])) as number;
