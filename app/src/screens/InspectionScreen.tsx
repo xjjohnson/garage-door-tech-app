@@ -32,8 +32,8 @@ import {
 import { inspectionReportHtml } from '../lib/reportFiles';
 import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
-import { jobsModel, reportTarget, sendReport } from '../lib/odooReports';
-import { pdfName } from '../lib/pdf';
+import { jobsModel, reportNote, reportTarget, sendReport } from '../lib/odooReports';
+import { MAX_ODOO_PDF_BASE64, pdfName } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
 import { useCustomers } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
@@ -50,9 +50,6 @@ const GATE_TYPES = [
   { label: 'Swing', value: 'swing' as const },
   { label: 'Slide', value: 'slide' as const },
 ];
-/** Odoo's upload limit is often 25 MB; stay under it after base64. */
-const MAX_ODOO_PDF_BASE64 = 20_000_000;
-
 /**
  * The inspection for one job, the checklist from SafetyCulture: each door
  * with its motors, and a gate if there is one. Every item gets a rating;
@@ -127,8 +124,7 @@ export function InspectionScreen({ job }: { job: Job }) {
         setBusy(null);
         return;
       }
-      const s = summary(insp);
-      await sendReport(odoo.client, target, pdfName('Inspection', job.customer), pdf, `Inspection report: ${s.score === null ? 'not scored' : `score ${s.score}%`}, ${s.flagged} flagged.`);
+      await sendReport(odoo.client, target, pdfName('Inspection', job.customer), pdf, reportNote(insp));
       log.info('inspect', `report sent to ${target.model} ${target.id}`);
       save((i) => ({ ...i, sent: { at: Date.now(), to: target.label } }));
       setNote(`Sent to ${target.label} in Odoo.`);

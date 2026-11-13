@@ -103,6 +103,9 @@ export function quoteHtml(job: { customer: string; address: string; savedAt: num
   return page('Quote', body);
 }
 
+/** Odoo's upload limit is often 25 MB; a report stays under it after base64. */
+export const MAX_ODOO_PDF_BASE64 = 20_000_000;
+
 /** A safe file name: "Invoice 1001 Pat Smith.pdf". */
 export function pdfName(title: string, who: string): string {
   return `${`${title} ${who}`.replace(/[^A-Za-z0-9 ._-]/g, '').replace(/\s+/g, ' ').trim() || 'document'}.pdf`;
