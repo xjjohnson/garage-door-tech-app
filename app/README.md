@@ -451,6 +451,11 @@ payments; they go to Odoo as payments on that invoice like any other.
 Picking Cash App or Venmo for a deposit shows the same QR code as the
 invoice's Scan to pay, with the deposit amount filled in (from 0.5.32); Zelle
 shows where to send it.
+From 0.5.38 each deposit is also kept in Odoo: signed in, the ticket writes
+it to the job's draft quotation as a note line ("Deposit received: $100 by
+Cash App, 2026-11-13. Paid toward the invoice."). A note carries no price, so
+Odoo's totals don't change; taking the deposit off the ticket removes the line.
+Offline, it is written the next time the ticket can reach Odoo.
 
 **Which address the ticket is for** (from 0.5.28). When the job's customer
 is linked to an Odoo contact with houses (delivery or other addresses under
