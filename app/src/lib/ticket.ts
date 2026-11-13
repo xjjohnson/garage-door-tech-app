@@ -44,6 +44,19 @@ export interface Ticket {
   ref?: string;
   /** When the ticket was saved as an estimate for the customer (its quotation in Odoo). */
   estimateAt?: number;
+  /** The delivery address picked on the ticket (an address under the customer's Odoo contact); partner_shipping_id in Odoo. */
+  shipTo?: ShipTo;
+}
+
+/** A delivery address: the Odoo contact id to use as partner_shipping_id, and its address for display. */
+export interface ShipTo {
+  id: number;
+  address: string;
+}
+
+export function parseShipTo(v: unknown): ShipTo | undefined {
+  const s = v as { id?: unknown; address?: unknown } | null;
+  return s && typeof s.id === 'number' && s.id > 0 ? { id: s.id, address: typeof s.address === 'string' ? s.address : '' } : undefined;
 }
 
 /** A ticket material that is a part on the truck, and how many of it still have to come off the truck for the job. */
@@ -172,14 +185,16 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
   const service = needService ? await serviceProduct(client) : 0;
   const vals = lineValues(lines, {}, () => service, 'product_uom_qty');
   let order = t.order;
+  // The picked delivery address; the customer's own when none is picked.
+  const ship = { partner_shipping_id: t.shipTo?.id ?? partnerId };
   if (order) {
     const [row] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['state'] })) as { state?: string }[];
     if (row?.state !== 'draft' && row?.state !== 'sent') order = undefined;
   }
   if (order) {
-    await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
+    await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false, ...ship, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
   } else {
-    const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, order_line: vals.map((v) => [0, 0, v]) }])) as number;
+    const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, ...ship, order_line: vals.map((v) => [0, 0, v]) }])) as number;
     order = { id, name: `#${id}` };
   }
   const [r] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total'] })) as Record<string, unknown>[];
@@ -223,5 +238,5 @@ export function parseTicket(v: unknown): Ticket | undefined {
     t && typeof t === 'object' && typeof t.key === 'string'
       ? { untaxed: Number(t.untaxed) || 0, tax: Number(t.tax) || 0, total: Number(t.total) || 0, key: t.key, at: Number(t.at) || 0 }
       : undefined;
-  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}) };
+  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}) };
 }

@@ -443,6 +443,13 @@ option with no spring of that rating says so instead of a price, and a job
 whose calculator shows a STOP gets no quote until it's fixed
 (`src/lib/quote.ts`).
 
+**Which address the ticket is for** (from 0.5.28). When the job's customer
+is linked to an Odoo contact with houses (delivery or other addresses under
+it, such as a property manager's rentals), the ticket shows them to pick
+from, the main address first. The picked one is the delivery address
+(`partner_shipping_id`) on the ticket's quotation, the quote's sales order
+and the invoice in Odoo, and the invoice's address on the phone.
+
 **Good / better / best from Odoo templates** (from 0.5.24). Spring jobs are
 priced from Odoo quotation templates named "Springs · Good", "Springs ·
 Better" and "Springs · Best" (or the job type's own, like "New door · Good").

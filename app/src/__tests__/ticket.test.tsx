@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
+import { CUSTOMERS_STORAGE_KEY } from '../lib/customers';
 import { INVOICES_STORAGE_KEY, parseInvoices } from '../lib/invoices';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { jobSteps } from '../lib/jobSteps';
@@ -121,6 +122,7 @@ describe('Ticket (logic)', () => {
     expect(made.args[0]).toEqual({
       partner_id: 5,
       client_order_ref: 'Job ticket · 12 Oak St',
+      partner_shipping_id: 5,
       order_line: [
         [0, 0, { product_id: 1, name: 'Chamberlain belt drive', product_uom_qty: 1, price_unit: 229 }],
         [0, 0, { product_id: 9, name: 'Haul away', product_uom_qty: 1, price_unit: 50 }],
@@ -138,6 +140,15 @@ describe('Ticket (logic)', () => {
       [0, 0, { product_id: 1, name: 'Chamberlain belt drive', product_uom_qty: 2, price_unit: 229 }],
       [0, 0, { product_id: 9, name: 'Haul away', product_uom_qty: 1, price_unit: 50 }],
     ]);
+
+    expect((write.args[1] as Row).partner_shipping_id).toBe(5);
+
+    // A house picked on the ticket is the delivery address on the quotation.
+    calls.length = 0;
+    await syncTicket(client as never, 5, { ...t, shipTo: { id: 12, address: '9 Elm St' } }, '', 250);
+    expect((calls.find((c) => c.method === 'write')!.args[1] as Row).partner_shipping_id).toBe(12);
+    expect(parseTicket({ ...t, shipTo: { id: 12, address: '9 Elm St' } })?.shipTo).toEqual({ id: 12, address: '9 Elm St' });
+    expect(parseTicket({ ...t, shipTo: { id: 'x' } })?.shipTo).toBeUndefined();
 
     // Confirmed in Odoo already: leave it and make a new quotation.
     state = 'sale';
@@ -274,8 +285,9 @@ describe('Ticket screen', () => {
     expect(screen.queryByTestId('ticket-make-invoice')).toBeNull();
   });
 
-  async function signedIn(fail: { write?: boolean } = {}, net = { down: false }, odooInvoice: Row = { amount_total: 447.89, amount_residual: 447.89 }) {
+  async function signedIn(fail: { write?: boolean } = {}, net = { down: false }, odooInvoice: Row = { amount_total: 447.89, amount_residual: 447.89 }, before?: () => Promise<void>, houses: Row[] = []) {
     await seed();
+    await before?.();
     const calls: { model: string; method: string; args: unknown[] }[] = [];
     let state = 'draft';
     const call = async (model: string, method: string, args: unknown[]): Promise<unknown> => {
@@ -296,6 +308,7 @@ describe('Ticket screen', () => {
       if (model === 'account.move' && method === 'create') return 80;
       if (model === 'account.move' && method === 'read') return [{ name: 'INV/2026/00080', payment_state: 'not_paid', ...odooInvoice }];
       if (model === 'ir.attachment' && method === 'create') return 90;
+      if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('parent_id')) return houses;
       if (model === 'product.product' && method === 'search_read')
         return [
           { id: 1, name: OPENER.name, lst_price: 229, categ_id: [4, 'All / Openers'], type: 'consu' },
@@ -327,6 +340,41 @@ describe('Ticket screen', () => {
 
     return { calls, setState: (v: string) => (state = v) };
   }
+
+  it('sends the house picked on the ticket as the delivery address on the quotation and the invoice', async () => {
+    const { calls } = await signedIn(
+      {},
+      { down: false },
+      undefined,
+      async () => {
+        await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([{ id: 'c1', name: 'Josh', phone: '', email: '', address: '12 Oak St', notes: '', createdAt: 1, updatedAt: 1, odooId: 33, syncedAt: 1 }]));
+        const [job] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
+        await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, customerId: 'c1' }]));
+      },
+      [{ id: 12, name: 'Rental', type: 'delivery', street: '9 Elm St', city: 'Austin', zip: '78701' }],
+    );
+    await act(async () => router.navigate('/ticket/j1'));
+    await settle();
+    await fireEvent.press(await screen.findByTestId('ticket-address-12'));
+    await settle();
+    expect((await saved()).ticket?.shipTo).toMatchObject({ id: 12 });
+    await fireEvent.press(screen.getByTestId('ticket-add-material'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-cat-Openers'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-pick-1'));
+    await settle();
+    await act(async () => jest.advanceTimersByTime(1600));
+    await settle(20);
+    const made = calls.find((c) => c.model === 'sale.order' && c.method === 'create')!;
+    expect((made.args[0] as Row).partner_shipping_id).toBe(12);
+    await fireEvent.press(screen.getByTestId('ticket-make-invoice'));
+    await settle(20);
+    const [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
+    expect(inv!.shipTo).toMatchObject({ id: 12 });
+    expect(inv!.address).toMatch(/9 Elm St/);
+    expect((calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as Row).partner_shipping_id).toBe(12);
+  });
 
   it('asks Odoo for the tax and total, and confirms the quotation with the invoice', async () => {
     const { calls } = await signedIn();

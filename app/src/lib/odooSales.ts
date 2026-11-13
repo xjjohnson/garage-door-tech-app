@@ -88,9 +88,9 @@ async function prepare(client: OdooClient, lines: QuoteLine[], links: Record<str
 export const orderRef = (tierLabel: string, address: string) => [tierLabel, address.trim()].filter(Boolean).join(' · ');
 
 /** Sends the option the customer picked as a confirmed sales order. */
-export async function sendOrder(client: OdooClient, partnerId: number, lines: QuoteLine[], links: Record<string, OdooLink>, ref: string): Promise<OdooRef> {
+export async function sendOrder(client: OdooClient, partnerId: number, lines: QuoteLine[], links: Record<string, OdooLink>, ref: string, shipId?: number): Promise<OdooRef> {
   const order_line = (await prepare(client, lines, links, 'product_uom_qty')).map((v) => [0, 0, v]);
-  const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, order_line }])) as number;
+  const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, ...(shipId ? { partner_shipping_id: shipId } : {}), order_line }])) as number;
   await client.call('sale.order', 'action_confirm', [[id]]);
   const [row] = (await client.call('sale.order', 'read', [[id]], { fields: ['name'] })) as { name?: string }[];
   return { id, name: row?.name ?? `#${id}` };
@@ -101,31 +101,31 @@ export async function sendOrder(client: OdooClient, partnerId: number, lines: Qu
  * finished offline): the ticket's draft quotation gets the invoice's lines
  * and is confirmed, or, if there's no draft left, a new order is made.
  */
-export async function confirmOrderFor(client: OdooClient, partnerId: number, lines: QuoteLine[], links: Record<string, OdooLink>, ref: string, draft?: OdooRef): Promise<OdooRef> {
+export async function confirmOrderFor(client: OdooClient, partnerId: number, lines: QuoteLine[], links: Record<string, OdooLink>, ref: string, draft?: OdooRef, shipId?: number): Promise<OdooRef> {
   if (draft) {
     const [row] = (await client.call('sale.order', 'read', [[draft.id]], { fields: ['state', 'name'] })) as { state?: string; name?: string }[];
     if (row?.state === 'draft' || row?.state === 'sent') {
       const vals = await prepare(client, lines, links, 'product_uom_qty');
-      await client.call('sale.order', 'write', [[draft.id], { client_order_ref: ref || false, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
+      await client.call('sale.order', 'write', [[draft.id], { client_order_ref: ref || false, ...(shipId ? { partner_shipping_id: shipId } : {}), order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
       await client.call('sale.order', 'action_confirm', [[draft.id]]);
       return { id: draft.id, name: row.name ?? draft.name };
     }
   }
-  return sendOrder(client, partnerId, lines, links, ref);
+  return sendOrder(client, partnerId, lines, links, ref, shipId);
 }
 
 /**
  * Sends an invoice and posts it. When the job's sales order is in Odoo, the
  * invoice lines are tied to its lines, so Odoo shows the order as invoiced.
  */
-export async function sendInvoice(client: OdooClient, partnerId: number, lines: QuoteLine[], links: Record<string, OdooLink>, ref: string, order?: OdooRef): Promise<OdooInvoiceState> {
+export async function sendInvoice(client: OdooClient, partnerId: number, lines: QuoteLine[], links: Record<string, OdooLink>, ref: string, order?: OdooRef, shipId?: number): Promise<OdooInvoiceState> {
   const vals = await prepare(client, lines, links, 'quantity');
   if (order) {
     const orderLines = (await client.call('sale.order.line', 'search_read', [[['order_id', '=', order.id], ['display_type', '=', false]]], { fields: ['id'], order: 'sequence asc, id asc' })) as { id: number }[];
     // Same lines in the same order as the quote, unless prices changed the list since.
     if (orderLines.length === vals.length) vals.forEach((v, i) => (v.sale_line_ids = [[6, 0, [orderLines[i].id]]]));
   }
-  const id = (await client.call('account.move', 'create', [{ move_type: 'out_invoice', partner_id: partnerId, ref: ref || false, ...(order ? { invoice_origin: order.name } : {}), invoice_line_ids: vals.map((v) => [0, 0, v]) }])) as number;
+  const id = (await client.call('account.move', 'create', [{ move_type: 'out_invoice', partner_id: partnerId, ref: ref || false, ...(shipId ? { partner_shipping_id: shipId } : {}), ...(order ? { invoice_origin: order.name } : {}), invoice_line_ids: vals.map((v) => [0, 0, v]) }])) as number;
   await client.call('account.move', 'action_post', [[id]]);
   return readInvoice(client, id, []);
 }
