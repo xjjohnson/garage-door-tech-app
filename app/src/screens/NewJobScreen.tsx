@@ -51,7 +51,9 @@ export function NewJobScreen() {
   const pickPlace = (a: AddressSuggestion) => {
     const c = a.customerId ? customers.find((x) => x.id === a.customerId) : undefined;
     if (c && !name.trim()) pick(c);
-    else setAddress(a.address);
+    // A house under a customer: their details, at this house.
+    if (a.addressId || !c || name.trim()) setAddress(a.address);
+    if (a.addressId && !c && !name.trim() && a.customerName) setName(a.customerName);
     if (a.point) rememberPoint(a.address, a.point);
     setAddressPicked(true);
   };
@@ -104,7 +106,7 @@ export function NewJobScreen() {
       {places.map((a, i) => (
         <Pressable key={`${a.customerId ?? 'map'}-${a.address}`} onPress={() => pickPlace(a)} accessibilityRole="button" testID={`new-job-place-${i}`} style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}>
           <Text style={styles.suggestName}>{a.name ? a.name : a.street || a.address}</Text>
-          <Text style={styles.suggestSub}>{a.name ? `${a.address} · Saved customer` : [a.city, a.zip].filter(Boolean).join(' ')}</Text>
+          <Text style={styles.suggestSub}>{a.name ? `${a.address} · ${a.addressId ? 'House in Odoo' : 'Saved customer'}` : [a.city, a.zip].filter(Boolean).join(' ')}</Text>
         </Pressable>
       ))}
       <TextInput value={phone} onChangeText={setPhone} placeholder="Phone" placeholderTextColor={colors.muted} keyboardType="phone-pad" accessibilityLabel="Phone" testID="new-job-phone" style={styles.input} />

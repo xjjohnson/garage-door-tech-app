@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen } from '@testing-library/react-native';
-import { customerAddresses, fromPhoton, photonUrl, suggestAddresses, worthAsking } from '../lib/addressSuggest';
+import { customerAddresses, fromPhoton, photonUrl, suggestAddresses, typedNumber, worthAsking } from '../lib/addressSuggest';
+import { searchAddresses } from '../lib/odooContacts';
+import type { OdooClient } from '../lib/odoo';
 import type { Customer } from '../lib/customers';
 import { CUSTOMERS_STORAGE_KEY } from '../lib/customers';
 import { addressKey, GEOCODE_STORAGE_KEY, parseCache } from '../lib/geocode';
@@ -44,6 +46,34 @@ describe('address suggestions from Photon', () => {
     expect(await suggestAddresses(ok, 'ab')).toEqual([]);
     expect(ok).toHaveBeenCalledTimes(1);
     await expect(suggestAddresses(async () => ({ ok: false, json: async () => ({}) }), '400 Main')).rejects.toThrow('Photon error');
+  });
+});
+
+describe('house numbers OpenStreetMap doesn\'t have', () => {
+  const street = (over: Record<string, unknown> = {}) => house({ housenumber: undefined, street: undefined, name: 'Main St', type: 'street', ...over });
+
+  it('puts the typed number on a street with none, and drops its point', () => {
+    expect(typedNumber('400 Main')).toBe('400');
+    expect(typedNumber('12b Oak')).toBe('12b');
+    expect(typedNumber('Main St')).toBe('');
+    expect(fromPhoton(street(), '400')).toEqual({ address: '400 Main St, Kyle, TX 78640', street: '400 Main St', city: 'Kyle', zip: '78640' });
+    // A numbered house keeps its own number and point.
+    expect(fromPhoton(house({ housenumber: '402' }), '400')).toMatchObject({ street: '402 Main St', point: { lat: 29.989, lon: -97.877 } });
+  });
+
+  it('lists numbered houses first', async () => {
+    const fetchFn = jest.fn(async () => ({ ok: true, json: async () => ({ features: [street({ name: 'Main Ave', city: 'Buda' }), house()] }) }));
+    expect((await suggestAddresses(fetchFn, '400 Main')).map((a) => a.address)).toEqual(['400 Main St, Kyle, TX 78640', '400 Main Ave, Buda, TX 78640']);
+  });
+});
+
+describe('houses under customers in Odoo', () => {
+  it('finds a property manager\'s house by its street', async () => {
+    const call = jest.fn(async () => [{ id: 21, type: 'delivery', name: false, street: '400 Main St', street2: false, city: 'Kyle', zip: '78640', phone: false, email: false, parent_id: [7, 'Oak Property Mgmt'] }]);
+    const c = { call } as unknown as Pick<OdooClient, 'call'>;
+    expect(await searchAddresses(c, '400 Main')).toEqual([{ id: 21, type: 'delivery', name: '', address: '400 Main St, Kyle 78640', phone: '', email: '', parentId: 7, parentName: 'Oak Property Mgmt' }]);
+    expect(call).toHaveBeenCalledWith('res.partner', 'search_read', [[['parent_id', '!=', false], ['type', 'in', ['delivery', 'other']], '|', ['street', 'ilike', '400 Main'], ['name', 'ilike', '400 Main']]], expect.anything());
+    expect(await searchAddresses(c, 'ab')).toEqual([]);
   });
 });
 

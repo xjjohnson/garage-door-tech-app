@@ -277,7 +277,13 @@ last key, from four characters with a letter in them. Tapping one fills the
 address as "400 Main St, Kyle, TX 78640" and keeps its map point, so the map
 doesn't look it up again; tapping a saved customer fills their name and phone
 too. With no signal the box still takes typing, it just shows no map
-suggestions. (`src/lib/addressSuggest.ts`, `src/lib/useAddressSuggestions.ts`.)
+suggestions. Many houses around Kyle aren't numbered in OpenStreetMap, so a
+street that comes back with no number takes the number typed ("400 Main"
+gives "400 Main St"), listed after real numbered houses; the map then looks
+that full address up. Signed in to Odoo, houses under customers' contacts (a
+property manager's delivery addresses) whose street matches show too, and
+picking one fills that customer with the house as the address (from 0.5.21).
+(`src/lib/addressSuggest.ts`, `src/lib/useAddressSuggestions.ts`.)
 
 **Sales** has follow-ups, the price sheet, accepted quotes still to invoice,
 and the invoices. **Tools** holds the spring calculator, door weight,

@@ -95,3 +95,21 @@ export function parseSavedAddresses(raw: string | null): Record<string, ContactA
     return {};
   }
 }
+
+/** A house or other address under some customer's contact, found by a search. */
+export interface FoundAddress extends ContactAddress {
+  /** The customer's Odoo contact (the property manager), and their name. */
+  parentId: number;
+  parentName: string;
+}
+
+/**
+ * Houses and other addresses under any customer's contact whose street or
+ * name matches what's typed, for the New job address list.
+ */
+export async function searchAddresses(c: Client, q: string, limit = 3): Promise<FoundAddress[]> {
+  const t = q.trim();
+  if (t.length < 3) return [];
+  const rows = (await c.call('res.partner', 'search_read', [[['parent_id', '!=', false], ['type', 'in', ['delivery', 'other']], '|', ['street', 'ilike', t], ['name', 'ilike', t]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email', 'parent_id'], limit })) as Record<string, unknown>[];
+  return rows.flatMap((r) => (Array.isArray(r.parent_id) ? [{ ...toAddress(r), parentId: r.parent_id[0] as number, parentName: str(r.parent_id[1]) }] : []));
+}
