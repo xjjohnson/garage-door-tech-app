@@ -437,15 +437,17 @@ option with no spring of that rating says so instead of a price, and a job
 whose calculator shows a STOP gets no quote until it's fixed
 (`src/lib/quote.ts`).
 
-**Price sheet.** Opened from the top of Jobs or from a quote: service call,
+**Price sheet** (from 0.5.19, the **Estimates** tab of the price book; Jobs,
+Sales and Settings open the price book, and a quote's Set prices opens it on
+that tab at `/price-sheet`). Service call,
 spring labor, a price per spring for each option, add-ons (named freely,
 each ticked for Good, Better and/or Best; add or remove any) and the tax
 rate. Prices are entered on the keypad and saved on the phone as they're
 typed (`src/lib/prices.ts`, AsyncStorage `price-sheet/v1`).
 
 **Prices from Odoo.** When signed in to Odoo (Jobs > Team) and Odoo has
-products, **Import prices from Odoo** at the top of the price sheet brings in
-every product that can be sold (`sale_ok`) with its sales price
+products, the price book's **Update from Odoo** (also run when the saved
+book is over an hour old) brings onto the estimate prices every product that can be sold (`sale_ok`) with its sales price
 (`product.product` `lst_price`). Products not linked to a line yet become
 add-ons ticked on no option, folded under **Show N more Odoo items** until a
 tier is picked. Any line can be linked to an Odoo product (**Link to Odoo
@@ -527,6 +529,34 @@ confirms that quotation and makes the job's invoice from the ticket (marked
 "Job ticket" instead of an option), which then signs, sends to Odoo and takes
 payments as before. Good / better / best is now **Estimate**, optional: once
 the customer picks an option, **Put … on the job ticket** adds its lines.
+
+**Finish job and offline invoices** (from 0.5.17). The ticket's button is
+now **Finish job**: it marks the work done, makes the invoice, posts it in
+Odoo and opens it with the signing sheet up. The signed page goes to the
+invoice in Odoo as a PDF with a note in its chatter. The ticket has a
+**Customer reference** (optional) that goes on the sales order and the
+invoice in Odoo; left empty, the order has none and the invoice keeps
+"Invoice 1004". Invoices made from 0.5.17 on go to Odoo
+by themselves (`OdooInvoicesSync`, mounted in `_layout.tsx`): shortly after a
+change, when the app comes back and every few minutes, any that isn't in
+Odoo yet is posted, and payments and signatures taken offline follow. A
+ticket finished offline gets its sales order then: the ticket's draft
+quotation is given the invoice's lines and confirmed (or a new order is
+made), and the invoice is tied to it. Once Odoo has the invoice, its tax and
+totals replace the phone's estimate. **Send to Odoo now** on the invoice is
+the manual backup; older invoices only go with that button. The Job page no
+longer has a Springs row (the calculators are under Tools).
+
+**Invoices mirror Odoo** (from 0.5.18). Signed in to Odoo with Invoicing,
+Sales › Invoices (and Jobs › Invoices) is Odoo's own invoice list, with the
+phone's invoices shown above it only while they aren't in Odoo yet (with
+**Send to Odoo now**). Tapping an Odoo invoice the phone also has opens the
+phone's copy, for payments and the signature. Once an invoice is in Odoo, the
+phone shows Odoo's number ("INV/2026/00080"), lines and totals everywhere
+(job, ticket, customer, follow-ups, PDF, payment links), and the background
+sync reads invoices still owed again every 10 minutes, a few at a time, so
+one paid in Odoo shows paid on the phone. Signed out, the phone's own list
+shows as before.
 
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
 and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
@@ -649,14 +679,28 @@ print or save it (`src/lib/pdf.ts`, `src/lib/attachments.ts`,
 `src/lib/deviceMedia.ts`, AsyncStorage `attachments/v1`). **Send as text**
 still sends the plain-text version.
 
+**Jobs and schedule from Odoo** (from 0.5.20). Signed in to Odoo, the Jobs
+tab lists Odoo's own Field Service orders (or tasks), whoever has them, with
+Open, Done and All and a search on customer, address or job number, instead
+of the jobs kept on the phone. A job still waiting to go to Odoo shows above
+them. Tapping an Odoo job opens its job page; the first time, the phone makes
+its side of the job (ticket, photos, inspection), tied to that Odoo job, so
+nothing new is made in Odoo. The last open list read is kept for no signal.
+The Schedule fills itself from Odoo too: every open job given to you with a
+time becomes a visit, moves when Odoo moves it and goes when it's given to
+someone else. A visit moved on the phone goes to Odoo first. Not signed in,
+the Jobs tab and Schedule work from the phone as before.
+(`src/components/OdooJobsList.tsx`, `pullSchedule` in `src/lib/odooJobs.ts`,
+`OdooClient.listJobs`, `useOpenOdooJob` in `src/lib/useStartJob.ts`.)
+
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an
 API key from Odoo's My Preferences > Account Security). The key is kept in the
 phone's keystore (`expo-secure-store`), never in AsyncStorage or backups, and
 the app signs in again on its own when it opens. **My jobs** lists the open
-jobs Odoo assigns to you, with Directions and Call; **Add to schedule** (or
-**Put all on my schedule**) puts them on the Schedule as visits, and **Mark
-done** closes a Field Service job the way Odoo's own button does.
+jobs Odoo assigns to you, with Directions, Call and **Open job**. Jobs given
+to you with a time come onto the Schedule on their own (from 0.5.20), and
+**Mark done** closes a Field Service job the way Odoo's own button does.
 **Dispatch** lists unassigned jobs with a button for each tech to give it to,
 and **A tech's jobs** shows one tech's list with buttons to move a job to
 someone else. Jobs are Odoo Field Service tasks when that app is installed,
@@ -778,7 +822,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `_layout.tsx` | | Saved data for every screen (jobs, customers, prices, invoices, schedule, time and miles, truck stock, photos and signatures, Odoo team), then a stack: the sections, with full pages on top |
 | `(tabs)/_layout.tsx` | | Header (with the house mark, Settings button and version), update banners, the sections and the bottom bar |
 | `(tabs)/index.tsx` | `/` | Today, as a list or a map |
-| `(tabs)/jobs.tsx` | `/jobs` | Saved jobs; Mine / Team (dispatch board) for dispatchers |
+| `(tabs)/jobs.tsx` | `/jobs` | Odoo's jobs when signed in (else the phone's); Mine / Team (dispatch board) for dispatchers |
 | `(tabs)/sales.tsx` | `/sales` | Follow-ups, price sheet, quotes to invoice, invoices |
 | `(tabs)/customers.tsx` | `/customers` | The customer list |
 | `(tabs)/tools.tsx` | `/tools` | Every tool and setting |
@@ -789,7 +833,7 @@ Navigation is Expo Router, with routes in `src/app/` (from version 0.3.0):
 | `new-job.tsx` | `/new-job` | A new job in three answers |
 | `setup.tsx` | `/setup` | Odoo setup check |
 | `developer.tsx` | `/developer` | Developer screen (7 taps on the version) |
-| `price-sheet.tsx` | `/price-sheet` | The price sheet, a full page |
+| `price-sheet.tsx` | `/price-sheet` | The price book open on its Estimates tab (the price sheet) |
 | `odoo-product.tsx` | `/odoo-product?line=…` | Pick the Odoo product a price-sheet line follows |
 | `quote/[id].tsx` | `/quote/<job id>` | One job's quote, a full page |
 | `backup.tsx` | `/backup` | Back up and restore jobs and prices, a full page |

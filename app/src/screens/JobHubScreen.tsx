@@ -5,15 +5,14 @@ import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
 import { JobParts } from '../components/JobParts';
 import { checkCounts } from '../lib/inspection';
-import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
-import { Job, jobName, MODE_LABEL, phoneLink } from '../lib/jobs';
+import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
+import { Job, jobName, phoneLink } from '../lib/jobs';
 import { jobInvoice, jobSteps, nextStep, onSiteFor, smsLink, StepId } from '../lib/jobSteps';
 import { log } from '../lib/log';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { dayLabel, formatTime, mapsLink, onMyWayText } from '../lib/schedule';
 import { useSchedule } from '../lib/useSchedule';
 import { currentTotals, subtotal } from '../lib/ticket';
-import { useCalculatorLink } from '../lib/useCalculatorLink';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { colors, touch, type } from '../theme';
@@ -28,7 +27,6 @@ const open = (url: string | undefined) => url && Linking.openURL(url).catch(() =
 export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => number }) {
   const { jobs, loaded, setStep, setStatus } = useJobs();
   const { invoices, business } = useInvoices();
-  const { requestOpen } = useCalculatorLink();
   const { appointments } = useSchedule();
   const [, tick] = useState(0);
   useEffect(() => {
@@ -65,7 +63,9 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
         return;
       case 'work':
-        setStep(job.id, 'workDoneAt', now());
+        // With a ticket, Finish job there marks the work done and makes the invoice.
+        if (job.ticket?.lines.length && !inv) router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
+        else setStep(job.id, 'workDoneAt', now());
         return;
       case 'paid':
         if (inv) router.push({ pathname: '/invoice/[id]', params: { id: inv.id } });
@@ -129,15 +129,6 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         testID="job-open-inspection"
       />
       <NavRow
-        label="Springs"
-        detail={job.summaryTitle ? `${MODE_LABEL[job.mode]}: ${job.summaryTitle}` : MODE_LABEL[job.mode]}
-        onPress={() => {
-          requestOpen(job);
-          router.navigate('/springs');
-        }}
-        testID="job-open-springs"
-      />
-      <NavRow
         label="Ticket"
         detail={ticketDetail(job)}
         href={{ pathname: '/ticket/[id]', params: { id: job.id } }}
@@ -153,7 +144,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       <JobParts jobId={job.id} />
       {inv ? (
         <NavRow
-          label={`Invoice ${inv.number}`}
+          label={invoiceLabel(inv)}
           detail={`${STATUS_LABEL[invoiceStatus(inv)]}${balance(inv) > 0 ? ` · ${formatMoney(balance(inv))} owed` : ''}`}
           href={{ pathname: '/invoice/[id]', params: { id: inv.id } }}
           testID="job-open-invoice"
@@ -194,7 +185,7 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
     case 'quote':
       return 'Next: build the ticket';
     case 'work':
-      return 'Work done';
+      return job.ticket?.lines.length && !hasInvoice ? 'Next: finish job' : 'Work done';
     case 'paid':
       return hasInvoice ? 'Next: get paid' : 'Next: make the invoice';
   }

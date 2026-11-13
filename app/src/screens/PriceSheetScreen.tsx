@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, MeasureField, MultiChipRow, SectionTitle } from '../components/controls';
 import { formatNumber } from '../lib/measure';
-import { OdooError } from '../lib/odoo';
-import { AddOn, cents, formatMoney, importOdooProducts, isSpareOdooItem, linkLine, newAddOnId, OdooImport, PriceSheet, Tier, TIER_CYCLES, TIER_LABEL, TIERS } from '../lib/prices';
+import { AddOn, cents, formatMoney, isSpareOdooItem, linkLine, newAddOnId, PriceSheet, Tier, TIER_CYCLES, TIER_LABEL, TIERS } from '../lib/prices';
 import { useOdoo } from '../lib/useOdoo';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type } from '../theme';
@@ -24,8 +23,7 @@ export function PriceSheetScreen() {
 
   return (
     <View style={styles.stack} testID="price-sheet">
-      <Text style={styles.note}>Prices stay on this phone. Quotes use them as they are when the quote is opened.</Text>
-      <OdooPrices />
+      <Text style={styles.note}>Quotes use these prices as they are when the quote is opened.</Text>
 
       <SectionTitle first>On every option</SectionTitle>
       <Money label="Service call" value={sheet.serviceCall} onChange={(serviceCall) => set({ serviceCall })} testID="price-service" />
@@ -122,54 +120,6 @@ export function PriceSheetScreen() {
   );
 }
 
-/** At the top of the sheet: bring the whole Odoo price list onto the phone in one tap. */
-function OdooPrices() {
-  const { status, client } = useOdoo();
-  const { sheet, update } = usePriceSheet();
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<Omit<OdooImport, 'sheet'> | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  if (status !== 'signedIn' || !client) return null;
-  if (!client.session.apps.products) {
-    return <Text style={styles.note} testID="odoo-prices-none">Your Odoo has no products this account can see, so prices can’t come from Odoo yet.</Text>;
-  }
-  const pull = async () => {
-    setBusy(true);
-    setError(null);
-    setResult(null);
-    try {
-      const products = await client.allProducts();
-      const { changed, added, missing } = importOdooProducts(sheet, products);
-      // Apply to the sheet as it is now, in case a price was typed while Odoo answered.
-      update((s) => importOdooProducts(s, products).sheet);
-      setResult({ changed, added, missing });
-    } catch (e) {
-      setError(e instanceof OdooError ? e.message : "Couldn't get prices from Odoo. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <View style={styles.odoo} testID="odoo-prices">
-      <Text style={styles.odooTitle}>Prices from Odoo</Text>
-      <Text style={styles.note}>
-        Brings every product you sell in Odoo onto this phone with its Odoo price, and updates the ones already here. Tap again whenever prices change in Odoo; quotes keep working offline.
-      </Text>
-      <Pressable onPress={pull} disabled={busy} accessibilityRole="button" testID="odoo-prices-update" style={({ pressed }) => [styles.button, busy && styles.off, pressed && styles.pressed]}>
-        <Text style={styles.buttonText}>{busy ? 'Importing...' : 'Import prices from Odoo'}</Text>
-      </Pressable>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {result ? (
-        <Text style={styles.note} testID="odoo-prices-result">
-          {result.added ? `Added ${result.added} Odoo ${result.added === 1 ? 'item' : 'items'}; pick Good, Better or Best on any you want on quotes. ` : ''}
-          {result.changed.length ? `Updated ${result.changed.map((c) => `${c.label} to $${c.to}`).join(', ')}.` : result.added ? '' : 'Everything already matches Odoo.'}
-          {result.missing.length ? ` No longer in Odoo (archived or not sold): ${result.missing.join(', ')}.` : ''}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 /** Odoo items not on any quote option yet: folded away, so the sheet stays easy to scroll. */
 function SpareOdooItems() {
   const { sheet, update } = usePriceSheet();
@@ -229,10 +179,6 @@ const styles = StyleSheet.create({
   stack: { gap: 14 },
   line: { gap: 8 },
   grow: { flex: 1 },
-  odoo: { gap: 8, padding: 12, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card },
-  odooTitle: { fontSize: type.body, fontWeight: '900', color: colors.text },
-  error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  off: { opacity: 0.5 },
   linkRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   linkText: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: colors.text },
   small: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },

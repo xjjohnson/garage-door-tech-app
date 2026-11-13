@@ -88,7 +88,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         href="/business"
         testID="settings-business"
       />
-      <Link label="Price sheet" detail="Parts and labor prices for quotes" href="/price-sheet" testID="settings-price-sheet" />
+      <Link label="Price book" detail="Odoo's prices, and your good / better / best estimate prices" href="/price-book" testID="settings-price-book" />
 
       <SectionTitle>Odoo (team jobs)</SectionTitle>
       <Link label={signedIn ? 'Odoo account' : 'Sign in to Odoo'} detail={odooLine} href="/team" testID="settings-odoo" />

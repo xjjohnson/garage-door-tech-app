@@ -25,9 +25,21 @@ import {
   syncTicket,
   Ticket,
   ticketOption,
+  ticketRef,
   toQuoteLines,
 } from '../lib/ticket';
+import { DeviceMedia } from '../lib/deviceMedia';
 import { renderApp } from '../testing/renderApp';
+
+const mockMedia: jest.Mocked<DeviceMedia> = {
+  takePhoto: jest.fn(async () => null),
+  pickPhotos: jest.fn(async () => []),
+  deletePhoto: jest.fn(),
+  sharePdf: jest.fn(async (_html: string, _name: string) => undefined),
+  sharePhoto: jest.fn(async (_uri: string) => undefined),
+  pdfBase64: jest.fn(async (_html: string) => 'JVBERi0='),
+};
+jest.mock('../lib/deviceMedia', () => ({ deviceMedia: () => mockMedia }));
 
 type Row = Record<string, unknown>;
 
@@ -147,6 +159,9 @@ describe('Ticket (logic)', () => {
       totals: { key: 'k', untaxed: 1, tax: 0, total: 1, at: 2 },
     });
     expect(parseTicket(null)).toBeUndefined();
+    expect(parseTicket({ lines: [], ref: 'PO 9' })?.ref).toBe('PO 9');
+    expect(ticketRef({ lines: [], ref: '  ' })).toBe('');
+    expect(ticketRef({ lines: [], ref: ' PO 9 ' })).toBe('PO 9');
   });
 
   it('counts the Ticket step done once it has a line', () => {
@@ -234,7 +249,7 @@ describe('Ticket screen', () => {
     expect(screen.queryByTestId('ticket-make-invoice')).toBeNull();
   });
 
-  async function signedIn(fail: { write?: boolean } = {}) {
+  async function signedIn(fail: { write?: boolean } = {}, net = { down: false }, odooInvoice: Row = { amount_total: 447.89, amount_residual: 447.89 }) {
     await seed();
     const calls: { model: string; method: string; args: unknown[] }[] = [];
     let state = 'draft';
@@ -253,6 +268,9 @@ describe('Ticket screen', () => {
         return true;
       }
       if (model === 'sale.order' && method === 'read') return [{ name: 'S00070', state, amount_untaxed: 429, amount_tax: 18.89, amount_total: 447.89 }];
+      if (model === 'account.move' && method === 'create') return 80;
+      if (model === 'account.move' && method === 'read') return [{ name: 'INV/2026/00080', payment_state: 'not_paid', ...odooInvoice }];
+      if (model === 'ir.attachment' && method === 'create') return 90;
       if (model === 'product.product' && method === 'search_read')
         return [
           { id: 1, name: OPENER.name, lst_price: 229, categ_id: [4, 'All / Openers'], type: 'consu' },
@@ -265,6 +283,7 @@ describe('Ticket screen', () => {
       const { params } = JSON.parse(init.body);
       const reply = (result: unknown) => ({ ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, result }) });
       if (params.service === 'common') return reply(2);
+      if (net.down) throw new TypeError('Network request failed');
       const [, , , model, method, args] = params.args as [string, number, string, string, string, unknown[]];
       try {
         return reply(await call(model, method, args));
@@ -315,6 +334,29 @@ describe('Ticket screen', () => {
     expect((await saved()).odooOrder).toEqual({ id: 70, name: 'S00070' });
     const [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
     expect(inv).toMatchObject({ source: 'ticket', tax: 1889, total: 44789 });
+    // Finish job: work done, the invoice posted in Odoo, and the customer signs straight away.
+    expect((await saved()).steps?.workDoneAt).toBeGreaterThan(0);
+    expect(calls.find((c) => c.model === 'account.move' && c.method === 'action_post')?.args).toEqual([[80]]);
+    // No customer reference typed: none on the order, the invoice keeps "Invoice 1001".
+    expect((calls.find((c) => c.model === 'sale.order' && c.method === 'create')!.args[0] as Row).client_order_ref).toBe(false);
+    expect((calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as Row).ref).toBe(`Invoice ${inv!.number}`);
+    expect(inv!.odoo).toMatchObject({ id: 80, name: 'INV/2026/00080' });
+    expect(screen.getByTestId('signature-sheet')).toBeTruthy();
+    const pad = screen.getByTestId('signature-pad');
+    await fireEvent(pad, 'layout', { nativeEvent: { layout: { width: 300, height: 200 } } });
+    let tick = 0;
+    const touch = (x: number, y: number) => ({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, touches: [], changedTouches: [], identifier: 1, timestamp: Date.now() }, touchHistory: { touchBank: [{ touchActive: true, startPageX: x, startPageY: y, startTimeStamp: 0, currentPageX: x, currentPageY: y, currentTimeStamp: ++tick, previousPageX: x, previousPageY: y, previousTimeStamp: tick - 1 }], numberActiveTouches: 1, indexOfSingleActiveTouch: 0, mostRecentTimeStamp: tick } });
+    await fireEvent(pad, 'responderGrant', touch(10, 10));
+    await fireEvent(pad, 'responderMove', touch(50, 40));
+    await fireEvent(pad, 'responderRelease', touch(50, 40));
+    await fireEvent.press(screen.getByTestId('signature-save'));
+    await settle(20);
+    const att = calls.find((c) => c.model === 'ir.attachment' && c.method === 'create')!;
+    expect(att.args[0]).toMatchObject({ res_model: 'account.move', res_id: 80, mimetype: 'application/pdf', datas: 'JVBERi0=' });
+    expect(calls.find((c) => c.model === 'account.move' && c.method === 'message_post')?.args).toEqual([[80]]);
+    expect((mockMedia.pdfBase64 as jest.Mock).mock.calls.at(-1)![0]).toMatch(/Customer signature.*Josh.*Work completed/s);
+    expect(screen.getByTestId('invoice-sign-odoo')).toHaveTextContent(/Signature added to INV\/2026\/00080 in Odoo/);
+    expect(parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY))[0]!.odoo?.signatureSent).toBeTruthy();
   });
 
   it("doesn't confirm the old quotation when Odoo can't take the changed lines", async () => {
@@ -345,5 +387,56 @@ describe('Ticket screen', () => {
     await act(async () => router.back());
     await settle();
     expect(screen.getByTestId('ticket-error')).toHaveTextContent(/phone's lines and estimate.*S00070.*left as it is/);
+  });
+
+  it('sends a ticket finished offline once there is signal: order confirmed and linked, Odoo totals, typed reference', async () => {
+    const net = { down: false };
+    // Odoo charges no tax on these lines.
+    const o = await signedIn({}, net, { amount_untaxed: 429, amount_tax: 0, amount_total: 429, amount_residual: 429 });
+    await act(async () => router.navigate('/ticket/j1'));
+    await settle();
+    net.down = true;
+    await fireEvent.press(screen.getByTestId('ticket-add-material'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-cat-Openers'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-pick-1'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('ticket-add-service'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-cat-Services'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('price-book-pick-2'));
+    await settle();
+    await fireEvent.changeText(screen.getByTestId('ticket-ref'), 'PO 4471');
+    await settle();
+    expect((await saved()).ticket?.ref).toBe('PO 4471');
+
+    await fireEvent.press(screen.getByTestId('ticket-make-invoice'));
+    await settle(20);
+    let [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
+    // The phone's estimate while offline.
+    expect(inv).toMatchObject({ source: 'ticket', ref: 'PO 4471', autoSend: true, tax: 1889, total: 44789 });
+    expect(inv!.odoo).toBeUndefined();
+    expect(o.calls.some((c) => c.model === 'account.move' && c.method === 'create')).toBe(false);
+    await fireEvent.press(screen.getByTestId('signature-cancel'));
+    await settle();
+    expect(screen.getByTestId('invoice-odoo-waiting')).toHaveTextContent(/goes to Odoo on its own/);
+
+    // Signal again: it goes on its own.
+    net.down = false;
+    await act(async () => jest.advanceTimersByTime(5000));
+    await settle(30);
+    const order = o.calls.find((c) => c.model === 'sale.order' && c.method === 'create')!;
+    expect(order.args[0]).toMatchObject({ partner_id: 55, client_order_ref: 'PO 4471' });
+    expect(o.calls.find((c) => c.method === 'action_confirm')?.args).toEqual([[70]]);
+    expect((await saved()).odooOrder).toEqual({ id: 70, name: 'S00070' });
+    const move = o.calls.find((c) => c.model === 'account.move' && c.method === 'create')!;
+    expect(move.args[0]).toMatchObject({ ref: 'PO 4471', invoice_origin: 'S00070' });
+    expect(o.calls.filter((c) => c.model === 'account.move' && c.method === 'create')).toHaveLength(1);
+    [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
+    // Odoo's numbers replace the estimate.
+    expect(inv).toMatchObject({ subtotal: 42900, tax: 0, total: 42900, odoo: { id: 80, name: 'INV/2026/00080', untaxed: 42900, tax: 0, total: 42900 } });
+    expect(screen.getByTestId('invoice-odoo-state')).toHaveTextContent(/INV\/2026\/00080/);
   });
 });

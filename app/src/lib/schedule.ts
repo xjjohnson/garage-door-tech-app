@@ -29,6 +29,8 @@ export interface Appointment {
   updatedAt: number;
   /** When this visit's time last matched its Odoo job; a later updatedAt means the phone changed it. */
   syncedAt?: number;
+  /** For a visit pulled from Odoo: the job's reference there ("FO0002"). */
+  odooName?: string;
 }
 
 export function startOfDay(ms: number): number {
@@ -154,6 +156,7 @@ export function parseSchedule(raw: string | null | unknown[]): Appointment[] {
         createdAt,
         updatedAt: typeof a.updatedAt === 'number' ? a.updatedAt : createdAt,
         ...(typeof a.syncedAt === 'number' ? { syncedAt: a.syncedAt } : {}),
+        ...(typeof a.odooName === 'string' && a.odooName ? { odooName: a.odooName } : {}),
       },
     ];
   });

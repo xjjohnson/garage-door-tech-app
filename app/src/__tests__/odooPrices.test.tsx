@@ -96,13 +96,13 @@ describe('Odoo prices (plain logic)', () => {
   });
 });
 
-describe('Price sheet with Odoo', () => {
+describe('Estimate prices in the price book, with Odoo', () => {
   const settle = async (n = 8) => {
     for (let k = 0; k < n; k++) await act(async () => undefined);
   };
   afterEach(() => jest.restoreAllMocks());
 
-  it('imports Odoo prices in one tap and links a line to an Odoo product', async () => {
+  it('takes Odoo prices on Update from Odoo and links a line to an Odoo product', async () => {
     await AsyncStorage.clear();
     const o = fakeOdoo();
     jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
@@ -118,9 +118,9 @@ describe('Price sheet with Odoo', () => {
 
     await act(async () => router.push('/price-sheet'));
     await settle();
-    await fireEvent.press(screen.getByTestId('odoo-prices-update'));
+    // Opening it reads Odoo's prices once; the estimate prices follow the same update.
     await settle();
-    expect(screen.getByTestId('odoo-prices-result')).toHaveTextContent(/Added 3 Odoo items/);
+    expect(screen.getByTestId('price-book-sheet-result')).toHaveTextContent(/added 3 Odoo items/);
     let saved = parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY));
     expect(saved.addOns.filter((a) => isSpareOdooItem(saved, a)).map((a) => a.name)).toEqual(['Service call', 'Torsion spring 25k', 'Nylon rollers (10)']);
 

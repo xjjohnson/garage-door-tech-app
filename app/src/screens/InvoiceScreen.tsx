@@ -1,4 +1,4 @@
-import { OdooInvoiceSync } from '../components/OdooSales';
+import { OdooInvoiceSync, useInvoiceOdoo } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -8,7 +8,7 @@ import { SignatureSheet } from '../components/SignaturePad';
 import { signatureFor } from '../lib/attachments';
 import { invoiceHtml, pdfName } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
-import { balance, Invoice, invoiceStatus, invoiceText, optionLabel, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
+import { balance, Invoice, invoiceLabel, invoiceStatus, invoiceText, optionLabel, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { cents, formatMoney, TIER_LABEL } from '../lib/prices';
 import { textLink, warrantyFor } from '../lib/followups';
@@ -25,21 +25,24 @@ const CONFIRM_MS = 4000;
  * customer can scan a QR code to pay by Cash App or Venmo with the amount
  * filled in; the tech records each payment by how it came in.
  */
-export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
+export function InvoiceScreen({ invoice, autoSign }: { invoice: Invoice; autoSign?: boolean }) {
   const { business, addPayment, removePayment, setVoid } = useInvoices();
   const status = invoiceStatus(invoice);
   const warranty = warrantyFor(invoice, useFollowUps().settings);
   const phone = useCustomers().customers.find((c) => c.id === invoice.customerId)?.phone ?? '';
   const review = reviewLink(business) ? textLink(phone, reviewRequestText(invoice, business)) : undefined;
   const due = balance(invoice);
-  const links = payLinks(business, due, `Invoice ${invoice.number}`);
+  const links = payLinks(business, due, invoiceLabel(invoice));
   const scannable = links.filter((l) => l.url);
   const [qrFor, setQrFor] = useState<PayMethod | null>(null);
   const shownQr = scannable.find((l) => l.method === qrFor) ?? scannable[0];
 
   const attachments = useAttachments();
   const signature = signatureFor(attachments, 'invoice', invoice.id);
-  const [signing, setSigning] = useState(false);
+  // Straight after Finish job, the customer signs first.
+  const [signing, setSigning] = useState(!!autoSign && !signature && !invoice.voidedAt);
+  const invoiceOdoo = useInvoiceOdoo();
+  const [sigNote, setSigNote] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState(false);
   const warrantyNote =
     status !== 'void' && (warranty.partsUntil || warranty.laborUntil)
@@ -48,7 +51,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
   const sendPdf = () => {
     if (!attachments.media) return;
     setPdfError(false);
-    attachments.media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(`Invoice ${invoice.number}`, invoice.billTo)).catch(() => setPdfError(true));
+    attachments.media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(invoiceLabel(invoice), invoice.billTo)).catch(() => setPdfError(true));
   };
 
   const [method, setMethod] = useState<PayMethod>('cash');
@@ -63,7 +66,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
   return (
     <View style={styles.stack} testID="invoice">
       <View style={styles.top}>
-        <Text style={styles.number}>Invoice {invoice.number}</Text>
+        <Text style={styles.number}>{invoiceLabel(invoice)}</Text>
         <Text style={[styles.badge, status === 'paid' && styles.badgePaid, status === 'void' && styles.badgeVoid]} testID="invoice-status">
           {STATUS_LABEL[status]}
         </Text>
@@ -193,18 +196,35 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
           Signed by {signature.name || 'the customer'} on {formatJobDate(signature.at)}
         </Text>
       ) : (
-        <Text style={styles.meta}>The customer signs that the work is done, on this phone. It goes on the PDF.</Text>
+        <Text style={styles.meta}>The customer signs that the work is done, on this phone. It goes on the PDF, and on the invoice in Odoo.</Text>
       )}
+      {sigNote ? (
+        <Text style={styles.meta} testID="invoice-sign-odoo">
+          {sigNote}
+        </Text>
+      ) : invoice.odoo?.signatureSent && invoice.odoo.signatureSent === signature?.id ? (
+        <Text style={styles.meta} testID="invoice-sign-odoo">
+          Signature is on {invoice.odoo.name} in Odoo.
+        </Text>
+      ) : null}
       <Action label={signature ? 'Sign again' : 'Customer signs'} onPress={() => setSigning(true)} testID="invoice-sign" />
       <SignatureSheet
         visible={signing}
-        title={`Invoice ${invoice.number}`}
+        title={invoiceLabel(invoice)}
         agreement="Work completed to my satisfaction."
         initialName={invoice.billTo}
         onCancel={() => setSigning(false)}
         onSave={(s) => {
-          attachments.sign({ for: 'invoice', refId: invoice.id, ...s });
+          const saved = attachments.sign({ for: 'invoice', refId: invoice.id, ...s });
           setSigning(false);
+          // On an invoice already in Odoo, the signed page goes there too.
+          if (invoice.odoo && invoiceOdoo.client) {
+            setSigNote('Adding the signature to the invoice in Odoo...');
+            invoiceOdoo
+              .send(invoice, { sig: saved })
+              .then((st) => setSigNote(st?.signatureSent === saved.id ? `Signature added to ${st.name} in Odoo.` : null))
+              .catch(() => setSigNote("Couldn't add the signature in Odoo yet. Sync with Odoo to try again."));
+          }
         }}
       />
 

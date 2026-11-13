@@ -55,11 +55,11 @@ describe('screens and routes', () => {
     expect(await screen.findByText("That job isn't saved on this phone any more.")).toBeTruthy();
   });
 
-  it('opens the price sheet as its own page and goes back with Close', async () => {
+  it('opens the price book as its own page and goes back with Close', async () => {
     const app = await renderApp('/jobs');
-    await fireEvent.press(screen.getByTestId('open-price-sheet'));
-    expect(app.getPathname()).toBe('/price-sheet');
-    await fireEvent.press(screen.getByTestId('prices-sheet-close'));
+    await fireEvent.press(screen.getByTestId('open-price-book'));
+    expect(app.getPathname()).toBe('/price-book');
+    await fireEvent.press(screen.getByTestId('price-book-page-close'));
     expect(app.getPathname()).toBe('/jobs');
   });
 });

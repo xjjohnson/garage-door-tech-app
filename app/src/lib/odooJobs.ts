@@ -9,7 +9,7 @@ import type { OdooPartner } from './customerSync';
 import type { CustomerFields } from './customers';
 import { phoneKey } from './customers';
 import type { Job } from './jobs';
-import type { OdooClient } from './odoo';
+import type { OdooClient, OdooTask } from './odoo';
 import { odooTime, toOdooTime } from './odoo';
 import type { Appointment } from './schedule';
 
@@ -212,4 +212,48 @@ export function parseJobRef(v: unknown): OdooJobRef | undefined {
   if (!v || typeof v !== 'object') return undefined;
   const r = v as Record<string, unknown>;
   return (r.model === 'fsm.order' || r.model === 'project.task') && typeof r.id === 'number' ? { model: r.model, id: r.id, name: typeof r.name === 'string' ? r.name : `#${r.id}` } : undefined;
+}
+
+/** What a job in Odoo is for, from its notes: the first line that isn't the app's own marker, else its reference. */
+export function whatOf(t: Pick<OdooTask, 'name' | 'notes'>): string {
+  return t.notes.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('App job ')) ?? t.name;
+}
+
+/**
+ * The schedule from Odoo: each open job given to me with a time becomes a
+ * visit (or moves the one there), and a visit pulled from Odoo whose job is
+ * no longer mine and open goes. Visits changed on the phone and not yet sent
+ * are left alone, and so are Odoo jobs the phone already has a job for
+ * (`linked`, by Odoo id), which the job sync moves itself.
+ */
+export function pullSchedule(visits: Appointment[], mine: OdooTask[], linked: Set<number>, now: number): { add: Appointment[]; drop: string[] } {
+  const add: Appointment[] = [];
+  const drop: string[] = [];
+  const ids = new Set(mine.map((t) => visitId(t)));
+  for (const t of mine) {
+    if (t.start === undefined || linked.has(t.id)) continue;
+    const v = visits.find((a) => a.id === visitId(t));
+    if (v && v.updatedAt > (v.syncedAt ?? 0)) continue;
+    const next: Appointment = {
+      ...(v ?? { createdAt: now, status: 'booked' as const }),
+      id: visitId(t),
+      start: t.start,
+      minutes: t.minutes ?? v?.minutes ?? 60,
+      name: t.customer || v?.name || t.name,
+      address: t.address || v?.address || '',
+      phone: t.phone || v?.phone || '',
+      what: v?.what || whatOf(t),
+      odooName: t.name,
+      updatedAt: now,
+      syncedAt: now,
+    };
+    if (v && v.start === next.start && v.minutes === next.minutes && v.name === next.name && v.address === next.address && v.phone === next.phone && v.odooName === next.odooName) continue;
+    add.push(next);
+  }
+  for (const v of visits) {
+    if (!/^odoo-\d+$/.test(v.id) || ids.has(v.id) || v.status !== 'booked') continue;
+    if (v.jobId || v.updatedAt > (v.syncedAt ?? 0)) continue;
+    drop.push(v.id);
+  }
+  return { add, drop };
 }

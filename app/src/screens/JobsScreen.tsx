@@ -6,7 +6,7 @@ import { JobDetailsSheet } from '../components/JobDetailsSheet';
 import { formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { checkCounts } from '../lib/inspection';
-import { balance, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
+import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { StatsCard } from './StatsScreen';
@@ -16,6 +16,8 @@ import { StockButton } from './StockScreen';
 import { TeamButton } from './TeamScreen';
 import { followUps } from '../lib/followups';
 import { useFollowUps } from '../lib/useFollowUps';
+import { OdooJobsList } from '../components/OdooJobsList';
+import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
 
 type Filter = JobStatus | 'all';
@@ -29,9 +31,11 @@ const FILTERS: ChipOption<Filter>[] = [
 const CONFIRM_MS = 4000;
 
 /**
- * Saved jobs, open ones first. Tapping a job shows its details and what can
- * be done with it: open it in the calculator, call the customer, edit, mark
- * done, or delete (on a second tap).
+ * The jobs. Signed in to Odoo, that's Odoo's own Field Service jobs, with
+ * any job still waiting to go to Odoo on top. Not signed in, it's the jobs
+ * saved on this phone, open ones first. Tapping a phone job shows its details
+ * and what can be done with it: open it, call the customer, edit, mark done,
+ * or delete (on a second tap).
  */
 export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   const { jobs, loaded, updateDetails, setStatus, remove } = useJobs();
@@ -40,10 +44,13 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Job | null>(null);
 
+  const { status: odooStatus, client } = useOdoo();
+  const fromOdoo = odooStatus === 'signedIn' && !!client && client.session.kind !== 'none';
   const shown = useMemo(() => {
-    const byStatus = filter === 'all' ? jobs : jobs.filter((j) => j.status === filter);
+    const own = fromOdoo ? jobs.filter((j) => !j.odooJob) : jobs;
+    const byStatus = filter === 'all' ? own : own.filter((j) => j.status === filter);
     return sortJobs(searchJobs(byStatus, query));
-  }, [jobs, filter, query]);
+  }, [jobs, filter, query, fromOdoo]);
   const openCount = jobs.filter((j) => j.status === 'open').length;
 
   return (
@@ -59,7 +66,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Customer, address or spring"
+          placeholder={fromOdoo ? 'Customer, address or job number' : 'Customer, address or spring'}
           placeholderTextColor={colors.muted}
           autoCorrect={false}
           returnKeyType="search"
@@ -82,22 +89,27 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         </Pressable>
       </View>
       <View style={styles.row}>
-        <Pressable onPress={() => router.push('/price-sheet')} accessibilityRole="button" testID="open-price-sheet" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
-          <Text style={styles.buttonText}>Price sheet</Text>
+        <Pressable onPress={() => router.push('/price-book')} accessibilityRole="button" testID="open-price-book" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
+          <Text style={styles.buttonText}>Price book</Text>
         </Pressable>
         <TeamButton />
       </View>
       <Segmented options={FILTERS} value={filter} onChange={setFilter} testID="jobs-filter" />
 
-      {loaded && jobs.length === 0 ? (
+      {!fromOdoo && loaded && jobs.length === 0 ? (
         <View style={styles.empty} testID="jobs-empty">
-          <Text style={styles.emptyTitle}>No saved jobs yet</Text>
-          <Text style={styles.emptyBody}>On Springs, enter the measurements, then tap Save as a job under the results. Jobs stay on this phone.</Text>
+          <Text style={styles.emptyTitle}>No jobs yet</Text>
+          <Text style={styles.emptyBody}>Tap + New job on Today. Sign in to Odoo on Team to see all of Odoo&apos;s jobs here.</Text>
         </View>
       ) : null}
-      {jobs.length > 0 ? (
+      {!fromOdoo && jobs.length > 0 ? (
         <Text style={styles.count} testID="jobs-count">
           {shown.length === 0 ? 'No jobs match.' : `${shown.length} shown`} · {openCount} open
+        </Text>
+      ) : null}
+      {fromOdoo && shown.length > 0 ? (
+        <Text style={styles.count} testID="jobs-waiting">
+          Waiting to go to Odoo: {shown.length}
         </Text>
       ) : null}
 
@@ -117,6 +129,8 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           }}
         />
       ))}
+
+      {fromOdoo ? <OdooJobsList filter={filter} search={query} /> : null}
 
       <JobDetailsSheet
         visible={editing !== null}
@@ -193,7 +207,7 @@ function JobCard({
         ) : null}
         {invoice ? (
           <Text style={styles.accepted} testID={`job-invoice-${job.id}`}>
-            Invoice {invoice.number}: {STATUS_LABEL[invoiceStatus(invoice)]}
+            {invoiceLabel(invoice)}: {STATUS_LABEL[invoiceStatus(invoice)]}
             {invoiceStatus(invoice) !== 'paid' ? `, ${formatMoney(balance(invoice))} owed` : ''}
           </Text>
         ) : null}

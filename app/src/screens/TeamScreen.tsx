@@ -3,10 +3,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipRow, SectionTitle } from '../components/controls';
 import { phoneLink } from '../lib/jobs';
-import { appsFound, cleanUrl, guessDb, OdooError, OdooTask, OdooUser, taskToAppointment } from '../lib/odoo';
+import { appsFound, cleanUrl, guessDb, OdooError, OdooTask, OdooUser } from '../lib/odoo';
 import { dayLabel, formatTime, mapsLink } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
+import { useOpenOdooJob } from '../lib/useStartJob';
 import { colors, touch, type } from '../theme';
 
 /** At the top of Jobs. */
@@ -21,7 +22,7 @@ export function TeamButton() {
 
 /**
  * Team jobs through the business's Odoo: sign in, see the jobs Odoo assigns
- * to you and put them on the schedule, and, for whoever dispatches, give
+ * to you (they come onto the schedule on their own), and, for whoever dispatches, give
  * unassigned jobs to a tech.
  */
 export function TeamScreen({ now = Date.now }: { now?: () => number }) {
@@ -116,7 +117,7 @@ function SignedIn({ now }: { now: () => number }) {
   }, [tech, client, s.me, s.kind]);
 
   const scheduled = (t: OdooTask) => appointments.find((a) => a.id === `odoo-${t.id}`);
-  const addToSchedule = (list: OdooTask[]) => restore(list.map((t) => taskToAppointment(t, now(), scheduled(t))));
+  const openJob = useOpenOdooJob();
 
   const assign = async (t: OdooTask, userId: number) => {
     setError(null);
@@ -174,11 +175,12 @@ function SignedIn({ now }: { now: () => number }) {
 
       <SectionTitle>My jobs</SectionTitle>
       {mine && mine.length === 0 ? <Text style={styles.note}>Nothing assigned to you in Odoo.</Text> : null}
-      {mine && mine.length > 0 ? <Action label="Put all on my schedule" primary onPress={() => addToSchedule(mine)} testID="team-schedule-all" /> : null}
+      {mine && mine.length > 0 ? <Text style={styles.note}>Jobs with a time are on your schedule on their own. Set or change the time in Odoo or on the job's Visit row.</Text> : null}
       {(mine ?? []).map((t) => (
         <Task key={t.id} t={t} now={now()}>
+          {scheduled(t) ? <Text style={styles.meta} testID={`team-schedule-${t.id}`}>On your schedule ✓</Text> : null}
           <View style={styles.row}>
-            <Action label={scheduled(t) ? 'On schedule ✓' : 'Add to schedule'} grow onPress={() => addToSchedule([t])} testID={`team-schedule-${t.id}`} />
+            <Action label="Open job" grow onPress={() => openJob(t)} testID={`team-open-${t.id}`} />
             {client!.canMarkDone ? <Action label="Mark done" grow onPress={() => done(t)} testID={`team-done-${t.id}`} /> : null}
           </View>
         </Task>
