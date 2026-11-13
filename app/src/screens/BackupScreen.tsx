@@ -66,7 +66,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
     try {
       const at = now();
       const name = backupFileName(at);
-      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, followUps: { settings: followUpSettings, dismissed }, appointments, workLog: { shifts, centsPerMile }, stock: { items: stockItems, suppliers }, signatures, priceSheet: sheet }, at, Constants.expoConfig?.version));
+      const folder = await files.save(name, makeBackup({ jobs, customers, invoices, business, followUps: { settings: followUpSettings, dismissed, activities: {} }, appointments, workLog: { shifts, centsPerMile }, stock: { items: stockItems, suppliers }, signatures, priceSheet: sheet }, at, Constants.expoConfig?.version));
       if (folder !== null) {
         setLastBackup(at);
         AsyncStorage.setItem(LAST_BACKUP_KEY, String(at)).catch(() => undefined);

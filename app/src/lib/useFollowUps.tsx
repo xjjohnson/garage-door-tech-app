@@ -7,13 +7,15 @@ interface FollowUpsApi extends FollowUpStore {
   dismiss: (id: string) => void;
   undismiss: (id: string) => void;
   restore: (s: FollowUpStore) => void;
+  /** Remembers (or with null forgets) the Odoo activity made for a follow-up. */
+  setActivity: (id: string, activity: number | null) => void;
 }
 
 const Ctx = createContext<FollowUpsApi | null>(null);
 
 /** Follow-up settings (warranty lengths, cycles a day) and which follow-ups were handled, saved on the phone. */
 export function FollowUpsProvider({ children }: { children: ReactNode }) {
-  const [store, setStore] = useState<FollowUpStore>({ settings: DEFAULT_FOLLOW_UP, dismissed: {} });
+  const [store, setStore] = useState<FollowUpStore>({ settings: DEFAULT_FOLLOW_UP, dismissed: {}, activities: {} });
   const [loaded, setLoaded] = useState(false);
   const touched = useRef(false);
 
@@ -49,9 +51,18 @@ export function FollowUpsProvider({ children }: { children: ReactNode }) {
       }),
     [change],
   );
-  const restore = useCallback((incoming: FollowUpStore) => change((s) => ({ settings: incoming.settings, dismissed: { ...s.dismissed, ...incoming.dismissed } })), [change]);
+  const restore = useCallback((incoming: FollowUpStore) => change((s) => ({ settings: incoming.settings, dismissed: { ...s.dismissed, ...incoming.dismissed }, activities: { ...incoming.activities, ...s.activities } })), [change]);
 
-  const api = useMemo(() => ({ ...store, setSettings, dismiss, undismiss, restore }), [store, setSettings, dismiss, undismiss, restore]);
+  const setActivity = useCallback<FollowUpsApi['setActivity']>(
+    (id, activity) =>
+      change((s) => {
+        const { [id]: _old, ...rest } = s.activities;
+        return { ...s, activities: activity === null ? rest : { ...rest, [id]: activity } };
+      }),
+    [change],
+  );
+
+  const api = useMemo(() => ({ ...store, setSettings, dismiss, undismiss, restore, setActivity }), [store, setSettings, dismiss, undismiss, restore, setActivity]);
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 
