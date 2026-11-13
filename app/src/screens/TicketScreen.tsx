@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
 import { ChipOption, ChipRow, MeasureField, SectionTitle, Segmented } from '../components/controls';
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
-import { invoiceLabel, invoiceStatus, newId, PAY_LABEL, PAY_METHODS, PayMethod } from '../lib/invoices';
+import { Business, invoiceLabel, invoiceStatus, newId, PAY_LABEL, PAY_METHODS, payLinks, PayMethod } from '../lib/invoices';
+import { QrCode } from '../components/QrCode';
 import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
@@ -32,7 +33,7 @@ const SYNC_DELAY_MS = 1500;
 export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => number }) {
   const { setTicket, setOdooOrder, setStep } = useJobs();
   const invoiceOdoo = useInvoiceOdoo(now);
-  const { invoices, create } = useInvoices();
+  const { invoices, create, business } = useInvoices();
   const { sheet } = usePriceSheet();
   const client = useSalesOdoo();
   const partner = usePartner();
@@ -226,6 +227,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
 
       {!invoice ? (
         <Deposits
+          business={business}
+          note={`Deposit, ${jobName(job)}`}
           deposits={ticket.deposits ?? []}
           total={shown.total}
           onAdd={(d) => setTicket(job.id, (t) => ({ ...t, deposits: [...(t.deposits ?? []), { ...d, id: newId('d', now()), at: now() }] }))}
@@ -286,13 +289,15 @@ const METHOD_OPTIONS: ChipOption<PayMethod>[] = PAY_METHODS.map((m) => ({ label:
  * the ticket until Create invoice, which records them as the invoice's first
  * payments, so Odoo gets them with the invoice.
  */
-function Deposits({ deposits, total, onAdd, onRemove }: { deposits: Deposit[]; total: number; onAdd: (d: Omit<Deposit, 'id' | 'at'>) => void; onRemove: (id: string) => void }) {
+function Deposits({ business, note, deposits, total, onAdd, onRemove }: { business: Business; note: string; deposits: Deposit[]; total: number; onAdd: (d: Omit<Deposit, 'id' | 'at'>) => void; onRemove: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState<PayMethod>('cash');
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
   const taken = depositTotal({ deposits });
   const amountCents = cents(amount);
+  // Cash App, Venmo and Zelle: the same QR codes and handles as the invoice's Scan to pay.
+  const link = method === 'cash' || method === 'check' ? undefined : payLinks(business, amountCents, note).find((l) => l.method === method);
   return (
     <View style={styles.refBox} testID="ticket-deposits">
       {deposits.map((d) => (
@@ -318,6 +323,27 @@ function Deposits({ deposits, total, onAdd, onRemove }: { deposits: Deposit[]; t
         <>
           <ChipRow options={METHOD_OPTIONS} value={method} onChange={setMethod} scroll testID="ticket-deposit-method" />
           <MeasureField label="Deposit" value={amount} onChange={setAmount} unit="dollars" allowFraction={false} testID="ticket-deposit-amount" />
+          {method !== 'cash' && method !== 'check' ? (
+            link?.url ? (
+              <View style={styles.qrBox} testID="ticket-deposit-qr">
+                <QrCode value={link.url} size={240} testID={`ticket-deposit-qr-${link.method}`} />
+                <Text style={styles.qrLabel}>
+                  {link.label} {link.handle}
+                  {amountCents > 0 ? `, ${formatMoney(amountCents)}` : ''}
+                </Text>
+                <Text style={styles.meta}>{amountCents > 0 ? `The customer points their phone camera at this. ${link.label} opens with the amount filled in.` : `Enter the deposit to put the amount in the code.`}</Text>
+              </View>
+            ) : link ? (
+              <Text style={styles.qrLabel} testID={`ticket-deposit-pay-${link.method}`}>
+                {link.label}: send to {link.handle}
+              </Text>
+            ) : (
+              <View style={styles.refBox} testID="ticket-deposit-no-handle">
+                <Text style={styles.meta}>Add your {PAY_LABEL[method]} under Your business to show it here.</Text>
+                <Action label="Your business" onPress={() => router.push('/business')} testID="ticket-deposit-set-business" />
+              </View>
+            )
+          ) : null}
           {method !== 'cash' ? (
             <TextInput
               value={reference}
@@ -473,6 +499,8 @@ const styles = StyleSheet.create({
   for: { fontSize: 22, fontWeight: '900', color: colors.text },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
   refBox: { gap: 6 },
+  qrBox: { alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
+  qrLabel: { fontSize: type.value, fontWeight: '900', color: colors.text, textAlign: 'center' },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 8 },

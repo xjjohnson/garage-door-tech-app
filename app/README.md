@@ -448,6 +448,9 @@ deposit** records an amount typed each time, by cash, check, Cash App, Venmo
 or Zelle, and shows what's still due when the work is done. Deposits stay on
 the ticket until **Create invoice**, which makes them the invoice's first
 payments; they go to Odoo as payments on that invoice like any other.
+Picking Cash App or Venmo for a deposit shows the same QR code as the
+invoice's Scan to pay, with the deposit amount filled in (from 0.5.32); Zelle
+shows where to send it.
 
 **Which address the ticket is for** (from 0.5.28). When the job's customer
 is linked to an Odoo contact with houses (delivery or other addresses under
