@@ -532,8 +532,9 @@ the customer picks an option, **Put … on the job ticket** adds its lines.
 now **Finish job**: it marks the work done, makes the invoice, posts it in
 Odoo and opens it with the signing sheet up. The signed page goes to the
 invoice in Odoo as a PDF with a note in its chatter. The ticket has a
-**Customer reference** (the job address when left empty) that goes on the
-sales order and the invoice in Odoo. Invoices made from 0.5.17 on go to Odoo
+**Customer reference** (optional) that goes on the sales order and the
+invoice in Odoo; left empty, the order has none and the invoice keeps
+"Invoice 1004". Invoices made from 0.5.17 on go to Odoo
 by themselves (`OdooInvoicesSync`, mounted in `_layout.tsx`): shortly after a
 change, when the app comes back and every few minutes, any that isn't in
 Odoo yet is posted, and payments and signatures taken offline follow. A

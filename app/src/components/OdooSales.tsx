@@ -115,7 +115,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     if (given ?? job?.odooOrder) return given ?? job?.odooOrder;
     if (invoice.source !== 'ticket' || !job || !c.session.apps.sales) return undefined;
     try {
-      const order = await confirmOrderFor(c, pid, invoice.lines, sheet.odoo, invoiceRef(invoice), job.ticket?.order);
+      const order = await confirmOrderFor(c, pid, invoice.lines, sheet.odoo, invoice.ref ?? '', job.ticket?.order);
       setOdooOrder(job.id, order);
       return order;
     } catch (e) {

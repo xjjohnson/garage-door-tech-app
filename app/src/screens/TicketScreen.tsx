@@ -50,7 +50,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-      const r = await syncTicket(client, pid, ticket, ticketRef(ticket, job.address), now());
+      const r = await syncTicket(client, pid, ticket, ticketRef(ticket), now());
       if (n === run.current) setTicket(job.id, (t) => ({ ...t, order: r.order, totals: r.totals }));
       return { ...ticket, order: r.order, totals: r.totals };
     } catch (e) {
@@ -84,7 +84,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       let order = job.odooOrder;
       if (client && t.order && currentTotals(t)) {
         try {
-          await confirmTicket(client, t.order, ticketRef(t, job.address));
+          await confirmTicket(client, t.order, ticketRef(t));
           if (!job.odooOrder) setOdooOrder(job.id, t.order);
           order = order ?? t.order;
           tied = true;
@@ -93,7 +93,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         }
       }
       if (t.order && !tied) setError(`Made the invoice from the phone's lines and estimate. Quotation ${t.order.name} in Odoo was left as it is.`);
-      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t, job.address));
+      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t));
       if (!job.steps?.workDoneAt) setStep(job.id, 'workDoneAt', now());
       // Post it in Odoo now, so the customer signs Odoo's invoice; if that fails, the invoice screen can send it later.
       if (invoiceOdoo.client) {
@@ -169,7 +169,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         </>
       ) : null}
 
-      {!invoice ? <CustomerRef value={ticket.ref ?? ''} placeholder={job.address.trim() || 'Optional'} onChange={(ref) => setTicket(job.id, (t) => ({ ...t, ref }))} /> : null}
+      {!invoice ? <CustomerRef value={ticket.ref ?? ''} placeholder="Optional" onChange={(ref) => setTicket(job.id, (t) => ({ ...t, ref }))} /> : null}
 
       {!invoice ? <Action label={making ? 'Finishing...' : 'Finish job'} primary disabled={making || ticket.lines.length === 0 || syncing} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
 
@@ -199,7 +199,7 @@ function CustomerRef({ value, placeholder, onChange }: { value: string; placehol
         testID="ticket-ref"
         style={styles.input}
       />
-      <Text style={styles.meta}>On the sales order and the invoice in Odoo. Left empty, it's the job address.</Text>
+      <Text style={styles.meta}>On the sales order and the invoice in Odoo. Optional.</Text>
     </View>
   );
 }

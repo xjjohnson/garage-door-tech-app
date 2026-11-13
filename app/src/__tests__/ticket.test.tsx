@@ -160,7 +160,8 @@ describe('Ticket (logic)', () => {
     });
     expect(parseTicket(null)).toBeUndefined();
     expect(parseTicket({ lines: [], ref: 'PO 9' })?.ref).toBe('PO 9');
-    expect(ticketRef({ lines: [], ref: '  ' }, ' 12 Oak St ')).toBe('12 Oak St');
+    expect(ticketRef({ lines: [], ref: '  ' })).toBe('');
+    expect(ticketRef({ lines: [], ref: ' PO 9 ' })).toBe('PO 9');
   });
 
   it('counts the Ticket step done once it has a line', () => {
@@ -336,6 +337,9 @@ describe('Ticket screen', () => {
     // Finish job: work done, the invoice posted in Odoo, and the customer signs straight away.
     expect((await saved()).steps?.workDoneAt).toBeGreaterThan(0);
     expect(calls.find((c) => c.model === 'account.move' && c.method === 'action_post')?.args).toEqual([[80]]);
+    // No customer reference typed: none on the order, the invoice keeps "Invoice 1001".
+    expect((calls.find((c) => c.model === 'sale.order' && c.method === 'create')!.args[0] as Row).client_order_ref).toBe(false);
+    expect((calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as Row).ref).toBe(`Invoice ${inv!.number}`);
     expect(inv!.odoo).toMatchObject({ id: 80, name: 'INV/2026/00080' });
     expect(screen.getByTestId('signature-sheet')).toBeTruthy();
     const pad = screen.getByTestId('signature-pad');

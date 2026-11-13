@@ -44,8 +44,8 @@ export interface Ticket {
   ref?: string;
 }
 
-/** The ticket's customer reference: what was typed, else the job address. */
-export const ticketRef = (t: Ticket, address: string) => t.ref?.trim() || address.trim();
+/** The ticket's customer reference as typed; empty means none (Justin, Nov 13). */
+export const ticketRef = (t: Ticket) => t.ref?.trim() ?? '';
 
 export const EMPTY_TICKET: Ticket = { lines: [] };
 
