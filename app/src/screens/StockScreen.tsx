@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BarcodeScanner } from '../components/BarcodeScanner';
+import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
 import { ProductPicker } from '../components/ProductPicker';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { browseProducts, ensureTracked, findProductByCode, listTrucks, NoTruckError, StockProduct, SyncResult, UntrackedError } from '../lib/odooStock';
@@ -576,7 +577,7 @@ function ItemSheet({
   const canSave = f.name.trim() !== '';
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardBackdrop style={styles.backdrop}>
         <View style={styles.sheet} testID="stock-sheet">
           <View style={styles.titleRow}>
             <Text style={styles.sheetTitle}>{isNew ? 'Add an item' : 'Edit item'}</Text>
@@ -608,7 +609,7 @@ function ItemSheet({
             <Text style={styles.saveText}>{isNew ? 'Add item' : 'Save item'}</Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardBackdrop>
     </Modal>
   );
 }
@@ -623,7 +624,7 @@ function SupplierSheet({ name, initial, onSave, onCancel }: { name: string | nul
   if (name === null) return null;
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardBackdrop style={styles.backdrop}>
         <View style={styles.sheet} testID="supplier-sheet">
           <View style={styles.titleRow}>
             <Text style={styles.sheetTitle}>{name}</Text>
@@ -637,7 +638,7 @@ function SupplierSheet({ name, initial, onSave, onCancel }: { name: string | nul
             <Text style={styles.saveText}>Save supplier</Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardBackdrop>
     </Modal>
   );
 }
