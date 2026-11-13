@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { AddressSuggestions } from '../components/AddressSuggestions';
+import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
 import { suggestCustomers } from '../lib/customers';
 import { textLink } from '../lib/followups';
@@ -201,7 +202,7 @@ function BookSheet({
   const canSave = a.name.trim() !== '' || a.address.trim() !== '';
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardBackdrop style={styles.backdrop}>
         <View style={styles.sheet} testID="book-sheet">
           <View style={styles.titleRow}>
             <Text style={styles.sheetTitle}>{editing ? 'Change the visit' : 'Book a visit'}</Text>
@@ -259,7 +260,7 @@ function BookSheet({
             </Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardBackdrop>
     </Modal>
   );
 }
