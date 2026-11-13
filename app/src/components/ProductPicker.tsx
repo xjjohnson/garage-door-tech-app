@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardBackdrop } from './KeyboardBackdrop';
 import type { StockProduct } from '../lib/odooStock';
 import { colors, touch, type } from '../theme';
 
@@ -69,7 +70,7 @@ export function ProductPicker({
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <KeyboardBackdrop style={styles.backdrop}>
         <View style={styles.sheet} testID="product-picker">
           <View style={styles.titleRow}>
             <Text style={styles.title}>{title}</Text>
@@ -118,7 +119,7 @@ export function ProductPicker({
             </Pressable>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardBackdrop>
     </Modal>
   );
 }
