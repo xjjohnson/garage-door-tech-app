@@ -345,6 +345,11 @@ function Deposits({ deposits, total, onAdd, onRemove }: { deposits: Deposit[]; t
               style={styles.input}
             />
           ) : null}
+          {total > 0 && amountCents + taken > total ? (
+            <Text style={styles.error} testID="ticket-deposit-over">
+              That's more than the ticket's {formatMoney(total)} total. Odoo would show the extra as an overpayment.
+            </Text>
+          ) : null}
           <Action
             label={amountCents > 0 ? `Take ${formatMoney(amountCents)} by ${PAY_LABEL[method]}` : 'Enter the deposit'}
             primary
