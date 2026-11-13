@@ -31,7 +31,7 @@ export interface CustomerSyncPlan {
   updated: number;
 }
 
-const SENT: (keyof CustomerFields)[] = ['name', 'phone', 'email'];
+const SENT: (keyof CustomerFields)[] = ['name', 'phone', 'email', 'address', 'notes'];
 
 export function planCustomerSync(customers: Customer[], partners: OdooPartner[], now: number): CustomerSyncPlan {
   const out = customers.map((c) => ({ ...c }));

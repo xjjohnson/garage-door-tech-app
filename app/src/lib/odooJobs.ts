@@ -12,6 +12,8 @@ import type { Job } from './jobs';
 import type { OdooClient, OdooTask } from './odoo';
 import { odooTime, toOdooTime } from './odoo';
 import type { Appointment } from './schedule';
+import { templateNamed, templateVals } from './fsmTemplates';
+import { addressParts } from './geocode';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
 
@@ -66,17 +68,26 @@ const has = (c: Client, f: string) => c.session.fields.includes(f);
 /** Whether this Odoo has somewhere to keep jobs. */
 export const canSendJobs = (c: Client) => c.session.kind === 'oca' || c.session.kind === 'task';
 
-/** The Field Service location for a customer: theirs if Odoo has one, otherwise a new one on their contact. */
+const squashStreet = (t: string) => t.toLowerCase().replace(/\b(street|st|road|rd|drive|dr|avenue|ave|boulevard|blvd|lane|ln|court|ct|circle|cir|cr)\b\.?/g, '').replace(/[^a-z0-9]/g, '');
+
+/**
+ * The Field Service location for a job: one per house (Justin, Nov 13). The
+ * customer's location at this street if Odoo has one, otherwise a new one
+ * named by the street, so a property manager's houses each get their own
+ * and repeat visits reuse it. With no address, the customer's first location.
+ */
 export async function locationFor(c: Client, partnerId: number, job: Pick<JobForOdoo, 'customer' | 'address'>): Promise<number> {
-  const found = (await c.call('fsm.location', 'search', [['|', ['partner_id', '=', partnerId], ['owner_id', '=', partnerId]]], { limit: 1 })) as number[];
-  if (found[0]) return found[0];
-  try {
-    // A location is a contact; this one is the customer's own contact.
-    return (await c.call('fsm.location', 'create', [{ partner_id: partnerId, owner_id: partnerId }])) as number;
-  } catch {
-    // Some versions want a name and make their own contact for the place.
-    return (await c.call('fsm.location', 'create', [{ name: job.address.trim() || job.customer.trim() || 'Customer', owner_id: partnerId, street: job.address.trim() || false }])) as number;
+  const theirs = (await c.call('fsm.location', 'search_read', [['|', ['partner_id', '=', partnerId], ['owner_id', '=', partnerId]]], { fields: ['name', 'street'], limit: 200 })) as { id: number; name?: unknown; street?: unknown }[];
+  const at = addressParts(job.address.trim());
+  const key = squashStreet(at.street);
+  if (!key) {
+    if (theirs[0]) return theirs[0].id;
+  } else {
+    const same = theirs.find((l) => [l.street, l.name].some((v) => typeof v === 'string' && squashStreet(v.split(',')[0]) === key));
+    if (same) return same.id;
   }
+  const name = at.street || job.customer.trim() || 'Customer';
+  return (await c.call('fsm.location', 'create', [{ name, owner_id: partnerId, ...(at.street ? { street: at.street } : {}), ...(at.city ? { city: at.city } : {}), ...(at.zip ? { zip: at.zip } : {}) }])) as number;
 }
 
 const visitVals = (c: Client, visit: Pick<Appointment, 'start' | 'minutes'> | undefined): Record<string, unknown> => {
@@ -103,7 +114,8 @@ export async function createOdooJob(c: Client, partnerId: number, job: JobForOdo
   if (found) return found;
   if (s.kind === 'oca') {
     const location_id = await locationFor(c, partnerId, job);
-    const vals: Record<string, unknown> = { location_id, ...visitVals(c, visit) };
+    const template = await templateNamed(c, job.what);
+    const vals: Record<string, unknown> = { location_id, ...(template ? templateVals(c, template, !!visit) : {}), ...visitVals(c, visit) };
     if (has(c, 'description') && describe(job)) vals.description = describe(job);
     if (visit && s.me) vals.person_id = s.me;
     const id = (await c.call('fsm.order', 'create', [vals])) as number;

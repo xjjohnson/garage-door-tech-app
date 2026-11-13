@@ -7,6 +7,7 @@
  * otherwise ordinary Project tasks. Kept free of React; the network call is
  * passed in, so tests use a fake server.
  */
+import { addressParts } from './geocode';
 import type { CustomerFields } from './customers';
 import type { OdooPartner } from './customerSync';
 import { pretendOffline } from './devFlags';
@@ -164,7 +165,7 @@ export function toOdooTime(ms: number): string {
 const TASK_OPTIONAL = ['planned_date_begin', 'date_deadline', 'description', 'partner_phone', 'fsm_done'];
 const PARTNER_OPTIONAL = ['customer_rank', 'mobile', 'partner_latitude', 'partner_longitude'];
 const PRODUCT_OPTIONAL = ['sale_ok', 'default_code', 'categ_id', 'type', 'description_sale'];
-const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end', 'scheduled_duration'];
+const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end', 'scheduled_duration', 'template_id', 'type', 'category_ids'];
 
 export class OdooClient {
   constructor(
@@ -281,15 +282,17 @@ export class OdooClient {
   /** Makes a contact in Odoo for a customer from the phone, marked as a customer. Returns its id. */
   async createPartner(f: CustomerFields): Promise<number> {
     const pf = await this.partnerFields();
-    const vals: Record<string, unknown> = { name: f.name, phone: f.phone || false, email: f.email || false, street: f.address || false, comment: f.notes ? escapeHtml(f.notes) : false };
+    const vals: Record<string, unknown> = { name: f.name, phone: f.phone || false, email: f.email || false, ...filled(addressVals(f.address)), comment: f.notes ? escapeHtml(f.notes) : false };
     if (pf.includes('customer_rank')) vals.customer_rank = 1;
     return (await this.call('res.partner', 'create', [vals])) as number;
   }
 
-  /** Sends a customer's changed name, phone or email to Odoo. */
+  /** Sends a customer's changed name, phone, email, address or notes to Odoo. */
   writePartner(id: number, f: Partial<CustomerFields>): Promise<unknown> {
     const vals: Record<string, unknown> = {};
     for (const k of ['name', 'phone', 'email'] as const) if (f[k] !== undefined) vals[k] = f[k] || false;
+    if (f.address !== undefined) Object.assign(vals, addressVals(f.address));
+    if (f.notes !== undefined) vals.comment = f.notes ? escapeHtml(f.notes) : false;
     return this.call('res.partner', 'write', [[id], vals]);
   }
 
@@ -364,6 +367,21 @@ export class OdooClient {
       else d.push('|', ['name', 'ilike', q], ['partner_id', 'ilike', q]);
     }
     return this.readWhere(d, { newest: true, limit, offset });
+  }
+
+  /**
+   * A customer's jobs in Odoo, newest first: Field Service orders at a
+   * location they own or are (a property manager's houses included), or tasks
+   * for them or a contact under them.
+   */
+  customerJobs(partnerId: number, limit = 20): Promise<OdooTask[]> {
+    const s = this.session;
+    if (s.kind === 'none' || !partnerId) return Promise.resolve([]);
+    const d: unknown[] =
+      s.kind === 'oca'
+        ? ['|', ['location_id.owner_id', 'child_of', partnerId], ['location_id.partner_id', 'child_of', partnerId]]
+        : [...(s.fsm ? [['is_fsm', '=', true]] : []), ['partner_id', 'child_of', partnerId]];
+    return this.readWhere(d, { newest: true, limit });
   }
 
   /** Open jobs nobody is assigned to. */
@@ -575,6 +593,17 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
 
 const escapeHtml = (t: string) =>
   `<p>${t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
+
+/** An address typed on the phone as Odoo's street, city and ZIP ("400 Main St, Kyle, TX 78640"). */
+export function addressVals(address: string): Record<string, unknown> {
+  const a = address.trim();
+  if (!a) return { street: false, street2: false, city: false, zip: false };
+  const p = addressParts(a);
+  return { street: p.street || a, street2: false, city: p.city || false, zip: p.zip || false };
+}
+
+/** Only the values that are set, for a new record. */
+const filled = (v: Record<string, unknown>) => Object.fromEntries(Object.entries(v).filter(([, x]) => x !== false));
 
 function toPartner(r: Record<string, unknown>): OdooPartner {
   const street = [str(r.street), str(r.street2)].filter(Boolean).join(' ');

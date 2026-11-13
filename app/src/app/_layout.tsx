@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { OdooInvoicesSync } from '../components/OdooSales';
 import { OdooJobSync } from '../components/OdooJobSync';
+import { OdooPhotoSync } from '../components/OdooPhotoSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
 import { CalculatorLinkProvider } from '../lib/useCalculatorLink';
 import { CustomersProvider } from '../lib/useCustomers';
@@ -50,6 +51,7 @@ export default function RootLayout() {
                           <CalculatorLinkProvider>
                             <StatusBar style="dark" />
                             <OdooJobSync />
+                            <OdooPhotoSync />
                             <OdooInvoicesSync />
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                               <Stack.Screen name="(tabs)" />

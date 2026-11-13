@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { OdooCustomerSync } from '../components/OdooCustomerSync';
-import { customerName, searchCustomers, sortCustomers, summarize } from '../lib/customers';
+import { customerName, EMPTY_CUSTOMER, searchCustomers, sortCustomers, summarize } from '../lib/customers';
+import { CustomerSheet } from './CustomerScreen';
 import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
@@ -13,7 +14,8 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 /** Everyone the tech has saved a job for, most recent first, with a search box. */
 export function CustomersScreen() {
-  const { customers, loaded } = useCustomers();
+  const { customers, loaded, add } = useCustomers();
+  const [adding, setAdding] = useState(false);
   const { jobs } = useJobs();
   const [query, setQuery] = useState('');
   const shown = useMemo(() => searchCustomers(sortCustomers(customers.map((c) => summarize(c, jobs))), query), [customers, jobs, query]);
@@ -21,6 +23,20 @@ export function CustomersScreen() {
   return (
     <View style={styles.stack} testID="customers">
       <OdooCustomerSync />
+      <Pressable onPress={() => setAdding(true)} accessibilityRole="button" testID="customers-add" style={({ pressed }) => [styles.add, pressed && styles.pressed]}>
+        {({ pressed }) => <Text style={[styles.buttonText, !pressed && styles.addText]}>+ Add customer</Text>}
+      </Pressable>
+      <CustomerSheet
+        visible={adding}
+        title="Add customer"
+        initial={EMPTY_CUSTOMER}
+        onCancel={() => setAdding(false)}
+        onSave={(f) => {
+          const c = add(f);
+          setAdding(false);
+          router.push({ pathname: '/customer/[id]', params: { id: c.id } });
+        }}
+      />
       <View style={styles.searchRow}>
         <TextInput
           value={query}
@@ -78,6 +94,8 @@ export function CustomersScreen() {
 }
 
 const styles = StyleSheet.create({
+  add: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.selected },
+  addText: { color: colors.onSelected },
   stack: { gap: 12 },
   searchRow: { flexDirection: 'row', gap: 8 },
   search: {

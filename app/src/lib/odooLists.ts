@@ -208,3 +208,16 @@ export function parseSavedLists(raw: string | null): Partial<Record<ListKind, Sa
     return {};
   }
 }
+
+/**
+ * One customer's quotations or invoices, newest first: theirs and those of
+ * the contacts under them (a property manager's houses).
+ */
+export async function fetchForCustomer(c: Client, kind: ListKind, partnerId: number, limit = 20, now: number = Date.now()): Promise<OdooListRow[]> {
+  const rows = (await c.call(MODEL[kind], 'search_read', [[...domain(kind, 'all', ''), ['partner_id', 'child_of', partnerId]]], {
+    fields: kind === 'quotations' ? QUOTE_FIELDS : INVOICE_FIELDS,
+    limit,
+    order: kind === 'quotations' ? 'date_order desc, id desc' : 'invoice_date desc, id desc',
+  })) as Record<string, unknown>[];
+  return rows.map((r) => (kind === 'quotations' ? quoteRow(r) : invoiceRow(r, now)));
+}

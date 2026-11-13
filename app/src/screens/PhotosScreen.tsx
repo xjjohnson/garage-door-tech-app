@@ -4,12 +4,15 @@ import { Segmented } from '../components/controls';
 import { JobPhoto, PHOTO_KINDS, PHOTO_LABEL, PhotoKind, photosFor } from '../lib/attachments';
 import { formatJobDate } from '../lib/jobs';
 import { useAttachments } from '../lib/useAttachments';
+import { useJobs } from '../lib/useJobs';
+import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
 
 /**
  * Before and after photos for one job: the old spring, the cable, the
  * finished door. Taken with the camera or picked from the gallery, kept in the
- * app's own folder.
+ * app's own folder. Signed in to Odoo, each one also goes to the job in Odoo
+ * (src/components/OdooPhotoSync.tsx).
  */
 export function PhotosScreen({ jobId }: { jobId: string }) {
   const { photos, media, addPhotos, setPhotoKind, removePhoto } = useAttachments();
@@ -17,6 +20,13 @@ export function PhotosScreen({ jobId }: { jobId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const list = photosFor({ photos, signatures: [] }, jobId);
+  const { client } = useOdoo();
+  const odooJob = useJobs().jobs.find((j) => j.id === jobId)?.odooJob;
+  const where = !client
+    ? 'Photos stay on this phone until you sign in to Odoo, then they go to the job in Odoo.'
+    : odooJob
+      ? `Photos go to ${odooJob.name || 'the job'} in Odoo when there's signal.`
+      : 'Photos go to the job in Odoo once the job is there.';
 
   const run = async (fn: () => Promise<string[]>) => {
     if (busy) return;
@@ -47,7 +57,10 @@ export function PhotosScreen({ jobId }: { jobId: string }) {
         <Action label="From gallery" grow disabled={!media || busy} onPress={() => run(() => media!.pickPhotos())} testID="photos-pick" />
       </View>
       {error ? <Text style={styles.note}>Couldn't get that photo. Check the app is allowed to use the camera and photos.</Text> : null}
-      {list.length === 0 ? <Text style={styles.note}>No photos for this job yet. Photos stay on this phone and aren't in backups.</Text> : null}
+      <Text style={styles.note} testID="photos-where">
+        {list.length === 0 ? 'No photos for this job yet. ' : ''}
+        {where}
+      </Text>
       {PHOTO_KINDS.map((k) => {
         const group = list.filter((p) => p.kind === k);
         if (group.length === 0) return null;
@@ -71,7 +84,10 @@ function Photo({ p, onKind, onShare, onRemove }: { p: JobPhoto; onKind: (k: Phot
   return (
     <View style={styles.item} testID={`photo-${p.id}`}>
       <Image source={{ uri: p.uri }} style={styles.image} resizeMode="cover" accessibilityLabel={`${PHOTO_LABEL[p.kind]} photo`} />
-      <Text style={styles.meta}>{formatJobDate(p.at)}</Text>
+      <Text style={styles.meta}>
+        {formatJobDate(p.at)}
+        {p.odooId ? ' · In Odoo ✓' : ''}
+      </Text>
       <Segmented options={PHOTO_KINDS.map((k) => ({ label: PHOTO_LABEL[k], value: k }))} value={p.kind} onChange={onKind} testID={`photo-kind-${p.id}`} />
       <View style={styles.row}>
         {onShare ? <Action label="Share" grow onPress={onShare} testID={`photo-share-${p.id}`} /> : null}

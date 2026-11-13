@@ -1,6 +1,7 @@
 /**
  * Good / better / best from Odoo quotation templates. A template named
- * "Opener · Good" (or "Opener - Good", "Opener: Good") gives the Good option
+ * "Opener · Good" (or "Opener • Good", "Opener - Good", "Opener: Good", or
+ * just "Opener Good", any case) gives the Good option
  * for jobs of type Opener; its lines' products bring their Odoo price and
  * whether Odoo taxes them. Used for jobs the spring calculator can't price,
  * like openers and tune-ups. Kept free of React.
@@ -25,7 +26,7 @@ export type TemplateSets = Record<string, { type: string; tiers: Partial<Record<
 
 /** "Opener · Better" → { type: "Opener", tier: "better" }; null when the name has no tier at the end. */
 export function tierFromName(name: string): { type: string; tier: Tier } | null {
-  const m = /^(.+?)\s*[·\-–—:|/]\s*(good|better|best)\s*$/i.exec(name.trim());
+  const m = /^(.+?)(?:\s*[·•●∙‧\-–—:|/,]\s*|\s+)\(?(good|better|best)\)?\s*$/i.exec(name.trim());
   if (!m) return null;
   return { type: m[1].trim(), tier: m[2].toLowerCase() as Tier };
 }
