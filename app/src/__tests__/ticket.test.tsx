@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { CUSTOMERS_STORAGE_KEY } from '../lib/customers';
@@ -269,10 +269,25 @@ describe('Ticket screen', () => {
     expect(screen.getByTestId('ticket-estimate-note')).toHaveTextContent(/Estimate saved on the phone/);
     expect((await saved()).ticket?.estimateAt).toBeGreaterThan(0);
 
+    // A $200 deposit by check, typed on the ticket.
+    await fireEvent.press(screen.getByTestId('ticket-deposit'));
+    await fireEvent.press(within(screen.getByTestId('ticket-deposit-method')).getByText('Check'));
+    await fireEvent.press(screen.getByTestId('ticket-deposit-amount'));
+    const pad = screen.getByTestId('keypad');
+    for (const k of ['2', '0', '0']) await fireEvent.press(within(pad).getByTestId(`key-${k}`));
+    await fireEvent.press(within(pad).getByTestId('keypad-done'));
+    await fireEvent.changeText(screen.getByTestId('ticket-deposit-reference'), '1123');
+    await fireEvent.press(screen.getByTestId('ticket-deposit-save'));
+    await settle();
+    expect(screen.getByTestId('ticket-deposit-due')).toHaveTextContent(/^\$200 taken as a deposit. \$458 due when the work is done\./);
+    expect((await saved()).ticket?.deposits).toEqual([expect.objectContaining({ method: 'check', amount: 20000, reference: '1123' })]);
+
     await fireEvent.press(screen.getByTestId('ticket-make-invoice'));
     await settle();
     const [inv] = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY));
     expect(inv).toMatchObject({ jobId: 'j1', source: 'ticket', subtotal: 62500, tax: 3300, total: 65800 });
+    // The deposit is the invoice's first payment.
+    expect(inv!.payments).toEqual([expect.objectContaining({ method: 'check', amount: 20000, reference: '1123' })]);
     // The two openers on the ticket came off the truck.
     const stock = parseStock(await AsyncStorage.getItem(STOCK_STORAGE_KEY));
     expect(stock.items[0]!.onHand).toBe(3);
