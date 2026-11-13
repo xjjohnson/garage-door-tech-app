@@ -9,6 +9,11 @@
  * - A customer changed on the phone since the last sync sends its name, phone
  *   and email to Odoo; one changed only in Odoo takes Odoo's details. When both
  *   changed, the phone wins, since that's where the tech just typed it.
+ *
+ * The background sync passes `since` (when this phone started sending to
+ * Odoo). Customers made, or changes made, before then are left alone in both
+ * directions, so an update never bulk-writes old phone data to a live Odoo;
+ * they go on the manual Sync button, which passes no `since`.
  */
 import { Customer, CustomerFields, findCustomer } from './customers';
 
@@ -33,7 +38,7 @@ export interface CustomerSyncPlan {
 
 const SENT: (keyof CustomerFields)[] = ['name', 'phone', 'email', 'address', 'notes'];
 
-export function planCustomerSync(customers: Customer[], partners: OdooPartner[], now: number): CustomerSyncPlan {
+export function planCustomerSync(customers: Customer[], partners: OdooPartner[], now: number, since?: number | null): CustomerSyncPlan {
   const out = customers.map((c) => ({ ...c }));
   const byOdoo = new Map(out.filter((c) => c.odooId).map((c) => [c.odooId!, c]));
   const toWrite: CustomerSyncPlan['toWrite'] = [];
@@ -62,6 +67,8 @@ export function planCustomerSync(customers: Customer[], partners: OdooPartner[],
       continue;
     }
     const synced = c.syncedAt ?? 0;
+    // Old waiting edits stay put until the tech taps Sync: neither sent nor overwritten.
+    if (since != null && c.updatedAt > synced && c.updatedAt < since) continue;
     if (c.updatedAt > synced) {
       const fields: Partial<CustomerFields> = {};
       for (const k of SENT) if (c[k] !== p[k] && c[k]) fields[k] = c[k];
@@ -77,7 +84,7 @@ export function planCustomerSync(customers: Customer[], partners: OdooPartner[],
     }
   }
 
-  const toCreate = out.filter((c) => !c.odooId && c.name.trim());
+  const toCreate = out.filter((c) => !c.odooId && c.name.trim() && (since == null || c.createdAt >= since));
   return { customers: out, toCreate, toWrite, added, updated };
 }
 

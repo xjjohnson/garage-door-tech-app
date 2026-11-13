@@ -60,7 +60,7 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
 
   return (
     <View style={styles.box} testID="odoo-customers">
-      <Text style={styles.note}>Your Odoo customers come onto this phone, and customers added or changed here go to Odoo.</Text>
+      <Text style={styles.note}>Customers sync with Odoo on their own: Odoo's come onto this phone, and new or changed ones here go up. Tap below to sync older customers and check right now.</Text>
       <Pressable onPress={sync} disabled={busy} accessibilityRole="button" testID="odoo-customers-sync" style={({ pressed }) => [styles.button, busy && styles.off, pressed && styles.pressed]}>
         <Text style={styles.buttonText}>{busy ? 'Syncing...' : 'Sync customers with Odoo'}</Text>
       </Pressable>
