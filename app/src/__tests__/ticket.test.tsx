@@ -324,6 +324,9 @@ describe('Ticket screen', () => {
       if (model === 'account.move' && method === 'create') return 80;
       if (model === 'account.move' && method === 'read') return [{ name: 'INV/2026/00080', payment_state: 'not_paid', ...odooInvoice }];
       if (model === 'ir.attachment' && method === 'create') return 90;
+      if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('["parent_id","=",false]')) return [{ id: 70, name: 'Caliber Collision', type: 'contact', street: '6222 Menchaca Rd', city: 'Austin', zip: '78745' }];
+      if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('["parent_id","=",70]')) return [{ id: 71, name: '1901 S Bell Blvd', type: 'delivery', street: '1901 S Bell Blvd', city: 'Cedar Park', zip: '78613' }];
+      if (model === 'res.partner' && method === 'read') return [{ id: (args[0] as number[])[0], name: 'Josh', type: 'contact', street: '12 Oak St', city: 'Austin', zip: '78701' }];
       if (model === 'res.partner' && method === 'search_read' && JSON.stringify(args).includes('parent_id')) return houses;
       if (model === 'product.product' && method === 'search_read')
         return [
@@ -398,6 +401,31 @@ describe('Ticket screen', () => {
     expect(inv!.shipTo).toMatchObject({ id: 12 });
     expect(inv!.address).toMatch(/9 Elm St/);
     expect((calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as Row).partner_shipping_id).toBe(12);
+  });
+
+  it('starts on the job customer\'s main address and can change to another customer\'s house', async () => {
+    const { calls } = await signedIn({}, { down: false }, undefined, async () => {
+      await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([{ id: 'c1', name: 'Josh', phone: '', email: '', address: '', notes: '', createdAt: 1, updatedAt: 1, odooId: 33, syncedAt: 1 }]));
+      const [job] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
+      await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, customerId: 'c1', address: '' }]));
+    });
+    await act(async () => router.navigate('/job-address/j1'));
+    await settle();
+    // No houses under Josh: his main address from Odoo still shows, picked.
+    expect(screen.getByTestId('job-address-33')).toHaveTextContent(/Main address.*12 Oak St/);
+    expect(screen.getByTestId('job-address-33')).toHaveProp('accessibilityState', { checked: true });
+    await fireEvent.press(screen.getByTestId('job-address-change'));
+    await fireEvent.changeText(screen.getByTestId('job-address-search'), 'Ca');
+    await act(async () => jest.advanceTimersByTime(500));
+    await settle();
+    await fireEvent.press(screen.getByTestId('job-address-found-70'));
+    await settle();
+    expect(screen.getByTestId('job-address-customer-name')).toHaveTextContent('Caliber Collision');
+    expect(screen.getByTestId('job-address-71')).toHaveTextContent(/1901 S Bell Blvd, Cedar Park 78613/);
+    await fireEvent.press(screen.getByTestId('job-address-71'));
+    await settle();
+    expect((await saved()).ticket?.shipTo).toMatchObject({ id: 71, address: '1901 S Bell Blvd, Cedar Park 78613' });
+    expect(calls.some((c) => c.model === 'res.partner' && c.method === 'search_read' && JSON.stringify(c.args).includes('["parent_id","=",false]'))).toBe(true);
   });
 
   it('asks Odoo for the tax and total, and confirms the quotation with the invoice', async () => {

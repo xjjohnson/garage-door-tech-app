@@ -121,21 +121,45 @@ export async function searchAddresses(c: Client, q: string, limit = 3): Promise<
   return rows.flatMap((r) => (Array.isArray(r.parent_id) ? [{ ...toAddress(r), parentId: r.parent_id[0] as number, parentName: str(r.parent_id[1]) }] : []));
 }
 
-/** Any contact in Odoo, for using another customer as a job's delivery address. */
-export interface FoundContact extends ContactAddress {
-  /** The company or person the contact is under, if any. */
-  parentName: string;
+/** A customer in Odoo (a top-level contact), found by name or street. */
+export interface FoundCustomer {
+  id: number;
+  name: string;
+  address: string;
+}
+
+/** Customers in Odoo (contacts with no parent) whose name or street matches what's typed. */
+export async function searchCustomers(c: Client, q: string, limit = 10): Promise<FoundCustomer[]> {
+  const t = q.trim();
+  if (t.length < 2) return [];
+  const rows = (await c.call('res.partner', 'search_read', [[['parent_id', '=', false], '|', ['name', 'ilike', t], ['street', 'ilike', t]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email'], limit, order: 'name asc' })) as Record<string, unknown>[];
+  const seen = new Set<number>();
+  return rows.map(toAddress).flatMap((a) => (seen.has(a.id) ? [] : (seen.add(a.id), [{ id: a.id, name: a.name, address: a.address }])));
+}
+
+/** One address a job can be at: the customer's own (main) or one under them. */
+export interface AddressChoice {
+  id: number;
+  title: string;
+  line: string;
+  address: string;
 }
 
 /**
- * Contacts in Odoo whose name or street matches what's typed, leaving out
- * the job's own customer: another customer whose address the job is at.
+ * Every address a customer has: their own first, then each contact under
+ * them that has an address (houses, billing, people, the rest).
  */
-export async function searchContacts(c: Client, q: string, notId: number, limit = 8): Promise<FoundContact[]> {
-  const t = q.trim();
-  if (t.length < 2) return [];
-  const rows = (await c.call('res.partner', 'search_read', [[['id', '!=', notId], '|', ['name', 'ilike', t], ['street', 'ilike', t]]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email', 'parent_id'], limit, order: 'name asc' })) as Record<string, unknown>[];
-  return rows.map((r) => ({ ...toAddress(r), parentName: Array.isArray(r.parent_id) ? str(r.parent_id[1]) : '' }));
+export function addressChoices(main: { id: number; address: string }, under: ContactAddress[]): AddressChoice[] {
+  const rest = under.filter((a) => a.address.trim()).map((a) => ({ id: a.id, title: typeLabel(a.type), line: addressLine(a), address: a.address }));
+  return [{ id: main.id, title: 'Main address', line: main.address || 'No address in Odoo', address: main.address }, ...rest];
+}
+
+/** A customer's own name and address in Odoo. */
+export async function fetchCustomer(c: Client, id: number): Promise<FoundCustomer | undefined> {
+  const [r] = (await c.call('res.partner', 'read', [[id]], { fields: ['name', 'type', 'street', 'street2', 'city', 'zip', 'phone', 'email'] })) as Record<string, unknown>[];
+  if (!r) return undefined;
+  const a = toAddress(r);
+  return { id: a.id, name: a.name, address: a.address };
 }
 
 /** A contact whose whole address was typed into Street ("1 Main St, Kyle, TX 78640"), with how it splits. */
