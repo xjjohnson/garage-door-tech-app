@@ -185,8 +185,9 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
   const service = needService ? await serviceProduct(client) : 0;
   const vals = lineValues(lines, {}, () => service, 'product_uom_qty');
   let order = t.order;
-  // The picked delivery address; the customer's own when none is picked.
-  const ship = { partner_shipping_id: t.shipTo?.id ?? partnerId };
+  // The picked delivery address. Nothing picked: a new order gets the customer's own,
+  // and an existing one keeps whatever Odoo has (it may have been set there by hand).
+  const ship = t.shipTo ? { partner_shipping_id: t.shipTo.id } : {};
   if (order) {
     const [row] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['state'] })) as { state?: string }[];
     if (row?.state !== 'draft' && row?.state !== 'sent') order = undefined;
@@ -194,7 +195,7 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
   if (order) {
     await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false, ...ship, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
   } else {
-    const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, ...ship, order_line: vals.map((v) => [0, 0, v]) }])) as number;
+    const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, partner_shipping_id: partnerId, ...ship, order_line: vals.map((v) => [0, 0, v]) }])) as number;
     order = { id, name: `#${id}` };
   }
   const [r] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total'] })) as Record<string, unknown>[];

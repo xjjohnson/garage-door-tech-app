@@ -141,7 +141,8 @@ describe('Ticket (logic)', () => {
       [0, 0, { product_id: 9, name: 'Haul away', product_uom_qty: 1, price_unit: 50 }],
     ]);
 
-    expect((write.args[1] as Row).partner_shipping_id).toBe(5);
+    // Nothing picked: a delivery address set in Odoo by hand is left alone.
+    expect((write.args[1] as Row).partner_shipping_id).toBeUndefined();
 
     // A house picked on the ticket is the delivery address on the quotation.
     calls.length = 0;

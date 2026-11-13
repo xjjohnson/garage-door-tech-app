@@ -199,7 +199,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
           mainAddress={job.address}
           value={ticket.shipTo?.id}
           // A new address makes Odoo's totals stale, so the quotation is sent again with it.
-          onChange={(id, address) => setTicket(job.id, (t) => ({ ...t, shipTo: id === odooPartnerId ? undefined : { id, address }, totals: undefined }))}
+          onChange={(id, address) => setTicket(job.id, (t) => ({ ...t, shipTo: { id, address }, totals: undefined }))}
           testID="ticket-address"
         />
       ) : null}
