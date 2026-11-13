@@ -133,7 +133,8 @@ describe('Customers screen with Odoo', () => {
     await settle();
     await fireEvent.press(screen.getByTestId('odoo-customers-sync'));
     await settle(12);
-    expect(screen.getByTestId('odoo-customers-result')).toHaveTextContent('Done: brought in 1 customer from Odoo, added 1 to Odoo.');
+    // Pat already came in on her own when you signed in; Sam is from before sending started, so only the button sends him.
+    expect(screen.getByTestId('odoo-customers-result')).toHaveTextContent('Done: added 1 to Odoo.');
     const created = o.calls.find((x) => x.method === 'create')!.args[0];
     expect(created).toEqual({ name: 'Sam Lee', phone: '555-444-5555', email: false, street: '9 Elm St', comment: '<p>Side door</p>', customer_rank: 1 });
     const saved = parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY));

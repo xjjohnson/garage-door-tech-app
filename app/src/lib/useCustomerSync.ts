@@ -9,16 +9,19 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
  * One customer sync with Odoo: brings in Odoo's customers and sends the
  * phone's new or changed ones. Returns what happened in words; throws when
  * Odoo can't be reached. Used by Customers' Sync button and by Sync now.
+ * `{ since }` is the background run: it leaves customers and edits from before
+ * then alone (see planCustomerSync) and doesn't touch the list when nothing changed.
  */
 export function useCustomerSync(now: () => number = Date.now) {
   const { client } = useOdoo();
   const { customers, apply } = useCustomers();
   const latest = useRef(customers);
   latest.current = customers;
-  return useCallback(async (): Promise<string> => {
+  return useCallback(async (opts: { since?: number | null } = {}): Promise<string> => {
     if (!client) throw new Error('Sign in to Odoo first.');
     const before = latest.current;
-    const plan = planCustomerSync(before, await client.partners(), now());
+    const plan = planCustomerSync(before, await client.partners(), now(), opts.since);
+    if (opts.since != null && !plan.toCreate.length && !plan.toWrite.length && JSON.stringify(plan.customers) === JSON.stringify(before)) return 'Customers already match Odoo.';
     const created: Record<string, number> = {};
     const sent = new Set<string>();
     try {
