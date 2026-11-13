@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AddressSuggestions } from './AddressSuggestions';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { suggestCustomers } from '../lib/customers';
@@ -34,6 +35,7 @@ export function JobDetailsSheet({
 }) {
   const [details, setDetails] = useState<JobDetails>(initial);
   const kb = useKeyboardHeight();
+  const [focused, setFocused] = useState<string | null>(null);
   useEffect(() => {
     if (visible) setDetails(initial);
   }, [visible, initial]);
@@ -61,6 +63,8 @@ export function JobDetailsSheet({
                 <TextInput
                   value={details[f.key]}
                   onChangeText={(v) => setDetails((d) => ({ ...d, [f.key]: v }))}
+                  onFocus={() => setFocused(f.key)}
+                  onBlur={() => setFocused((cur) => (cur === f.key ? null : cur))}
                   placeholder={f.placeholder}
                   placeholderTextColor={colors.muted}
                   multiline={f.multiline}
@@ -70,6 +74,9 @@ export function JobDetailsSheet({
                   testID={`job-${f.key}`}
                   style={[styles.input, f.multiline && styles.multiline]}
                 />
+                {f.key === 'address' ? (
+                  <AddressSuggestions typed={details.address} focused={focused === 'address'} reset={visible} onPick={(a) => setDetails((d) => ({ ...d, address: a.address }))} testID="job-place" />
+                ) : null}
                 {f.key === 'customer' && suggestions.length > 0 ? (
                   <View style={styles.suggestions} testID="customer-suggestions">
                     <Text style={styles.hint}>Repeat customer?</Text>

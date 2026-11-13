@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AddressSuggestions } from './AddressSuggestions';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipRow } from './controls';
@@ -31,6 +32,7 @@ export function AddressSheet({
 }) {
   const [f, setF] = useState<AddressFields>(initial ?? EMPTY_ADDRESS);
   const kb = useKeyboardHeight();
+  const [focused, setFocused] = useState<string | null>(null);
   useEffect(() => {
     if (visible) setF(initial ?? EMPTY_ADDRESS);
   }, [visible, initial]);
@@ -57,6 +59,8 @@ export function AddressSheet({
                 <TextInput
                   value={f[x.key]}
                   onChangeText={(v) => setF((p) => ({ ...p, [x.key]: v }))}
+                  onFocus={() => setFocused(x.key)}
+                  onBlur={() => setFocused((cur) => (cur === x.key ? null : cur))}
                   placeholder={x.placeholder}
                   placeholderTextColor={colors.muted}
                   keyboardType={x.keyboard ?? 'default'}
@@ -65,6 +69,9 @@ export function AddressSheet({
                   testID={`address-field-${x.key}`}
                   style={styles.input}
                 />
+                {x.key === 'address' ? (
+                  <AddressSuggestions typed={f.address} focused={focused === 'address'} reset={visible} onPick={(a) => setF((p) => ({ ...p, address: a.address }))} testID="address-place" />
+                ) : null}
               </View>
             ))}
           </ScrollView>

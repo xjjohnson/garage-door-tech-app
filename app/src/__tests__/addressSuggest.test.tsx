@@ -8,6 +8,9 @@ import { CUSTOMERS_STORAGE_KEY } from '../lib/customers';
 import { addressKey, GEOCODE_STORAGE_KEY, parseCache } from '../lib/geocode';
 import { DEBOUNCE_MS, setAddressSuggestDeps } from '../lib/useAddressSuggestions';
 import { renderApp } from '../testing/renderApp';
+import { render } from '@testing-library/react-native';
+import { AddressSheet } from '../components/AddressSheet';
+import { JobDetailsSheet } from '../components/JobDetailsSheet';
 
 const house = (over: Record<string, unknown> = {}, coords: [number, number] = [-97.877, 29.989]) => ({
   geometry: { coordinates: coords },
@@ -155,5 +158,37 @@ describe('New job address autofill', () => {
     await settle();
     const saved = JSON.parse((await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY)) ?? '[]');
     expect(saved[0].address).toBe('400 Main St, Kyle, TX 78640');
+  });
+
+  it('suggests addresses in the house address sheet', async () => {
+    jest.useFakeTimers();
+    const saved: string[] = [];
+    await render(<AddressSheet visible onSave={(f) => saved.push(f.address)} onCancel={() => undefined} />);
+    const field = screen.getByTestId('address-field-address');
+    await fireEvent(field, 'focus');
+    await fireEvent.changeText(field, '8003 Epping');
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_MS);
+    });
+    await settle();
+    await fireEvent.press(screen.getByTestId('address-place-0'));
+    await fireEvent.press(screen.getByTestId('address-sheet-save'));
+    expect(saved).toEqual(['400 Main St, Kyle, TX 78640']);
+  });
+
+  it('suggests addresses in the job details sheet', async () => {
+    jest.useFakeTimers();
+    const details: string[] = [];
+    await render(<JobDetailsSheet visible title="Job" initial={{ customer: 'Pat', address: '', phone: '', notes: '' }} onSave={(d) => details.push(d.address)} onCancel={() => undefined} />);
+    const job = screen.getByTestId('job-address');
+    await fireEvent(job, 'focus');
+    await fireEvent.changeText(job, '400 Ma');
+    await settle();
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_MS);
+    });
+    await settle();
+    await fireEvent.press(screen.getByTestId('job-place-0'));
+    expect(screen.getByTestId('job-address').props.value).toBe('400 Main St, Kyle, TX 78640');
   });
 });

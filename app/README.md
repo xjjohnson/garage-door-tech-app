@@ -795,9 +795,10 @@ Odoo as a sales order**. (`src/screens/WaitingScreen.tsx`, `src/lib/syncNow.ts`,
 
 **Edit customer sheet** (from 0.5.27). The customer, house address and job
 details sheets pad themselves above the Android keyboard, and the customer
-sheet scrolls the field being typed in into view. Its Main address field has
-the same autofill as New job (map results and houses in Odoo).
-(`src/lib/useKeyboardHeight.ts`.)
+sheet scrolls the field being typed in into view. Every address field has
+the same autofill as New job (map results and houses in Odoo): Edit/Add
+customer, Add/Edit address, job details and Book a visit.
+(`src/lib/useKeyboardHeight.ts`, `src/components/AddressSuggestions.tsx`.)
 
 **Team (Odoo).** **Team** next to **Back up or restore** signs in to the
 business's Odoo (address, database, email, and a password or, better, an

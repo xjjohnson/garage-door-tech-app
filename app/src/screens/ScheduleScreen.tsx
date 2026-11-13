@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { AddressSuggestions } from '../components/AddressSuggestions';
 import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
@@ -221,7 +222,7 @@ function BookSheet({
                 <Text style={styles.detail}>{[c.name, c.phone, c.address].filter(Boolean).join(' · ')}</Text>
               </Pressable>
             ))}
-            <Field label="Address" value={a.address} onChange={(address) => set({ address })} placeholder="Street and town" testID="book-address" />
+            <Field label="Address" value={a.address} onChange={(address) => set({ address })} placeholder="Street and town" autofill testID="book-address" />
             <Field label="Phone" value={a.phone} onChange={(phone) => set({ phone })} placeholder="For texts on the day" phone testID="book-phone" />
             <SectionTitle>What for</SectionTitle>
             <ChipRow options={WHAT.map((w) => ({ label: w, value: w }))} value={a.what} onChange={(what) => set({ what })} scroll testID="book-what" />
@@ -263,13 +264,16 @@ function BookSheet({
   );
 }
 
-function Field({ label, value, onChange, placeholder, phone, testID }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; phone?: boolean; testID: string }) {
+function Field({ label, value, onChange, placeholder, phone, autofill, testID }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; phone?: boolean; autofill?: boolean; testID: string }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
         keyboardType={phone ? 'phone-pad' : 'default'}
@@ -277,6 +281,7 @@ function Field({ label, value, onChange, placeholder, phone, testID }: { label: 
         testID={testID}
         style={styles.input}
       />
+      {autofill ? <AddressSuggestions typed={value} focused={focused} onPick={(a) => onChange(a.address)} testID={`${testID}-place`} /> : null}
     </View>
   );
 }

@@ -15,8 +15,7 @@ import { CustomerOdoo } from '../components/CustomerOdoo';
 import { useOdoo } from '../lib/useOdoo';
 import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
-import { useAddressSuggestions } from '../lib/useAddressSuggestions';
-import { rememberPoint } from '../lib/useGeocode';
+import { AddressSuggestions } from '../components/AddressSuggestions';
 import { colors, touch, type } from '../theme';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
@@ -185,14 +184,8 @@ export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { v
   const scroll = useRef<ScrollViewInstance>(null);
   const tops = useRef<Partial<Record<keyof CustomerFields, number>>>({});
   const [focused, setFocused] = useState<keyof CustomerFields | null>(null);
-  // Address autofill while the address is being typed: map results and houses in Odoo, not other customers.
-  const [placePicked, setPlacePicked] = useState(true);
-  const places = useAddressSuggestions(f.address, !visible || placePicked || focused !== 'address').filter((a) => !a.customerId);
   useEffect(() => {
-    if (visible) {
-      setF({ name: initial.name, phone: initial.phone, email: initial.email, address: initial.address, notes: initial.notes });
-      setPlacePicked(true);
-    }
+    if (visible) setF({ name: initial.name, phone: initial.phone, email: initial.email, address: initial.address, notes: initial.notes });
   }, [visible, initial]);
   // Bring the field being typed in into view once the keyboard is up.
   useEffect(() => {
@@ -220,10 +213,7 @@ export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { v
                 <Text style={styles.label}>{x.label}</Text>
                 <TextInput
                   value={f[x.key]}
-                  onChangeText={(v) => {
-                    setF((p) => ({ ...p, [x.key]: v }));
-                    if (x.key === 'address') setPlacePicked(false);
-                  }}
+                  onChangeText={(v) => setF((p) => ({ ...p, [x.key]: v }))}
                   onFocus={() => setFocused(x.key)}
                   onBlur={() => setFocused((cur) => (cur === x.key ? null : cur))}
                   placeholder={x.placeholder}
@@ -235,24 +225,9 @@ export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { v
                   testID={`customer-field-${x.key}`}
                   style={[styles.input, x.multiline && styles.multiline]}
                 />
-                {x.key === 'address'
-                  ? places.map((a, i) => (
-                      <Pressable
-                        key={`${a.addressId ?? 'map'}-${a.address}`}
-                        onPress={() => {
-                          setF((p) => ({ ...p, address: a.address }));
-                          if (a.point) rememberPoint(a.address, a.point);
-                          setPlacePicked(true);
-                        }}
-                        accessibilityRole="button"
-                        testID={`customer-place-${i}`}
-                        style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}
-                      >
-                        <Text style={styles.suggestName}>{a.street || a.address}</Text>
-                        <Text style={styles.meta}>{a.addressId ? `${a.address} · House in Odoo` : [a.city, a.zip].filter(Boolean).join(' ')}</Text>
-                      </Pressable>
-                    ))
-                  : null}
+                {x.key === 'address' ? (
+                  <AddressSuggestions typed={f.address} focused={focused === 'address'} reset={visible} onPick={(a) => setF((p) => ({ ...p, address: a.address }))} testID="customer-place" />
+                ) : null}
               </View>
             ))}
           </ScrollView>
@@ -300,8 +275,6 @@ const styles = StyleSheet.create({
   dismiss: { flex: 1 },
   sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: colors.info, paddingVertical: 6 },
-  suggestName: { fontSize: 17, fontWeight: '800', color: colors.text },
   sheetTitle: { flex: 1, fontSize: type.value, fontWeight: '900', color: colors.text },
   cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
