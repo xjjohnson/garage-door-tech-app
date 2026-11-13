@@ -44,6 +44,8 @@ interface JobBase extends JobDetails {
   inspection?: Inspection;
   /** The sales order made in Odoo from the accepted option (src/lib/odooSales.ts). */
   odooOrder?: OdooRef;
+  /** The quote signature (its id) already saved on odooOrder in Odoo (since 0.5.40). */
+  quoteSignatureSent?: string;
   /** The Field Service order (or task) this job is in Odoo (src/lib/odooJobs.ts). */
   odooJob?: OdooJobRef;
   /** Lines typed on the quote by hand ("Opener install", $150), added to every option. */
@@ -203,6 +205,7 @@ export function parseJobs(raw: string | null): Job[] {
       ...(typeof j.customerId === 'string' && j.customerId ? { customerId: j.customerId } : {}),
       ...(parseInspection(j.inspection) ? { inspection: parseInspection(j.inspection) } : {}),
       ...(parseRef(j.odooOrder) ? { odooOrder: parseRef(j.odooOrder) } : {}),
+      ...(typeof j.quoteSignatureSent === 'string' && j.quoteSignatureSent ? { quoteSignatureSent: j.quoteSignatureSent } : {}),
       ...(parseJobRef(j.odooJob) ? { odooJob: parseJobRef(j.odooJob) } : {}),
       ...(typeof j.sendToOdoo === 'boolean' ? { sendToOdoo: j.sendToOdoo } : {}),
       ...(parseRepairs(j.quoteLines).length ? { quoteLines: parseRepairs(j.quoteLines) } : {}),

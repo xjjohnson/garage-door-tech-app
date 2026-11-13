@@ -12,7 +12,8 @@ import { inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
 import { Job } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
-import { confirmOrderFor, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendPayments, sendSignature, voidInvoice } from '../lib/odooSales';
+import { confirmOrderFor, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendOrderSignature, sendPayments, sendSignature, voidInvoice } from '../lib/odooSales';
+import { signaturePng } from '../lib/signaturePng';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { QuoteOption } from '../lib/quote';
 import { useCustomers } from '../lib/useCustomers';
@@ -44,18 +45,40 @@ export function useSalesOdoo() {
 }
 
 /** On a quote, once the customer picked an option: send it to Odoo as a confirmed sales order. */
-export function OdooQuoteSend({ job, option }: { job: Job; option: QuoteOption }) {
+export function OdooQuoteSend({ job, option, signature }: { job: Job; option: QuoteOption; signature?: Signature }) {
   const client = useSalesOdoo();
   const partner = usePartner();
   const { sheet } = usePriceSheet();
-  const { setOdooOrder } = useJobs();
+  const { setOdooOrder, setQuoteSignatureSent } = useJobs();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (job.odooOrder) {
+  const [noField, setNoField] = useState(false);
+  const order = job.odooOrder;
+  // The customer's signature goes on the sales order in Odoo (its own signature fields), once per signature.
+  const signPending = !!client && !!order && !!signature && job.quoteSignatureSent !== signature.id && !noField;
+  useEffect(() => {
+    if (!signPending || !client || !order || !signature) return;
+    let live = true;
+    sendOrderSignature(client, order.id, { name: signature.name, at: signature.at, png: signaturePng(signature) })
+      .then((ok) => {
+        if (!live) return;
+        if (ok) setQuoteSignatureSent(job.id, signature.id);
+        else setNoField(true);
+      })
+      .catch((e) => live && setError(`Couldn't save the signature in Odoo: ${message(e)}`));
+    return () => {
+      live = false;
+    };
+  }, [signPending, client, order, signature, job.id, setQuoteSignatureSent]);
+  if (order) {
     return (
-      <Text style={styles.meta} testID="quote-odoo-order">
-        In Odoo as sales order {job.odooOrder.name}.
-      </Text>
+      <View style={styles.stack}>
+        <Text style={styles.meta} testID="quote-odoo-order">
+          In Odoo as sales order {order.name}.
+          {signature && job.quoteSignatureSent === signature.id ? ' Signature saved on it.' : ''}
+        </Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+      </View>
     );
   }
   if (!client) return null;
