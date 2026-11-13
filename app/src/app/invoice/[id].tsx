@@ -7,13 +7,13 @@ import { colors, type } from '../../theme';
 
 /** /invoice/<id>: one invoice, its payments, and the QR codes to pay it. */
 export default function InvoiceRoute() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, sign } = useLocalSearchParams<{ id: string; sign?: string }>();
   const { invoices, loaded } = useInvoices();
   const invoice = invoices.find((i) => i.id === id);
   return (
     <Page title="Invoice" testID="invoice-page">
       {invoice ? (
-        <InvoiceScreen invoice={invoice} />
+        <InvoiceScreen invoice={invoice} autoSign={sign === '1'} />
       ) : loaded ? (
         <Text style={{ fontSize: type.body, color: colors.text }}>That invoice isn't saved on this phone any more.</Text>
       ) : null}

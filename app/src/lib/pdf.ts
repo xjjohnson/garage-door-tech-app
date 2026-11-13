@@ -107,3 +107,12 @@ export function quoteHtml(job: { customer: string; address: string; savedAt: num
 export function pdfName(title: string, who: string): string {
   return `${`${title} ${who}`.replace(/[^A-Za-z0-9 ._-]/g, '').replace(/\s+/g, ' ').trim() || 'document'}.pdf`;
 }
+
+/** One page with the customer's signature on an invoice, to attach to Odoo's invoice. */
+export function signedPageHtml(inv: Pick<Invoice, 'number' | 'billTo' | 'address'>, odooName: string, business: Business, sig: Signature): string {
+  const body =
+    header(business, `<div><b>Invoice ${escapeHtml(odooName || inv.number)}</b></div>`) +
+    `<h2>Customer signature</h2><div>${escapeHtml(inv.billTo || 'Customer')}</div>${inv.address ? `<div>${escapeHtml(inv.address)}</div>` : ''}` +
+    signatureBlock(sig, 'Work completed to my satisfaction.');
+  return page(`Signed invoice ${odooName || inv.number}`, body);
+}

@@ -3,13 +3,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle, Segmented } from '../components/controls';
-import { usePartner, useSalesOdoo } from '../components/OdooSales';
+import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
 import { invoiceStatus } from '../lib/invoices';
 import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption } from '../lib/ticket';
+import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketRef } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
@@ -23,11 +23,13 @@ const SYNC_DELAY_MS = 1500;
 /**
  * A job's ticket: the services and materials for the job, added from the
  * price book or typed, changed any time. Odoo works out tax and the total
- * from a draft quotation; offline the phone shows its own estimate. Make the
- * invoice turns the ticket into the job's invoice.
+ * from a draft quotation; offline the phone shows its own estimate. Finish
+ * job marks the work done, makes the invoice from the ticket, posts it in
+ * Odoo and opens it for the customer to sign.
  */
 export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => number }) {
-  const { setTicket, setOdooOrder } = useJobs();
+  const { setTicket, setOdooOrder, setStep } = useJobs();
+  const invoiceOdoo = useInvoiceOdoo(now);
   const { invoices, create } = useInvoices();
   const { sheet } = usePriceSheet();
   const client = useSalesOdoo();
@@ -48,7 +50,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-      const r = await syncTicket(client, pid, ticket, ['Job ticket', job.address.trim()].filter(Boolean).join(' · '), now());
+      const r = await syncTicket(client, pid, ticket, ticketRef(ticket, job.address), now());
       if (n === run.current) setTicket(job.id, (t) => ({ ...t, order: r.order, totals: r.totals }));
       return { ...ticket, order: r.order, totals: r.totals };
     } catch (e) {
@@ -79,18 +81,29 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       // Only a quotation Odoo priced with exactly these lines is confirmed and tied to the invoice.
       // Otherwise (Odoo unreachable, or it refused a line) the invoice is made from the phone's lines alone.
       let tied = false;
+      let order = job.odooOrder;
       if (client && t.order && currentTotals(t)) {
         try {
-          await confirmTicket(client, t.order);
+          await confirmTicket(client, t.order, ticketRef(t, job.address));
           if (!job.odooOrder) setOdooOrder(job.id, t.order);
+          order = order ?? t.order;
           tied = true;
         } catch (e) {
           log.warn('ticket', `${job.id}: couldn't confirm ${t.order.name}: ${message(e)}`);
         }
       }
       if (t.order && !tied) setError(`Made the invoice from the phone's lines and estimate. Quotation ${t.order.name} in Odoo was left as it is.`);
-      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket');
-      router.push({ pathname: '/invoice/[id]', params: { id: inv.id } });
+      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t, job.address));
+      if (!job.steps?.workDoneAt) setStep(job.id, 'workDoneAt', now());
+      // Post it in Odoo now, so the customer signs Odoo's invoice; if that fails, the invoice screen can send it later.
+      if (invoiceOdoo.client) {
+        try {
+          await invoiceOdoo.send(inv, { order: tied ? order : undefined });
+        } catch (e) {
+          log.warn('ticket', `${job.id}: invoice ${inv.number} not sent to Odoo yet: ${message(e)}`);
+        }
+      }
+      router.push({ pathname: '/invoice/[id]', params: { id: inv.id, sign: '1' } });
     } catch (e) {
       setError(message(e));
     } finally {
@@ -156,7 +169,9 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         </>
       ) : null}
 
-      {!invoice ? <Action label={making ? 'Making the invoice...' : 'Make the invoice'} primary disabled={making || ticket.lines.length === 0 || syncing} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
+      {!invoice ? <CustomerRef value={ticket.ref ?? ''} placeholder={job.address.trim() || 'Optional'} onChange={(ref) => setTicket(job.id, (t) => ({ ...t, ref }))} /> : null}
+
+      {!invoice ? <Action label={making ? 'Finishing...' : 'Finish job'} primary disabled={making || ticket.lines.length === 0 || syncing} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
 
       <SectionTitle>Optional</SectionTitle>
       <NavRow
@@ -165,6 +180,26 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         href={{ pathname: '/quote/[id]', params: { id: job.id } }}
         testID="ticket-estimate"
       />
+    </View>
+  );
+}
+
+/** The customer reference Odoo shows on the sales order and the invoice. */
+function CustomerRef({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
+  return (
+    <View style={styles.refBox}>
+      <Text style={styles.label}>Customer reference</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor={colors.muted}
+        autoCorrect={false}
+        accessibilityLabel="Customer reference"
+        testID="ticket-ref"
+        style={styles.input}
+      />
+      <Text style={styles.meta}>On the sales order and the invoice in Odoo. Left empty, it's the job address.</Text>
     </View>
   );
 }
@@ -264,6 +299,8 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   for: { fontSize: 22, fontWeight: '900', color: colors.text },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
+  refBox: { gap: 6 },
+  label: { fontSize: type.body, fontWeight: '800', color: colors.text },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 8 },
   line: { gap: 6, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: colors.info },

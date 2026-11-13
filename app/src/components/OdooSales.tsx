@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAppForeground } from '../lib/useAppForeground';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Invoice, PAY_LABEL } from '../lib/invoices';
+import { Invoice, invoiceRef, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
 import { EmailResult, emailedText, emailInvoice, partnerEmail, PdfFile } from '../lib/odooReports';
-import { pdfName } from '../lib/pdf';
+import { pdfName, signedPageHtml } from '../lib/pdf';
+import { Signature, signatureFor } from '../lib/attachments';
+import { formatJobDate } from '../lib/jobs';
 import { inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
 import { Job } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
-import { odooPaymentLabel, orderRef, readInvoice, sendInvoice, sendOrder, sendPayments } from '../lib/odooSales';
+import { confirmOrderFor, OdooInvoiceState, odooPaymentLabel, OdooRef, orderRef, readInvoice, sendInvoice, sendOrder, sendPayments, sendSignature } from '../lib/odooSales';
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { QuoteOption } from '../lib/quote';
 import { useCustomers } from '../lib/useCustomers';
@@ -75,13 +78,178 @@ export function OdooQuoteSend({ job, option }: { job: Job; option: QuoteOption }
   );
 }
 
-/** On an invoice: send it to Odoo (posted, with the payments taken), then keep its paid status in step. */
-export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice; warranty?: string; now?: () => number }) {
+/**
+ * Sending an invoice to Odoo: posts it the first time, registers payments
+ * not sent yet, attaches the customer's signature page once, then reads back
+ * what Odoo says is paid. Used by the invoice's Odoo box and by Finish job.
+ */
+/** Invoices being sent now, and what Odoo said once each was posted: shared by every screen. */
+const inFlight = new Map<string, Promise<OdooInvoiceState>>();
+const posted = new Map<string, OdooInvoiceState>();
+
+export function useInvoiceOdoo(now: () => number = Date.now) {
   const { status, client } = useOdoo();
   const partner = usePartner();
   const { sheet } = usePriceSheet();
+  const { jobs, setOdooOrder } = useJobs();
+  const { setOdoo, business } = useInvoices();
+  const attachments = useAttachments();
+  const online = status === 'signedIn' && client && client.session.apps.invoicing ? client : null;
+
+  /** Attaches this signature (or the invoice's latest) to the invoice in Odoo, unless it's there already. */
+  const attachSignature = async (c: OdooClient, invoice: Invoice, state: OdooInvoiceState, sig?: Signature): Promise<OdooInvoiceState> => {
+    const s = sig ?? signatureFor(attachments, 'invoice', invoice.id);
+    const media = attachments.media;
+    if (!s || state.signatureSent === s.id || !media?.pdfBase64) return state;
+    const pdf = await media.pdfBase64(signedPageHtml(invoice, state.name, business, s));
+    await sendSignature(c, state.id, pdfName(`Signed ${state.name}`, invoice.billTo), pdf, `Signed by ${s.name || 'the customer'} on ${formatJobDate(s.at)}: work completed to their satisfaction.`);
+    return { ...state, signatureSent: s.id };
+  };
+
+  /**
+   * The sales order to tie the invoice to: the job's, or for a ticket
+   * finished without one (offline, or Odoo refused a line), the ticket's
+   * quotation given the invoice's lines and confirmed now.
+   */
+  const orderFor = async (c: OdooClient, invoice: Invoice, pid: number, job: Job | undefined, given?: OdooRef): Promise<OdooRef | undefined> => {
+    if (given ?? job?.odooOrder) return given ?? job?.odooOrder;
+    if (invoice.source !== 'ticket' || !job || !c.session.apps.sales) return undefined;
+    try {
+      const order = await confirmOrderFor(c, pid, invoice.lines, sheet.odoo, invoiceRef(invoice), job.ticket?.order);
+      setOdooOrder(job.id, order);
+      return order;
+    } catch (e) {
+      // The invoice still goes; it just isn't tied to an order.
+      log.warn('odoo', `invoice ${invoice.number}: no sales order: ${message(e)}`);
+      return undefined;
+    }
+  };
+
+  const sendNow = async (c: OdooClient, invoice: Invoice, opts: { sig?: Signature; order?: OdooRef }): Promise<OdooInvoiceState> => {
+    let state = invoice.odoo ?? posted.get(invoice.id);
+    if (!state) {
+      const job = jobs.find((j) => j.id === invoice.jobId);
+      const pid = await partner(c, invoice.customerId ?? job?.customerId, { name: invoice.billTo, phone: job?.phone ?? '', address: invoice.address });
+      const order = await orderFor(c, invoice, pid, job, opts.order);
+      state = await sendInvoice(c, pid, invoice.lines, sheet.odoo, invoiceRef(invoice), order);
+      // Kept straight away, so a failure below (or a second send from elsewhere) never posts it twice.
+      posted.set(invoice.id, state);
+      setOdoo(invoice.id, state);
+    }
+    const unsent = invoice.payments.filter((p) => !state!.sentPayments.includes(p.id));
+    const sent = [...state.sentPayments];
+    let signatureSent = state.signatureSent;
+    try {
+      sent.push(...(await sendPayments(c, state.id, unsent, (m) => PAY_LABEL[m])));
+      signatureSent = (await attachSignature(c, invoice, state, opts.sig)).signatureSent;
+    } finally {
+      const fresh = await readInvoice(c, state.id, sent, now()).catch(() => ({ ...state!, sentPayments: sent }));
+      state = { ...fresh, ...(signatureSent ? { signatureSent } : {}) };
+      posted.set(invoice.id, state);
+      setOdoo(invoice.id, state);
+    }
+    return state;
+  };
+
+  const send = async (invoice: Invoice, opts: { sig?: Signature; order?: OdooRef } = {}): Promise<OdooInvoiceState | undefined> => {
+    if (!online) return undefined;
+    // One send per invoice at a time: Finish job, the invoice screen and the background sync can all ask.
+    const running = inFlight.get(invoice.id);
+    if (running) {
+      await running.catch(() => undefined);
+      return sendNow(online, { ...invoice, odoo: posted.get(invoice.id) ?? invoice.odoo }, opts);
+    }
+    const p = sendNow(online, invoice, opts);
+    inFlight.set(invoice.id, p);
+    try {
+      return await p;
+    } finally {
+      inFlight.delete(invoice.id);
+    }
+  };
+
+  /** Whether this invoice still has something to send to Odoo. */
+  const pending = (invoice: Invoice): boolean => {
+    if (invoice.voidedAt && !invoice.odoo) return false;
+    const o = invoice.odoo ?? posted.get(invoice.id);
+    if (!o) return true;
+    const s = signatureFor(attachments, 'invoice', invoice.id);
+    return invoice.payments.some((p) => !o.sentPayments.includes(p.id)) || (!!s && o.signatureSent !== s.id && !!attachments.media?.pdfBase64);
+  };
+
+  return { client: online, send, pending };
+}
+
+const WAITING = "Not in Odoo yet. It goes to Odoo on its own once the phone is signed in and has signal, and then Odoo's tax and total replace the phone's estimate.";
+
+const SYNC_EVERY_MS = 3 * 60_000;
+const SYNC_AFTER_CHANGE_MS = 4000;
+/** An invoice Odoo refused isn't tried again for this long (the Send button still works). */
+const SYNC_RETRY_MS = 10 * 60_000;
+
+/**
+ * Sends invoices made on the phone to Odoo in the background once there's
+ * signal: an invoice made offline gets posted (tied to its sales order),
+ * and payments and signatures taken offline follow. Only invoices made since
+ * 0.5.17 go on their own; older ones keep their Send button. Renders nothing.
+ */
+export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
+  const { invoices, loaded } = useInvoices();
+  const jobsApi = useJobs();
+  const { client, send, pending } = useInvoiceOdoo(now);
+  const latest = useRef({ invoices, send, pending });
+  latest.current = { invoices, send, pending };
+  const running = useRef(false);
+  const failed = useRef(new Map<string, number>());
+  const online = !!client && loaded && jobsApi.loaded;
+
+  const pass = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+    try {
+      const todo = latest.current.invoices.filter((i) => i.autoSend && latest.current.pending(i) && now() - (failed.current.get(i.id) ?? 0) > SYNC_RETRY_MS);
+      for (const inv of todo) {
+        // The newest copy: an earlier one in this pass may have changed it.
+        const fresh = latest.current.invoices.find((i) => i.id === inv.id) ?? inv;
+        try {
+          await latest.current.send(fresh);
+          log.info('odoo', `invoice ${fresh.number} synced`);
+        } catch (e) {
+          failed.current.set(inv.id, now());
+          log.warn('odoo', `invoice ${fresh.number} not sent: ${message(e)}`);
+        }
+      }
+    } finally {
+      running.current = false;
+    }
+  }, [now]);
+
+  useEffect(() => {
+    if (!online) return;
+    pass();
+    const t = setInterval(pass, SYNC_EVERY_MS);
+    return () => clearInterval(t);
+  }, [online, pass]);
+
+  useEffect(() => {
+    if (!online) return;
+    const t = setTimeout(pass, SYNC_AFTER_CHANGE_MS);
+    return () => clearTimeout(t);
+  }, [online, pass, invoices]);
+
+  useAppForeground(() => {
+    if (online) pass();
+  });
+
+  return null;
+}
+
+/** On an invoice: send it to Odoo (posted, with the payments taken), then keep its paid status in step. */
+export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice; warranty?: string; now?: () => number }) {
+  const { status, client } = useOdoo();
+  const { send: sendToOdoo } = useInvoiceOdoo(now);
+  const partner = usePartner();
   const { jobs } = useJobs();
-  const { setOdoo } = useInvoices();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailed, setEmailed] = useState<EmailResult | null>(null);
@@ -93,28 +261,21 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
   const job = jobs.find((j) => j.id === invoice.jobId);
   const media = attachments.media;
   const o = invoice.odoo;
-  if (!o && (!online || invoice.voidedAt)) return null;
+  if (!o && invoice.voidedAt) return null;
+  if (!o && !online) {
+    return invoice.autoSend ? (
+      <Text style={styles.meta} testID="invoice-odoo-waiting">
+        {WAITING}
+      </Text>
+    ) : null;
+  }
 
   const run = async () => {
     if (!client) return;
     setBusy(true);
     setError(null);
     try {
-      let state = o;
-      if (!state) {
-        const job = jobs.find((j) => j.id === invoice.jobId);
-        const pid = await partner(client, invoice.customerId ?? job?.customerId, { name: invoice.billTo, phone: job?.phone ?? '', address: invoice.address });
-        state = await sendInvoice(client, pid, invoice.lines, sheet.odoo, `Invoice ${invoice.number}`, job?.odooOrder);
-        // Saved straight away, so a failure below never sends the invoice twice.
-        setOdoo(invoice.id, state);
-      }
-      const unsent = invoice.payments.filter((p) => !state!.sentPayments.includes(p.id));
-      const sent = [...state.sentPayments];
-      try {
-        sent.push(...(await sendPayments(client, state.id, unsent, (m) => PAY_LABEL[m])));
-      } finally {
-        setOdoo(invoice.id, await readInvoice(client, state.id, sent, now()).catch(() => ({ ...state!, sentPayments: sent })));
-      }
+      await sendToOdoo(invoice);
     } catch (e) {
       setError(message(e));
     } finally {
@@ -169,11 +330,13 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
           {pending ? ` ${pending} payment${pending === 1 ? '' : 's'} not in Odoo yet.` : ''}
         </Text>
       ) : (
-        <Text style={styles.meta}>Odoo keeps the books: sending posts this invoice there with the payments taken so far.</Text>
+        <Text style={styles.meta} testID={invoice.autoSend ? 'invoice-odoo-waiting' : undefined}>
+          {invoice.autoSend ? WAITING : 'Odoo keeps the books: sending posts this invoice there with the payments taken so far.'}
+        </Text>
       )}
-      {o && o.total !== invoice.total ? <Text style={styles.meta}>Odoo’s total differs from this phone’s because Odoo adds its own taxes.</Text> : null}
+      {o && o.untaxed === undefined && o.total !== invoice.total ? <Text style={styles.meta}>Odoo’s total differs from this phone’s because Odoo adds its own taxes.</Text> : null}
       {invoice.voidedAt && o ? <Text style={styles.meta}>Voided on the phone; cancel it in Odoo with a credit note.</Text> : null}
-      {online ? <Button label={busy ? 'Working...' : o ? 'Sync with Odoo' : 'Send to Odoo'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
+      {online ? <Button label={busy ? 'Working...' : o ? 'Sync with Odoo' : 'Send to Odoo now'} disabled={busy} onPress={run} testID="invoice-odoo-send" /> : null}
       {online && o && !invoice.voidedAt ? (
         confirm ? (
           <View style={styles.stack} testID="invoice-odoo-email-confirm">

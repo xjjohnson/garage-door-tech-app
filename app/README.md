@@ -518,6 +518,22 @@ confirms that quotation and makes the job's invoice from the ticket (marked
 payments as before. Good / better / best is now **Estimate**, optional: once
 the customer picks an option, **Put … on the job ticket** adds its lines.
 
+**Finish job and offline invoices** (from 0.5.17). The ticket's button is
+now **Finish job**: it marks the work done, makes the invoice, posts it in
+Odoo and opens it with the signing sheet up. The signed page goes to the
+invoice in Odoo as a PDF with a note in its chatter. The ticket has a
+**Customer reference** (the job address when left empty) that goes on the
+sales order and the invoice in Odoo. Invoices made from 0.5.17 on go to Odoo
+by themselves (`OdooInvoicesSync`, mounted in `_layout.tsx`): shortly after a
+change, when the app comes back and every few minutes, any that isn't in
+Odoo yet is posted, and payments and signatures taken offline follow. A
+ticket finished offline gets its sales order then: the ticket's draft
+quotation is given the invoice's lines and confirmed (or a new order is
+made), and the invoice is tied to it. Once Odoo has the invoice, its tax and
+totals replace the phone's estimate. **Send to Odoo now** on the invoice is
+the manual backup; older invoices only go with that button. The Job page no
+longer has a Springs row (the calculators are under Tools).
+
 **Odoo quotations and invoices** (from 0.5.12). Sales › **Odoo quotations**
 and **Odoo invoices** show Odoo's own lists, every `sale.order` and every
 customer invoice and credit note, not only the phone's: newest first, 40 at a

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { OdooInvoicesSync } from '../components/OdooSales';
 import { OdooJobSync } from '../components/OdooJobSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
 import { CalculatorLinkProvider } from '../lib/useCalculatorLink';
@@ -49,6 +50,7 @@ export default function RootLayout() {
                           <CalculatorLinkProvider>
                             <StatusBar style="dark" />
                             <OdooJobSync />
+                            <OdooInvoicesSync />
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                               <Stack.Screen name="(tabs)" />
                               <Stack.Screen name="price-sheet" options={{ presentation: 'modal' }} />
