@@ -5,6 +5,7 @@ import { daySummary, dayText, DAY_CLOSE_STORAGE_KEY, parseClosedDays } from '../
 import { Invoice } from '../lib/invoices';
 import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
+import { NoEmployeeError, postDaySummary } from '../lib/odooDay';
 import { postPartsUsed, browseProducts, createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
@@ -624,7 +625,18 @@ describe('truck, job parts, wrap-up and scorecard screens', () => {
     await fireEvent.press(screen.getByTestId('eod-close'));
     await settle(3);
     expect(screen.getByTestId('eod-closed')).toHaveTextContent(/Day closed at/);
-    expect(parseClosedDays(await AsyncStorage.getItem(DAY_CLOSE_STORAGE_KEY))).toHaveLength(1);
+    // Signed out: the summary waits to go to Odoo.
+    expect(parseClosedDays(await AsyncStorage.getItem(DAY_CLOSE_STORAGE_KEY))).toMatchObject([{ toOdoo: true }]);
+  });
+
+  it('posts a closed day as a note on my employee record, and says when there is none', async () => {
+    const call = jest.fn(async (model: string, method: string) => (method === 'search' ? [31] : true));
+    const client = { session: { uid: 2 }, call } as unknown as OdooClient;
+    await postDaySummary(client, { text: 'Justin · Fri, Nov 13\nBilled: $1 <b>' });
+    expect(call).toHaveBeenCalledWith('hr.employee', 'search', [[['user_id', '=', 2]]], { limit: 1 });
+    expect(call).toHaveBeenCalledWith('hr.employee', 'message_post', [[31]], expect.objectContaining({ body: expect.stringContaining('Justin · Fri, Nov 13<br>Billed: $1 &lt;b&gt;') }));
+    const none = { session: { uid: 3 }, call: async () => [] } as unknown as OdooClient;
+    await expect(postDaySummary(none, { text: 'x' })).rejects.toBeInstanceOf(NoEmployeeError);
   });
 
   it("shows this phone's scorecard when not signed in to Odoo", async () => {
