@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action } from '../components/Buttons';
+import { SyncNowButton } from '../components/SyncNowButton';
 import { lastCrash } from '../lib/crash';
 import { followUps } from '../lib/followups';
 import { balance, invoiceStatus } from '../lib/invoices';
@@ -53,6 +54,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   return (
     <View style={styles.stack} testID="today">
       <SyncLine />
+      <SyncNowButton />
       <OlderJobsLine />
       <CrashNotice />
       <View style={styles.row}>
