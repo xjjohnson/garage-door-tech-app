@@ -238,6 +238,7 @@ describe('repair-only quote', () => {
     resetQuoteTemplates();
     await AsyncStorage.clear();
     await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify({ ...SHEET, serviceCall: '89' }));
+    await AsyncStorage.setItem('price-book/v1', JSON.stringify({ items: [{ id: 77, name: 'Cable', code: '', cents: 3500, kind: 'material', category: [], description: '' }], frequent: [], fetchedAt: Date.now() }));
   });
 
   it('quotes the service call and inspection repairs when there are no spring measurements', async () => {
@@ -260,13 +261,28 @@ describe('repair-only quote', () => {
     await renderApp('/quote/j1');
     await settle();
     expect(screen.getByTestId('quote-blocked')).toHaveTextContent(/Missing.*add a line below/);
+    expect(screen.queryByTestId('quote-line-name-x')).toBeNull();
     await fireEvent.press(screen.getByTestId('quote-line-add'));
-    const [line] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines!;
-    await fireEvent.changeText(screen.getByTestId(`quote-line-name-${line.id}`), 'Cable replacement');
     await settle();
+    await fireEvent.press(screen.getByTestId('pb-pick-77'));
+    await settle();
+    const [line] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines!;
+    expect(line).toMatchObject({ label: 'Cable', price: '35', taxable: true, productId: 77 });
     expect(screen.queryByTestId('quote-blocked')).toBeNull();
     expect(screen.getByTestId('quote-repairs-only')).toBeTruthy();
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$127.50');
+  });
+
+  it('offers every Odoo quotation template, not only the job type\'s', async () => {
+    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(SETS));
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Tune-up' }]));
+    await renderApp('/quote/j1');
+    await settle();
+    expect(screen.getByTestId('quote-no-templates')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Opener'));
+    await settle();
+    expect(screen.getByTestId('quote-from-templates')).toHaveTextContent('From your Odoo quotation templates for Opener.');
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$465');
   });
 
   it('never lists spring measurements for an opener with no templates', async () => {
