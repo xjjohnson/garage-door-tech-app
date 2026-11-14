@@ -9,12 +9,14 @@
  * surveys get a "Notes and actions" answer with the flagged items' notes.
  * Kept free of React.
  */
-import { Answer, DOOR_ITEMS, DOOR_MAKERS, GATE_ASTM_ITEMS, GATE_SLIDE_ITEMS, GATE_SWING_ITEMS, GATE_UL_ITEMS, Inspection, ItemDef, MOTOR_ITEMS, MOTOR_MAKERS, RATING_LABEL } from './inspection';
+import { Answer, checklist, Inspection, ItemDef, RATING_LABEL } from './inspection';
 import type { Job } from './jobs';
 import type { OdooJobRef } from './odooJobs';
 import type { Signature } from './attachments';
 import type { OdooClient } from './odoo';
 import { SurveyKind, surveyState } from './odooSurveys';
+
+const DEFAULT_NOTES = 'Notes and actions';
 
 type Caller = Pick<OdooClient, 'call'>;
 
@@ -53,51 +55,54 @@ function itemLines(defs: ItemDef[], answers: Record<string, Answer>): { lines: L
   return { lines, notes };
 }
 
-const withNotes = (lines: Line[], notes: string[]): Line[] => (notes.length ? [...lines, { question: 'Notes and actions', text: notes.join('\n') }] : lines);
+const withNotes = (lines: Line[], notes: string[], question: string): Line[] => (notes.length ? [...lines, { question, text: notes.join('\n') }] : lines);
 
 /** Every survey an inspection fills in, for the job named `jobName` in Odoo. */
 export function surveyInputs(insp: Inspection, jobName: string): SurveyInput[] {
   const out: SurveyInput[] = [];
+  const cl = checklist();
+  const L = cl.info;
   insp.doors.forEach((d, i) => {
-    const r = itemLines(DOOR_ITEMS, d.answers);
+    const r = itemLines(cl.door, d.answers);
     out.push({
       slot: `door:${d.id}`,
       kind: 'door',
       label: `Door ${i + 1}`,
       lines: withNotes(
         [
-          ...typed('Job', jobName),
-          ...typed('Door number', String(i + 1)),
-          { question: 'Rollers, track and opener lubricated', choice: insp.lubricated ? 'Yes' : 'No' },
-          ...pick('Door manufacturer', d.maker, DOOR_MAKERS),
-          ...typed('Size (for example 16x7)', d.size),
-          ...typed('Door age (year installed)', d.age),
-          ...typed('Spring date code', d.springCode),
-          ...typed('Spring cycles', d.springCycles),
+          ...typed(L.door.job, jobName),
+          ...typed(L.door.number, String(i + 1)),
+          { question: L.door.lube, choice: insp.lubricated ? 'Yes' : 'No' },
+          ...pick(L.door.maker, d.maker, cl.doorMakers),
+          ...typed(L.door.size, d.size),
+          ...typed(L.door.age, d.age),
+          ...typed(L.door.code, d.springCode),
+          ...typed(L.door.cycles, d.springCycles),
           ...r.lines,
         ],
         r.notes,
+        L.door.notes,
       ),
     });
     d.motors.forEach((m, j) => {
-      const mr = itemLines(MOTOR_ITEMS, m.answers);
+      const mr = itemLines(cl.motor, m.answers);
       out.push({
         slot: `opener:${m.id}`,
         kind: 'opener',
         label: `Door ${i + 1} opener ${j + 1}`,
-        lines: withNotes([...typed('Job', jobName), ...typed('Door number', String(i + 1)), ...typed('Opener number', String(j + 1)), ...pick('Opener manufacturer', m.maker, MOTOR_MAKERS), ...typed('Opener build date', m.built), ...mr.lines], mr.notes),
+        lines: withNotes([...typed(L.opener.job, jobName), ...typed(L.opener.door, String(i + 1)), ...typed(L.opener.number, String(j + 1)), ...pick(L.opener.maker, m.maker, cl.motorMakers), ...typed(L.opener.built, m.built), ...mr.lines], mr.notes, L.opener.notes),
       });
     });
   });
   if (insp.gate) {
     const g = insp.gate;
-    const sets = [GATE_UL_ITEMS, g.type === 'slide' ? GATE_SLIDE_ITEMS : g.type === 'swing' ? GATE_SWING_ITEMS : [], GATE_ASTM_ITEMS];
+    const sets = [cl.ul, g.type === 'slide' ? cl.slide : g.type === 'swing' ? cl.swing : [], cl.astm];
     const rs = sets.map((s) => itemLines(s, g.answers));
     out.push({
       slot: 'gate',
       kind: 'gate',
       label: 'Gate',
-      lines: withNotes([...typed('Job', jobName), ...(g.type ? [{ question: 'Gate type', choice: g.type === 'slide' ? 'Slide' : 'Swing' }] : []), ...rs.flatMap((r) => r.lines)], rs.flatMap((r) => r.notes)),
+      lines: withNotes([...typed(L.gate.job, jobName), ...(g.type ? [{ question: L.gate.type, choice: g.type === 'slide' ? 'Slide' : 'Swing' }] : []), ...rs.flatMap((r) => r.lines)], rs.flatMap((r) => r.notes), L.gate.notes),
     });
   }
   return out;
@@ -172,7 +177,7 @@ export function lineCommands(idx: SurveyIndex, survey: number, lines: Line[]): u
       const a = q.choices.get(qid)?.get(l.choice);
       if (a) out.push([0, 0, { question_id: qid, answer_type: 'suggestion', suggested_answer_id: a, skipped: false }]);
     } else if (l.text !== undefined) {
-      const multi = l.question === 'Notes and actions';
+      const multi = [DEFAULT_NOTES, ...Object.values(checklist().info).map((x) => x.notes)].includes(l.question);
       out.push([0, 0, { question_id: qid, answer_type: multi ? 'text_box' : 'char_box', ...(multi ? { value_text_box: l.text } : { value_char_box: l.text }), skipped: false }]);
     }
   }

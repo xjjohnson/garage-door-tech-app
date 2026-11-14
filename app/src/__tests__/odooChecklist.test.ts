@@ -46,3 +46,30 @@ describe('inspection checklist from Odoo surveys', () => {
     expect(parseChecklist(null)).toBeNull();
   });
 });
+
+describe('info questions from Odoo', () => {
+  const q = (id: number, title: string, labels: string[] = [], type?: string) => ({ id, title, isPage: false, labels, type });
+  it('keeps built-in names, takes renames by order, and picks up the notes and makers', () => {
+    const { DEFAULT_INFO } = require('../lib/inspection');
+    const { infoFrom } = require('../lib/odooChecklist');
+    const r = infoFrom(
+      [
+        q(1, 'Job'),
+        q(2, 'Door number'),
+        q(3, 'Rollers, track and opener lubricated', ['Yes', 'No']),
+        q(4, 'Door manufacturer', ['Clopay', 'Other']),
+        q(5, 'Size (for example 16x7)'),
+        q(6, 'Door age (year installed)'),
+        q(7, 'Spring date codes ya'),
+        q(8, 'Spring cycles'),
+        q(9, 'Anything else', [], 'text_box'),
+      ],
+      DEFAULT_INFO.door,
+      'notes',
+    );
+    expect(r.labels.code).toBe('Spring date codes ya');
+    expect(r.labels.notes).toBe('Anything else');
+    expect(r.labels.job).toBe('Job');
+    expect(r.choices.get('maker')).toEqual(['Clopay', 'Other']);
+  });
+});
