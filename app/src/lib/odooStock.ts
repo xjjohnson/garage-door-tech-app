@@ -14,7 +14,7 @@
  * passed in, so tests use a fake server.
  */
 import { OdooClient, OdooError } from './odoo';
-import { DEFAULT_TRUCK, guessCategory, STARTER_ITEMS, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
+import { DEFAULT_TRUCK, guessCategory, holdBack, STARTER_ITEMS, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
 
 /** A product as truck stock needs it. */
 export interface StockProduct {
@@ -364,6 +364,8 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
     store = store.truck ? switchTruck(store, mine, now) : { ...store, truck: mine };
   }
   const truck = store.truck!;
+  // Parts taken for jobs that Odoo takes off the truck itself, as stock moves on the job's order: not sent as a count.
+  const hold = holdBack(store.used);
   let lines = await readTruck(client, truck.locationId);
   const odoo = new Map(lines.map((l) => [l.id, l]));
   let sent = 0;
@@ -424,7 +426,8 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
     let i = item;
     const have = odoo.get(i.odooId!)?.qty;
     let target: number | undefined;
-    if (i.syncedOnHand !== undefined && i.onHand !== i.syncedOnHand) target = Math.max(0, (have ?? 0) + i.onHand - i.syncedOnHand);
+    const local = i.onHand + (hold.get(i.id) ?? 0);
+    if (i.syncedOnHand !== undefined && local !== i.syncedOnHand) target = Math.max(0, (have ?? 0) + local - i.syncedOnHand);
     if (target !== undefined && target !== (have ?? 0)) {
       try {
         await setTruckQty(client, truck.locationId, i.odooId!, target);
@@ -501,7 +504,8 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
     if (held.has(i.id)) return { ...i, syncedOnHand: i.syncedOnHand ?? 0 };
     return {
       ...i,
-      onHand: l.qty,
+      // Odoo hasn't taken the unsent job parts off yet, so they stay off the phone's count meanwhile.
+      onHand: Math.max(0, l.qty - (hold.get(i.id) ?? 0)),
       syncedOnHand: l.qty,
       ...(l.code ? { sku: l.code } : {}),
       ...(l.barcode ? { barcode: l.barcode } : {}),

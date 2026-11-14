@@ -624,6 +624,21 @@ invoice. Materials on the ticket that are truck stock items (same Odoo
 product) show under the job's **Parts used**, and Create invoice takes them off
 the truck, less any already taken off by hand for that job.
 
+**Parts used as real stock moves** (from 0.5.96, needs Field Service Stock). On
+an Odoo that has Field Service Stock (the `fsm_order_id` field on stock moves and
+deliveries; checked with fields_get at sign-in), a part taken for a job that is
+already in Odoo becomes a delivery on that job's order, from the truck's location
+to the job site's inventory location (or Odoo's Customers location), validated, so
+Odoo takes it off the truck itself. It replaces the chatter note. Only parts taken
+after this shipped, for jobs already in Odoo, work this way (the use is marked
+`move`); older uses, jobs not yet in Odoo, and Odoos without the app keep the old
+count and note. To avoid counting a part twice, the truck count sync leaves
+unsent move uses out of what it sends (`holdBack`), moves are recorded between
+syncs (never during one), and recording a move lowers the phone's "as Odoo had
+it" count by the same amount. One delivery per use, found again by its Source, so
+a retry never repeats it. The app never turns on Track Inventory. A recorded use
+shows "In Odoo" instead of Undo; reverse it in Odoo.
+
 **Parts that aren't on the truck** (from 0.5.34). A ticket part (an Odoo
 product) that isn't a truck stock item holds up **Create invoice**: the ticket
 lists it and the job's **Parts used** asks for it, with **Order it** (a

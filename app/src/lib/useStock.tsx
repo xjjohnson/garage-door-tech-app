@@ -2,8 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { log } from './log';
 import type { OdooClient } from './odoo';
+import { movesAvailable } from './partMovesGate';
+import { partMovesSupport, recordPartMoves } from './odooPartMoves';
+import { useJobsList } from './useJobs';
+import { useJobsSince } from './useJobsSince';
 import { createProduct, createPurchaseDraft, PartialSyncError, purchaseStates, receivePurchaseOrder, sendPurchaseOrder, StockProduct, syncTruck, SyncResult } from './odooStock';
-import { EMPTY_STOCK, findSupplier, guessCategory, mergeStock, parseStock, PartUse, PurchaseOrder, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, StockStore, Supplier, SupplierOrder, switchTruck, TruckLink } from './stock';
+import { EMPTY_STOCK, findSupplier, guessCategory, mergeStock, parseStock, PartUse, PurchaseOrder, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, StockStore, Supplier, SupplierOrder, switchTruck, TruckLink, usedOff } from './stock';
 
 export type NewStockItem = Omit<StockItem, 'id' | 'updatedAt'>;
 
@@ -22,6 +26,11 @@ interface StockApi extends StockStore {
   takeParts: (itemId: string, qty: number, jobId?: string) => void;
   /** Notes that these uses are now on their jobs' orders in Odoo. */
   markUsesSent: (ids: string[], at: number) => void;
+  /**
+   * Puts the parts used on jobs that are in Odoo on those jobs' orders as stock moves off the truck. Runs
+   * between truck syncs, never during one. Returns how many are now on their orders.
+   */
+  recordMoves: (client: OdooClient) => Promise<number>;
   /** Puts a used part back on the truck. */
   undoUse: (useId: string) => void;
   /** Two-way sync with the truck's Inventory location in Odoo. */
@@ -60,6 +69,12 @@ export function StockProvider({ children }: { children: ReactNode }) {
   const touched = useRef(false);
   const latest = useRef(store);
   latest.current = store;
+  const jobs = useJobsList();
+  const jobsRef = useRef(jobs);
+  jobsRef.current = jobs;
+  const jobsSince = useJobsSince();
+  const sinceRef = useRef(jobsSince);
+  sinceRef.current = jobsSince;
 
   useEffect(() => {
     let alive = true;
@@ -128,12 +143,32 @@ export function StockProvider({ children }: { children: ReactNode }) {
         if (!item || qty <= 0) return s;
         const now = Date.now();
         const off = Math.min(qty, item.onHand);
-        const use: PartUse = { id: newId('u'), itemId, name: item.name, qty, at: now, ...(jobId ? { jobId } : {}), ...(off !== qty ? { off } : {}) };
+        // A job already in Odoo, on an Odoo with Field Service Stock: Odoo takes it off the truck with a stock move.
+        const since = sinceRef.current;
+        const move = !!jobId && movesAvailable() && !!s.truck && item.odooId !== undefined && since !== null && now >= since && jobsRef.current.find((j) => j.id === jobId)?.odooJob?.model === 'fsm.order';
+        const use: PartUse = { id: newId('u'), itemId, name: item.name, qty, at: now, ...(jobId ? { jobId } : {}), ...(off !== qty ? { off } : {}), ...(move ? { move: true } : {}) };
         return { ...s, items: s.items.map((i) => (i.id === itemId ? { ...i, onHand: Math.max(0, i.onHand - qty), updatedAt: now } : i)), used: [...(s.used ?? []), use] };
       }),
     [change],
   );
   const markUsesSent = useCallback<StockApi['markUsesSent']>((ids, at) => change((s) => ({ ...s, used: (s.used ?? []).map((u) => (ids.includes(u.id) ? { ...u, sentAt: at } : u)) })), [change]);
+  /** These uses are now moves in Odoo, which took them off the truck there: the phone's "as Odoo had it" count drops too, so the count sync doesn't send them again. */
+  const markMoved = useCallback(
+    (ids: string[], at: number) =>
+      change((s) => {
+        const moved = (s.used ?? []).filter((u) => ids.includes(u.id) && u.move && !u.sentAt);
+        const take = new Map<string, number>();
+        for (const u of moved) take.set(u.itemId, (take.get(u.itemId) ?? 0) + usedOff(u));
+        return {
+          ...s,
+          items: s.items.map((i) => (take.has(i.id) && i.syncedOnHand !== undefined ? { ...i, syncedOnHand: Math.max(0, i.syncedOnHand - take.get(i.id)!) } : i)),
+          used: (s.used ?? []).map((u) => (ids.includes(u.id) ? { ...u, sentAt: at } : u)),
+        };
+      }),
+    [change],
+  );
+  /** The uses go back to a count the next truck sync takes off, when Odoo can't record them as moves. */
+  const dropMoves = useCallback((ids: string[]) => change((s) => ({ ...s, used: (s.used ?? []).map((u) => (ids.includes(u.id) ? { ...u, move: undefined } : u)) })), [change]);
   const undoUse = useCallback(
     (useId: string) =>
       change((s) => {
@@ -145,18 +180,56 @@ export function StockProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
-  const running = useRef<Promise<SyncResult> | null>(null);
+  const running = useRef<Promise<unknown> | null>(null);
+  /** One Odoo stock job at a time (a truck sync, or recording moves): a second ask waits for the one running, then runs with what changed since. */
+  const queued = <T,>(fn: () => Promise<T>): Promise<T> => {
+    const prev = running.current;
+    const run = (prev ? prev.catch(() => undefined) : Promise.resolve()).then(fn);
+    running.current = run;
+    run.finally(() => {
+      if (running.current === run) running.current = null;
+    }).catch(() => undefined);
+    return run;
+  };
   const sync = useCallback(
-    (client: OdooClient) => {
-      // One sync at a time: a second ask while one runs waits for it, then runs with what changed since.
-      const prev = running.current;
-      const run = (prev ? prev.catch(() => undefined) : Promise.resolve()).then(() => syncOnce(client));
-      running.current = run;
-      run.finally(() => {
-        if (running.current === run) running.current = null;
-      }).catch(() => undefined);
-      return run;
-    },
+    (client: OdooClient) => queued(() => syncOnce(client)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [change],
+  );
+  const recordMoves = useCallback(
+    (client: OdooClient) =>
+      queued(async () => {
+        const s = latest.current;
+        const pending = (s.used ?? []).filter((u) => u.move && !u.sentAt && u.jobId);
+        if (pending.length === 0 || !s.truck) return 0;
+        const support = await partMovesSupport(client);
+        if (!support.ok) {
+          // Not recordable here after all: the truck count sync takes them off instead, and the note goes on the order.
+          log.warn('stock', `parts used as stock moves unavailable: ${support.why}`);
+          dropMoves(pending.map((u) => u.id));
+          return 0;
+        }
+        let n = 0;
+        const byJob = new Map<string, PartUse[]>();
+        for (const u of pending) byJob.set(u.jobId!, [...(byJob.get(u.jobId!) ?? []), u]);
+        for (const [jobId, uses] of byJob) {
+          const ref = jobsRef.current.find((j) => j.id === jobId)?.odooJob;
+          if (!ref || ref.model !== 'fsm.order') continue;
+          const withProduct = uses.flatMap((use) => {
+            const productId = latest.current.items.find((i) => i.id === use.itemId)?.odooId;
+            return productId === undefined ? [] : [{ use, productId }];
+          });
+          try {
+            const r = await recordPartMoves(client, ref, s.truck.locationId, withProduct);
+            if (r.done.length) markMoved(r.done, Date.now());
+            for (const p of r.problems) log.warn('odoo', `part move for ${ref.name} (${p.name}): ${p.why}`);
+            n += r.done.length;
+          } catch (e) {
+            log.warn('odoo', `part moves for ${ref.name}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+        return n;
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [change],
   );
@@ -320,8 +393,8 @@ export function StockProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo }),
-    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo],
+    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, recordMoves, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo }),
+    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, recordMoves, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

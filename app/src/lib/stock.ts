@@ -60,8 +60,14 @@ export interface PartUse {
   at: number;
   /** How many actually came off the truck count, when it had fewer than `qty` (so undo doesn't add more than was taken). */
   off?: number;
-  /** When the use was noted on the job's order in Odoo. */
+  /** When the use was noted on the job's order in Odoo (as a stock move, or a note for older uses). */
   sentAt?: number;
+  /**
+   * Taken for a job that was already in Odoo, on an Odoo with Field Service Stock: it goes to the job's
+   * order as a real stock move off the truck (src/lib/odooPartMoves.ts), which takes it off the truck's
+   * count in Odoo. So the truck count sync must not take it off too while it is unsent.
+   */
+  move?: boolean;
 }
 
 /** A purchase order sent to a supplier through Odoo. */
@@ -268,7 +274,7 @@ export function parseStock(raw: string | null | unknown): StockStore {
     if (!x || typeof x !== 'object') return [];
     const u = x as Record<string, unknown>;
     if (typeof u.id !== 'string' || typeof u.itemId !== 'string' || typeof u.at !== 'number') return [];
-    return [{ id: u.id, itemId: u.itemId, name: s0(u.name), qty: n0(u.qty) || 1, at: u.at, ...(typeof u.jobId === 'string' ? { jobId: u.jobId } : {}), ...(typeof u.off === 'number' && u.off >= 0 ? { off: n0(u.off) } : {}), ...(typeof u.sentAt === 'number' ? { sentAt: u.sentAt } : {}) }];
+    return [{ id: u.id, itemId: u.itemId, name: s0(u.name), qty: n0(u.qty) || 1, at: u.at, ...(typeof u.jobId === 'string' ? { jobId: u.jobId } : {}), ...(typeof u.off === 'number' && u.off >= 0 ? { off: n0(u.off) } : {}), ...(typeof u.sentAt === 'number' ? { sentAt: u.sentAt } : {}), ...(u.move === true ? { move: true } : {}) }];
   });
   const purchases = (Array.isArray(d.purchases) ? d.purchases : []).flatMap((x): PurchaseOrder[] => {
     if (!x || typeof x !== 'object') return [];
@@ -332,7 +338,22 @@ export function usedTotals(used: PartUse[] = [], filter: { from?: number; to?: n
 /** Items whose count changed on the phone since Odoo last had it (or that Odoo doesn't have yet). */
 export function unsyncedItems(store: StockStore): StockItem[] {
   if (!store.truck) return [];
-  return store.items.filter((i) => i.odooId !== undefined && i.onHand !== (i.syncedOnHand ?? -1));
+  const hold = holdBack(store.used);
+  return store.items.filter((i) => i.odooId !== undefined && i.onHand + (hold.get(i.id) ?? 0) !== (i.syncedOnHand ?? -1));
+}
+
+/** What one use took off the truck count: all of it, or less when the truck had fewer than were used. */
+export const usedOff = (u: PartUse) => u.off ?? u.qty;
+
+/**
+ * Per item, how many are off the phone's count for jobs but not yet moved in Odoo (uses with `move` and no
+ * `sentAt`). Odoo takes these off itself when the stock move is validated, so the truck count sync leaves
+ * them out of what it sends; otherwise they would come off twice.
+ */
+export function holdBack(used: PartUse[] = []): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const u of used) if (u.move && !u.sentAt) m.set(u.itemId, (m.get(u.itemId) ?? 0) + usedOff(u));
+  return m;
 }
 
 /** A guess at the category from a product name, for parts that come from Odoo. */
