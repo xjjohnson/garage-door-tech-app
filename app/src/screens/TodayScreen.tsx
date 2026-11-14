@@ -21,7 +21,10 @@ import { useOdoo } from '../lib/useOdoo';
 import { useJobsSince } from '../lib/useJobsSince';
 import { usePending } from '../lib/usePending';
 import { useSchedule } from '../lib/useSchedule';
+import { useGeocode } from '../lib/useGeocode';
 import { useStartJob } from '../lib/useStartJob';
+import { useWeather } from '../lib/useWeather';
+import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, touch, type } from '../theme';
 
@@ -49,6 +52,15 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   const owedTotal = owed.reduce((n, i) => n + balance(i), 0);
   const due = followUps(invoices, settings, business, t, dismissed).filter((f) => f.due <= t).length;
 
+  // Weather for each stop, when there's signal and the address is on the map. Nothing shows otherwise.
+  const { points } = useGeocode(useMemo(() => today.map((a) => a.address), [today]));
+  const hours = useWeather(useMemo(() => Object.values(points).filter((p): p is NonNullable<typeof p> => !!p), [points]));
+  const weatherOf = (a: Appointment): Summary | null => {
+    const p = points[a.address.trim()];
+    return p ? summarize(hoursFor(hours[weatherKey(p)] ?? [], a.start, a.minutes)) : null;
+  };
+  const worst = left.map(weatherOf).filter((w): w is Summary => !!w && w.warn)[0];
+
   return (
     <View style={styles.stack} testID="today">
       <SyncLine />
@@ -62,7 +74,13 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
         <Action label="+ New job" primary onPress={() => router.push('/new-job')} testID="today-new-job" />
       </View>
 
-      {next ? <NextCard a={next} onStart={() => startJob(next)} jobHasStarted={!!jobs.find((j) => j.id === next.jobId)?.steps?.arrivedAt} /> : null}
+      {worst ? (
+        <Text style={styles.weatherDay} testID="today-weather-day">
+          Heads up: {worst.label.toLowerCase()} on today's route
+        </Text>
+      ) : null}
+
+      {next ? <NextCard a={next} weather={weatherOf(next)} onStart={() => startJob(next)} jobHasStarted={!!jobs.find((j) => j.id === next.jobId)?.steps?.arrivedAt} /> : null}
 
       {underway.length > 0 ? (
         <View style={styles.list}>
@@ -91,6 +109,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
               <View style={styles.grow}>
                 <Text style={styles.lineTitle}>{a.name}{a.what ? ` · ${a.what}` : ''}</Text>
                 {a.address ? <Text style={styles.lineSub}>{a.address}</Text> : null}
+                <WeatherLine w={weatherOf(a)} id={a.id} />
               </View>
             </Pressable>
           ))}
@@ -110,7 +129,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-function NextCard({ a, onStart, jobHasStarted }: { a: Appointment; onStart: () => void; jobHasStarted: boolean }) {
+function NextCard({ a, weather, onStart, jobHasStarted }: { a: Appointment; weather: Summary | null; onStart: () => void; jobHasStarted: boolean }) {
   const maps = mapsLink(a.address);
   return (
     <View style={styles.next} testID="today-next">
@@ -121,12 +140,23 @@ function NextCard({ a, onStart, jobHasStarted }: { a: Appointment; onStart: () =
           {a.what ? ` · ${a.what}` : ''}
         </Text>
         {a.address ? <Text style={styles.nextSub}>{a.address}</Text> : null}
+        <WeatherLine w={weather} id={a.id} />
       </View>
       <View style={[styles.row, styles.nextButtons]}>
         {maps ? <Action label="Navigate" grow onPress={() => Linking.openURL(maps).catch(() => undefined)} testID="today-navigate" /> : null}
         <Action label={jobHasStarted || a.jobId ? 'Open job' : 'Start job'} primary grow onPress={onStart} testID="today-start" />
       </View>
     </View>
+  );
+}
+
+/** One line of weather for a visit: warns in a stronger color for rain, snow, storms and extreme temperatures. */
+function WeatherLine({ w, id }: { w: Summary | null; id: string }) {
+  if (!w) return null;
+  return (
+    <Text style={[styles.weather, w.warn && styles.weatherWarn]} testID={`weather-${id}`}>
+      {weatherText(w)}
+    </Text>
   );
 }
 
@@ -243,6 +273,9 @@ const styles = StyleSheet.create({
   nextTitle: { fontSize: 23, fontWeight: '900', color: colors.text },
   nextSub: { fontSize: 17, fontWeight: '600', color: colors.muted },
   nextButtons: { paddingHorizontal: 14, paddingBottom: 14 },
+  weather: { fontSize: 15, fontWeight: '700', color: colors.muted },
+  weatherWarn: { color: colors.stop, fontWeight: '900' },
+  weatherDay: { fontSize: 16, fontWeight: '800', color: colors.stop },
   tiles: { flexDirection: 'row', gap: 10 },
   tile: { flex: 1, borderRadius: 14, backgroundColor: colors.card, padding: 12, gap: 2, minHeight: touch.min },
   tileWarn: { backgroundColor: colors.safety },
