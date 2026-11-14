@@ -15,7 +15,9 @@ import { acceptedLabel, Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, signaturePending } from '../lib/ticket';
+import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, signaturePending } from '../lib/ticket';
+import { discountKey, discountText, presetsFor } from '../lib/discounts';
+import { DiscountPanel } from '../components/DiscountPanel';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useStock } from '../lib/useStock';
@@ -108,7 +110,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
 
   // The job's other open estimates are quotations in Odoo too: each is saved once it has lines.
   const staleOthers = client && !invoice ? openEstimates(others).filter((t) => t.id && t.lines.length > 0 && !currentTotals(t)) : [];
-  const staleKey = staleOthers.map((t) => `${t.id}:${linesKey(t.lines)}`).join('#');
+  const staleKey = staleOthers.map((t) => `${t.id}:${linesKey(t.lines, t.discount)}`).join('#');
   useEffect(() => {
     if (!client || staleOthers.length === 0) return;
     let live = true;
@@ -117,7 +119,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         try {
           const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
           const r = await syncTicket(client, pid, t, ticketRef(t), now());
-          if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines) === linesKey(t.lines) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : o)) }));
+          if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines, o.discount) === linesKey(t.lines, t.discount) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : o)) }));
         } catch (e) {
           log.warn('ticket', `${job.id}: couldn't save estimate ${t.title ?? t.id}: ${message(e)}`);
         }
@@ -149,7 +151,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   // Deposits are written to the quotation too, so they're kept in Odoo and not only on the phone.
   const depositsUnsaved = (ticket.depositsSaved ?? '') !== depositsKey(ticket);
   const stale = !!client && !invoice && ((ticket.lines.length > 0 && !odooTotals) || depositsUnsaved);
-  const key = `${ticket.lines.map((l) => `${l.id}:${l.qty}:${l.unitCents}`).join('|')}#${depositsKey(ticket)}`;
+  const key = `${ticket.lines.map((l) => `${l.id}:${l.qty}:${l.unitCents}`).join('|')}#${depositsKey(ticket)}#${discountKey(ticket.discount)}`;
   useEffect(() => {
     if (!stale) return;
     const t = setTimeout(() => syncRef.current(), SYNC_DELAY_MS);
@@ -282,8 +284,11 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       {section('material')}
       {!invoice ? <TypedLine onAdd={(l) => setTicket(job.id, (t) => addTyped(t, l, newLineId(now())))} /> : null}
 
+      {!invoice && ticket.lines.length > 0 ? <DiscountPanel discount={ticket.discount} presets={presetsFor(business.discounts)} onChange={(d) => setTicket(job.id, (t) => setDiscount(t, d))} /> : null}
+
       <View style={styles.card} testID="ticket-totals">
-        <Row label="Subtotal" value={formatMoney(shown.untaxed)} />
+        <Row label={ticket.discount ? 'Subtotal (after discount)' : 'Subtotal'} value={formatMoney(shown.untaxed)} />
+        {ticket.discount ? <Row label="Discount" value={discountText(ticket.discount)} testID="ticket-discount-row" /> : null}
         <Row label={odooTotals ? 'Tax (Odoo)' : 'Tax (estimate, parts only)'} value={formatMoney(shown.tax)} />
         <Row label="Total" value={formatMoney(shown.total)} big testID="ticket-total" />
         <Text style={styles.meta} testID="ticket-totals-source">

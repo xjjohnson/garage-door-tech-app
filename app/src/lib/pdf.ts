@@ -89,7 +89,7 @@ export function quoteHtml(job: { customer: string; address: string; savedAt: num
     .map((o) => {
       const chosen = job.accepted?.tier === o.tier && job.accepted?.key === o.key;
       const rows = o.lines
-        .filter((l) => l.cents > 0)
+        .filter((l) => l.cents !== 0)
         .map((l) => `<tr><td>${escapeHtml(l.label)}</td><td class="amt">${formatMoney(l.cents)}</td></tr>`)
         .join('');
       return `<div class="opt${chosen ? ' chosen' : ''}"><b>${escapeHtml(o.title ?? TIER_LABEL[o.tier])}${chosen ? ' (chosen)' : ''}</b><table>${rows}${o.tax > 0 ? `<tr><td>Tax</td><td class="amt">${formatMoney(o.tax)}</td></tr>` : ''}<tr class="total"><td>Total</td><td class="amt">${formatMoney(o.total)}</td></tr></table></div>`;

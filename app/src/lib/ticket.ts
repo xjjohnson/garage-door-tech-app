@@ -6,6 +6,7 @@
  * discounts, and the phone shows Odoo's totals. Kept free of React so it can
  * be tested directly.
  */
+import { Discount, discountKey, discountLineName, parseDiscount } from './discounts';
 import type { OdooClient } from './odoo';
 import { lineValues, OdooRef, parseRef, serviceProduct } from './odooSales';
 import type { PriceBookItem } from './priceBook';
@@ -40,6 +41,8 @@ export interface Ticket {
   /** The draft quotation in Odoo holding these lines. */
   order?: OdooRef;
   totals?: TicketTotals;
+  /** A quick discount: a percent off every line (Odoo's line discount) or one negative Discount line. Odoo works out the totals. */
+  discount?: Discount;
   /** The customer reference typed on the ticket; goes on the sales order and the invoice in Odoo. */
   ref?: string;
   /** When the ticket was saved as an estimate for the customer (its quotation in Odoo). */
@@ -218,13 +221,14 @@ export const lineTotal = (l: TicketLine) => Math.round(l.unitCents * l.qty);
 export const subtotal = (t: Ticket) => t.lines.reduce((n, l) => n + lineTotal(l), 0);
 
 /** A fingerprint of what Odoo needs to price: changes whenever a line does. */
-export function linesKey(lines: TicketLine[]): string {
-  return lines.map((l) => `${l.productId ?? ''}:${l.name}:${l.qty}:${l.unitCents}`).join('|');
+export function linesKey(lines: TicketLine[], discount?: Discount): string {
+  const d = discountKey(discount);
+  return lines.map((l) => `${l.productId ?? ''}:${l.name}:${l.qty}:${l.unitCents}`).join('|') + (d ? `#${d}` : '');
 }
 
-/** Odoo's totals, if they are for the lines as they are now. */
+/** Odoo's totals, if they are for the lines and discount as they are now. */
 export function currentTotals(t: Ticket): TicketTotals | undefined {
-  return t.totals && t.totals.key === linesKey(t.lines) ? t.totals : undefined;
+  return t.totals && t.totals.key === linesKey(t.lines, t.discount) ? t.totals : undefined;
 }
 
 /**
@@ -232,9 +236,12 @@ export function currentTotals(t: Ticket): TicketTotals | undefined {
  * price sheet's rate on materials only.
  */
 export function estimateTotals(t: Ticket, taxPercent: string): { untaxed: number; tax: number; total: number } {
-  const untaxed = subtotal(t);
   const rate = priceCents(taxPercent) / 10000;
-  const tax = Math.round(t.lines.filter((l) => l.kind === 'material').reduce((n, l) => n + lineTotal(l), 0) * rate);
+  // A percent off comes off every line, so it also lowers the taxed parts; a dollar amount off is an untaxed line.
+  const keep = t.discount?.pct ? 1 - t.discount.pct / 100 : 1;
+  const off = t.discount?.cents ?? 0;
+  const untaxed = Math.round(subtotal(t) * keep) - off;
+  const tax = Math.round(t.lines.filter((l) => l.kind === 'material').reduce((n, l) => n + lineTotal(l), 0) * keep * rate);
   return { untaxed, tax, total: untaxed + tax };
 }
 
@@ -259,6 +266,12 @@ export function setPrice(t: Ticket, id: string, unitCents: number): Ticket {
   return { ...t, lines: t.lines.map((l) => (l.id === id ? { ...l, unitCents: Math.max(0, Math.round(unitCents)) } : l)) };
 }
 
+/** Puts a quick discount on the ticket, replacing any other; undefined takes it off. */
+export function setDiscount(t: Ticket, discount: Discount | undefined): Ticket {
+  const { discount: _old, ...rest } = t;
+  return discount ? { ...rest, discount } : rest;
+}
+
 export function removeLine(t: Ticket, id: string): Ticket {
   return { ...t, lines: t.lines.filter((l) => l.id !== id) };
 }
@@ -280,7 +293,10 @@ export function addOption(t: Ticket, option: QuoteOption, links: Record<string, 
 
 /** The ticket's lines as quote lines, for the invoice and for Odoo. */
 export function toQuoteLines(t: Ticket): QuoteLine[] {
-  return t.lines.map((l) => ({ label: l.name, cents: lineTotal(l), taxable: l.kind === 'material', ...(l.qty !== 1 ? { qty: l.qty } : {}), ...(l.productId ? { productId: l.productId } : {}) }));
+  const pct = t.discount?.pct;
+  const lines = t.lines.map((l) => ({ label: l.name, cents: lineTotal(l), taxable: l.kind === 'material', ...(l.qty !== 1 ? { qty: l.qty } : {}), ...(l.productId ? { productId: l.productId } : {}), ...(pct ? { discountPct: pct } : {}) }));
+  // A dollar discount is one negative service line (untaxed), after the others.
+  return t.discount?.cents && lines.length > 0 ? [...lines, { label: discountLineName(t.discount), cents: -t.discount.cents, taxable: false }] : lines;
 }
 
 /** The ticket as one quote option, for making the invoice. Totals are Odoo's when current, else the phone's estimate. */
@@ -300,7 +316,7 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
  */
 export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string }> {
   const lines = toQuoteLines(t);
-  const needService = lines.some((l) => l.cents > 0 && !l.productId);
+  const needService = lines.some((l) => l.cents !== 0 && !l.productId);
   const service = needService ? await serviceProduct(client) : 0;
   const vals = [...lineValues(lines, {}, () => service, 'product_uom_qty'), ...depositNotes(t)];
   let order = t.order;
@@ -320,7 +336,7 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
   const [r] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total'] })) as Record<string, unknown>[];
   return {
     order: { id: order.id, name: typeof r?.name === 'string' ? r.name : order.name },
-    totals: { untaxed: toCents(r?.amount_untaxed), tax: toCents(r?.amount_tax), total: toCents(r?.amount_total), key: linesKey(t.lines), at: now },
+    totals: { untaxed: toCents(r?.amount_untaxed), tax: toCents(r?.amount_tax), total: toCents(r?.amount_total), key: linesKey(t.lines, t.discount), at: now },
     depositsSaved: depositsKey(t),
   };
 }
@@ -363,5 +379,5 @@ export function parseTicket(v: unknown): Ticket | undefined {
   const at = (x: unknown) => (typeof x === 'number' && x > 0 ? x : undefined);
   const sg = d.signed as Record<string, unknown> | undefined;
   const signed = sg && typeof sg === 'object' && str(sg.id) && at(sg.at) && typeof sg.key === 'string' ? { id: str(sg.id)!, by: typeof sg.by === 'string' ? sg.by : '', at: at(sg.at)!, key: sg.key, ...(str(sg.sent) ? { sent: str(sg.sent) } : {}) } : undefined;
-  return { lines, ...(signed ? { signed } : {}), ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
+  return { lines, ...(signed ? { signed } : {}), ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(parseDiscount(d.discount) ? { discount: parseDiscount(d.discount) } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
 }

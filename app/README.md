@@ -636,6 +636,16 @@ once per signature and quotation, as soon as the quotation exists and the phone
 has signal. The job's ticket row on the job page shows "Signed by ...". The
 signature is stored on the estimate (`Ticket.signed`), so it follows the estimate
 when it is moved in the list.
+**Quick discounts** (from 0.5.99). On a ticket or estimate, **Add a discount**
+offers the owner's presets (standard list: Senior 10%, Military 10%, $25 off)
+plus a custom % off or $ off. A percent goes on every line as Odoo's own line
+discount (so taxed parts are taxed on the lower price); dollars off is one
+"Discount: ..." service line with a negative price and no tax. Either way Odoo
+works out the totals (the phone's offline guess follows the same rules). The
+presets are edited in Management > Discounts and kept in the company's settings
+file with the business details, so every phone shows the same list. The setup
+check has a "Discounts on quotations" row: Odoo hides the Disc.% column until
+Sales > Configuration > Settings > Discounts is on (the discount still saves).
 
 **Parts used as real stock moves** (from 0.5.96, needs Field Service Stock). On
 an Odoo that has Field Service Stock (the `fsm_order_id` field on stock moves and
@@ -1085,3 +1095,7 @@ npm test            # Jest: keypad and form logic, and the screens (React Native
 npm run typecheck   # TypeScript
 npm run test:math   # the original Vitest suite in ../spring-calc (run npm ci there first)
 ```
+
+## Weather on Today
+
+Each visit on Today (the Next card and Later today) shows a weather line for its hour, such as "Rain likely · 66°F · 80% rain", and a red "Heads up" line near the top when rain, snow, a storm or extreme heat or cold is coming on the route. It comes from Open-Meteo (free, no key; `src/lib/weather.ts`, `useWeather.ts`) using the points the map already geocodes. It is read-only, kept in memory for 30 minutes, and shows nothing when there is no signal or the address isn't on the map yet. No Odoo involved.
