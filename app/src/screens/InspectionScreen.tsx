@@ -7,16 +7,15 @@ import { SignatureSheet } from '../components/SignaturePad';
 import { VoiceNotes } from '../components/VoiceNotes';
 import { photosFor, signatureFor } from '../lib/attachments';
 import {
+  checklist,
   Answer,
   AnswerKey,
-  DOOR_MAKERS,
   EMPTY_INSPECTION,
   flags,
   Inspection,
   inspectionText,
   isFlagged,
   ItemDef,
-  MOTOR_MAKERS,
   newDoor,
   newMotor,
   RATING_LABEL,
@@ -60,6 +59,7 @@ export function InspectionScreen({ job }: { job: Job }) {
   const { setInspection } = useJobs();
   // Redraw when the checklist changes (Odoo's surveys arrive).
   useSyncExternalStore(subscribeChecklist, checklistVersion);
+  const info = checklist().info;
   const attachments = useAttachments();
   const { business } = useInvoices();
   const odoo = useOdoo();
@@ -148,19 +148,19 @@ export function InspectionScreen({ job }: { job: Job }) {
       </View>
       <Text style={styles.note}>Items marked PRO are under spring tension. Only a trained tech should adjust or replace them.</Text>
 
-      <Toggle label="Lubricated rollers, track and opener" on={insp.lubricated} onPress={() => save((i) => ({ ...i, lubricated: !i.lubricated }))} testID="inspection-lube" />
+      <Toggle label={info.door.lube} on={insp.lubricated} onPress={() => save((i) => ({ ...i, lubricated: !i.lubricated }))} testID="inspection-lube" />
 
       {insp.doors.map((d, di) => (
         <View key={d.id} style={styles.stack}>
           <SectionTitle>{`Door ${di + 1}`}</SectionTitle>
-          <ChipRow options={DOOR_MAKERS.map((m) => ({ label: m, value: m }))} value={d.maker} onChange={(maker) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, maker } : x)) }))} scroll compact testID={`door-${di}-maker`} />
+          <ChipRow options={checklist().doorMakers.map((m) => ({ label: m, value: m }))} value={d.maker} onChange={(maker) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, maker } : x)) }))} scroll compact testID={`door-${di}-maker`} />
           <View style={styles.row}>
-            <Field label="Size" value={d.size} placeholder="16x7" onChange={(size) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, size } : x)) }))} testID={`door-${di}-size`} />
-            <Field label="Year installed" value={d.age} placeholder="2012" onChange={(age) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, age } : x)) }))} testID={`door-${di}-age`} />
+            <Field label={info.door.size} value={d.size} placeholder="16x7" onChange={(size) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, size } : x)) }))} testID={`door-${di}-size`} />
+            <Field label={info.door.age} value={d.age} placeholder="2012" onChange={(age) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, age } : x)) }))} testID={`door-${di}-age`} />
           </View>
           <View style={styles.row}>
-            <Field label="Spring date code" value={d.springCode} onChange={(springCode) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, springCode } : x)) }))} testID={`door-${di}-spring-code`} />
-            <Field label="Spring cycles" value={d.springCycles} placeholder="10,000" onChange={(springCycles) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, springCycles } : x)) }))} testID={`door-${di}-cycles`} />
+            <Field label={info.door.code} value={d.springCode} onChange={(springCode) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, springCode } : x)) }))} testID={`door-${di}-spring-code`} />
+            <Field label={info.door.cycles} value={d.springCycles} placeholder="10,000" onChange={(springCycles) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, springCycles } : x)) }))} testID={`door-${di}-cycles`} />
           </View>
           <SectionItems insp={insp} sectionKey={d.id} job={job} photos={photos.map((p) => p.item ?? '')} onAnswer={answer} onPhoto={media ? takePhoto : undefined} onRepair={addRepair} onRestGood={() => save((i) => restGood(i, d.id))} />
 
@@ -168,14 +168,14 @@ export function InspectionScreen({ job }: { job: Job }) {
             <View key={m.id} style={styles.stack}>
               <Text style={styles.subTitle}>{`Door ${di + 1} · Motor ${mi + 1}`}</Text>
               <ChipRow
-                options={MOTOR_MAKERS.map((x) => ({ label: x, value: x }))}
+                options={checklist().motorMakers.map((x) => ({ label: x, value: x }))}
                 value={m.maker}
                 onChange={(maker) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, motors: x.motors.map((y) => (y.id === m.id ? { ...y, maker } : y)) } : x)) }))}
                 scroll
                 compact
                 testID={`motor-${di}-${mi}-maker`}
               />
-              <Field label="Build date" value={m.built} placeholder="2019" onChange={(built) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, motors: x.motors.map((y) => (y.id === m.id ? { ...y, built } : y)) } : x)) }))} testID={`motor-${di}-${mi}-built`} />
+              <Field label={info.opener.built} value={m.built} placeholder="2019" onChange={(built) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, motors: x.motors.map((y) => (y.id === m.id ? { ...y, built } : y)) } : x)) }))} testID={`motor-${di}-${mi}-built`} />
               <SectionItems insp={insp} sectionKey={`${d.id}/${m.id}`} job={job} photos={photos.map((p) => p.item ?? '')} onAnswer={answer} onPhoto={media ? takePhoto : undefined} onRepair={addRepair} onRestGood={() => save((i) => restGood(i, `${d.id}/${m.id}`))} />
               <Action
                 label={tapAgain(m.id, `Remove motor ${mi + 1}`)}
