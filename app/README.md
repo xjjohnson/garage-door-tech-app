@@ -624,7 +624,7 @@ invoice. Materials on the ticket that are truck stock items (same Odoo
 product) show under the job's **Parts used**, and Create invoice takes them off
 the truck, less any already taken off by hand for that job.
 
-**Customer signs the estimate they pick** (from 0.5.98). Each estimate on the
+**Customer signs the estimate they pick** (from 0.5.100). Each estimate on the
 Ticket screen has **Customer signs to approve** (or "...to pick this one" while
 the customer is still choosing). Signing is how the customer picks: with several
 open and none picked, the signed one is picked and the others are declined
