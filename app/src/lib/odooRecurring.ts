@@ -191,12 +191,28 @@ async function linkRepeat(c: Caller, agreementId: number, repeatId: number): Pro
   if (have.includes('agreement_id')) await c.call('fsm.recurring', 'write', [[repeatId], { agreement_id: agreementId }]);
 }
 
+/**
+ * The agreement's reference, which Odoo requires: the next number from its own
+ * sequence when it has one, else one made from the date and a few letters.
+ */
+export async function agreementCode(c: Caller, now: number): Promise<string> {
+  try {
+    const n = await c.call('ir.sequence', 'next_by_code', ['agreement']);
+    if (typeof n === 'string' && n) return n;
+  } catch {
+    // No sequence for agreements here.
+  }
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `JOH-${toOdooTime(now).slice(2, 10).replace(/-/g, '')}-${rand}`;
+}
+
 /** A service agreement for a customer in Odoo: a record of the plan, with no billing. Returns its id. */
 export async function createAgreement(c: Caller, partnerId: number, a: NewAgreement): Promise<number> {
   const have = (await fieldsOf(c, 'agreement')) ?? [];
   const id = (await c.call('agreement', 'create', [
     {
       name: a.name.trim(),
+      ...(have.includes('code') ? { code: await agreementCode(c, a.start) } : {}),
       partner_id: partnerId,
       start_date: day(a.start),
       ...(a.end ? { end_date: day(a.end) } : {}),

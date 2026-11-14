@@ -13,7 +13,7 @@ import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
 import { whatOf } from '../lib/odooJobs';
 import { fetchForCustomer, ListKind, OdooListRow } from '../lib/odooLists';
-import { createManualFollowUp } from '../lib/odooFollowUps';
+import { completeActivity, createManualFollowUp, fetchTodos, TodoRow } from '../lib/odooFollowUps';
 import { AgreementRow, createAgreement, createRepeat, editAgreement, endAgreement, fetchAgreements, fetchFrequencySets, fetchRepeats, FrequencySet, RepeatAction, RepeatRow, setRepeatState } from '../lib/odooRecurring';
 import { Action } from './Buttons';
 import { AgreementSheet, dayAhead, NewFollowUpSheet, RepeatSheet } from './PlanSheets';
@@ -33,6 +33,7 @@ export interface CustomerRecords {
   invoices: OdooListRow[];
   repeats?: RepeatRow[];
   agreements?: AgreementRow[];
+  todos?: TodoRow[];
   at: number;
 }
 
@@ -48,7 +49,7 @@ export function parseSavedRecords(raw: string | null): Record<string, CustomerRe
     for (const [k, v] of Object.entries(d as Record<string, Record<string, unknown>>)) {
       if (!v || typeof v.at !== 'number') continue;
       const row = (x: OdooListRow) => typeof x.id === 'number' && typeof x.name === 'string';
-      out[k] = { jobs: arr<OdooTask>(v.jobs, (x) => typeof x.id === 'number' && typeof x.name === 'string'), quotes: arr(v.quotes, row), invoices: arr(v.invoices, row), repeats: arr<RepeatRow>(v.repeats, (x) => typeof x.id === 'number' && typeof x.name === 'string'), agreements: arr<AgreementRow>(v.agreements, (x) => typeof x.id === 'number' && typeof x.name === 'string'), at: v.at };
+      out[k] = { jobs: arr<OdooTask>(v.jobs, (x) => typeof x.id === 'number' && typeof x.name === 'string'), quotes: arr(v.quotes, row), invoices: arr(v.invoices, row), repeats: arr<RepeatRow>(v.repeats, (x) => typeof x.id === 'number' && typeof x.name === 'string'), agreements: arr<AgreementRow>(v.agreements, (x) => typeof x.id === 'number' && typeof x.name === 'string'), todos: arr<TodoRow>(v.todos, (x) => typeof x.id === 'number' && typeof x.title === 'string'), at: v.at };
     }
     return out;
   } catch {
@@ -80,16 +81,17 @@ export function useCustomerRecords(partnerId: number, now: () => number = Date.n
     try {
       const apps = client.session.apps;
       const t = now();
-      const [jobs, quotes, invoices, repeats, agreements] = await Promise.all([
+      const [jobs, quotes, invoices, repeats, agreements, todos] = await Promise.all([
         client.customerJobs(partnerId, LIMIT),
         apps?.sales ? fetchForCustomer(client, 'quotations', partnerId, LIMIT, t) : Promise.resolve([]),
         apps?.invoicing ? fetchForCustomer(client, 'invoices', partnerId, LIMIT, t) : Promise.resolve([]),
         // Optional apps: a missing one just shows nothing.
         client.session.kind === 'oca' ? fetchRepeats(client, partnerId, LIMIT).catch(() => []) : Promise.resolve([]),
         client.session.kind === 'oca' ? fetchAgreements(client, partnerId, LIMIT).catch(() => []) : Promise.resolve([]),
+        fetchTodos(client, partnerId, LIMIT).catch(() => []),
       ]);
       if (n !== asked.current) return;
-      const got = { jobs, quotes, invoices, repeats, agreements, at: t };
+      const got = { jobs, quotes, invoices, repeats, agreements, todos, at: t };
       setRecords(got);
       setFresh(true);
       const all = parseSavedRecords(await AsyncStorage.getItem(CUSTOMER_ODOO_STORAGE_KEY).catch(() => null));
@@ -117,14 +119,17 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
   const [sets, setSets] = useState<FrequencySet[]>([]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
   const oca = client?.session.kind === 'oca';
 
-  const run = async (job: () => Promise<unknown>) => {
+  const run = async (job: () => Promise<unknown>, done = 'Saved to Odoo.') => {
     setBusy(true);
     setProblem(null);
+    setSaved(null);
     try {
       await job();
       setSheet(null);
+      setSaved(done);
       await refresh();
     } catch (e) {
       setProblem(message(e));
@@ -152,6 +157,7 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         (records?.repeats ?? []).filter((r) => r.agreementId === a.id && (r.status === 'Active' || r.status === 'Paused')).map((r) => r.id),
       ),
     );
+  const doneTodo = (id: number) => client && run(() => completeActivity(client, id), 'To-do marked done in Odoo.');
   const change = (id: number, action: RepeatAction) => client && run(() => setRepeatState(client, id, action));
   const openJob = useOpenOdooJob();
   const { invoices: local } = useInvoices();
@@ -202,6 +208,26 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         {oca ? <Action label="Repeat visits" grow onPress={openRepeat} testID="customer-repeat" /> : null}
       </View>
       {oca ? <Action label="New agreement" onPress={() => openAgreement()} testID="customer-agreement" /> : null}
+      {saved ? (
+        <Text style={styles.meta} testID="customer-odoo-saved">
+          {saved}
+        </Text>
+      ) : null}
+      {records?.todos && records.todos.length ? (
+        <>
+          <Text style={styles.section} accessibilityRole="header">
+            To-dos
+          </Text>
+          {records.todos.map((t) => (
+            <View key={t.id} style={styles.item} testID={`customer-odoo-todo-${t.id}`}>
+              <Text style={styles.title}>{t.title}</Text>
+              <Text style={styles.meta}>{t.due ? `Due ${t.due}` : 'No date'}</Text>
+              {t.note ? <Text style={styles.detail}>{t.note}</Text> : null}
+              <Action label="Done" disabled={busy} onPress={() => doneTodo(t.id)} testID={`customer-odoo-todo-done-${t.id}`} />
+            </View>
+          ))}
+        </>
+      ) : null}
       <Plans repeats={records?.repeats} agreements={records?.agreements} onChange={change} onEdit={openAgreement} onEnd={end} busy={busy} />
       <AgreementSheet
         visible={sheet === 'agreement'}
@@ -235,7 +261,7 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         busy={busy}
         error={problem}
         onCancel={() => setSheet(null)}
-        onSave={(f) => client && run(() => createManualFollowUp(client, partnerId, { title: f.title, note: f.note, due: dayAhead(f.days, Date.now()) }))}
+        onSave={(f) => client && run(() => createManualFollowUp(client, partnerId, { title: f.title, note: f.note, due: dayAhead(f.days, Date.now()) }), 'Follow-up added to Odoo as a to-do.')}
       />
       <Rows title="Quotes" kind="quotations" rows={records?.quotes} onOpen={openRecord} />
       <Rows title="Invoices" kind="invoices" rows={records?.invoices} onOpen={openRecord} />

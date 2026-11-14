@@ -101,3 +101,21 @@ export async function createManualFollowUp(client: Caller, partnerId: number, f:
     },
   ])) as number;
 }
+
+export interface TodoRow {
+  id: number;
+  title: string;
+  due?: string;
+  note?: string;
+}
+
+/** The open to-dos on a customer's contact: follow-ups made by the app and anything added in Odoo. */
+export async function fetchTodos(client: Caller, partnerId: number, limit = 20): Promise<TodoRow[]> {
+  const rows = (await client.call('mail.activity', 'search_read', [[['res_model', '=', 'res.partner'], ['res_id', '=', partnerId]]], { fields: ['summary', 'date_deadline', 'note'], order: 'date_deadline asc', limit })) as Record<string, unknown>[];
+  return rows.map((r) => ({
+    id: r.id as number,
+    title: (typeof r.summary === 'string' && r.summary) || 'To-do',
+    due: typeof r.date_deadline === 'string' ? r.date_deadline : undefined,
+    note: typeof r.note === 'string' ? r.note.replace(/<small>.*?<\/small>/g, '').replace(/<[^>]+>/g, '').trim() || undefined : undefined,
+  }));
+}
