@@ -8,7 +8,7 @@
  * answers already on jobs still line up. Kept on the phone for offline use.
  * Kept free of React.
  */
-import { BUILT_IN_CHECKLIST, Checklist, DEFAULT_INFO, InfoLabels, ItemDef, RATING_LABEL, Rating, Scale, SCALES } from './inspection';
+import { BUILT_IN_CHECKLIST, Checklist, DEFAULT_INFO, ExtraDef, InfoLabels, ItemDef, RATING_LABEL, Rating, Scale, SCALES } from './inspection';
 import type { OdooClient } from './odoo';
 import { surveyState } from './odooSurveys';
 
@@ -39,13 +39,20 @@ export interface SurveyQuestion {
   type?: string;
 }
 
+/** A leftover info question as the app shows it: choices, a number, a date, a long text or a short one. */
+function extraOf(q: SurveyQuestion): ExtraDef {
+  const t = q.type ?? '';
+  const type: ExtraDef['type'] = q.labels.length ? 'choice' : t === 'text_box' ? 'text' : t === 'numerical_box' ? 'number' : t === 'date' || t === 'datetime' ? 'date' : 'char';
+  return { id: `q${q.id}`, label: q.title, type, ...(type === 'choice' ? { choices: q.labels } : {}) };
+}
+
 /**
  * What the info questions (everything that isn't a rating or a section) are
  * called in a survey. A question named like the built-in one takes that
  * slot; the rest fill the empty slots in the order they come, so renaming
  * works as long as the order stays. A text-box question is the notes.
  */
-export function infoFrom<D extends Record<string, string>>(qs: SurveyQuestion[], defaults: D, notesKey: keyof D & string): { labels: D; choices: Map<keyof D & string, string[]> } {
+export function infoFrom<D extends Record<string, string>>(qs: SurveyQuestion[], defaults: D, notesKey: keyof D & string): { labels: D; choices: Map<keyof D & string, string[]>; extras: ExtraDef[] } {
   type K = keyof D & string;
   const slots = Object.keys(defaults) as K[];
   const labels: D = { ...defaults };
@@ -61,16 +68,18 @@ export function infoFrom<D extends Record<string, string>>(qs: SurveyQuestion[],
   const notes = rest.find((q) => q.type === 'text_box');
   if (notes && !assigned.has(notesKey)) assigned.set(notesKey, notes);
   const free = slots.filter((k) => !assigned.has(k));
+  const extras: ExtraDef[] = [];
   for (const q of rest) {
     if (q === notes && assigned.get(notesKey) === q) continue;
     const k = free.shift();
     if (k) assigned.set(k, q);
+    else extras.push(extraOf(q));
   }
   for (const [k, q] of assigned) {
     (labels as Record<string, string>)[k] = q.title;
     if (q.labels.length) choices.set(k, q.labels);
   }
-  return { labels, choices };
+  return { labels, choices, extras };
 }
 
 const BUILT_BY_TITLE = new Map(Object.values(BUILT_IN_CHECKLIST).flat().map((d) => [d.label, d]));
@@ -121,6 +130,7 @@ export async function fetchChecklist(client: Caller): Promise<Checklist | null> 
   const gi = infoFrom(gate, DEFAULT_INFO.gate, 'notes');
   const info: InfoLabels = { door: di.labels, opener: oi.labels, gate: gi.labels };
   return {
+    extras: { door: di.extras, opener: oi.extras, gate: gi.extras },
     info,
     doorMakers: di.choices.get('maker') ?? BUILT_IN_CHECKLIST.doorMakers,
     motorMakers: oi.choices.get('maker') ?? BUILT_IN_CHECKLIST.motorMakers,
@@ -144,7 +154,10 @@ export function parseChecklist(raw: string | null): Checklist | null {
     };
     const strs = (v: unknown, fallback: string[]) => (Array.isArray(v) && v.length && v.every((x) => typeof x === 'string') ? (v as string[]) : fallback);
     const info = (d.info ?? {}) as { door?: object; opener?: object; gate?: object };
+    const ex = (d.extras ?? {}) as Record<string, unknown>;
+    const extras = (k: string): ExtraDef[] => (Array.isArray(ex[k]) ? (ex[k] as ExtraDef[]).filter((x) => x && typeof x.id === 'string' && typeof x.label === 'string') : []);
     const c = {
+      extras: { door: extras('door'), opener: extras('opener'), gate: extras('gate') },
       info: { door: { ...DEFAULT_INFO.door, ...(info.door ?? {}) }, opener: { ...DEFAULT_INFO.opener, ...(info.opener ?? {}) }, gate: { ...DEFAULT_INFO.gate, ...(info.gate ?? {}) } },
       doorMakers: strs(d.doorMakers, BUILT_IN_CHECKLIST.doorMakers),
       motorMakers: strs(d.motorMakers, BUILT_IN_CHECKLIST.motorMakers),

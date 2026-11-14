@@ -132,7 +132,17 @@ export const DEFAULT_INFO: InfoLabels = {
 export const DOOR_MAKERS: string[] = ['Clopay', 'Amarr', 'Wayne Dalton', 'CHI', 'Raynor', 'Overhead Door', 'Martin', 'Garaga', 'Other'];
 export const MOTOR_MAKERS: string[] = ['LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Craftsman', 'Marantec', 'Ryobi', 'Other'];
 
+/** An info question added in Odoo that the app has no field for: its answer is kept by the question's id. */
+export interface ExtraDef {
+  id: string;
+  label: string;
+  type: 'char' | 'text' | 'number' | 'date' | 'choice';
+  choices?: string[];
+}
+
 export interface Checklist {
+  /** Extra info questions per survey. */
+  extras: { door: ExtraDef[]; opener: ExtraDef[]; gate: ExtraDef[] };
   /** What the info questions are called, and the makers to pick from. */
   info: InfoLabels;
   doorMakers: string[];
@@ -145,7 +155,7 @@ export interface Checklist {
   astm: ItemDef[];
 }
 
-export const BUILT_IN_CHECKLIST: Checklist = { info: DEFAULT_INFO, doorMakers: DOOR_MAKERS, motorMakers: MOTOR_MAKERS, door: DOOR_ITEMS, motor: MOTOR_ITEMS, ul: GATE_UL_ITEMS, slide: GATE_SLIDE_ITEMS, swing: GATE_SWING_ITEMS, astm: GATE_ASTM_ITEMS };
+export const BUILT_IN_CHECKLIST: Checklist = { extras: { door: [], opener: [], gate: [] }, info: DEFAULT_INFO, doorMakers: DOOR_MAKERS, motorMakers: MOTOR_MAKERS, door: DOOR_ITEMS, motor: MOTOR_ITEMS, ul: GATE_UL_ITEMS, slide: GATE_SLIDE_ITEMS, swing: GATE_SWING_ITEMS, astm: GATE_ASTM_ITEMS };
 
 let active: Checklist = BUILT_IN_CHECKLIST;
 let version = 0;
@@ -179,6 +189,8 @@ export interface Motor {
   /** As typed: "2019" or "03/2019". */
   built: string;
   answers: Record<string, Answer>;
+  /** Answers to extra info questions from Odoo, by question id. */
+  extra?: Record<string, string>;
 }
 
 export interface Door {
@@ -191,12 +203,16 @@ export interface Door {
   springCode: string;
   springCycles: string;
   answers: Record<string, Answer>;
+  /** Answers to extra info questions from Odoo, by question id. */
+  extra?: Record<string, string>;
   motors: Motor[];
 }
 
 export interface Gate {
   type: '' | 'swing' | 'slide';
   answers: Record<string, Answer>;
+  /** Answers to extra info questions from Odoo, by question id. */
+  extra?: Record<string, string>;
 }
 
 export interface VoiceNote {
@@ -431,6 +447,12 @@ function parseAnswers(v: unknown): Record<string, Answer> {
   return out;
 }
 
+function parseExtra(v: unknown): { extra?: Record<string, string> } {
+  if (!v || typeof v !== 'object') return {};
+  const out: Record<string, string> = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) if (typeof x === 'string' && x) out[k] = x;
+  return Object.keys(out).length ? { extra: out } : {};
+}
 function parseMotor(v: unknown, n: number): Motor | null {
   const x = (v ?? {}) as Record<string, unknown>;
   if (typeof x.id !== 'string') return null;
@@ -441,7 +463,7 @@ function parseDoor(v: unknown): Door | null {
   const x = (v ?? {}) as Record<string, unknown>;
   if (typeof x.id !== 'string') return null;
   const motors = Array.isArray(x.motors) ? x.motors.map(parseMotor).filter((m): m is Motor => !!m) : [];
-  return { id: x.id, maker: str(x.maker), size: str(x.size), age: str(x.age), springCode: str(x.springCode), springCycles: str(x.springCycles), answers: parseAnswers(x.answers), motors };
+  return { id: x.id, maker: str(x.maker), size: str(x.size), age: str(x.age), springCode: str(x.springCode), springCycles: str(x.springCycles), answers: parseAnswers(x.answers), ...parseExtra(x.extra), motors };
 }
 
 /** The first safety check (0.4) had one list of items marked OK / Needs work / N/A. Where each went. */
@@ -501,7 +523,7 @@ export function parseInspection(v: unknown): Inspection | undefined {
       ? [fromLegacy(d.results as Record<string, unknown>, at)]
       : [];
   const g = d.gate as Record<string, unknown> | undefined;
-  const gate: Gate | undefined = g && typeof g === 'object' ? { type: g.type === 'swing' || g.type === 'slide' ? g.type : '', answers: parseAnswers(g.answers) } : undefined;
+  const gate: Gate | undefined = g && typeof g === 'object' ? { type: g.type === 'swing' || g.type === 'slide' ? g.type : '', answers: parseAnswers(g.answers), ...parseExtra(g.extra) } : undefined;
   const voice = Array.isArray(d.voice)
     ? d.voice.flatMap((x): VoiceNote[] => {
         const n = (x ?? {}) as Record<string, unknown>;
@@ -524,4 +546,19 @@ function parseSurveys(d: { at: number; key?: unknown; ids?: unknown }): NonNulla
   const ids: Record<string, number> = {};
   if (d.ids && typeof d.ids === 'object') for (const [k, v] of Object.entries(d.ids as Record<string, unknown>)) if (typeof v === 'number') ids[k] = v;
   return { at: d.at, key: typeof d.key === 'string' ? d.key : '', ids };
+}
+
+/** Sets the answer to an extra info question on a door, a motor (`motor` set) or the gate (`door` empty). */
+export function setExtra(insp: Inspection, where: { door?: string; motor?: string }, id: string, value: string): Inspection {
+  const put = <T extends { extra?: Record<string, string> }>(x: T): T => {
+    const extra = { ...(x.extra ?? {}) };
+    if (value) extra[id] = value;
+    else delete extra[id];
+    return { ...x, extra };
+  };
+  if (!where.door) return insp.gate ? { ...insp, gate: put(insp.gate) } : insp;
+  return {
+    ...insp,
+    doors: insp.doors.map((d) => (d.id !== where.door ? d : where.motor ? { ...d, motors: d.motors.map((m) => (m.id === where.motor ? put(m) : m)) } : put(d))),
+  };
 }

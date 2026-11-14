@@ -9,7 +9,7 @@
  * surveys get a "Notes and actions" answer with the flagged items' notes.
  * Kept free of React.
  */
-import { Answer, checklist, Inspection, ItemDef, RATING_LABEL } from './inspection';
+import { Answer, checklist, ExtraDef, Inspection, ItemDef, RATING_LABEL } from './inspection';
 import type { Job } from './jobs';
 import type { OdooJobRef } from './odooJobs';
 import type { Signature } from './attachments';
@@ -25,6 +25,8 @@ export interface Line {
   question: string;
   choice?: string;
   text?: string;
+  /** How Odoo stores a typed answer; short text when left out. */
+  kind?: 'number' | 'date' | 'long';
 }
 
 export interface SurveyInput {
@@ -55,6 +57,13 @@ function itemLines(defs: ItemDef[], answers: Record<string, Answer>): { lines: L
   return { lines, notes };
 }
 
+const extraLines = (defs: ExtraDef[], values: Record<string, string> | undefined): Line[] =>
+  defs.flatMap((d): Line[] => {
+    const v = (values?.[d.id] ?? '').trim();
+    if (!v) return [];
+    return d.type === 'choice' ? [{ question: d.label, choice: v }] : [{ question: d.label, text: v, ...(d.type === 'number' ? { kind: 'number' as const } : d.type === 'date' ? { kind: 'date' as const } : d.type === 'text' ? { kind: 'long' as const } : {}) }];
+  });
+
 const withNotes = (lines: Line[], notes: string[], question: string): Line[] => (notes.length ? [...lines, { question, text: notes.join('\n') }] : lines);
 
 /** Every survey an inspection fills in, for the job named `jobName` in Odoo. */
@@ -78,6 +87,7 @@ export function surveyInputs(insp: Inspection, jobName: string): SurveyInput[] {
           ...typed(L.door.age, d.age),
           ...typed(L.door.code, d.springCode),
           ...typed(L.door.cycles, d.springCycles),
+          ...extraLines(cl.extras.door, d.extra),
           ...r.lines,
         ],
         r.notes,
@@ -90,7 +100,7 @@ export function surveyInputs(insp: Inspection, jobName: string): SurveyInput[] {
         slot: `opener:${m.id}`,
         kind: 'opener',
         label: `Door ${i + 1} opener ${j + 1}`,
-        lines: withNotes([...typed(L.opener.job, jobName), ...typed(L.opener.door, String(i + 1)), ...typed(L.opener.number, String(j + 1)), ...pick(L.opener.maker, m.maker, cl.motorMakers), ...typed(L.opener.built, m.built), ...mr.lines], mr.notes, L.opener.notes),
+        lines: withNotes([...typed(L.opener.job, jobName), ...typed(L.opener.door, String(i + 1)), ...typed(L.opener.number, String(j + 1)), ...pick(L.opener.maker, m.maker, cl.motorMakers), ...typed(L.opener.built, m.built), ...extraLines(cl.extras.opener, m.extra), ...mr.lines], mr.notes, L.opener.notes),
       });
     });
   });
@@ -102,7 +112,7 @@ export function surveyInputs(insp: Inspection, jobName: string): SurveyInput[] {
       slot: 'gate',
       kind: 'gate',
       label: 'Gate',
-      lines: withNotes([...typed(L.gate.job, jobName), ...(g.type ? [{ question: L.gate.type, choice: g.type === 'slide' ? 'Slide' : 'Swing' }] : []), ...rs.flatMap((r) => r.lines)], rs.flatMap((r) => r.notes), L.gate.notes),
+      lines: withNotes([...typed(L.gate.job, jobName), ...(g.type ? [{ question: L.gate.type, choice: g.type === 'slide' ? 'Slide' : 'Swing' }] : []), ...extraLines(cl.extras.gate, g.extra), ...rs.flatMap((r) => r.lines)], rs.flatMap((r) => r.notes), L.gate.notes),
     });
   }
   return out;
@@ -177,8 +187,12 @@ export function lineCommands(idx: SurveyIndex, survey: number, lines: Line[]): u
       const a = q.choices.get(qid)?.get(l.choice);
       if (a) out.push([0, 0, { question_id: qid, answer_type: 'suggestion', suggested_answer_id: a, skipped: false }]);
     } else if (l.text !== undefined) {
-      const multi = [DEFAULT_NOTES, ...Object.values(checklist().info).map((x) => x.notes)].includes(l.question);
-      out.push([0, 0, { question_id: qid, answer_type: multi ? 'text_box' : 'char_box', ...(multi ? { value_text_box: l.text } : { value_char_box: l.text }), skipped: false }]);
+      const multi = l.kind === 'long' || [DEFAULT_NOTES, ...Object.values(checklist().info).map((x) => x.notes)].includes(l.question);
+      const n = l.kind === 'number' ? Number(l.text.replace(/,/g, '')) : NaN;
+      if (l.kind === 'number' && !Number.isFinite(n)) continue;
+      if (l.kind === 'number') out.push([0, 0, { question_id: qid, answer_type: 'numerical_box', value_numerical_box: n, skipped: false }]);
+      else if (l.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(l.text)) out.push([0, 0, { question_id: qid, answer_type: 'date', value_date: l.text, skipped: false }]);
+      else if (l.kind !== 'date') out.push([0, 0, { question_id: qid, answer_type: multi ? 'text_box' : 'char_box', ...(multi ? { value_text_box: l.text } : { value_char_box: l.text }), skipped: false }]);
     }
   }
   return out;
