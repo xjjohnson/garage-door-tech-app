@@ -5,11 +5,15 @@ import {
   archiveJobType,
   archivePart,
   archiveQuoteTemplate,
+  archiveTech,
+  archiveTruck,
   Choice,
   JobTypeEdit,
   listJobTypes,
   listParts,
   listQuoteTemplates,
+  listTechs,
+  listTruckEdits,
   loadQuoteTemplate,
   orderTypes,
   PartEdit,
@@ -17,6 +21,13 @@ import {
   saveJobType,
   savePart,
   saveQuoteTemplate,
+  saveTech,
+  saveTruck,
+  stockLocations,
+  TechEdit,
+  TruckEdit,
+  TruckSource,
+  truckSource,
 } from '../lib/odooManage';
 import { FSM_TEMPLATES_STORAGE_KEY } from '../lib/fsmTemplates';
 import { resetQuoteTemplates } from '../lib/useQuoteTemplates';
@@ -26,11 +37,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, touch, type } from '../theme';
 import { ChecklistsScreen } from './ChecklistsScreen';
 
-type Tab = 'jobTypes' | 'templates' | 'parts' | 'checklists';
+type Tab = 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'checklists';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'jobTypes', label: 'Job types' },
   { id: 'templates', label: 'Templates' },
   { id: 'parts', label: 'Parts' },
+  { id: 'techs', label: 'Techs' },
+  { id: 'trucks', label: 'Trucks' },
   { id: 'checklists', label: 'Checklists' },
 ];
 
@@ -72,6 +85,8 @@ export function ManagementScreen() {
       {tab === 'jobTypes' ? <JobTypes client={client} canEdit={owner === true} /> : null}
       {tab === 'templates' ? <Templates client={client} canEdit={owner === true} /> : null}
       {tab === 'parts' ? <Parts client={client} canEdit={owner === true} /> : null}
+      {tab === 'techs' ? <Techs client={client} canEdit={owner === true} /> : null}
+      {tab === 'trucks' ? <Trucks client={client} canEdit={owner === true} /> : null}
       {tab === 'checklists' ? <ChecklistsScreen /> : null}
     </View>
   );
@@ -377,6 +392,93 @@ function Parts({ client, canEdit }: TabProps) {
       ))}
       {rows?.length === 0 ? <Text style={styles.note}>Nothing found.</Text> : null}
       <AddButton show={canEdit} label="Add a part" testID="manage-part-new" onPress={() => setEdit({ name: '', code: '', cents: 0, service: false, price: '' })} />
+    </View>
+  );
+}
+
+/* -------------------------------------------------------------------- Techs */
+
+function Techs({ client, canEdit }: TabProps) {
+  const load = useCallback(() => listTechs(client), [client]);
+  const { rows, err, reload } = useList(load);
+  const [edit, setEdit] = useState<TechEdit | null>(null);
+  const { busy, msg, run, setMsg } = useAction(() => {
+    setEdit(null);
+    reload();
+  });
+  if (client.session.kind !== 'oca') return <Text style={styles.note}>Techs need the Field Service app in Odoo.</Text>;
+  if (edit) {
+    return (
+      <EditShell title={edit.id ? edit.name || 'Tech' : 'New tech'} canEdit={canEdit} busy={busy} msg={msg} onSave={() => run(() => saveTech(client, edit))} onArchive={edit.id ? () => run(() => archiveTech(client, edit.id!)) : undefined} onBack={() => { setEdit(null); setMsg(''); }} archiveLabel="Remove this tech">
+        <TextField label="Name" value={edit.name} onChange={(name) => setEdit({ ...edit, name })} editable={canEdit} testID="manage-tech-name" />
+        <TextField label="Phone" value={edit.phone} onChange={(phone) => setEdit({ ...edit, phone })} editable={canEdit} keyboard="numeric" testID="manage-tech-phone" />
+        <TextField label="Email" value={edit.email} onChange={(email) => setEdit({ ...edit, email })} editable={canEdit} testID="manage-tech-email" hint="A tech signs in with their own Odoo user. Add the login in Odoo's Users." />
+      </EditShell>
+    );
+  }
+  return (
+    <View style={styles.stack} testID="manage-techs">
+      <Text style={styles.note}>The Field Service workers jobs can be given to.</Text>
+      {err ? <Text style={styles.warn}>{err}</Text> : null}
+      {rows === null && !err ? <Text style={styles.note}>Reading Odoo...</Text> : null}
+      {rows?.map((t) => <Row key={t.id} label={t.name} detail={[t.phone, t.email].filter(Boolean).join(' · ') || undefined} testID={`manage-tech-${t.id}`} onPress={() => setEdit({ id: t.id, name: t.name, phone: t.phone, email: t.email })} />)}
+      {rows?.length === 0 ? <Text style={styles.note}>No techs in Odoo yet.</Text> : null}
+      <AddButton show={canEdit} label="Add a tech" testID="manage-tech-new" onPress={() => setEdit({ name: '', phone: '', email: '' })} />
+    </View>
+  );
+}
+
+/* ------------------------------------------------------------------- Trucks */
+
+function Trucks({ client, canEdit }: TabProps) {
+  const [source, setSource] = useState<TruckSource | null>(null);
+  const [techs, setTechs] = useState<Choice[]>([]);
+  const [places, setPlaces] = useState<Choice[]>([]);
+  useEffect(() => {
+    truckSource(client).then(setSource, () => setSource('none'));
+    listTechs(client).then((t) => setTechs(t.map((x) => ({ id: x.id, label: x.name }))), () => undefined);
+    stockLocations(client).then(setPlaces);
+  }, [client]);
+  const load = useCallback(() => (source ? listTruckEdits(client, source) : Promise.resolve([])), [client, source]);
+  const { rows, err, reload } = useList(load);
+  const [edit, setEdit] = useState<TruckEdit | null>(null);
+  const { busy, msg, run, setMsg } = useAction(() => {
+    setEdit(null);
+    reload();
+  });
+  if (source === 'none') return <Text style={styles.note}>Trucks need Field Service Vehicles or Inventory in Odoo.</Text>;
+  if (edit && source) {
+    const pick = (label: string, list: Choice[], value: number | undefined, set: (id?: number) => void, id: string) => (
+      <View style={styles.field}>
+        <Text style={styles.label}>{label}</Text>
+        <View style={styles.chips}>
+          {[{ id: 0, label: 'None' }, ...list].map((o) => {
+            const on = (value ?? 0) === o.id;
+            return (
+              <Pressable key={o.id} disabled={!canEdit} onPress={() => set(o.id || undefined)} accessibilityRole="radio" accessibilityState={{ selected: on }} testID={`manage-truck-${id}-${o.id}`} style={[styles.chip, on && styles.tabOn]}>
+                <Text style={[styles.tabText, on && styles.tabTextOn]}>{o.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+    return (
+      <EditShell title={edit.id ? edit.name || 'Truck' : 'New truck'} canEdit={canEdit} busy={busy} msg={msg} onSave={() => run(() => saveTruck(client, source, edit))} onArchive={edit.id ? () => run(() => archiveTruck(client, source, edit.id!)) : undefined} onBack={() => { setEdit(null); setMsg(''); }} archiveLabel="Remove this truck">
+        <TextField label="Name" value={edit.name} onChange={(name) => setEdit({ ...edit, name })} editable={canEdit} testID="manage-truck-name" hint={'Truck stock finds a tech\'s truck by their name in it, like "Truck - Justin Johnson".'} />
+        {source === 'vehicle' && techs.length ? pick('Driver', techs, edit.personId, (personId) => setEdit({ ...edit, personId }), 'driver') : null}
+        {source === 'vehicle' && places.length ? pick('Stock location', places, edit.locationId, (locationId) => setEdit({ ...edit, locationId }), 'place') : null}
+      </EditShell>
+    );
+  }
+  return (
+    <View style={styles.stack} testID="manage-trucks">
+      <Text style={styles.note}>{source === 'vehicle' ? 'Field Service Vehicles in Odoo.' : 'Truck locations in Odoo Inventory.'}</Text>
+      {err ? <Text style={styles.warn}>{err}</Text> : null}
+      {rows === null && !err ? <Text style={styles.note}>Reading Odoo...</Text> : null}
+      {rows?.map((t) => <Row key={t.id} label={t.name} detail={[techs.find((x) => x.id === t.personId)?.label, places.find((x) => x.id === t.locationId)?.label].filter(Boolean).join(' · ') || undefined} testID={`manage-truck-${t.id}`} onPress={() => setEdit({ ...t })} />)}
+      {rows?.length === 0 ? <Text style={styles.note}>No trucks in Odoo yet.</Text> : null}
+      <AddButton show={canEdit && !!source} label="Add a truck" testID="manage-truck-new" onPress={() => setEdit({ name: '' })} />
     </View>
   );
 }
