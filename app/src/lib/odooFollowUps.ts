@@ -80,3 +80,24 @@ export async function liveActivities(client: Caller, ids: number[]): Promise<Set
 export async function completeActivity(client: Caller, id: number): Promise<void> {
   await client.call('mail.activity', 'action_done', [[id]]);
 }
+
+/**
+ * A follow-up the tech adds by hand: a to-do on the customer's contact in
+ * Odoo, due on the day given, with a note. Returns the activity's id.
+ */
+export async function createManualFollowUp(client: Caller, partnerId: number, f: { title: string; note: string; due: number }): Promise<number> {
+  const [model] = (await client.call('ir.model', 'search', [[['model', '=', 'res.partner']]], { limit: 1 })) as number[];
+  if (!model) throw new Error('Odoo has no contact model to put the to-do on.');
+  const type = await todoType(client);
+  return (await client.call('mail.activity', 'create', [
+    {
+      res_model_id: model,
+      res_id: partnerId,
+      summary: f.title.trim(),
+      ...(f.note.trim() ? { note: `<p>${esc(f.note.trim())}</p>` } : {}),
+      date_deadline: toOdooTime(f.due).slice(0, 10),
+      user_id: client.session.uid,
+      ...(type ? { activity_type_id: type } : {}),
+    },
+  ])) as number;
+}
