@@ -624,7 +624,7 @@ invoice. Materials on the ticket that are truck stock items (same Odoo
 product) show under the job's **Parts used**, and Create invoice takes them off
 the truck, less any already taken off by hand for that job.
 
-**Parts used as real stock moves** (from 0.5.95, needs Field Service Stock). On
+**Parts used as real stock moves** (from 0.5.96, needs Field Service Stock). On
 an Odoo that has Field Service Stock (the `fsm_order_id` field on stock moves and
 deliveries; checked with fields_get at sign-in), a part taken for a job that is
 already in Odoo becomes a delivery on that job's order, from the truck's location
