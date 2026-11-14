@@ -42,7 +42,7 @@ const ago = (ms: number, now: number) => {
 
 /**
  * What's on the truck, with + and - for each item, and an order for each
- * supplier when things run low: a purchase order in Odoo, or a text or email.
+ * supplier when things run low: a draft purchase order in Odoo (never sent by the app), or a text or email.
  * Signed in to Odoo, the truck is its "Truck 1" Inventory location, synced
  * both ways. A barcode scan counts an item or adds a new one.
  */
@@ -62,7 +62,6 @@ export function StockScreen() {
   const [adding, setAdding] = useState<StockProduct | null>(null);
   // One object per pick, so the count sheet doesn't reset while it's open.
   const addingItem = useMemo<StockItem | null>(() => (adding ? { id: 'new', name: adding.name, sku: adding.code, category: 'parts', onHand: 0, min: 0, par: 0, supplier: '', costCents: 0, updatedAt: 0 } : null), [adding]);
-  const [confirming, setConfirming] = useState<SupplierOrder | null>(null);
   const [trucks, setTrucks] = useState<TruckLink[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; bad?: boolean } | null>(null);
@@ -96,6 +95,23 @@ export function StockScreen() {
       setBusy(null);
     }
   };
+
+  const makeDraft = (o: SupplierOrder) => {
+    if (!client) return;
+    const linked = o.lines.filter((l) => l.item.odooId !== undefined).length;
+    run(`po-${o.supplier || 'none'}`, async () => {
+      const po = await store.draftOrder(client, o);
+      const skipped = o.lines.length - linked;
+      return `Draft ${po.name} made in Odoo for ${o.supplier}. It is not sent: review and confirm it in Odoo.${skipped ? ` ${skipped} item${skipped === 1 ? ' is' : 's are'} not in Odoo and left off.` : ''}`;
+    });
+  };
+
+  // Drafts can be confirmed, changed or deleted in Odoo: look when the screen opens.
+  const draftCount = (store.purchases ?? []).filter((p) => !p.receivedAt).length;
+  useEffect(() => {
+    if (client && draftCount > 0) store.checkOrders(client).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, draftCount]);
 
   const openTrucks = () =>
     client &&
@@ -234,7 +250,10 @@ export function StockScreen() {
               {l.qty} x {items.find((i) => i.id === l.itemId)?.name ?? 'Removed item'}
             </Text>
           ))}
-          <Text style={styles.meta}>{po.emailed ? 'Emailed to the supplier from Odoo' : "Made in Odoo, not emailed: text or email it below"}</Text>
+          <Text style={styles.meta} testID={`po-state-${po.name}`}>
+            {po.draft ? 'Draft in Odoo, not sent. Open it in Odoo to review and confirm it.' : po.emailed ? 'Emailed to the supplier from Odoo' : 'Confirmed in Odoo'}
+          </Text>
+          {po.draft && client ? <Action label={busy === `chk-${po.id}` ? 'Checking…' : 'Check Odoo for changes'} onPress={() => !busy && run(`chk-${po.id}`, async () => { await store.checkOrders(client); return 'Checked with Odoo.'; })} testID={`po-check-${po.name}`} /> : null}
           <Action
             label={busy === po.id ? 'Receiving…' : 'Parts are in, add to the truck'}
             onPress={() =>
@@ -265,12 +284,12 @@ export function StockScreen() {
             {client && o.supplier && linked > 0 ? (
               <>
                 <Action
-                  label={busy === `po-${key}` ? 'Sending…' : `Send PO to supplier · ${linked} item${linked === 1 ? '' : 's'}`}
+                  label={busy === `po-${key}` ? 'Making draft…' : `Make draft PO in Odoo · ${linked} item${linked === 1 ? '' : 's'}`}
                   primary
-                  onPress={() => !busy && setConfirming(o)}
+                  onPress={() => !busy && makeDraft(o)}
                   testID={`order-po-${key}`}
                 />
-                <Text style={styles.meta}>Makes a purchase order in Odoo and emails it to the vendor</Text>
+                <Text style={styles.meta}>A draft only: nothing is sent or ordered until you confirm it in Odoo</Text>
               </>
             ) : null}
             <View style={styles.row}>
@@ -319,22 +338,6 @@ export function StockScreen() {
         onPick={(t) => {
           setTrucks(null);
           if (client) run('sync', async () => syncMessage(await store.chooseTruck(client, t)));
-        }}
-      />
-      <ConfirmOrderSheet
-        order={confirming}
-        email={confirming ? findSupplier(suppliers, confirming.supplier)?.email : undefined}
-        onCancel={() => setConfirming(null)}
-        onSend={(o) => {
-          setConfirming(null);
-          if (!client) return;
-          const key = o.supplier || 'none';
-          const linked = o.lines.filter((l) => l.item.odooId !== undefined).length;
-          run(`po-${key}`, async () => {
-            const po = await store.sendOrder(client, o);
-            const skipped = o.lines.length - linked;
-            return `${po.name} made in Odoo${po.emailed ? ' and emailed to the supplier' : '. Odoo could not email it, so text or email it'}.${skipped ? ` ${skipped} item${skipped === 1 ? ' is' : 's are'} not in Odoo and left off.` : ''}`;
-          });
         }}
       />
       {client ? (
@@ -449,40 +452,6 @@ function TruckSheet({ trucks, current, onPick, onCancel }: { trucks: TruckLink[]
               <Action key={t.locationId} label={`${t.name}${t.locationId === current ? ' (now)' : ''}`} primary={t.locationId === current} onPress={() => onPick(t)} testID={`truck-${t.locationId}`} />
             ))}
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-/** A purchase order is a real order to a supplier, so it's checked once before it goes. */
-function ConfirmOrderSheet({ order, email, onSend, onCancel }: { order: SupplierOrder | null; email?: string; onSend: (o: SupplierOrder) => void; onCancel: () => void }) {
-  if (!order) return null;
-  const lines = order.lines.filter((l) => l.item.odooId !== undefined);
-  const left = order.lines.length - lines.length;
-  const total = lines.reduce((n, l) => n + l.qty * l.item.costCents, 0);
-  return (
-    <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet} testID="po-confirm">
-          <View style={styles.titleRow}>
-            <Text style={styles.sheetTitle}>Order from {order.supplier}?</Text>
-            <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" testID="po-confirm-cancel">
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
-          </View>
-          {lines.map((l) => (
-            <Text key={l.item.id} style={styles.detail}>
-              {l.qty} x {l.item.name}
-              {l.item.costCents > 0 ? ` · ${formatMoney(l.qty * l.item.costCents)}` : ''}
-            </Text>
-          ))}
-          {total > 0 ? <Text style={styles.name}>About {formatMoney(total)}</Text> : null}
-          {left ? <Text style={styles.meta}>{left} item{left === 1 ? ' is' : 's are'} not in Odoo and won't be on it.</Text> : null}
-          <Text style={styles.meta}>Odoo makes and confirms the purchase order, then emails it to {email || 'the vendor on file in Odoo'}.</Text>
-          <Pressable onPress={() => onSend(order)} accessibilityRole="button" testID="po-confirm-send" style={({ pressed }) => [styles.save, pressed && styles.pressed]}>
-            <Text style={styles.saveText}>Send the order</Text>
-          </Pressable>
         </View>
       </View>
     </Modal>

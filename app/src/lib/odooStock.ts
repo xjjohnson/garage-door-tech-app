@@ -551,6 +551,48 @@ export async function vendorFor(client: OdooClient, s: Supplier): Promise<number
   return (await client.call('res.partner', 'create', [{ name: s.name.trim(), email: s.email || false, phone: s.phone || false, supplier_rank: 1 }])) as number;
 }
 
+export interface DraftPurchase {
+  odooId: number;
+  name: string;
+  vendorId: number;
+  /** True when lines were added to a draft for this vendor that already existed. */
+  reused: boolean;
+}
+
+/**
+ * Makes a DRAFT purchase order (a request for quotation) for the supplier. It
+ * is never confirmed or emailed: the owner reviews and confirms it in Odoo.
+ * If a draft for the same vendor and source (the truck) is still open, products
+ * that aren't on it yet are added to it instead of making a second one.
+ */
+export async function createPurchaseDraft(client: OdooClient, supplier: Supplier, lines: { productId: number; name: string; qty: number; priceCents: number }[], ref = ''): Promise<DraftPurchase> {
+  if (lines.length === 0) throw new Error('Nothing on this order is linked to an Odoo product yet. Sync the truck first.');
+  const vendorId = await vendorFor(client, supplier);
+  const make = (l: { productId: number; name: string; qty: number; priceCents: number }) => [0, 0, { product_id: l.productId, name: l.name, product_qty: l.qty, ...(l.priceCents > 0 ? { price_unit: l.priceCents / 100 } : {}) }];
+  const [existing] = (await client.call('purchase.order', 'search', [[['partner_id', '=', vendorId], ['state', '=', 'draft'], ['origin', '=', ref || false]]], { limit: 1, order: 'id desc' })) as number[];
+  if (existing) {
+    const [row] = (await client.call('purchase.order', 'read', [[existing]], { fields: ['name', 'order_line'] })) as { name?: string; order_line?: number[] }[];
+    const have = row?.order_line?.length ? ((await client.call('purchase.order.line', 'read', [row.order_line], { fields: ['product_id'] })) as { product_id?: [number, string] | false }[]) : [];
+    const on = new Set(have.map((h) => (h.product_id ? h.product_id[0] : 0)));
+    const add = lines.filter((l) => !on.has(l.productId));
+    if (add.length) await client.call('purchase.order', 'write', [[existing], { order_line: add.map(make) }]);
+    return { odooId: existing, name: row?.name ?? `#${existing}`, vendorId, reused: true };
+  }
+  const id = (await client.call('purchase.order', 'create', [{ partner_id: vendorId, origin: ref || false, order_line: lines.map(make) }])) as number;
+  const [row] = (await client.call('purchase.order', 'read', [[id]], { fields: ['name'] })) as { name?: string }[];
+  return { odooId: id, name: row?.name ?? `#${id}`, vendorId, reused: false };
+}
+
+/** Where purchase orders are in Odoo ('draft', 'sent', 'purchase', 'done', 'cancel'). Ones Odoo no longer has are left out. */
+export async function purchaseStates(client: OdooClient, ids: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  if (ids.length === 0) return out;
+  // search_read, since reading an id Odoo has deleted raises an error.
+  const rows = (await client.call('purchase.order', 'search_read', [[['id', 'in', ids]]], { fields: ['state'] })) as { id: number; state?: string }[];
+  for (const r of rows) if (r.state) out.set(r.id, r.state);
+  return out;
+}
+
 export interface SentPurchase {
   odooId: number;
   name: string;
@@ -597,7 +639,7 @@ export async function sendPurchaseOrder(client: OdooClient, supplier: Supplier, 
  * land on the truck there. False when Odoo wants a person to finish it
  * (a backorder question), which is then done in Odoo.
  */
-export async function receivePurchaseOrder(client: OdooClient, purchaseId: number): Promise<boolean> {
+export async function receivePurchaseOrder(client: OdooClient, purchaseId: number, truckLocationId?: number): Promise<boolean> {
   const [row] = (await client.call('purchase.order', 'read', [[purchaseId]], { fields: ['picking_ids'] })) as { picking_ids?: number[] }[];
   const ids = row?.picking_ids ?? [];
   if (ids.length === 0) return false;
@@ -605,6 +647,8 @@ export async function receivePurchaseOrder(client: OdooClient, purchaseId: numbe
   let ok = true;
   for (const p of pickings) {
     if (p.state === 'done' || p.state === 'cancel') continue;
+    // An order confirmed in Odoo by hand has its receipt at the warehouse: point it at the truck first.
+    if (truckLocationId) await client.call('stock.picking', 'write', [[p.id], { location_dest_id: truckLocationId }]).catch(() => undefined);
     const r = await client.call('stock.picking', 'button_validate', [[p.id]]);
     if (r && typeof r === 'object') ok = false;
   }

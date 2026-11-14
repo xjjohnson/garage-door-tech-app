@@ -6,7 +6,7 @@ import { Invoice } from '../lib/invoices';
 import { createJob, Job, JOBS_STORAGE_KEY } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
 import { NoEmployeeError, postDaySummary } from '../lib/odooDay';
-import { postPartsUsed, browseProducts, createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
+import { postPartsUsed, browseProducts, createProduct, findProductByCode, likeExact, searchProducts, NoTruckError, PartialSyncError, truckFor, receivePurchaseOrder, createPurchaseDraft, purchaseStates, sendPurchaseOrder, setTruckQty, syncTruck } from '../lib/odooStock';
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
 import { Appointment } from '../lib/schedule';
@@ -31,6 +31,9 @@ function fakeStockOdoo() {
     { id: 14, name: 'Roller replacement labor', default_code: 'LAB-ROL', barcode: '', standard_price: 0, product_tmpl_id: [114, 'Labor'], type: 'service' },
   ];
   const failOn: { writes?: number } = {};
+  /** Open draft purchase orders the fake Odoo finds for a vendor, and the state it reports for order 300. */
+  const draftIds: number[] = [];
+  let draftState = 'draft';
   /** Templates Odoo keeps no stock of: a consumable (Track Inventory off) or a service. */
   const untracked: Record<number, 'consu' | 'service'> = {};
   const tmplOf = (pid: number) => (products.find((p) => p.id === pid)?.product_tmpl_id[0] as number) ?? 0;
@@ -131,8 +134,16 @@ function fakeStockOdoo() {
       }
       case 'purchase.order.button_confirm':
         return true;
+      case 'purchase.order.search':
+        return draftIds;
+      case 'purchase.order.write':
+        return true;
+      case 'purchase.order.line.read':
+        return [{ id: 1, product_id: [12, 'Spring'] }];
+      case 'purchase.order.search_read':
+        return (args[0] as unknown[][])[0][2] ? [{ id: 300, state: draftState }] : [];
       case 'purchase.order.read':
-        return [{ id: 300, name: 'P00012', picking_ids: [400] }];
+        return [{ id: 300, name: 'P00012', picking_ids: [400], order_line: [1] }];
       case 'stock.picking.write':
         pickings[400].dest = (args[1] as { location_dest_id: number }).location_dest_id;
         return true;
@@ -160,7 +171,7 @@ function fakeStockOdoo() {
   };
   const session = { uid: 2, name: 'Justin Johnson', kind: 'oca', fields: [], apps: { products: true, sales: true, invoicing: true } };
   const client = { session, call } as unknown as OdooClient;
-  return { client, calls, quants, pickings, failOn, session, locations, products, untracked, rule };
+  return { client, calls, quants, pickings, failOn, session, locations, products, untracked, rule, draftIds, setDraftState: (v: string) => (draftState = v) };
 }
 
 describe('truck stock with Odoo Inventory (plain logic)', () => {
@@ -303,6 +314,29 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     expect(o.pickings[400].dest).toBe(7);
 
     expect(await receivePurchaseOrder(o.client, 300)).toBe(true);
+    expect(o.quants.find((q) => q.product === 12)?.qty).toBe(3);
+  });
+
+  it('makes a draft purchase order that is never confirmed or emailed, and adds to an open draft instead of making a second', async () => {
+    const o = fakeStockOdoo();
+    const sup = { name: 'ABC Supply', phone: '', email: 'x@abc.test' };
+    const first = await createPurchaseDraft(o.client, sup, [{ productId: 12, name: 'Spring', qty: 3, priceCents: 2400 }], 'Truck 1');
+    expect(first).toEqual({ odooId: 300, name: 'P00012', vendorId: 56, reused: false });
+    expect(o.calls.find((c) => c.model === 'purchase.order' && c.method === 'create')?.args[0]).toEqual({ partner_id: 56, origin: 'Truck 1', order_line: [[0, 0, { product_id: 12, name: 'Spring', product_qty: 3, price_unit: 24 }]] });
+    expect(o.calls.some((c) => c.method === 'button_confirm' || c.method === 'action_rfq_send' || c.model === 'mail.compose.message')).toBe(false);
+
+    // Same vendor and truck, a draft still open: only the new product goes on it.
+    o.draftIds.push(300);
+    const again = await createPurchaseDraft(o.client, sup, [{ productId: 12, name: 'Spring', qty: 3, priceCents: 2400 }, { productId: 11, name: 'Rollers', qty: 2, priceCents: 0 }], 'Truck 1');
+    expect(again).toMatchObject({ odooId: 300, reused: true });
+    expect(o.calls.filter((c) => c.model === 'purchase.order' && c.method === 'create')).toHaveLength(1);
+    expect(o.calls.find((c) => c.model === 'purchase.order' && c.method === 'write')?.args[1]).toEqual({ order_line: [[0, 0, { product_id: 11, name: 'Rollers', product_qty: 2 }]] });
+
+    expect((await purchaseStates(o.client, [300])).get(300)).toBe('draft');
+    o.setDraftState('purchase');
+    expect((await purchaseStates(o.client, [300])).get(300)).toBe('purchase');
+    // Once confirmed in Odoo, receiving points the receipt at the truck.
+    expect(await receivePurchaseOrder(o.client, 300, 7)).toBe(true);
     expect(o.quants.find((q) => q.product === 12)?.qty).toBe(3);
   });
 
