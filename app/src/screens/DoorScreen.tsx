@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, MultiChipRow, SectionTitle } from '../components/controls';
-import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
+import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, SpringDetails, UsesPerDay, Stat, Warnings } from '../components/results';
 import { CYCLE_CHOICES, DEFAULT_DOOR_FORM, DoorForm, DRUM_CHOICES, HEIGHT_CHOICES, ID_CHOICES, Outcome, runDoor } from '../lib/forms';
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
@@ -108,6 +108,7 @@ export function DoorScreen({ open }: { open?: OpenJobRequest }) {
   const results = (
     <>
       <SectionTitle>Results</SectionTitle>
+      <UsesPerDay />
       {/* STOP and CHECK cards first, so the bar's jump lands on them, then the general safety banner. */}
       {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
       {outcome.status === 'ok' ? <Warnings warnings={outcome.result.warnings} /> : null}

@@ -66,8 +66,7 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
       })}
 
       <SectionTitle>Settings</SectionTitle>
-      <Text style={styles.note}>Spring life is the rating (10,000, 25,000 or 50,000 cycles) divided by how often the door runs. These are the starting values: on each invoice you can pick that job's warranty and how often its door is used.</Text>
-      <MeasureField label="Door uses a day" hint="One open and close is a use. About 4 is typical for a home." value={String(settings.cyclesPerDay)} onChange={(v) => setSettings((s) => ({ ...s, cyclesPerDay: num(v, s.cyclesPerDay) || s.cyclesPerDay }))} unit="cycles" allowFraction={false} testID="followup-cycles" />
+      <Text style={styles.note}>These are the starting warranty lengths: on each invoice you can pick that job's warranty. Door uses a day is set in the spring calculator.</Text>
       {TIERS.map((tier) => (
         <MeasureField
           key={tier}

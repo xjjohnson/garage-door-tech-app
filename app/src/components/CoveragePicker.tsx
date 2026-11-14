@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { ChipOption, ChipRow, MeasureField } from './controls';
+import { ChipOption, ChipRow } from './controls';
 import { FollowUpSettings, warrantyFor } from '../lib/followups';
 import type { Invoice } from '../lib/invoices';
 import { colors, type } from '../theme';
@@ -20,13 +20,11 @@ function monthsFor(invoice: Invoice, settings: FollowUpSettings, kind: 'parts' |
 
 /**
  * What this job is covered by, picked per job: the warranty on parts and on
- * labor (either, both or neither), and how many times a day the door is used,
- * which sets how long its springs should last.
+ * labor (either, both or neither).
  */
-export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoice; settings: FollowUpSettings; onChange: (patch: Partial<Pick<Invoice, 'warranty' | 'cyclesPerDay'>>) => void }) {
+export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoice; settings: FollowUpSettings; onChange: (patch: Partial<Pick<Invoice, 'warranty'>>) => void }) {
   const parts = monthsFor(invoice, settings, 'parts');
   const labor = monthsFor(invoice, settings, 'labor');
-  const uses = invoice.cyclesPerDay ?? settings.cyclesPerDay;
   // A length the chips don't offer (from the settings) is still shown.
   const withCurrent = (m: number) => (MONTHS.includes(m) ? OPTIONS : [...OPTIONS, { label: label(m), value: m }].sort((a, b) => a.value - b.value));
   return (
@@ -36,18 +34,6 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
       <ChipRow options={withCurrent(parts)} value={parts} onChange={(m) => onChange({ warranty: { partsMonths: m } })} scroll testID="coverage-parts" />
       <Text style={styles.label}>Labor</Text>
       <ChipRow options={withCurrent(labor)} value={labor} onChange={(m) => onChange({ warranty: { laborMonths: m } })} scroll testID="coverage-labor" />
-      <MeasureField
-        label="Door uses a day"
-        hint="Sets how long the springs should last. One open and close is a use."
-        value={String(uses)}
-        onChange={(v) => {
-          const n = Number.parseFloat(v);
-          if (Number.isFinite(n) && n > 0) onChange({ cyclesPerDay: n });
-        }}
-        unit="a day"
-        allowFraction={false}
-        testID="coverage-uses"
-      />
     </View>
   );
 }

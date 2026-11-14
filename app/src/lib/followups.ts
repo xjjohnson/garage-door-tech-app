@@ -49,7 +49,7 @@ export function warrantyFor(inv: Invoice, s: FollowUpSettings): Warranty {
 
 /** When the springs put in are expected to reach their rated cycles, at the tech's cycles a day. */
 export function springsWornOutAt(inv: Invoice, s: FollowUpSettings): number {
-  const days = TIER_CYCLES[inv.tier] / Math.max(0.1, inv.cyclesPerDay ?? s.cyclesPerDay);
+  const days = TIER_CYCLES[inv.tier] / Math.max(0.1, s.cyclesPerDay);
   return inv.createdAt + days * DAY;
 }
 

@@ -38,13 +38,13 @@ describe('follow-ups (plain logic)', () => {
     expect(warrantyFor(i, { ...DEFAULT_FOLLOW_UP, warrantyMonths: { good: 0, better: 0, best: 0 }, laborWarrantyMonths: 0 })).toEqual({ partsUntil: null, laborUntil: null });
   });
 
-  it("lets each job pick its own warranty and uses a day", () => {
-    const i = inv('1', new Date(2026, 0, 15).getTime(), { tier: 'better', warranty: { partsMonths: 0, laborMonths: 24 }, cyclesPerDay: 8 });
+  it('lets each job pick its own warranty', () => {
+    const i = inv('1', new Date(2026, 0, 15).getTime(), { tier: 'better', warranty: { partsMonths: 0, laborMonths: 24 } });
     const w = warrantyFor(i, DEFAULT_FOLLOW_UP);
     expect(w.partsUntil).toBeNull();
     expect(new Date(w.laborUntil!)).toEqual(new Date(addMonths(i.createdAt, 24)));
-    // 25,000 cycles at 8 a day is 3,125 days.
-    expect(Math.round((springsWornOutAt(i, DEFAULT_FOLLOW_UP) - i.createdAt) / DAY)).toBe(3125);
+    // 25,000 cycles at 8 a day (the setting) is 3,125 days.
+    expect(Math.round((springsWornOutAt(i, { ...DEFAULT_FOLLOW_UP, cyclesPerDay: 8 }) - i.createdAt) / DAY)).toBe(3125);
     // A ticket has no parts warranty unless the job picks one.
     const t = inv('t', 1000, { source: 'ticket' });
     expect(warrantyFor(t, DEFAULT_FOLLOW_UP).partsUntil).toBeNull();
