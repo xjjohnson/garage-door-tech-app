@@ -8,7 +8,7 @@ import { EmailResult, emailedText, emailInvoice, partnerEmail, PdfFile } from '.
 import { pdfName, signedPageHtml } from '../lib/pdf';
 import { Signature, signatureFor } from '../lib/attachments';
 import { formatJobDate } from '../lib/jobs';
-import { inspectionReportHtml } from '../lib/reportFiles';
+import { beforeAfterReportHtml, inspectionReportHtml } from '../lib/reportFiles';
 import { useAttachments } from '../lib/useAttachments';
 import { Job } from '../lib/jobs';
 import { OdooClient, OdooError } from '../lib/odoo';
@@ -365,6 +365,8 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
   const job = jobs.find((j) => j.id === invoice.jobId);
   const media = attachments.media;
   const o = invoice.odoo;
+  const hasPhotos = !!job && !!media?.pdfBase64 && attachments.photos.some((p) => p.jobId === job.id && (p.kind === 'before' || p.kind === 'after'));
+  const withText = [job?.inspection && media?.pdfBase64 ? 'the inspection report' : '', hasPhotos ? 'the before and after photos' : ''].filter(Boolean).join(' and ');
   if (!o && invoice.voidedAt) return null;
   if (!o && !online) {
     return invoice.autoSend ? (
@@ -414,6 +416,11 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
         const html = await inspectionReportHtml(job, attachments, media, business, { reference: o.name, inspector: client.session.name || business.name });
         files.push({ name: pdfName('Inspection', invoice.billTo), base64: await media.pdfBase64(html) });
       }
+      // Before and after photos from the job, when the phone has any.
+      if (job && media?.pdfBase64) {
+        const html = await beforeAfterReportHtml(job, attachments, media, business, { reference: o.name });
+        if (html) files.push({ name: pdfName('Before and after photos', invoice.billTo), base64: await media.pdfBase64(html) });
+      }
       const r = await emailInvoice(client, o.id, pid, files);
       setEmailed(r);
       log.info('odoo', `invoice ${o.name} email: ${r.state}${r.reason ? ` (${r.reason})` : ''}, ${files.length} extra file(s)`);
@@ -449,7 +456,7 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
         confirm ? (
           <View style={styles.stack} testID="invoice-odoo-email-confirm">
             <Text style={styles.detail}>
-              Email {confirm.email} Odoo's invoice {o.name} ({formatMoney(o.total)}){job?.inspection && media?.pdfBase64 ? ', with the inspection report attached' : ''}?
+              Email {confirm.email} Odoo's invoice {o.name} ({formatMoney(o.total)}){withText ? `, with ${withText} attached` : ''}?
             </Text>
             <Button label={`Send to ${confirm.email}`} disabled={busy} onPress={email} testID="invoice-odoo-email-send" />
             <Button label="Cancel" onPress={() => setConfirm(null)} testID="invoice-odoo-email-cancel" />
