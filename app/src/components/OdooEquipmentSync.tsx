@@ -1,8 +1,8 @@
 /**
- * Puts the doors and openers Justin sells on the house's Field Service
+ * Puts the parts Justin tracks on the house's Field Service
  * location in Odoo as equipment, with the job's warranty, in the background
- * while signed in. It reads the invoices: a door or opener product on an
- * invoice makes (or updates) its equipment record; the warranty comes from
+ * while signed in. It reads the invoices: a part ticked under "Track as
+ * equipment" on an invoice makes (or updates) its equipment record; the warranty comes from
  * the invoice's "Warranty on this job". Only invoices made after this phone
  * started doing this go up, so an update never sends old invoices in bulk.
  * Renders nothing.
@@ -11,7 +11,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { log } from '../lib/log';
 import { equipmentKey, equipmentReady, orderLocation, sendEquipment, soldEquipment } from '../lib/odooEquipment';
-import { parsePriceBook, PRICE_BOOK_STORAGE_KEY } from '../lib/priceBook';
 import { onSyncNow } from '../lib/syncNow';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useFollowUps } from '../lib/useFollowUps';
@@ -67,18 +66,16 @@ export function OdooEquipmentSync() {
 
   const online = status === 'signedIn' && !!client && jobsLoaded && store !== null;
   // Cheap check for the timers: any invoice since the start that isn't done yet.
-  const pending = online ? invoices.filter((i) => !i.voidedAt && i.createdAt >= store!.since && store!.done[i.id] === undefined && jobs.some((j) => j.id === i.jobId && j.odooJob)).length : 0;
+  const pending = online ? invoices.filter((i) => !i.voidedAt && i.createdAt >= store!.since && soldEquipment(i, settings).length > 0 && store!.done[i.id] === undefined && jobs.some((j) => j.id === i.jobId && j.odooJob)).length : 0;
 
   const pass = useCallback(async () => {
     const cur = latest.current;
     if (!client || !cur.store || running.current) return;
     running.current = true;
     try {
-      const raw = await AsyncStorage.getItem(PRICE_BOOK_STORAGE_KEY).catch(() => null);
-      const book = parsePriceBook(raw).items;
       const todo = cur.invoices
         .filter((i) => !i.voidedAt && i.createdAt >= cur.store!.since)
-        .map((inv) => ({ inv, items: soldEquipment(inv, book, cur.settings), job: cur.jobs.find((j) => j.id === inv.jobId) }))
+        .map((inv) => ({ inv, items: soldEquipment(inv, cur.settings), job: cur.jobs.find((j) => j.id === inv.jobId) }))
         .filter((x) => x.items.length && x.job?.odooJob?.model === 'fsm.order' && cur.store!.done[x.inv.id] !== equipmentKey(x.items));
       if (!todo.length) return;
       const ready = await equipmentReady(client);
