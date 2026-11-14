@@ -88,6 +88,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         href="/business"
         testID="settings-business"
       />
+      <Link label="Management" detail="Owner: job types, quote templates, parts and checklists, saved to Odoo" href="/management" testID="settings-management" />
       <Link label="Inspection checklists" detail="The garage door and gate checklists, kept in Odoo as Surveys" href="/checklists" testID="settings-checklists" />
       <Link label="Price book" detail="Odoo's prices, and your good / better / best estimate prices" href="/price-book" testID="settings-price-book" />
 
