@@ -22,7 +22,10 @@ export interface TemplateLine {
 }
 
 /** Templates by job type (lower case), then tier. */
-export type TemplateSets = Record<string, { type: string; tiers: Partial<Record<Tier, TemplateLine[]>> }>;
+export type TemplateSets = Record<string, { type: string; tiers: Partial<Record<Tier, TemplateLine[]>>; plain?: boolean }>;
+
+/** A plain-option template (one per Odoo quotation template, its full name) is stored under this prefix, so it never clashes with a job type. */
+export const PLAIN_PREFIX = 'template: ';
 
 /** "Opener · Better" → { type: "Opener", tier: "better" }; null when the name has no tier at the end. */
 export function tierFromName(name: string): { type: string; tier: Tier } | null {
@@ -40,8 +43,8 @@ export async function fetchTemplates(client: Pick<OdooClient, 'call'>): Promise<
     const p = tierFromName(t.name ?? '');
     return p ? [{ id: t.id, ...p }] : [];
   });
-  if (named.length === 0) return {};
-  const lines = (await client.call('sale.order.template.line', 'search_read', [[['sale_order_template_id', 'in', named.map((t) => t.id)]]], {
+  if (templates.length === 0) return {};
+  const lines = (await client.call('sale.order.template.line', 'search_read', [[['sale_order_template_id', 'in', templates.map((t) => t.id)]]], {
     fields: ['sale_order_template_id', 'product_id', 'name', 'product_uom_qty', 'display_type', 'sequence'],
     order: 'sequence asc, id asc',
   })) as Record<string, unknown>[];
@@ -50,12 +53,9 @@ export async function fetchTemplates(client: Pick<OdooClient, 'call'>): Promise<
   const products = productIds.length ? ((await client.call('product.product', 'read', [productIds], { fields: ['lst_price', 'taxes_id', 'display_name'] })) as Record<string, unknown>[]) : [];
   const byId = new Map(products.map((p) => [p.id as number, p]));
 
-  const out: TemplateSets = {};
-  for (const t of named) {
-    const key = t.type.toLowerCase();
-    const set = (out[key] ??= { type: t.type, tiers: {} });
-    set.tiers[t.tier] = real
-      .filter((l) => many2one(l.sale_order_template_id) === t.id)
+  const toLines = (id: number): TemplateLine[] =>
+    real
+      .filter((l) => many2one(l.sale_order_template_id) === id)
       .map((l) => {
         const pid = many2one(l.product_id);
         const p = byId.get(pid);
@@ -63,6 +63,19 @@ export async function fetchTemplates(client: Pick<OdooClient, 'call'>): Promise<
         const label = (typeof l.name === 'string' && l.name.trim()) || (typeof p?.display_name === 'string' ? p.display_name : 'Item');
         return { productId: pid, label: label.split('\n')[0], qty, unitCents: typeof p?.lst_price === 'number' ? Math.round(p.lst_price * 100) : 0, taxable: Array.isArray(p?.taxes_id) && p.taxes_id.length > 0 };
       });
+
+  const out: TemplateSets = {};
+  // Good / better / best by job type, for quoting a job from its own type's templates.
+  for (const t of named) {
+    const key = t.type.toLowerCase();
+    const set = (out[key] ??= { type: t.type, tiers: {} });
+    set.tiers[t.tier] = toLines(t.id);
+  }
+  // Every template as its own plain option, by its full name.
+  for (const t of templates) {
+    const name = (t.name ?? '').trim();
+    if (!name) continue;
+    out[PLAIN_PREFIX + name.toLowerCase()] = { type: name, tiers: { good: toLines(t.id) }, plain: true };
   }
   return out;
 }
@@ -75,7 +88,7 @@ export function templatesFor(sets: TemplateSets, what: string | undefined) {
 /** Good / better / best from a job type's templates, with any extra lines (inspection repairs) on every option. */
 export function templateQuote(set: TemplateSets[string], sheet: Pick<PriceSheet, 'taxPercent'>, extra: QuoteLine[] = []): Quote {
   const taxRate = cents(sheet.taxPercent) / 10_000;
-  const options: QuoteOption[] = TIERS.map((tier) => {
+  const options: QuoteOption[] = (set.plain ? (['good'] as Tier[]) : TIERS).map((tier) => {
     const t = set.tiers[tier];
     if (!t || t.length === 0) return { tier, available: false, reason: `No "${set.type} · ${TIER_LABEL[tier]}" template in Odoo`, springCount: 0, lines: [], subtotal: 0, tax: 0, total: 0 };
     const lines: QuoteLine[] = [
@@ -84,7 +97,7 @@ export function templateQuote(set: TemplateSets[string], sheet: Pick<PriceSheet,
     ];
     const subtotal = lines.reduce((n, l) => n + l.cents, 0);
     const tax = Math.round(lines.filter((l) => l.taxable).reduce((n, l) => n + l.cents, 0) * taxRate);
-    return { tier, available: true, springCount: 0, lines, subtotal, tax, total: subtotal + tax };
+    return { tier, ...(set.plain ? { title: set.type } : {}), available: true, springCount: 0, lines, subtotal, tax, total: subtotal + tax };
   });
   return { options };
 }
@@ -109,7 +122,7 @@ export function parseTemplates(raw: string | null): TemplateSets {
             : [];
         });
       }
-      out[k] = { type: x.type, tiers };
+      out[k] = { type: x.type, tiers, ...((s as { plain?: unknown }).plain === true ? { plain: true } : {}) };
     }
     return out;
   } catch {
