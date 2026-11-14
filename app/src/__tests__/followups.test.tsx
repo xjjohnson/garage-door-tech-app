@@ -38,18 +38,31 @@ describe('follow-ups (plain logic)', () => {
     expect(warrantyFor(i, { ...DEFAULT_FOLLOW_UP, warrantyMonths: { good: 0, better: 0, best: 0 }, laborWarrantyMonths: 0 })).toEqual({ partsUntil: null, laborUntil: null });
   });
 
-  it('lists a tune-up a year after a job, soonest first, and leaves out void and handled ones', () => {
-    const yearAgo = addMonths(NOW, -12) + 5 * DAY;
-    // Best: a five-year warranty, so only the tune-up is due.
-    const best = { tier: 'best' as const };
-    const list = followUps([inv('a', yearAgo, best), inv('b', yearAgo - 3 * DAY, best), inv('v', yearAgo, { ...best, voidedAt: 1 })], DEFAULT_FOLLOW_UP, BIZ, NOW);
+  it("lets each job pick its own warranty and uses a day", () => {
+    const i = inv('1', new Date(2026, 0, 15).getTime(), { tier: 'better', warranty: { partsMonths: 0, laborMonths: 24 }, cyclesPerDay: 8 });
+    const w = warrantyFor(i, DEFAULT_FOLLOW_UP);
+    expect(w.partsUntil).toBeNull();
+    expect(new Date(w.laborUntil!)).toEqual(new Date(addMonths(i.createdAt, 24)));
+    // 25,000 cycles at 8 a day is 3,125 days.
+    expect(Math.round((springsWornOutAt(i, DEFAULT_FOLLOW_UP) - i.createdAt) / DAY)).toBe(3125);
+    // A ticket has no parts warranty unless the job picks one.
+    const t = inv('t', 1000, { source: 'ticket' });
+    expect(warrantyFor(t, DEFAULT_FOLLOW_UP).partsUntil).toBeNull();
+    expect(warrantyFor({ ...t, warranty: { partsMonths: 12 } }, DEFAULT_FOLLOW_UP).partsUntil).toBe(addMonths(1000, 12));
+  });
+
+  it('lists warranties ending soon, soonest first, and leaves out void and handled ones', () => {
+    const endsSoon = addMonths(NOW, -12) + 20 * DAY;
+    const list = followUps([inv('a', endsSoon), inv('b', endsSoon - 3 * DAY), inv('v', endsSoon, { voidedAt: 1 })], DEFAULT_FOLLOW_UP, BIZ, NOW);
     expect(list.map((f) => [f.kind, f.invoice.id])).toEqual([
-      ['tuneup', 'b'],
-      ['tuneup', 'a'],
+      ['warranty', 'b'],
+      ['warranty', 'a'],
     ]);
     expect(list[0].message).toMatch(/^Hi Pat, it's Ace Doors\./);
-    const after = followUps([inv('a', yearAgo, best)], DEFAULT_FOLLOW_UP, BIZ, NOW, { [followUpId('tuneup', inv('a', 0))]: NOW });
+    const after = followUps([inv('a', endsSoon)], DEFAULT_FOLLOW_UP, BIZ, NOW, { [followUpId('warranty', inv('a', 0))]: NOW });
     expect(after).toEqual([]);
+    // No tune-up reminders any more: those are recurring visits.
+    expect(followUps([inv('c', addMonths(NOW, -12) + 5 * DAY, { tier: 'best' })], DEFAULT_FOLLOW_UP, BIZ, NOW)).toEqual([]);
   });
 
   it('flags worn springs at heavy use, and the warranty ending', () => {
@@ -59,7 +72,7 @@ describe('follow-ups (plain logic)', () => {
     expect(followUps([i], heavy, BIZ, NOW).map((f) => f.kind)).toContain('springs');
     // Good warranty is 12 months; flagged 30 days before.
     const w = inv('w', addMonths(NOW, -12) + 20 * DAY);
-    expect(followUps([w], DEFAULT_FOLLOW_UP, BIZ, NOW).map((f) => f.kind)).toEqual(['warranty', 'tuneup']);
+    expect(followUps([w], DEFAULT_FOLLOW_UP, BIZ, NOW).map((f) => f.kind)).toEqual(['warranty']);
   });
 
   it('counts only the latest invoice at an address', () => {
@@ -83,7 +96,7 @@ describe('follow-ups (plain logic)', () => {
 describe('follow-ups in the app', () => {
   it('shows what is due on Jobs, texts the customer, and marks it done', async () => {
     const now = Date.now();
-    const i = inv('1001', addMonths(now, -12) + 2 * DAY, { tier: 'best' });
+    const i = inv('1001', addMonths(now, -12) + 20 * DAY);
     await AsyncStorage.clear();
     await AsyncStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([i]));
     await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([{ id: 'c-1001', name: 'Pat Smith', phone: '555-123-4567', email: '', address: '', notes: '', createdAt: 1, updatedAt: 1 }]));
@@ -93,7 +106,7 @@ describe('follow-ups in the app', () => {
     expect(screen.getByTestId('open-followups')).toHaveTextContent('Follow-ups: 1 due');
     await fireEvent.press(screen.getByTestId('open-followups'));
     expect(app.getPathname()).toBe('/follow-ups');
-    const id = followUpId('tuneup', i);
+    const id = followUpId('warranty', i);
     await fireEvent.press(screen.getByTestId(`followup-text-${id}`));
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/^sms:5551234567\?body=Hi%20Pat/));
     await fireEvent.press(screen.getByTestId(`followup-done-${id}`));

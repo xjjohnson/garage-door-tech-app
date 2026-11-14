@@ -1,7 +1,6 @@
 /**
- * Follow-ups: repeat work that's due. A tune-up about a year after a job,
- * springs that are getting near the end of their cycle life, and warranties
- * about to run out. Worked out from the invoices on the phone (what was put
+ * Follow-ups: springs that are getting near the end of their cycle life and
+ * warranties about to run out. (Yearly tune-ups belong to recurring visits.) Worked out from the invoices on the phone (what was put
  * in, and when), so nothing needs to be scheduled. Kept free of React so it
  * can be tested directly.
  */
@@ -14,7 +13,6 @@ export const DAY = 24 * 60 * 60 * 1000;
 export interface FollowUpSettings {
   /** Door cycles a day (one open and close is a cycle). About 4 is typical for a home. */
   cyclesPerDay: number;
-  tuneUpMonths: number;
   /** Warranty on the springs put in, by option, in months; 0 for none. */
   warrantyMonths: Record<Tier, number>;
   laborWarrantyMonths: number;
@@ -22,7 +20,6 @@ export interface FollowUpSettings {
 
 export const DEFAULT_FOLLOW_UP: FollowUpSettings = {
   cyclesPerDay: 4,
-  tuneUpMonths: 12,
   warrantyMonths: { good: 12, better: 36, best: 60 },
   laborWarrantyMonths: 12,
 };
@@ -41,20 +38,22 @@ export interface Warranty {
 /** The warranty on an invoice's work, counted from the day it was made. */
 export function warrantyFor(inv: Invoice, s: FollowUpSettings): Warranty {
   // A ticket isn't a spring option, so it has no spring warranty of its own.
-  const p = inv.source === 'ticket' ? 0 : s.warrantyMonths[inv.tier];
+  // The job's own choice wins; else the settings' lengths.
+  const p = inv.warranty?.partsMonths ?? (inv.source === 'ticket' ? 0 : s.warrantyMonths[inv.tier]);
+  const l = inv.warranty?.laborMonths ?? s.laborWarrantyMonths;
   return {
     partsUntil: p > 0 ? addMonths(inv.createdAt, p) : null,
-    laborUntil: s.laborWarrantyMonths > 0 ? addMonths(inv.createdAt, s.laborWarrantyMonths) : null,
+    laborUntil: l > 0 ? addMonths(inv.createdAt, l) : null,
   };
 }
 
 /** When the springs put in are expected to reach their rated cycles, at the tech's cycles a day. */
 export function springsWornOutAt(inv: Invoice, s: FollowUpSettings): number {
-  const days = TIER_CYCLES[inv.tier] / Math.max(0.1, s.cyclesPerDay);
+  const days = TIER_CYCLES[inv.tier] / Math.max(0.1, inv.cyclesPerDay ?? s.cyclesPerDay);
   return inv.createdAt + days * DAY;
 }
 
-export type FollowUpKind = 'tuneup' | 'springs' | 'warranty';
+export type FollowUpKind = 'springs' | 'warranty';
 
 export interface FollowUp {
   kind: FollowUpKind;
@@ -102,8 +101,6 @@ export function followUps(
       if (dismissed[id]) return;
       out.push({ kind, invoice: inv, due, title, message });
     };
-    const tune = addMonths(inv.createdAt, s.tuneUpMonths);
-    add('tuneup', tune, 'Tune-up due', `Hi ${name}, it's ${who}. It's been about a year since we worked on your garage door. A yearly tune-up and safety check keeps it running quiet and safe. Want me to set one up?`);
     const worn = springsWornOutAt(inv, s);
     if (inv.source !== 'ticket') add(
       'springs',
@@ -135,7 +132,6 @@ export function parseFollowUpSettings(v: unknown): FollowUpSettings {
   const w = (d.warrantyMonths && typeof d.warrantyMonths === 'object' ? d.warrantyMonths : {}) as Record<string, unknown>;
   return {
     cyclesPerDay: n(d.cyclesPerDay, DEFAULT_FOLLOW_UP.cyclesPerDay) || DEFAULT_FOLLOW_UP.cyclesPerDay,
-    tuneUpMonths: n(d.tuneUpMonths, DEFAULT_FOLLOW_UP.tuneUpMonths) || DEFAULT_FOLLOW_UP.tuneUpMonths,
     warrantyMonths: {
       good: n(w.good, DEFAULT_FOLLOW_UP.warrantyMonths.good),
       better: n(w.better, DEFAULT_FOLLOW_UP.warrantyMonths.better),

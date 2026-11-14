@@ -8,7 +8,6 @@ import { formatJobDate } from '../lib/jobs';
 import { TIER_LABEL, TIERS } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
-import { useFollowUpInvoices } from '../lib/useFollowUpInvoices';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type } from '../theme';
 
@@ -17,8 +16,7 @@ import { colors, touch, type } from '../theme';
  * warranties about to end, each with a text to the customer ready to send.
  */
 export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
-  const { business } = useInvoices();
-  const invoices = useFollowUpInvoices();
+  const { invoices, business } = useInvoices();
   const { customers } = useCustomers();
   const { settings, dismissed, dismiss, setSettings } = useFollowUps();
   const list = useMemo(() => followUps(invoices, settings, business, now(), dismissed), [invoices, settings, business, dismissed, now]);
@@ -35,7 +33,7 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
       {list.length === 0 ? (
         <View style={styles.empty} testID="followups-empty">
           <Text style={styles.emptyTitle}>Nothing due</Text>
-          <Text style={styles.emptyBody}>Tune-ups, worn springs and warranty ends show up here from your invoices, 45 days ahead.</Text>
+          <Text style={styles.emptyBody}>Worn springs and warranty ends show up here from your invoices, 45 days ahead.</Text>
         </View>
       ) : null}
       {list.map((f) => {
@@ -68,9 +66,8 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
       })}
 
       <SectionTitle>Settings</SectionTitle>
-      <Text style={styles.note}>Spring life is the rating (10,000, 25,000 or 50,000 cycles) divided by how often the door runs.</Text>
-      <MeasureField label="Door cycles a day" hint="One open and close is a cycle. About 4 is typical for a home." value={String(settings.cyclesPerDay)} onChange={(v) => setSettings((s) => ({ ...s, cyclesPerDay: num(v, s.cyclesPerDay) || s.cyclesPerDay }))} unit="cycles" allowFraction={false} testID="followup-cycles" />
-      <MeasureField label="Tune-up after" value={String(settings.tuneUpMonths)} onChange={(v) => setSettings((s) => ({ ...s, tuneUpMonths: num(v, s.tuneUpMonths) || s.tuneUpMonths }))} unit="months" allowFraction={false} allowDecimal={false} testID="followup-tuneup" />
+      <Text style={styles.note}>Spring life is the rating (10,000, 25,000 or 50,000 cycles) divided by how often the door runs. These are the starting values: on each invoice you can pick that job's warranty and how often its door is used.</Text>
+      <MeasureField label="Door uses a day" hint="One open and close is a use. About 4 is typical for a home." value={String(settings.cyclesPerDay)} onChange={(v) => setSettings((s) => ({ ...s, cyclesPerDay: num(v, s.cyclesPerDay) || s.cyclesPerDay }))} unit="cycles" allowFraction={false} testID="followup-cycles" />
       {TIERS.map((tier) => (
         <MeasureField
           key={tier}

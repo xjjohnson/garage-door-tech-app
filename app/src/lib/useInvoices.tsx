@@ -29,6 +29,8 @@ interface InvoicesApi {
   addPayment: (invoiceId: string, p: Omit<Payment, 'id' | 'at'>) => void;
   removePayment: (invoiceId: string, paymentId: string) => void;
   setVoid: (invoiceId: string, voided: boolean) => void;
+  /** Picks this job's warranty (months, labor and/or parts) and how often the door is used a day. */
+  setCoverage: (invoiceId: string, patch: Partial<Pick<Invoice, 'warranty' | 'cyclesPerDay'>>) => void;
   /** Keeps what Odoo said about this invoice after sending or checking it. */
   setOdoo: (invoiceId: string, odoo: OdooInvoiceState) => void;
   /** Adds a backup's invoices (the copy changed last wins) and, if it has one, its business details. */
@@ -116,6 +118,10 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
     [edit],
   );
 
+  const setCoverage = useCallback<InvoicesApi['setCoverage']>(
+    (id, patch) => edit(id, (i) => ({ ...i, ...patch, ...(patch.warranty ? { warranty: { ...i.warranty, ...patch.warranty } } : {}) })),
+    [edit],
+  );
   const setOdoo = useCallback<InvoicesApi['setOdoo']>((id, odoo) => change((prev) => prev.map((i) => (i.id === id ? withOdoo(i, odoo) : i))), [change]);
 
   const setBusiness = useCallback<InvoicesApi['setBusiness']>((fn) => {
@@ -132,8 +138,8 @@ export function InvoicesProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ invoices, loaded, business, setBusiness, create, addPayment, removePayment, setVoid, setOdoo, restore }),
-    [invoices, loaded, business, setBusiness, create, addPayment, removePayment, setVoid, setOdoo, restore],
+    () => ({ invoices, loaded, business, setBusiness, create, addPayment, removePayment, setVoid, setCoverage, setOdoo, restore }),
+    [invoices, loaded, business, setBusiness, create, addPayment, removePayment, setVoid, setCoverage, setOdoo, restore],
   );
   return <InvoicesContext.Provider value={api}>{children}</InvoicesContext.Provider>;
 }
