@@ -22,6 +22,8 @@ export interface QuoteLine {
   qty?: number;
   /** The Odoo product, when the line came from an Odoo quotation template. */
   productId?: number;
+  /** Percent off this line (Odoo's line discount), from a quick discount on the ticket. */
+  discountPct?: number;
 }
 
 export interface QuoteOption {
@@ -178,7 +180,7 @@ export function quoteText(quote: Quote, customer: string): string {
     parts.push('');
     parts.push(`${(o.title ?? TIER_LABEL[o.tier]).toUpperCase()}: ${formatMoney(o.total)}`);
     if (o.spring) parts.push(`Springs rated ${formatLife(o.spring.life)} cycles`);
-    for (const l of o.lines) if (l.cents > 0) parts.push(`- ${l.label}: ${formatMoney(l.cents)}`);
+    for (const l of o.lines) if (l.cents !== 0) parts.push(`- ${l.label}: ${formatMoney(l.cents)}`);
     if (o.tax > 0) parts.push(`- Tax: ${formatMoney(o.tax)}`);
   }
   return parts.join('\n');

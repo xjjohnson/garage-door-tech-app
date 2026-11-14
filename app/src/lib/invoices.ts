@@ -9,6 +9,7 @@
  * untaxed amount, tax, total, payments, amount due), so a later sync with
  * Odoo or similar can map it one to one.
  */
+import { DiscountPreset, parseDiscounts } from './discounts';
 import { formatJobDate } from './jobs';
 import { messageText } from './messageTexts';
 import { OdooInvoiceState, parseInvoiceState } from './odooSales';
@@ -111,6 +112,8 @@ export interface Business {
   textOnMyWay: string;
   textEta: string;
   textReview: string;
+  /** Quick discounts in Management > Discounts; unset means the standard list (see discounts.ts). */
+  discounts?: DiscountPreset[];
 }
 
 export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '', reviewUrl: '', textOnMyWay: '', textEta: '', textReview: '' };
@@ -159,7 +162,7 @@ export function createInvoice(
     billTo: job.customer,
     address: extra.shipTo?.address || job.address,
     tier: option.tier,
-    lines: option.lines.filter((l) => l.cents > 0).map((l) => ({ ...l })),
+    lines: option.lines.filter((l) => l.cents !== 0).map((l) => ({ ...l })),
     subtotal: option.subtotal,
     tax: option.tax,
     total: option.total,
@@ -319,7 +322,7 @@ export function parseBusiness(raw: string | null | object): Business {
   }
   if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
   const d = data as Record<string, unknown>;
-  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview) };
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}) };
 }
 
 /** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */

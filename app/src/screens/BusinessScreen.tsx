@@ -11,7 +11,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
 
-const FIELDS: { key: keyof Business; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' | 'url' }[] = [
+const FIELDS: { key: Exclude<keyof Business, 'discounts'>; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' | 'url' }[] = [
   { key: 'name', label: 'Business name', placeholder: 'Shown at the top of invoices' },
   { key: 'phone', label: 'Business phone', placeholder: 'For questions about an invoice', keyboard: 'phone-pad' },
   { key: 'cashtag', label: 'Cash App $cashtag', placeholder: '$yourcashtag', hint: 'Invoices show a QR code that opens Cash App with the amount filled in.' },
