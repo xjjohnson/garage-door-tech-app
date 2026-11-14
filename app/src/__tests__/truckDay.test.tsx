@@ -10,7 +10,7 @@ import { postPartsUsed, browseProducts, createProduct, findProductByCode, likeEx
 import { matchItem, pickList, springSize } from '../lib/pickList';
 import { DEFAULT_PRICE_SHEET, PriceSheet } from '../lib/prices';
 import { Appointment } from '../lib/schedule';
-import { phoneScoreData, scorecard, tierIn } from '../lib/scorecard';
+import { ownerSummary, phoneScoreData, scorecard, tierIn } from '../lib/scorecard';
 import { findByCode, onOrder, orders, parseStock, STOCK_STORAGE_KEY, StockItem, StockStore, usedTotals } from '../lib/stock';
 import { StockProvider, useStock } from '../lib/useStock';
 import { ProductPicker } from '../components/ProductPicker';
@@ -460,6 +460,28 @@ describe('tech scorecard (plain logic)', () => {
     expect(tierIn('Better · 12 Elm St')).toBe('better');
     const phone = phoneScoreData([{ ...createJob(MATCH, { customer: 'A', address: '1 Elm', phone: '', notes: '' }, { title: '' }, t0, 'a'), accepted: { tier: 'better', total: 1, at: t0 } }], [], 'Me');
     expect(scorecard(phone, p)[0]).toMatchObject({ tech: 'Me', won: 1, betterBest: 1 });
+  });
+});
+
+describe('owner overview (plain logic)', () => {
+  it('adds up jobs, revenue, open and late invoices, and follow-ups by tech', () => {
+    const t0 = new Date(2026, 10, 10, 12).getTime();
+    const p = { start: t0 - 5 * DAY, end: t0 + DAY };
+    const s = ownerSummary(
+      [{ tech: 'Sam', place: 'l:1', at: t0 - DAY }, { tech: 'Sam', place: 'l:2', at: t0 - 90 * DAY }],
+      {
+        invoices: [
+          { at: t0 - DAY, cents: 50000, owed: 0 },
+          { at: t0 - 2 * DAY, cents: 20000, owed: 20000, due: t0 - DAY },
+          { at: t0 - 60 * DAY, cents: 10000, owed: 10000, due: t0 + 5 * DAY },
+        ],
+        followUps: [{ tech: 'Sam', deadline: t0 - 3 * DAY }, { tech: 'Sam', deadline: t0 + DAY }, { tech: 'Lee' }],
+      },
+      p,
+      t0,
+    );
+    expect(s).toMatchObject({ jobs: 1, revenue: 70000, collected: 50000, openInvoices: 2, openCents: 30000, overdueInvoices: 1, overdueCents: 20000 });
+    expect(s.followUps).toEqual([{ tech: 'Sam', open: 2, overdue: 1 }, { tech: 'Lee', open: 1, overdue: 0 }]);
   });
 });
 
