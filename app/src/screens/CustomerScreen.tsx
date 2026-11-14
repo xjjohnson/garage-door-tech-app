@@ -66,7 +66,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
 
       {customer.odooId ? <Addresses partnerId={customer.odooId} /> : null}
 
-      {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} /> : null}
+      {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} name={customerName(customer)} address={customer.address} /> : null}
 
       {!fromOdoo || waitingJobs.length > 0 ? (
         <Text style={styles.section} accessibilityRole="header">

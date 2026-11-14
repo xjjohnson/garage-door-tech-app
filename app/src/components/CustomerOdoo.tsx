@@ -13,7 +13,10 @@ import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
 import { whatOf } from '../lib/odooJobs';
 import { fetchForCustomer, ListKind, OdooListRow } from '../lib/odooLists';
-import { AgreementRow, fetchAgreements, fetchRepeats, RepeatRow } from '../lib/odooRecurring';
+import { createManualFollowUp } from '../lib/odooFollowUps';
+import { AgreementRow, createRepeat, fetchAgreements, fetchFrequencySets, fetchRepeats, FrequencySet, RepeatAction, RepeatRow, setRepeatState } from '../lib/odooRecurring';
+import { Action } from './Buttons';
+import { dayAhead, NewFollowUpSheet, RepeatSheet } from './PlanSheets';
 import { formatMoney } from '../lib/prices';
 import { dayLabel, formatTime } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
@@ -103,11 +106,37 @@ export function useCustomerRecords(partnerId: number, now: () => number = Date.n
     refresh();
   }, [refresh]);
 
-  return { records, fresh, error, online: !!client };
+  return { records, fresh, error, online: !!client, refresh };
 }
 
-export function CustomerOdoo({ partnerId, now = Date.now }: { partnerId: number; now?: () => number }) {
-  const { records, fresh, error } = useCustomerRecords(partnerId, now);
+export function CustomerOdoo({ partnerId, name = 'this customer', address = '', now = Date.now }: { partnerId: number; name?: string; address?: string; now?: () => number }) {
+  const { client } = useOdoo();
+  const { records, fresh, error, refresh } = useCustomerRecords(partnerId, now);
+  const [sheet, setSheet] = useState<'repeat' | 'followup' | null>(null);
+  const [sets, setSets] = useState<FrequencySet[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const oca = client?.session.kind === 'oca';
+
+  const run = async (job: () => Promise<unknown>) => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      await job();
+      setSheet(null);
+      await refresh();
+    } catch (e) {
+      setProblem(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const openRepeat = () => {
+    setProblem(null);
+    setSheet('repeat');
+    if (client) fetchFrequencySets(client).then(setSets).catch(() => setSets([]));
+  };
+  const change = (id: number, action: RepeatAction) => client && run(() => setRepeatState(client, id, action));
   const openJob = useOpenOdooJob();
   const { invoices: local } = useInvoices();
   const t0 = now();
@@ -152,7 +181,28 @@ export function CustomerOdoo({ partnerId, now = Date.now }: { partnerId: number;
         );
       })}
 
-      <Plans repeats={records?.repeats} agreements={records?.agreements} />
+      <View style={styles.row}>
+        <Action label="New follow-up" grow onPress={() => { setProblem(null); setSheet('followup'); }} testID="customer-new-followup" />
+        {oca ? <Action label="Repeat visits" grow onPress={openRepeat} testID="customer-repeat" /> : null}
+      </View>
+      <Plans repeats={records?.repeats} agreements={records?.agreements} onChange={change} busy={busy} />
+      <RepeatSheet
+        visible={sheet === 'repeat'}
+        customer={name}
+        sets={sets}
+        busy={busy}
+        error={problem}
+        onCancel={() => setSheet(null)}
+        onSave={(r) => client && run(() => createRepeat(client, partnerId, { customer: name, address, every: r.every, start: dayAhead(r.days, Date.now()), what: r.what }))}
+      />
+      <NewFollowUpSheet
+        visible={sheet === 'followup'}
+        customer={name}
+        busy={busy}
+        error={problem}
+        onCancel={() => setSheet(null)}
+        onSave={(f) => client && run(() => createManualFollowUp(client, partnerId, { title: f.title, note: f.note, due: dayAhead(f.days, Date.now()) }))}
+      />
       <Rows title="Quotes" kind="quotations" rows={records?.quotes} onOpen={openRecord} />
       <Rows title="Invoices" kind="invoices" rows={records?.invoices} onOpen={openRecord} />
     </View>
@@ -162,7 +212,7 @@ export function CustomerOdoo({ partnerId, now = Date.now }: { partnerId: number;
 const span = (a?: string, b?: string) => [a, b].filter(Boolean).join(' to ');
 
 /** Repeating visits and agreements read from Odoo; nothing shows when the customer has none. */
-function Plans({ repeats, agreements }: { repeats?: RepeatRow[]; agreements?: AgreementRow[] }) {
+function Plans({ repeats, agreements, onChange, busy }: { repeats?: RepeatRow[]; agreements?: AgreementRow[]; onChange: (id: number, a: RepeatAction) => void; busy: boolean }) {
   return (
     <>
       {repeats && repeats.length ? (
@@ -177,6 +227,12 @@ function Plans({ repeats, agreements }: { repeats?: RepeatRow[]; agreements?: Ag
                 {r.status ? <Text style={styles.badge}>{r.status.toUpperCase()}</Text> : null}
               </View>
               <Text style={styles.meta}>{[r.every, span(r.start, r.end), r.place].filter(Boolean).join(' · ')}</Text>
+              {r.status === 'Active' || r.status === 'Paused' || r.status === 'Draft' ? (
+                <View style={styles.row}>
+                  {r.status === 'Active' ? <Action label="Pause" grow disabled={busy} onPress={() => onChange(r.id, 'pause')} testID={`customer-repeat-pause-${r.id}`} /> : <Action label="Start" grow disabled={busy} onPress={() => onChange(r.id, 'start')} testID={`customer-repeat-start-${r.id}`} />}
+                  <Action label="Stop" grow disabled={busy} onPress={() => onChange(r.id, 'stop')} testID={`customer-repeat-stop-${r.id}`} />
+                </View>
+              ) : null}
             </View>
           ))}
         </>
@@ -225,6 +281,7 @@ function Rows({ title, kind, rows, onOpen }: { title: string; kind: ListKind; ro
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
+  row: { flexDirection: 'row', gap: 8 },
   section: { fontSize: type.value, fontWeight: '900', color: colors.text, marginTop: 8 },
   item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
