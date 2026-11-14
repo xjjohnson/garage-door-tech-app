@@ -7,12 +7,15 @@ import { ChipOption, ChipRow, MeasureField, SectionTitle, Segmented } from '../c
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
 import { Business, invoiceLabel, invoiceStatus, newId, PAY_LABEL, PAY_METHODS, payLinks, PayMethod } from '../lib/invoices';
 import { QrCode } from '../components/QrCode';
-import { awaitingPick, cancelDeclined, EstimateSet, openEstimates, pickEstimate } from '../lib/estimates';
+import { awaitingPick, cancelDeclined, EstimateSet, markSignatureSent, openEstimates, pickEstimate, signEstimate } from '../lib/estimates';
+import { sendOrderSignature } from '../lib/odooSales';
+import { signaturePng } from '../lib/signaturePng';
+import { useAttachments } from '../lib/useAttachments';
 import { acceptedLabel, Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount } from '../lib/ticket';
+import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, signaturePending } from '../lib/ticket';
 import { discountKey, discountText, presetsFor } from '../lib/discounts';
 import { DiscountPanel } from '../components/DiscountPanel';
 import { useInvoices } from '../lib/useInvoices';
@@ -58,6 +61,31 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const [emailed, setEmailed] = useState<EmailResult | null>(null);
   const [emailing, setEmailing] = useState(false);
   const run = useRef(0);
+  const attachments = useAttachments();
+  const [noSignField, setNoSignField] = useState(false);
+
+  // The customer's signature goes on the estimate's quotation in Odoo, once per signature and quotation.
+  const signedId = ticket.signed?.id;
+  const signPending = !!client && signaturePending(ticket) && !noSignField;
+  const signKey = `${signedId ?? ''}:${ticket.order?.id ?? ''}`;
+  useEffect(() => {
+    const sig = attachments.signatures.find((x) => x.id === signedId);
+    if (!signPending || !client || !ticket.order || !sig) return;
+    const orderId = ticket.order.id;
+    const estId = ticket.id;
+    let live = true;
+    sendOrderSignature(client, orderId, { name: sig.name, at: sig.at, png: signaturePng(sig) })
+      .then((ok) => {
+        if (!live) return;
+        if (ok) setTicket(job.id, (t) => (t.id === estId && t.order?.id === orderId ? markSignatureSent(t, sig.id, orderId) : t));
+        else setNoSignField(true);
+      })
+      .catch((e) => log.warn('ticket', `${job.id}: couldn't save the estimate signature in Odoo: ${message(e)}`));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signPending, signKey, client, attachments.signatures.length]);
 
   const sync = async (): Promise<Ticket | undefined> => {
     if (!client || (ticket.lines.length === 0 && !ticket.deposits?.length && !ticket.order)) return;
@@ -247,7 +275,10 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         <NavRow label={`${invoiceLabel(invoice)} made`} detail="Changes to the ticket now don't change the invoice" href={{ pathname: '/invoice/[id]', params: { id: invoice.id } }} testID="ticket-invoice" />
       ) : null}
 
-      <EstimatesPanel set={estimateSet} taxPercent={sheet.taxPercent} locked={!!invoice} onChange={(fn) => setEstimates(job.id, fn)} now={now} />
+      <EstimatesPanel set={estimateSet} taxPercent={sheet.taxPercent} locked={!!invoice} onChange={(fn) => setEstimates(job.id, fn)} now={now} customer={job.customer} onSign={(id, s) => {
+        const saved = attachments.sign({ for: 'quote', refId: `${job.id}#${id ?? 'estimate'}`, ...s });
+        setEstimates(job.id, (set) => signEstimate(set, id, { id: saved.id, by: saved.name, at: saved.at }));
+      }} />
 
       {section('service')}
       {section('material')}

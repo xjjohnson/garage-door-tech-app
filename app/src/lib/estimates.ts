@@ -8,7 +8,7 @@
  * as Declined. Kept free of React so it can be tested directly.
  */
 import type { OdooClient } from './odoo';
-import { newLineId, parseTicket, Ticket } from './ticket';
+import { linesKey, newLineId, parseTicket, Ticket } from './ticket';
 
 export interface EstimateSet {
   ticket: Ticket;
@@ -101,6 +101,23 @@ export function removeEstimate(s: EstimateSet, id: string, now: number): Estimat
   }
   return { ticket: s.ticket, others: s.others.flatMap((t): Ticket[] => (t.id !== id ? [t] : t.order ? [{ ...t, declinedAt: now, cancelPending: true }] : [])) };
 }
+
+/**
+ * The customer signs an estimate (0.8). Signing is how they pick it: with
+ * several open and none picked, it becomes the pick (the others are declined).
+ * It is the one being worked on afterwards, and the signature covers the lines
+ * as they are now. With no id, the estimate being worked on is signed.
+ */
+export function signEstimate(s: EstimateSet, id: string | undefined, sig: { id: string; by: string; at: number }, mkId?: () => string): EstimateSet {
+  const target = id ?? s.ticket.id;
+  let cur = s;
+  if (awaitingPick(s)) cur = pickEstimate(s, target, sig.at, mkId);
+  else if (target && s.ticket.id !== target) cur = switchTo(s, target, mkId);
+  return { ...cur, ticket: { ...cur.ticket, signed: { id: sig.id, by: sig.by, at: sig.at, key: linesKey(cur.ticket.lines) } } };
+}
+
+/** Notes that the signature is saved on this estimate's quotation in Odoo. */
+export const markSignatureSent = (t: Ticket, sigId: string, orderId: number): Ticket => (t.signed?.id === sigId ? { ...t, signed: { ...t.signed, sent: `${sigId}:${orderId}` } } : t);
 
 /** Renames an estimate. */
 export function renameEstimate(s: EstimateSet, id: string, title: string): EstimateSet {
