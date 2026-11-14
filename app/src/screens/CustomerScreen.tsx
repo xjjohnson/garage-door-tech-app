@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { ScrollViewInstance } from 'react-native';
 import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Customer, CustomerFields, customerName, emailLink, summarize } from '../lib/customers';
-import { formatJobDate, MODE_LABEL, phoneLink } from '../lib/jobs';
-import { formatMoney, TIER_LABEL } from '../lib/prices';
+import { acceptedLabel, formatJobDate, MODE_LABEL, phoneLink } from '../lib/jobs';
+import { formatMoney } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
 import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
@@ -86,7 +86,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
           {j.address && j.address !== customer.address ? <Text style={styles.detail}>{j.address}</Text> : null}
           {j.accepted ? (
             <Text style={styles.detail}>
-              Picked {TIER_LABEL[j.accepted.tier]}, {formatMoney(j.accepted.total)}
+              Picked {acceptedLabel(j.accepted)}, {formatMoney(j.accepted.total)}
             </Text>
           ) : null}
           {j.notes ? <Text style={styles.meta}>{j.notes}</Text> : null}

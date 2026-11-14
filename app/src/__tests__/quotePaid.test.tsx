@@ -286,7 +286,7 @@ describe('repair-only quote', () => {
   });
 
   it('offers every Odoo quotation template, not only the job type\'s', async () => {
-    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ ...SETS, 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true } }));
+    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ ...SETS, 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true }, 'template: opener · best': { type: 'Opener · Best', tiers: { good: SETS.opener.tiers.best }, plain: true } }));
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Tune-up' }]));
     await renderApp('/quote/j1');
     await settle();
@@ -294,9 +294,17 @@ describe('repair-only quote', () => {
     await fireEvent.press(screen.getByText('Opener · Good'));
     await settle();
     expect(screen.getByTestId('quote-from-templates')).toHaveTextContent('From your Odoo quotation templates for Opener · Good.');
-    expect(screen.getByTestId('quote-good')).toHaveTextContent(/Opener · Good/);
+    const key = 'quote-template: opener · good';
+    expect(screen.getByTestId(key)).toHaveTextContent(/Opener · Good/);
     expect(screen.queryByTestId('quote-better')).toBeNull();
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$465');
+    expect(screen.getByTestId('quote-total-template: opener · good')).toHaveTextContent('$465');
+    // Several at once, each its own option; the customer picks one.
+    await fireEvent.press(screen.getByText('Opener · Best'));
+    await settle();
+    expect(screen.getByTestId('quote-template: opener · best')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('quote-accept-template: opener · best'));
+    expect(screen.getByTestId('quote-accepted-note')).toHaveTextContent(/Customer picked Opener · Best/);
+    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].accepted).toMatchObject({ key: 'template: opener · best', title: 'Opener · Best' });
   });
 
   it('never lists spring measurements for an opener with no templates', async () => {

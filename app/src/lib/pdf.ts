@@ -83,23 +83,23 @@ export function invoiceHtml(inv: Invoice, business: Business, sig?: Signature, e
   return page(invoiceLabel(inv), body);
 }
 
-export function quoteHtml(job: { customer: string; address: string; savedAt: number; accepted?: { tier: string } }, quote: Quote, business: Business, sig?: Signature, now = Date.now()): string {
+export function quoteHtml(job: { customer: string; address: string; savedAt: number; accepted?: { tier: string; key?: string; title?: string } }, quote: Quote, business: Business, sig?: Signature, now = Date.now()): string {
   const opts = quote.options
     .filter((o) => o.available)
     .map((o) => {
-      const chosen = job.accepted?.tier === o.tier;
+      const chosen = job.accepted?.tier === o.tier && job.accepted?.key === o.key;
       const rows = o.lines
         .filter((l) => l.cents > 0)
         .map((l) => `<tr><td>${escapeHtml(l.label)}</td><td class="amt">${formatMoney(l.cents)}</td></tr>`)
         .join('');
-      return `<div class="opt${chosen ? ' chosen' : ''}"><b>${escapeHtml(TIER_LABEL[o.tier])}${chosen ? ' (chosen)' : ''}</b><table>${rows}${o.tax > 0 ? `<tr><td>Tax</td><td class="amt">${formatMoney(o.tax)}</td></tr>` : ''}<tr class="total"><td>Total</td><td class="amt">${formatMoney(o.total)}</td></tr></table></div>`;
+      return `<div class="opt${chosen ? ' chosen' : ''}"><b>${escapeHtml(o.title ?? TIER_LABEL[o.tier])}${chosen ? ' (chosen)' : ''}</b><table>${rows}${o.tax > 0 ? `<tr><td>Tax</td><td class="amt">${formatMoney(o.tax)}</td></tr>` : ''}<tr class="total"><td>Total</td><td class="amt">${formatMoney(o.total)}</td></tr></table></div>`;
     })
     .join('');
   const body =
     header(business, `<div><b>Quote</b></div><div>${escapeHtml(formatJobDate(now))}</div>`) +
     `<h2>For</h2><div>${escapeHtml(job.customer || 'Customer')}</div>${job.address ? `<div>${escapeHtml(job.address)}</div>` : ''}` +
     (quote.blocked ? `<p>${escapeHtml(quote.blocked)}</p>` : opts) +
-    signatureBlock(sig, job.accepted ? `I approve the ${TIER_LABEL[job.accepted.tier as keyof typeof TIER_LABEL] ?? ''} option above.` : 'I approve the option marked above.');
+    signatureBlock(sig, job.accepted ? `I approve the ${job.accepted.title ?? TIER_LABEL[job.accepted.tier as keyof typeof TIER_LABEL] ?? ''} option above.` : 'I approve the option marked above.');
   return page('Quote', body);
 }
 

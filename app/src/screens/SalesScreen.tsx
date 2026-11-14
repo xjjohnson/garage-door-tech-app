@@ -4,8 +4,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { NavRow } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
 import { followUps } from '../lib/followups';
-import { jobName } from '../lib/jobs';
-import { formatMoney, TIER_LABEL } from '../lib/prices';
+import { acceptedLabel, jobName } from '../lib/jobs';
+import { formatMoney } from '../lib/prices';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -39,7 +39,7 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
             <NavRow
               key={j.id}
               label={jobName(j)}
-              detail={`${TIER_LABEL[j.accepted!.tier]} · ${formatMoney(j.accepted!.total)}`}
+              detail={`${acceptedLabel(j.accepted!)} · ${formatMoney(j.accepted!.total)}`}
               onPress={() => router.push({ pathname: '/quote/[id]', params: { id: j.id } })}
               testID={`sales-to-invoice-${j.id}`}
             />

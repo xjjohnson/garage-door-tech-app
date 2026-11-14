@@ -97,7 +97,7 @@ export function scorecard(data: ScoreData, p: Period): TechScore[] {
 export function phoneScoreData(jobs: Job[], invoices: Invoice[], tech: string): ScoreData {
   return {
     visits: jobs.map((j) => ({ tech, place: placeKey(j.address) || (j.customerId ? `c:${j.customerId}` : ''), at: j.savedAt })),
-    quotes: jobs.map((j) => ({ tech, at: j.accepted?.at ?? j.savedAt, won: !!j.accepted, ...(j.accepted ? { tier: j.accepted.tier } : {}) })),
+    quotes: jobs.map((j) => ({ tech, at: j.accepted?.at ?? j.savedAt, won: !!j.accepted, ...(j.accepted && !j.accepted.key ? { tier: j.accepted.tier } : {}) })),
     tickets: invoices.filter((i) => !i.voidedAt).map((i) => ({ tech, at: i.createdAt, cents: i.total })),
   };
 }
