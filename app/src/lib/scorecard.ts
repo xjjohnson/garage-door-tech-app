@@ -11,7 +11,7 @@ import { odooTime, OdooClient, toOdooTime } from './odoo';
 import type { Invoice } from './invoices';
 import type { Job } from './jobs';
 import type { Tier } from './prices';
-import { Period, thisWeek } from './stats';
+import { Period, startOfDay, thisWeek } from './stats';
 
 export const CALLBACK_DAYS = 30;
 const DAY = 86_400_000;
@@ -155,6 +155,90 @@ export async function odooScoreData(client: OdooClient, since: number): Promise<
       if (at === undefined) continue;
       out.tickets.push({ tech: name(r.invoice_user_id) || 'Not assigned', at, cents: money(r.amount_total) });
     }
+  }
+  return out;
+}
+
+/** The business as a whole, for the owner's overview. */
+export interface OwnerData {
+  /** Posted customer invoices: when, total, and what is still owed, cents. */
+  invoices: { at: number; cents: number; owed: number; due?: number }[];
+  /** Open follow-up activities, by who they are for. */
+  followUps: { tech: string; deadline?: number }[];
+}
+
+export interface OwnerSummary {
+  jobs: number;
+  /** Cents invoiced in the period. */
+  revenue: number;
+  /** Cents of that revenue already paid. */
+  collected: number;
+  /** Every unpaid invoice, whatever its date. */
+  openInvoices: number;
+  openCents: number;
+  overdueInvoices: number;
+  overdueCents: number;
+  followUps: { tech: string; open: number; overdue: number }[];
+}
+
+export function ownerSummary(visits: ScoreData['visits'], data: OwnerData, p: Period, now: number): OwnerSummary {
+  const mine = data.invoices.filter((i) => inside(i.at, p));
+  const open = data.invoices.filter((i) => i.owed > 0);
+  const late = open.filter((i) => i.due !== undefined && i.due < startOfDay(now));
+  const by = new Map<string, { open: number; overdue: number }>();
+  for (const f of data.followUps) {
+    const row = by.get(f.tech) ?? { open: 0, overdue: 0 };
+    row.open += 1;
+    if (f.deadline !== undefined && f.deadline < startOfDay(now)) row.overdue += 1;
+    by.set(f.tech, row);
+  }
+  return {
+    jobs: visits.filter((v) => inside(v.at, p)).length,
+    revenue: mine.reduce((n, i) => n + i.cents, 0),
+    collected: mine.reduce((n, i) => n + (i.cents - Math.min(i.cents, i.owed)), 0),
+    openInvoices: open.length,
+    openCents: open.reduce((n, i) => n + i.owed, 0),
+    overdueInvoices: late.length,
+    overdueCents: late.reduce((n, i) => n + i.owed, 0),
+    followUps: [...by].map(([tech, v]) => ({ tech, ...v })).sort((a, b) => b.overdue - a.overdue || b.open - a.open || a.tech.localeCompare(b.tech)),
+  };
+}
+
+/** Phone-only numbers: this phone's invoices and no follow-up list. */
+export function phoneOwnerData(invoices: Invoice[]): OwnerData {
+  return {
+    invoices: invoices
+      .filter((i) => !i.voidedAt)
+      .map((i) => ({ at: i.createdAt, cents: i.total, owed: Math.max(0, i.total - i.payments.reduce((n, x) => n + x.amount, 0)) })),
+    followUps: [],
+  };
+}
+
+/**
+ * Unpaid invoices and open follow-ups, read from Odoo. Invoices come from
+ * `since` on, plus every invoice still owing; follow-ups are the open
+ * activities on customers. A part Odoo won't let this user read is left out.
+ */
+export async function odooOwnerData(client: OdooClient, since: number): Promise<OwnerData> {
+  const out: OwnerData = { invoices: [], followUps: [] };
+  if (client.session.apps.invoicing) {
+    const day = toOdooTime(since).slice(0, 10);
+    const rows = (await client.call('account.move', 'search_read', [[['move_type', '=', 'out_invoice'], ['state', '=', 'posted'], '|', ['invoice_date', '>=', day], ['amount_residual', '>', 0]]], { fields: ['amount_total', 'amount_residual', 'invoice_date', 'invoice_date_due'], limit: 5000 })) as Record<string, unknown>[];
+    for (const r of rows) {
+      const at = odooTime(r.invoice_date);
+      if (at === undefined) continue;
+      const due = odooTime(r.invoice_date_due);
+      out.invoices.push({ at, cents: money(r.amount_total), owed: money(r.amount_residual), ...(due !== undefined ? { due } : {}) });
+    }
+  }
+  try {
+    const rows = (await client.call('mail.activity', 'search_read', [[['res_model', '=', 'res.partner']]], { fields: ['user_id', 'date_deadline'], limit: 5000 })) as Record<string, unknown>[];
+    for (const r of rows) {
+      const deadline = odooTime(r.date_deadline);
+      out.followUps.push({ tech: name(r.user_id) || 'Not assigned', ...(deadline !== undefined ? { deadline } : {}) });
+    }
+  } catch {
+    // Follow-ups aren't readable for this user; the overview just leaves them out.
   }
   return out;
 }
