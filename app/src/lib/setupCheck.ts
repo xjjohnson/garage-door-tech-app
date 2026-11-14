@@ -4,6 +4,7 @@
  * is changed. Kept free of React so it can be tested with a fake Odoo.
  */
 import type { OdooSession } from './odoo';
+import { recurringSupport } from './odooRecurring';
 
 export type CheckState = 'ok' | 'missing' | 'warn';
 
@@ -80,6 +81,18 @@ export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[
       ? { id: 'invoicing', label: 'Invoicing', state: 'ok', detail: 'Invoices and payments can go to Odoo.' }
       : { id: 'invoicing', label: 'Invoicing', state: 'missing', detail: 'Invoicing app not found.', fix: 'In Odoo, Apps > install Invoicing.' },
   );
+
+  if (s.kind === 'oca') {
+    const r = await recurringSupport(c as never).catch(() => ({ repeats: false, agreements: false }));
+    out.push(
+      r.repeats
+        ? { id: 'recurring', label: 'Repeating visits', state: 'ok', detail: 'Field Service Recurring found.' }
+        : { id: 'recurring', label: 'Repeating visits', state: 'warn', detail: 'Field Service Recurring not found.', fix: 'In Odoo, Apps > install Field Service Recurring (fieldservice_recurring) for yearly tune-ups and repeating visits.' },
+      r.agreements
+        ? { id: 'agreements', label: 'Service agreements', state: 'ok', detail: 'Agreements found.' }
+        : { id: 'agreements', label: 'Service agreements', state: 'warn', detail: 'Agreement app not found.', fix: 'In Odoo, Apps > install Agreement (agreement) for service agreements.' },
+    );
+  }
 
   const trucks = await count(c, 'stock.location', [['usage', '=', 'internal'], ['name', 'ilike', 'truck']]);
   out.push(
