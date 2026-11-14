@@ -23,6 +23,8 @@ export interface RepeatRow {
   end?: string;
   /** The house the visits are at. */
   place?: string;
+  /** The agreement this repeat is under, when Odoo links them. */
+  agreementId?: number;
 }
 
 export interface AgreementRow {
@@ -32,6 +34,7 @@ export interface AgreementRow {
   status?: string;
   start?: string;
   end?: string;
+  notes?: string;
   active: boolean;
 }
 
@@ -60,7 +63,7 @@ export async function recurringSupport(c: Caller): Promise<{ repeats: boolean; a
 export async function fetchRepeats(c: Caller, partnerId: number, limit = 20): Promise<RepeatRow[]> {
   const have = await fieldsOf(c, 'fsm.recurring');
   if (!have || !partnerId) return [];
-  const fields = ['name', 'state', 'fsm_frequency_set_id', 'start_date', 'end_date', 'location_id', 'active'].filter((f) => have.includes(f));
+  const fields = ['name', 'state', 'fsm_frequency_set_id', 'start_date', 'end_date', 'location_id', 'active', 'agreement_id'].filter((f) => have.includes(f));
   const rows = (await c.call('fsm.recurring', 'search_read', [['|', ['location_id.owner_id', 'child_of', partnerId], ['location_id.partner_id', 'child_of', partnerId]]], { fields, order: 'id desc', limit })) as Record<string, unknown>[];
   return rows.map((r) => ({
     id: r.id as number,
@@ -71,6 +74,7 @@ export async function fetchRepeats(c: Caller, partnerId: number, limit = 20): Pr
     start: str(r.start_date),
     end: str(r.end_date),
     place: m2o(r.location_id),
+    agreementId: Array.isArray(r.agreement_id) && typeof r.agreement_id[0] === 'number' ? r.agreement_id[0] : undefined,
   }));
 }
 
@@ -78,9 +82,9 @@ export async function fetchRepeats(c: Caller, partnerId: number, limit = 20): Pr
 export async function fetchAgreements(c: Caller, partnerId: number, limit = 20): Promise<AgreementRow[]> {
   const have = await fieldsOf(c, 'agreement');
   if (!have || !partnerId) return [];
-  const fields = ['name', 'code', 'stage_id', 'start_date', 'end_date', 'active'].filter((f) => have.includes(f));
+  const fields = ['name', 'code', 'stage_id', 'start_date', 'end_date', 'description', 'active'].filter((f) => have.includes(f));
   const rows = (await c.call('agreement', 'search_read', [[['partner_id', 'child_of', partnerId]]], { fields, order: 'id desc', limit })) as Record<string, unknown>[];
-  return rows.map((r) => ({ id: r.id as number, name: str(r.name) ?? `#${r.id}`, code: str(r.code), status: m2o(r.stage_id), start: str(r.start_date), end: str(r.end_date), active: r.active !== false }));
+  return rows.map((r) => ({ id: r.id as number, name: str(r.name) ?? `#${r.id}`, code: str(r.code), status: m2o(r.stage_id), start: str(r.start_date), end: str(r.end_date), notes: str(r.description)?.replace(/<[^>]+>/g, '').trim() || undefined, active: r.active !== false }));
 }
 
 // ---- Writing ----
@@ -167,4 +171,51 @@ export async function setRepeatState(c: Caller, id: number, action: RepeatAction
   } catch {
     await c.call('fsm.recurring', 'write', [[id], { state: a.state }]);
   }
+}
+
+export interface NewAgreement {
+  name: string;
+  notes: string;
+  /** When it starts and, when it has an end, when it ends (ms). */
+  start: number;
+  end?: number;
+  /** A repeat that is under it. */
+  repeatId?: number;
+}
+
+const day = (ms: number) => toOdooTime(ms).slice(0, 10);
+
+/** Links a repeat to an agreement, when Odoo's repeats have that link. */
+async function linkRepeat(c: Caller, agreementId: number, repeatId: number): Promise<void> {
+  const have = (await fieldsOf(c, 'fsm.recurring')) ?? [];
+  if (have.includes('agreement_id')) await c.call('fsm.recurring', 'write', [[repeatId], { agreement_id: agreementId }]);
+}
+
+/** A service agreement for a customer in Odoo: a record of the plan, with no billing. Returns its id. */
+export async function createAgreement(c: Caller, partnerId: number, a: NewAgreement): Promise<number> {
+  const have = (await fieldsOf(c, 'agreement')) ?? [];
+  const id = (await c.call('agreement', 'create', [
+    {
+      name: a.name.trim(),
+      partner_id: partnerId,
+      start_date: day(a.start),
+      ...(a.end ? { end_date: day(a.end) } : {}),
+      ...(a.notes.trim() && have.includes('description') ? { description: `<p>${a.notes.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` } : {}),
+      ...(have.includes('domain') ? { domain: 'sale' } : {}),
+    },
+  ])) as number;
+  if (a.repeatId) await linkRepeat(c, id, a.repeatId);
+  return id;
+}
+
+/** Changes an agreement's name and notes. */
+export async function editAgreement(c: Caller, id: number, f: { name: string; notes: string }): Promise<void> {
+  const have = (await fieldsOf(c, 'agreement')) ?? [];
+  await c.call('agreement', 'write', [[id], { name: f.name.trim(), ...(have.includes('description') ? { description: f.notes.trim() ? `<p>${f.notes.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : false } : {}) }]);
+}
+
+/** Ends an agreement today and stops the repeats under it. The record stays in Odoo. */
+export async function endAgreement(c: Caller, id: number, now: number, repeatIds: number[] = []): Promise<void> {
+  await c.call('agreement', 'write', [[id], { end_date: day(now) }]);
+  for (const r of repeatIds) await setRepeatState(c, r, 'stop');
 }
