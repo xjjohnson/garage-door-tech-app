@@ -42,9 +42,9 @@ export function QuoteScreen({ job }: { job: Job }) {
   const springJob = usesSprings(job.what);
   const springQuote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
   // Jobs the spring calculator can't price (openers, tune-ups) use the job type's Odoo templates.
-  const fromTemplates = !!set && !!springQuote.blocked;
+  const fromTemplates = !!set && (!!springQuote.blocked || !!override);
   // Spring jobs with springs picked: Odoo's spring templates price them.
-  const springSet = springJob && !springQuote.blocked ? (override ?? springTemplatesFor(templates, job.what)) : undefined;
+  const springSet = springJob && !springQuote.blocked && !override ? springTemplatesFor(templates, job.what) : undefined;
   // No spring answer and no templates: the service call plus the inspection's repairs and lines typed here.
   // Always so for a job that isn't about springs; for a spring job, once there is something to quote.
   const repairOnly = !fromTemplates && !!springQuote.blocked && (!springJob || [...(job.inspection?.repairs ?? []), ...typed].some((r) => r.label.trim()));
@@ -98,7 +98,7 @@ export function QuoteScreen({ job }: { job: Job }) {
         </Text>
       ) : null}
 
-      <TemplatePicker templates={templates} current={(springSet ?? (fromTemplates ? set : undefined))?.type} onPick={setPickedTemplate} />
+      <TemplatePicker templates={templates} pickedKey={pickedTemplate} onPick={setPickedTemplate} />
 
       {repairOnly && !springJob ? (
         <View style={styles.notice} testID="quote-no-templates">
@@ -261,14 +261,16 @@ export function QuoteScreen({ job }: { job: Job }) {
 }
 
 /** Every Odoo quotation template, to quote this job from any of them (the job type's is the one picked to start). */
-function TemplatePicker({ templates, current, onPick }: { templates: Record<string, { type: string }>; current: string | undefined; onPick: (key: string) => void }) {
-  const all = Object.entries(templates).sort((a, b) => a[1].type.localeCompare(b[1].type));
+function TemplatePicker({ templates, pickedKey, onPick }: { templates: Record<string, { type: string; plain?: boolean }>; pickedKey: string | null; onPick: (key: string) => void }) {
+  const all = Object.entries(templates)
+    .filter(([, t]) => t.plain)
+    .sort((a, b) => a[1].type.localeCompare(b[1].type));
   if (all.length === 0) return null;
   return (
     <View style={styles.stack} testID="quote-template-picker">
       <Text style={styles.tier}>Quotation templates</Text>
-      <Text style={styles.meta}>Every good / better / best template in Odoo. Tap one to quote from it.</Text>
-      <ChipRow options={all.map(([k, t]) => ({ label: t.type, value: k }))} value={all.find(([, t]) => t.type === current)?.[0] ?? ''} onChange={onPick} testID="quote-template-chips" />
+      <Text style={styles.meta}>Every quotation template in Odoo. Tap one to quote from it.</Text>
+      <ChipRow options={all.map(([k, t]) => ({ label: t.type, value: k }))} value={pickedKey ?? ''} onChange={onPick} testID="quote-template-chips" />
     </View>
   );
 }
