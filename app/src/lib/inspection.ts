@@ -186,6 +186,8 @@ export interface Inspection {
   repairs: Repair[];
   /** When the report last went to Odoo, and where ("Field Service order"). */
   sent?: { at: number; to: string };
+  /** When the doors and openers last went to Odoo as equipment, and what they held (src/lib/odooEquipment.ts). */
+  equipment?: { at: number; key: string };
 }
 
 const blank = (): Answer => ({ note: '', action: '' });
@@ -464,5 +466,6 @@ export function parseInspection(v: unknown): Inspection | undefined {
     voice,
     repairs,
     ...(d.sent && typeof (d.sent as { at?: unknown }).at === 'number' ? { sent: { at: (d.sent as { at: number }).at, to: str((d.sent as { to?: unknown }).to) } } : {}),
+    ...(d.equipment && typeof (d.equipment as { at?: unknown }).at === 'number' ? { equipment: { at: (d.equipment as { at: number }).at, key: str((d.equipment as { key?: unknown }).key) } } : {}),
   };
 }
