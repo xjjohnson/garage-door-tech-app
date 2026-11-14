@@ -34,6 +34,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const { invoices, business } = useInvoices();
   const { appointments } = useSchedule();
   const [, tick] = useState(0);
+  const [etaPick, setEtaPick] = useState(false);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30000);
     return () => clearInterval(t);
@@ -56,7 +57,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
     switch (step) {
       case 'onMyWay': {
         setStep(job.id, 'onMyWayAt', now());
-        open(smsLink(job.phone, onMyWayText({ name: job.customer }, business.name, 15)));
+        open(smsLink(job.phone, onMyWayText({ name: job.customer }, business, 15)));
         return;
       }
       case 'arrived':
@@ -96,8 +97,25 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       <View style={styles.row}>
         {tel ? <Action label="Call" grow onPress={() => open(tel)} testID="job-call" /> : null}
         {smsLink(job.phone, '') ? <Action label="Text" grow onPress={() => open(smsLink(job.phone, ''))} testID="job-text" /> : null}
+        {smsLink(job.phone, '') ? <Action label="ETA" grow onPress={() => setEtaPick((v) => !v)} testID="job-eta" /> : null}
         {maps ? <Action label="Directions" grow onPress={() => open(maps)} testID="job-directions" /> : null}
       </View>
+      {etaPick ? (
+        <View style={styles.row}>
+          {[10, 15, 30, 45].map((m) => (
+            <Action
+              key={m}
+              label={`${m} min`}
+              grow
+              onPress={() => {
+                setEtaPick(false);
+                open(smsLink(job.phone, onMyWayText({ name: job.customer }, business, m, 'eta')));
+              }}
+              testID={`job-eta-${m}`}
+            />
+          ))}
+        </View>
+      ) : null}
 
       <View style={styles.steps} accessibilityRole="list" testID="job-steps">
         {steps.map((st) => {

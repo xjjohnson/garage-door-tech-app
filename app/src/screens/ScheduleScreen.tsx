@@ -1,3 +1,4 @@
+import type { Business } from '../lib/invoices';
 import { router } from 'expo-router';
 import { AddressSuggestions } from '../components/AddressSuggestions';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
@@ -6,6 +7,9 @@ import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, Vie
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
 import { suggestCustomers } from '../lib/customers';
 import { textLink } from '../lib/followups';
+import { formatMiles } from '../lib/geocode';
+import { nearDays } from '../lib/routeDays';
+import { useGeocode } from '../lib/useGeocode';
 import { phoneLink } from '../lib/jobs';
 import { addDays, Appointment, dayLabel, formatTime, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming } from '../lib/schedule';
 import { useCustomers } from '../lib/useCustomers';
@@ -83,7 +87,7 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
       </Text>
       {list.length === 0 ? <Text style={styles.meta}>Nothing on this day.</Text> : null}
       {list.map((a) => (
-        <Visit key={a.id} a={a} now={now()} businessName={business.name} onStatus={(s) => setStatus(a.id, s)} onMove={(start) => update(a.id, { start })} clash={a.status === 'booked' && overlaps(appointments, a).length > 0} />
+        <Visit key={a.id} a={a} now={now()} business={business} onStatus={(s) => setStatus(a.id, s)} onMove={(start) => update(a.id, { start })} clash={a.status === 'booked' && overlaps(appointments, a).length > 0} />
       ))}
       <Action label="Book a visit" primary onPress={() => setBooking(blank(day))} testID="schedule-book" />
 
@@ -113,7 +117,7 @@ function blank(day: number, who: Partial<NewAppointment> = {}): NewAppointment {
   return { start: slotsFor(day)[4], minutes: 60, name: '', address: '', phone: '', what: '', ...who };
 }
 
-function Visit({ a, now, businessName, onStatus, onMove, clash }: { a: Appointment; now: number; businessName: string; onStatus: (s: Appointment['status']) => void; onMove: (start: number) => void; clash: boolean }) {
+function Visit({ a, now, business, onStatus, onMove, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onMove: (start: number) => void; clash: boolean }) {
   const [eta, setEta] = useState(false);
   const maps = mapsLink(a.address);
   const tel = phoneLink(a.phone);
@@ -143,7 +147,7 @@ function Visit({ a, now, businessName, onStatus, onMove, clash }: { a: Appointme
                     grow
                     onPress={() => {
                       setEta(false);
-                      Linking.openURL(textLink(a.phone, onMyWayText(a, businessName, m))!).catch(() => undefined);
+                      Linking.openURL(textLink(a.phone, onMyWayText(a, business, m))!).catch(() => undefined);
                     }}
                     testID={`visit-eta-${m}-${a.id}`}
                   />
@@ -152,7 +156,7 @@ function Visit({ a, now, businessName, onStatus, onMove, clash }: { a: Appointme
             ) : (
               <View style={styles.row}>
                 <Action label="On my way" grow primary onPress={() => setEta(true)} testID={`visit-omw-${a.id}`} />
-                <Action label="Remind" grow onPress={() => Linking.openURL(textLink(a.phone, reminderText(a, businessName, now))!).catch(() => undefined)} testID={`visit-remind-${a.id}`} />
+                <Action label="Remind" grow onPress={() => Linking.openURL(textLink(a.phone, reminderText(a, business.name, now))!).catch(() => undefined)} testID={`visit-remind-${a.id}`} />
               </View>
             )
           ) : null}
@@ -227,6 +231,7 @@ function BookSheet({
             <Field label="Phone" value={a.phone} onChange={(phone) => set({ phone })} placeholder="For texts on the day" phone testID="book-phone" />
             <SectionTitle>What for</SectionTitle>
             <ChipRow options={WHAT.map((w) => ({ label: w, value: w }))} value={a.what} onChange={(what) => set({ what })} scroll testID="book-what" />
+            <NearDays address={a.address} appointments={appointments} today={today} days={days} day={day} skipJob={editing ? a.jobId : undefined} onPick={(d) => set({ start: d + minutesIntoDay })} />
             <SectionTitle>Day</SectionTitle>
             <ChipRow options={days.map((d) => ({ label: dayLabel(d, today), value: d }))} value={day} onChange={(d) => set({ start: d + minutesIntoDay })} scroll testID="book-day" />
             <SectionTitle>Time</SectionTitle>
@@ -262,6 +267,30 @@ function BookSheet({
         </View>
       </KeyboardBackdrop>
     </Modal>
+  );
+}
+
+/** Days someone is already booked near the address being booked, so one trip covers more. Needs the address and visits to be found on the map. */
+function NearDays({ address, appointments, today, days, day, skipJob, onPick }: { address: string; appointments: Appointment[]; today: number; days: number[]; day: number; skipJob?: string; onPick: (day: number) => void }) {
+  const typed = address.trim();
+  const booked = useMemo(() => appointments.filter((x) => x.status === 'booked' && x.start >= today && !(skipJob && x.jobId === skipJob)), [appointments, today, skipJob]);
+  const geoAddresses = useMemo(() => (typed.length >= 8 ? [typed, ...booked.map((x) => x.address)] : []), [typed, booked]);
+  const { points } = useGeocode(geoAddresses);
+  const dayKey = days.join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const near = useMemo(() => nearDays(booked, points, points[typed], days, undefined, typed), [booked, points, typed, dayKey]);
+  if (near.length === 0) return null;
+  return (
+    <View style={styles.field} testID="book-near">
+      <SectionTitle>Already nearby</SectionTitle>
+      <ChipRow
+        options={near.slice(0, 4).map((n) => ({ label: `${dayLabel(n.day, today)} · ${formatMiles(n.miles)} from ${n.name || 'a visit'}${n.count > 1 ? ` +${n.count - 1}` : ''}`, value: n.day }))}
+        value={day}
+        onChange={onPick}
+        scroll
+        testID="book-near-days"
+      />
+    </View>
   );
 }
 
