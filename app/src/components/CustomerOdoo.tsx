@@ -112,7 +112,11 @@ export function useCustomerRecords(partnerId: number, now: () => number = Date.n
   return { records, fresh, error, online: !!client, refresh };
 }
 
-export function CustomerOdoo({ partnerId, name = 'this customer', address = '', now = Date.now }: { partnerId: number; name?: string; address?: string; now?: () => number }) {
+export type CustomerTab = 'overview' | 'jobs' | 'quotes' | 'notes';
+
+/** `tab` picks which part of the customer page shows: Overview (to-dos, repeat visits, agreements), Jobs, or Quotes (with invoices). Without one, everything shows. */
+export function CustomerOdoo({ partnerId, name = 'this customer', address = '', now = Date.now, tab }: { partnerId: number; name?: string; address?: string; now?: () => number; tab?: CustomerTab }) {
+  const show = (t: CustomerTab) => !tab || tab === t;
   const { client } = useOdoo();
   const { records, fresh, error, refresh } = useCustomerRecords(partnerId, now);
   const [sheet, setSheet] = useState<'repeat' | 'followup' | 'agreement' | null>(null);
@@ -185,6 +189,8 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         </Text>
       ) : null}
 
+      {show('jobs') ? (
+        <>
       <Text style={styles.section} accessibilityRole="header">
         Jobs
       </Text>
@@ -204,6 +210,11 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         );
       })}
 
+        </>
+      ) : null}
+
+      {show('overview') ? (
+        <>
       <View style={styles.row}>
         <Action label="New follow-up" grow onPress={() => { setProblem(null); setSheet('followup'); }} testID="customer-new-followup" />
         {oca ? <Action label="Repeat visits" grow onPress={openRepeat} testID="customer-repeat" /> : null}
@@ -230,6 +241,8 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         </>
       ) : null}
       <Plans repeats={records?.repeats} agreements={records?.agreements} onChange={change} onEdit={openAgreement} onEnd={end} busy={busy} />
+        </>
+      ) : null}
       <AgreementSheet
         visible={sheet === 'agreement'}
         customer={name}
@@ -264,8 +277,12 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         onCancel={() => setSheet(null)}
         onSave={(f) => client && run(() => createManualFollowUp(client, partnerId, { title: f.title, note: f.note, due: dayAhead(f.days, Date.now()) }), 'Follow-up added to Odoo as a to-do.')}
       />
-      <Rows title="Quotes" kind="quotations" rows={records?.quotes} onOpen={openRecord} />
-      <Rows title="Invoices" kind="invoices" rows={records?.invoices} onOpen={openRecord} />
+      {show('quotes') ? (
+        <>
+          <Rows title="Quotes" kind="quotations" rows={records?.quotes} onOpen={openRecord} />
+          <Rows title="Invoices" kind="invoices" rows={records?.invoices} onOpen={openRecord} />
+        </>
+      ) : null}
     </View>
   );
 }

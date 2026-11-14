@@ -250,13 +250,15 @@ describe('a customer\'s page shows Odoo\'s jobs, quotes and invoices', () => {
     await act(async () => router.push({ pathname: '/customer/[id]', params: { id: 'p' } }));
     await settle(14);
 
+    await fireEvent.press(screen.getByTestId('customer-tab-jobs'));
     expect(screen.getByTestId('customer-odoo-job-5')).toHaveTextContent(/Match old spring.*9 Elm St.*FSO\/0005/);
-    expect(screen.getByTestId('customer-odoo-quotations-40')).toHaveTextContent(/S00040.*\$420.*Quotation sent/);
-    expect(screen.getByTestId('customer-odoo-invoices-60')).toHaveTextContent(/INV\/2026\/00060.*Not paid|Overdue/);
-    expect(screen.getByTestId('customer-odoo-owed')).toHaveTextContent('Owes $300 in Odoo');
     expect(screen.queryByTestId('customer-job-sent')).toBeNull();
     expect(screen.getByTestId('customer-job-notyet')).toBeTruthy();
     expect(screen.getByText('Waiting to go to Odoo')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('customer-tab-quotes'));
+    expect(screen.getByTestId('customer-odoo-quotations-40')).toHaveTextContent(/S00040.*\$420.*Quotation sent/);
+    expect(screen.getByTestId('customer-odoo-invoices-60')).toHaveTextContent(/INV\/2026\/00060.*Not paid|Overdue/);
+    expect(screen.getByTestId('customer-odoo-owed')).toHaveTextContent('Owes $300 in Odoo');
 
     const orderSearch = o.calls.find((x) => x.model === 'fsm.order' && x.method === 'search_read' && JSON.stringify(x.args).includes('child_of'));
     expect(orderSearch?.args[0]).toEqual(['|', ['location_id.owner_id', 'child_of', 7], ['location_id.partner_id', 'child_of', 7]]);

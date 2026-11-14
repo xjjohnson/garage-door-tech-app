@@ -34,7 +34,11 @@ describe('weather (plain logic)', () => {
 describe('weather on Today', () => {
   it('shows rain on the next visit, and nothing when the forecast cannot be reached', async () => {
     await AsyncStorage.clear();
-    const start = Date.now() + 3600000;
+    // Noon today, so the visit an hour later is still today whenever the test runs.
+    const noon = new Date();
+    noon.setHours(12, 0, 0, 0);
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(noon.getTime());
+    const start = noon.getTime() + 3600000;
     const appt = { id: 'a1', start, minutes: 60, name: 'Pat Lee', address: '1 Elm St', phone: '', what: 'Gate', status: 'booked', createdAt: 1, updatedAt: 1 };
     await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt]));
     const geo: GeoFetch = async (url) => {
@@ -62,5 +66,6 @@ describe('weather on Today', () => {
     expect(await screen.findByTestId('today-next')).toBeTruthy();
     expect(screen.queryByTestId('weather-a1')).toBeNull();
     resetGeo();
+    clock.mockRestore();
   });
 });

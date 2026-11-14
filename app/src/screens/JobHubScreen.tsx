@@ -4,6 +4,7 @@ import { Linking, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action, NavRow, QuickAction } from '../components/Buttons';
 import { Dock } from '../components/Page';
+import { JobExtras } from '../components/JobExtras';
 import { Pressable } from 'react-native';
 import { SectionTitle } from '../components/controls';
 import { CustomerBadgeLine, EquipmentChips, HouseCard } from '../components/HouseHistory';
@@ -32,6 +33,13 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'work', label: 'Work' },
   { id: 'photos', label: 'Photos' },
   { id: 'notes', label: 'Notes' },
+];
+
+const STATUS_BUTTONS: [StepId, string][] = [
+  ['onMyWay', 'On my way'],
+  ['arrived', 'Arrived'],
+  ['work', 'Work done'],
+  ['paid', 'Paid'],
 ];
 
 const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
@@ -133,16 +141,26 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         </View>
       ) : null}
 
-      <View style={styles.steps} accessibilityRole="list" testID="job-steps">
-        {steps.map((st) => {
-          const isNext = next?.id === st.id;
+      <View style={styles.statusRow} accessibilityRole="list" testID="job-steps">
+        {STATUS_BUTTONS.map(([id, label]) => {
+          const st = steps.find((x) => x.id === id)!;
+          const isNext = next?.id === id || (id === 'work' && (next?.id === 'inspect' || next?.id === 'quote'));
+          const at = id === 'onMyWay' ? job.steps?.onMyWayAt : id === 'arrived' ? job.steps?.arrivedAt : id === 'work' ? job.steps?.workDoneAt : undefined;
           return (
-            <View key={st.id} style={styles.step} accessibilityLabel={`${st.label}, ${st.done ? 'done' : isNext ? 'next' : 'not yet'}`} testID={`job-step-${st.id}`}>
-              <View style={[styles.bar, st.done && styles.barDone, isNext && styles.barNext]} />
-              <Text style={[styles.stepText, isNext && styles.stepNext, !st.done && !isNext && styles.stepLater]} numberOfLines={1} adjustsFontSizeToFit>
-                {st.label}
+            <Pressable
+              key={id}
+              onPress={() => go(id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${label}, ${st.done ? 'done' : isNext ? 'next' : 'not yet'}`}
+              testID={`job-step-${id}`}
+              style={({ pressed }) => [styles.statusBtn, st.done && styles.statusDone, isNext && styles.statusNext, pressed && styles.statusPressed]}
+            >
+              <Text style={[styles.statusText, isNext && styles.statusTextNext, st.done && styles.statusTextDone]} numberOfLines={1} adjustsFontSizeToFit>
+                {st.done ? '✓ ' : ''}
+                {label}
               </Text>
-            </View>
+              {st.done && at ? <Text style={styles.statusTime}>{formatTime(at)}</Text> : null}
+            </Pressable>
           );
         })}
       </View>
@@ -168,6 +186,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
       {customer?.odooId ? <NavRow label="Address" detail={`${jobAddress(job, customer) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
       {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} now={now} /> : null}
+        <JobExtras job={job} partnerId={customer?.odooId} />
         </>
       ) : null}
       {tab === 'work' ? (
@@ -291,7 +310,15 @@ const styles = StyleSheet.create({
   statusChip: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: colors.onHead, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
   title: { fontSize: 24, fontWeight: '800', color: colors.onHead },
   sub: { fontSize: 16, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
-  steps: { flexDirection: 'row', gap: 6, paddingVertical: 4 },
+  statusRow: { flexDirection: 'row', gap: 6 },
+  statusBtn: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: radius.field, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.line },
+  statusDone: { backgroundColor: colors.info, borderColor: colors.info },
+  statusNext: { backgroundColor: colors.selected, borderColor: colors.selected },
+  statusPressed: { opacity: 0.8 },
+  statusText: { fontSize: 15, fontWeight: '800', color: colors.text },
+  statusTextNext: { color: colors.onSelected },
+  statusTextDone: { color: colors.selected },
+  statusTime: { fontSize: 12, fontWeight: '700', color: colors.muted },
   step: { flex: 1, gap: 6 },
   bar: { height: 8, borderRadius: 4, backgroundColor: colors.info },
   barDone: { backgroundColor: colors.selected, opacity: 0.55 },

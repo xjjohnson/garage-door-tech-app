@@ -12,7 +12,7 @@ import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoi
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { AddressSheet } from '../components/AddressSheet';
-import { CustomerOdoo } from '../components/CustomerOdoo';
+import { CustomerOdoo, CustomerTab } from '../components/CustomerOdoo';
 import { CustomerBadgeLine, CustomerEquipmentChips } from '../components/HouseHistory';
 import { OdooNotes } from '../components/OdooNotes';
 import { useOdoo } from '../lib/useOdoo';
@@ -23,6 +23,13 @@ import { QuickAction } from '../components/Buttons';
 import { mapsLink } from '../lib/schedule';
 import { colors, radius, shadow, touch, type } from '../theme';
 
+const CUSTOMER_TABS: { id: CustomerTab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'jobs', label: 'Jobs' },
+  { id: 'quotes', label: 'Quotes' },
+  { id: 'notes', label: 'Notes' },
+];
+
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 /** One customer: how to reach them, and every job at their place, newest first. */
@@ -30,6 +37,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
   const { jobs } = useJobs();
   const { update } = useCustomers();
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<CustomerTab>('overview');
   const s = summarize(customer, jobs);
   const tel = phoneLink(customer.phone);
   const mail = emailLink(customer.email);
@@ -72,22 +80,34 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
         {tel ? <QuickAction icon="chat" label="Text" onPress={() => Linking.openURL(tel.replace('tel:', 'sms:')).catch(() => undefined)} testID="customer-text" /> : null}
         {customer.address ? <QuickAction icon="pin" label="Go" onPress={() => { const m = mapsLink(customer.address); if (m) Linking.openURL(m).catch(() => undefined); }} testID="customer-go" /> : null}
       </View>
+      <View style={styles.tabs} accessibilityRole="tablist" testID="customer-tabs">
+        {CUSTOMER_TABS.map((t) => (
+          <Pressable key={t.id} onPress={() => setTab(t.id)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }} testID={`customer-tab-${t.id}`} style={[styles.tab, tab === t.id && styles.tabOn]}>
+            <Text style={[styles.tabText, tab === t.id && styles.tabTextOn]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {tab === 'overview' ? (
+        <>
       {mail ? <Action label="Email" onPress={() => Linking.openURL(mail).catch(() => undefined)} testID="customer-email" /> : null}
       <Action label="Book a visit" onPress={() => router.push({ pathname: '/schedule', params: { book: customer.id } })} testID="customer-book" />
       <Action label="Edit customer" onPress={() => setEditing(true)} testID="customer-edit" />
 
       {customer.odooId ? <Addresses partnerId={customer.odooId} /> : null}
+        </>
+      ) : null}
 
-      {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} name={customerName(customer)} address={customer.address} /> : null}
+      {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} name={customerName(customer)} address={customer.address} tab={tab} /> : null}
 
-      {fromOdoo && customer.odooId ? <OdooNotes target={{ model: 'res.partner', id: customer.odooId }} title="Customer notes" testID="customer-notes" /> : null}
+      {tab === 'notes' && fromOdoo && customer.odooId ? <OdooNotes target={{ model: 'res.partner', id: customer.odooId }} title="Customer notes" testID="customer-notes" /> : null}
 
-      {!fromOdoo || waitingJobs.length > 0 ? (
+      {tab === 'jobs' && (!fromOdoo || waitingJobs.length > 0) ? (
         <Text style={styles.section} accessibilityRole="header">
           {fromOdoo ? 'Waiting to go to Odoo' : 'Jobs'}
         </Text>
       ) : null}
-      {waitingJobs.map((j) => (
+      {(tab === 'jobs' ? waitingJobs : []).map((j) => (
         <Pressable
           key={j.id}
           onPress={() => router.push({ pathname: '/quote/[id]', params: { id: j.id } })}
@@ -110,12 +130,12 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
         </Pressable>
       ))}
 
-      {waitingInvoices.length > 0 ? (
+      {tab === 'quotes' && waitingInvoices.length > 0 ? (
         <Text style={styles.section} accessibilityRole="header">
           {fromOdoo ? 'Invoices waiting to go to Odoo' : 'Invoices'}
         </Text>
       ) : null}
-      {waitingInvoices.map((i) => (
+      {(tab === 'quotes' ? waitingInvoices : []).map((i) => (
         <Pressable
           key={i.id}
           onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: i.id } })}
@@ -275,6 +295,11 @@ const styles = StyleSheet.create({
   hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: 16, gap: 4, ...shadow },
   heroText: { fontSize: 16, fontWeight: '600', color: colors.onHead },
   heroMeta: { fontSize: 15, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
+  tabs: { flexDirection: 'row', gap: 6 },
+  tab: { paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: radius.pill },
+  tabOn: { backgroundColor: colors.selected },
+  tabText: { fontSize: 15, fontWeight: '700', color: colors.muted },
+  tabTextOn: { color: colors.onSelected },
   quickRow: { flexDirection: 'row', gap: 8 },
   name: { fontSize: type.big, fontWeight: '800', color: colors.onHead },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
