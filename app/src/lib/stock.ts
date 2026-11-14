@@ -75,6 +75,8 @@ export interface PurchaseOrder {
   at: number;
   /** Whether Odoo emailed it to the supplier. */
   emailed: boolean;
+  /** Still a draft in Odoo: not confirmed yet, so nothing is on its way. Confirmed by a person in Odoo. */
+  draft?: boolean;
   receivedAt?: number;
   /** A part ordered for a job (not truck restock): it goes on that job when it comes in. */
   jobId?: string;

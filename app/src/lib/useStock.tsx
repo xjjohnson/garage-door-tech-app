@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { log } from './log';
 import type { OdooClient } from './odoo';
-import { createProduct, PartialSyncError, receivePurchaseOrder, sendPurchaseOrder, StockProduct, syncTruck, SyncResult } from './odooStock';
+import { createProduct, createPurchaseDraft, PartialSyncError, purchaseStates, receivePurchaseOrder, sendPurchaseOrder, StockProduct, syncTruck, SyncResult } from './odooStock';
 import { EMPTY_STOCK, findSupplier, guessCategory, mergeStock, parseStock, PartUse, PurchaseOrder, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, StockStore, Supplier, SupplierOrder, switchTruck, TruckLink } from './stock';
 
 export type NewStockItem = Omit<StockItem, 'id' | 'updatedAt'>;
@@ -28,8 +28,10 @@ interface StockApi extends StockStore {
   sync: (client: OdooClient) => Promise<SyncResult>;
   /** Uses another Odoo location as this tech's truck, then syncs with it. */
   chooseTruck: (client: OdooClient, truck: TruckLink) => Promise<SyncResult>;
-  /** Sends a supplier's order to Odoo as a purchase order. */
-  sendOrder: (client: OdooClient, o: SupplierOrder) => Promise<PurchaseOrder>;
+  /** Makes a supplier's order a DRAFT purchase order in Odoo. Never confirmed or emailed by the app. */
+  draftOrder: (client: OdooClient, o: SupplierOrder) => Promise<PurchaseOrder>;
+  /** Asks Odoo where open purchase orders are: marks drafts, notes confirmed ones, drops ones cancelled or deleted. */
+  checkOrders: (client: OdooClient) => Promise<void>;
   /** The parts on an Odoo purchase order came in: receives it in Odoo, then syncs. A job's part then goes on the job. False if Odoo needs it finished there. */
   receiveOrder: (client: OdooClient, purchaseId: string) => Promise<boolean>;
   /** Orders a part that isn't on the truck for a job: a purchase order to pick up or have delivered. */
@@ -200,27 +202,48 @@ export function StockProvider({ children }: { children: ReactNode }) {
     [change, sync],
   );
 
-  const sendOrder = useCallback(
+  const draftOrder = useCallback(
     async (client: OdooClient, o: SupplierOrder) => {
       const s = latest.current;
       const supplier = findSupplier(s.suppliers, o.supplier) ?? { name: o.supplier, phone: '', email: '' };
       const linked = o.lines.filter((l) => l.item.odooId !== undefined);
-      const sent = await sendPurchaseOrder(
+      const made = await createPurchaseDraft(
         client,
         supplier,
         linked.map((l) => ({ productId: l.item.odooId!, name: l.item.name, qty: l.qty, priceCents: l.item.costCents })),
-        s.truck,
         s.truck?.name ?? '',
       );
-      const po: PurchaseOrder = { id: newId('po'), supplier: o.supplier, odooId: sent.odooId, name: sent.name, lines: linked.map((l) => ({ itemId: l.item.id, qty: l.qty })), at: Date.now(), emailed: sent.emailed };
+      const lines = linked.map((l) => ({ itemId: l.item.id, qty: l.qty }));
+      const po: PurchaseOrder = { id: newId('po'), supplier: o.supplier, odooId: made.odooId, name: made.name, lines, at: Date.now(), emailed: false, draft: true };
       change((cur) => {
         const k = o.supplier.trim().toLowerCase();
         const has = cur.suppliers.some((x) => x.name.trim().toLowerCase() === k);
-        const suppliers = has ? cur.suppliers.map((x) => (x.name.trim().toLowerCase() === k ? { ...x, odooId: sent.vendorId } : x)) : [...cur.suppliers, { name: o.supplier, phone: '', email: '', odooId: sent.vendorId }];
-        return { ...cur, suppliers, purchases: [...(cur.purchases ?? []), po] };
+        const suppliers = has ? cur.suppliers.map((x) => (x.name.trim().toLowerCase() === k ? { ...x, odooId: made.vendorId } : x)) : [...cur.suppliers, { name: o.supplier, phone: '', email: '', odooId: made.vendorId }];
+        // Lines added to a draft that is already on the list join its entry.
+        const same = (cur.purchases ?? []).find((p) => p.odooId === made.odooId);
+        const purchases = same
+          ? (cur.purchases ?? []).map((p) => (p === same ? { ...p, lines: [...p.lines, ...lines.filter((l) => !p.lines.some((x) => x.itemId === l.itemId))] } : p))
+          : [...(cur.purchases ?? []), po];
+        return { ...cur, suppliers, purchases };
       });
-      log.info('stock', `purchase order ${sent.name} made${sent.emailed ? ' and emailed' : ', not emailed'}`);
+      log.info('stock', `draft purchase order ${made.name} ${made.reused ? 'updated' : 'made'}`);
       return po;
+    },
+    [change],
+  );
+
+  const checkOrders = useCallback(
+    async (client: OdooClient) => {
+      const open = (latest.current.purchases ?? []).filter((p) => !p.receivedAt && p.odooId);
+      if (open.length === 0) return;
+      const states = await purchaseStates(client, open.map((p) => p.odooId));
+      change((cur) => ({
+        ...cur,
+        purchases: (cur.purchases ?? [])
+          // A draft deleted or cancelled in Odoo is no longer on order, so the low items show under To order again.
+          .filter((p) => p.receivedAt || !p.odooId || !open.some((o) => o.id === p.id) || (states.has(p.odooId) && states.get(p.odooId) !== 'cancel'))
+          .map((p) => (open.some((o) => o.id === p.id) && states.has(p.odooId) ? { ...p, draft: ['draft', 'sent', 'to approve'].includes(states.get(p.odooId)!) } : p)),
+      }));
     },
     [change],
   );
@@ -229,7 +252,12 @@ export function StockProvider({ children }: { children: ReactNode }) {
     async (client: OdooClient, purchaseId: string) => {
       const po = latest.current.purchases?.find((p) => p.id === purchaseId);
       if (!po) return false;
-      const done = await receivePurchaseOrder(client, po.odooId);
+      if (po.draft) {
+        const state = (await purchaseStates(client, [po.odooId])).get(po.odooId);
+        if (state === 'draft' || state === 'sent' || state === 'to approve') throw new Error(`${po.name} is still a draft in Odoo. Confirm it there first; the parts can be received once it is.`);
+        if (state && state !== 'cancel') change((cur) => ({ ...cur, purchases: (cur.purchases ?? []).map((p) => (p.id === purchaseId ? { ...p, draft: false } : p)) }));
+      }
+      const done = await receivePurchaseOrder(client, po.odooId, latest.current.truck?.locationId);
       if (!done) return false;
       change((cur) => ({ ...cur, purchases: (cur.purchases ?? []).map((p) => (p.id === purchaseId ? { ...p, receivedAt: Date.now() } : p)) }));
       latest.current = { ...latest.current, purchases: (latest.current.purchases ?? []).map((p) => (p.id === purchaseId ? { ...p, receivedAt: Date.now() } : p)) };
@@ -292,8 +320,8 @@ export function StockProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, undoUse, sync, sendOrder, receiveOrder, chooseTruck, orderForJob, addToOdoo }),
-    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, undoUse, sync, sendOrder, receiveOrder, chooseTruck, orderForJob, addToOdoo],
+    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo }),
+    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
