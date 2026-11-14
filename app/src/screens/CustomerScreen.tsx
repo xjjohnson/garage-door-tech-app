@@ -19,7 +19,9 @@ import { useOdoo } from '../lib/useOdoo';
 import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
 import { AddressSuggestions } from '../components/AddressSuggestions';
-import { colors, touch, type } from '../theme';
+import { QuickAction } from '../components/Buttons';
+import { mapsLink } from '../lib/schedule';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -43,27 +45,32 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
 
   return (
     <View style={styles.stack} testID="customer">
-      <Text style={styles.name}>{customerName(customer)}</Text>
-      {customer.name && customer.address ? <Text style={styles.detail}>{customer.address}</Text> : null}
-      {customer.phone ? <Text style={styles.detail}>Phone: {customer.phone}</Text> : null}
-      {customer.email ? <Text style={styles.detail}>Email: {customer.email}</Text> : null}
-      {customer.notes ? <Text style={styles.detail}>{customer.notes}</Text> : null}
-      <Text style={styles.meta} testID="customer-totals">
-        {fromOdoo ? `Customer since ${formatJobDate(customer.createdAt)}.` : null}
-        {fromOdoo ? null : plural(s.jobs.length, 'job')}
-        {!fromOdoo && s.openJobs > 0 ? `, ${s.openJobs} open` : ''}
-        {!fromOdoo && s.acceptedTotal > 0 ? `. ${formatMoney(s.acceptedTotal)} in accepted quotes` : ''}
-        {fromOdoo ? null : `. Customer since ${formatJobDate(customer.createdAt)}.`}
-      </Text>
-      {fromOdoo ? <CustomerBadgeLine partnerId={customer.odooId} /> : null}
+      <View style={styles.hero} testID="customer-hero">
+        <Text style={styles.name}>{customerName(customer)}</Text>
+        {customer.name && customer.address ? <Text style={styles.heroText}>{customer.address}</Text> : null}
+        {customer.phone ? <Text style={styles.heroText}>Phone: {customer.phone}</Text> : null}
+        {customer.email ? <Text style={styles.heroText}>Email: {customer.email}</Text> : null}
+        {customer.notes ? <Text style={styles.heroText}>{customer.notes}</Text> : null}
+        <Text style={styles.heroMeta} testID="customer-totals">
+          {fromOdoo ? `Customer since ${formatJobDate(customer.createdAt)}.` : null}
+          {fromOdoo ? null : plural(s.jobs.length, 'job')}
+          {!fromOdoo && s.openJobs > 0 ? `, ${s.openJobs} open` : ''}
+          {!fromOdoo && s.acceptedTotal > 0 ? `. ${formatMoney(s.acceptedTotal)} in accepted quotes` : ''}
+          {fromOdoo ? null : `. Customer since ${formatJobDate(customer.createdAt)}.`}
+        </Text>
+        {fromOdoo ? <CustomerBadgeLine partnerId={customer.odooId} onDark /> : null}
+      </View>
       {owed > 0 ? (
         <Text style={styles.owed} testID="customer-owed">
           Owes {formatMoney(owed)}
         </Text>
       ) : null}
 
-      {tel ? <Action label={`Call ${customer.phone}`} primary onPress={() => Linking.openURL(tel).catch(() => undefined)} testID="customer-call" /> : null}
-      {tel ? <Action label="Text" onPress={() => Linking.openURL(tel.replace('tel:', 'sms:')).catch(() => undefined)} testID="customer-text" /> : null}
+      <View style={styles.quickRow}>
+        {tel ? <QuickAction icon="phone" label="Call" onPress={() => Linking.openURL(tel).catch(() => undefined)} testID="customer-call" /> : null}
+        {tel ? <QuickAction icon="chat" label="Text" onPress={() => Linking.openURL(tel.replace('tel:', 'sms:')).catch(() => undefined)} testID="customer-text" /> : null}
+        {customer.address ? <QuickAction icon="pin" label="Go" onPress={() => { const m = mapsLink(customer.address); if (m) Linking.openURL(m).catch(() => undefined); }} testID="customer-go" /> : null}
+      </View>
       {mail ? <Action label="Email" onPress={() => Linking.openURL(mail).catch(() => undefined)} testID="customer-email" /> : null}
       <Action label="Book a visit" onPress={() => router.push({ pathname: '/schedule', params: { book: customer.id } })} testID="customer-book" />
       <Action label="Edit customer" onPress={() => setEditing(true)} testID="customer-edit" />
@@ -264,7 +271,11 @@ function Action({ label, onPress, primary, testID }: { label: string; onPress: (
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  name: { fontSize: type.big, fontWeight: '800', color: colors.text },
+  hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: 16, gap: 4, ...shadow },
+  heroText: { fontSize: 16, fontWeight: '600', color: colors.onHead },
+  heroMeta: { fontSize: 15, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
+  quickRow: { flexDirection: 'row', gap: 8 },
+  name: { fontSize: type.big, fontWeight: '800', color: colors.onHead },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   owed: { fontSize: type.value, fontWeight: '800', color: colors.stop },

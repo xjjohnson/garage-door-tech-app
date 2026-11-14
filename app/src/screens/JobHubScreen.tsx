@@ -2,9 +2,9 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
-import { Action, NavRow } from '../components/Buttons';
+import { Action, NavRow, QuickAction } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
-import { CustomerBadgeLine, HouseCard } from '../components/HouseHistory';
+import { CustomerBadgeLine, EquipmentChips, HouseCard } from '../components/HouseHistory';
 import { JobParts } from '../components/JobParts';
 import { OdooNotes } from '../components/OdooNotes';
 import { TuneUpOffer } from '../components/TuneUpOffer';
@@ -22,7 +22,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { houseOf, NoteTarget } from '../lib/odooNotes';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
 
@@ -85,22 +85,25 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
 
   return (
     <View style={styles.stack} testID="job-hub">
-      <View style={styles.head}>
+      <View style={styles.hero} testID="job-hero">
+        <View style={styles.chipRow}>
+          <Text style={styles.statusChip} testID="job-hub-status">
+            {job.status === 'done' && steps.every((x) => x.done) ? 'Finished' : site ? `On site ${site}` : job.steps?.onMyWayAt ? `On the way since ${formatTime(job.steps.onMyWayAt)}` : 'Not started'}
+          </Text>
+          <CustomerBadgeLine partnerId={customer?.odooId} testID="job-badge" onDark />
+        </View>
         <Text style={styles.title} accessibilityRole="header" testID="job-hub-title">
           {jobName(job)}
           {job.what ? ` · ${job.what}` : ''}
         </Text>
         {jobAddress(job, customer) ? <Text style={styles.sub}>{jobAddress(job, customer)}</Text> : null}
-        <CustomerBadgeLine partnerId={customer?.odooId} testID="job-badge" />
-        <Text style={styles.sub} testID="job-hub-status">
-          {job.status === 'done' && steps.every((x) => x.done) ? 'Finished' : site ? `On site ${site}` : job.steps?.onMyWayAt ? `On the way since ${formatTime(job.steps.onMyWayAt)}` : 'Not started'}
-        </Text>
+        {job.odooJob?.model === 'fsm.order' ? <EquipmentChips orderId={job.odooJob.id} now={now} onDark /> : null}
       </View>
       <View style={styles.row}>
-        {tel ? <Action label="Call" grow onPress={() => open(tel)} testID="job-call" /> : null}
-        {smsLink(job.phone, '') ? <Action label="Text" grow onPress={() => open(smsLink(job.phone, ''))} testID="job-text" /> : null}
-        {smsLink(job.phone, '') ? <Action label="ETA" grow onPress={() => setEtaPick((v) => !v)} testID="job-eta" /> : null}
-        {maps ? <Action label="Directions" grow onPress={() => open(maps)} testID="job-directions" /> : null}
+        {tel ? <QuickAction icon="phone" label="Call" onPress={() => open(tel)} testID="job-call" /> : null}
+        {smsLink(job.phone, '') ? <QuickAction icon="chat" label="Text" onPress={() => open(smsLink(job.phone, ''))} testID="job-text" /> : null}
+        {smsLink(job.phone, '') ? <QuickAction icon="clock" label="ETA" onPress={() => setEtaPick((v) => !v)} testID="job-eta" /> : null}
+        {maps ? <QuickAction icon="pin" label="Directions" onPress={() => open(maps)} testID="job-directions" /> : null}
       </View>
       {etaPick ? (
         <View style={styles.row}>
@@ -242,19 +245,21 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
-  head: { gap: 2 },
-  title: { fontSize: 26, fontWeight: '800', color: colors.text },
-  sub: { fontSize: 17, fontWeight: '700', color: colors.muted },
+  hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: 16, gap: 6, ...shadow },
+  chipRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  statusChip: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: colors.onHead, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
+  title: { fontSize: 24, fontWeight: '800', color: colors.onHead },
+  sub: { fontSize: 16, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
   steps: { flexDirection: 'row', gap: 6, paddingVertical: 4 },
   step: { flex: 1, gap: 6 },
   bar: { height: 8, borderRadius: 4, backgroundColor: colors.info },
-  barDone: { backgroundColor: colors.text },
+  barDone: { backgroundColor: colors.selected, opacity: 0.55 },
   barNext: { backgroundColor: colors.selected },
   stepText: { fontSize: 13, fontWeight: '800', color: colors.text },
   stepNext: { color: colors.selected, fontWeight: '800' },
   stepLater: { color: colors.muted, fontWeight: '700' },
   done: { fontSize: type.body, fontWeight: '800', color: colors.ok, minHeight: touch.min, textAlignVertical: 'center' },
-  card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 4 },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: 14, gap: 4, borderWidth: 1, borderColor: colors.line },
   label: { fontSize: 15, fontWeight: '800', color: colors.muted },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
   note: { fontSize: type.body, color: colors.muted },

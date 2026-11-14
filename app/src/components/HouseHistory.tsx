@@ -7,14 +7,15 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Icon } from './Icon';
 import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
 import { badgeText, CustomerBadge, fetchCustomerBadge, fetchHouseHistory, houseOfOrder, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';
 import { formatMoney } from '../lib/prices';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, type } from '../theme';
+import { colors, radius, type } from '../theme';
 
 export const HOUSE_STORAGE_KEY = 'odoo-house/v1';
 export const BADGE_STORAGE_KEY = 'odoo-badge/v1';
@@ -61,14 +62,14 @@ export function useCustomerBadge(partnerId: number | undefined): CustomerBadge |
 }
 
 /** The badge as a pill; nothing for a customer with no history. */
-export function CustomerBadgeLine({ partnerId, testID = 'customer-badge' }: { partnerId: number | undefined; testID?: string }) {
+export function CustomerBadgeLine({ partnerId, testID = 'customer-badge', onDark }: { partnerId: number | undefined; testID?: string; onDark?: boolean }) {
   const badge = useCustomerBadge(partnerId);
   const text = badge ? badgeText(badge, formatMoney) : null;
   if (!badge || !text) return null;
   return (
     <View style={styles.badgeRow} testID={testID}>
-      {isRepeat(badge) ? <Text style={styles.repeat}>REPEAT CUSTOMER</Text> : null}
-      <Text style={styles.badge}>{text}</Text>
+      {isRepeat(badge) ? <Text style={[styles.repeat, onDark && styles.repeatDark]}>REPEAT CUSTOMER</Text> : null}
+      <Text style={[styles.badge, onDark && styles.badgeDark]}>{text}</Text>
     </View>
   );
 }
@@ -147,7 +148,9 @@ export function HouseCard({ orderId, now = Date.now }: { orderId: number | undef
 
 const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  repeat: { fontSize: 13, fontWeight: '800', color: colors.onSelected, backgroundColor: colors.selected, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden' },
+  repeatDark: { backgroundColor: colors.warnBg, color: colors.warn },
+  badgeDark: { color: colors.onHead },
+  repeat: { fontSize: 13, fontWeight: '800', color: colors.onSelected, backgroundColor: colors.selected, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, overflow: 'hidden' },
   badge: { fontSize: 16, fontWeight: '800', color: colors.text },
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 6 },
   label: { fontSize: 15, fontWeight: '800', color: colors.muted },
@@ -157,4 +160,59 @@ const styles = StyleSheet.create({
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   ok: { color: colors.ok },
   ended: { color: colors.stop },
+});
+
+/** "Opener 2" and "Door 1" style chips for the house's equipment records; tap one for its history and warranty. */
+export function EquipmentChips({ orderId, now = Date.now, onDark }: { orderId: number | undefined; now?: () => number; onDark?: boolean }) {
+  const { house } = useHouseHistory(orderId);
+  const [open, setOpen] = useState<number | null>(null);
+  if (!orderId || !house || house.equipment.length === 0) return null;
+  const sel = house.equipment.find((e) => e.id === open);
+  const w = sel ? warrantyStatus(sel, now()) : null;
+  return (
+    <View style={chipStyles.wrap} testID="equipment-chips">
+      <View style={chipStyles.row}>
+        {house.equipment.map((e) => (
+          <Pressable
+            key={e.id}
+            onPress={() => setOpen(open === e.id ? null : e.id)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: open === e.id }}
+            testID={`equipment-chip-${e.id}`}
+            style={[chipStyles.chip, onDark && chipStyles.chipDark, open === e.id && chipStyles.chipOn]}
+          >
+            <Icon name={/opener|operator/i.test(e.name) ? 'opener' : 'door'} size={16} color={open === e.id ? colors.onSelected : onDark ? colors.onHead : colors.selected} />
+            <Text style={[chipStyles.chipText, onDark && chipStyles.chipTextDark, open === e.id && chipStyles.chipTextOn]} numberOfLines={1}>
+              {e.name}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {sel ? (
+        <View style={chipStyles.detail} testID={`equipment-detail-${sel.id}`}>
+          <Text style={chipStyles.detailTitle}>{sel.name}</Text>
+          {w ? <Text style={[chipStyles.detailLine, w.active ? styles.ok : styles.ended]}>{w.text}</Text> : null}
+          {sel.lines.filter((l) => !/^Warranty on /.test(l)).map((l, i) => (
+            <Text key={i} style={chipStyles.detailLine}>
+              {l}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const chipStyles = StyleSheet.create({
+  wrap: { gap: 8 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line },
+  chipDark: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.25)' },
+  chipOn: { backgroundColor: colors.selected, borderColor: colors.selected },
+  chipText: { fontSize: 14, fontWeight: '700', color: colors.selected, maxWidth: 180 },
+  chipTextDark: { color: colors.onHead },
+  chipTextOn: { color: colors.onSelected },
+  detail: { backgroundColor: colors.card, borderRadius: radius.field, padding: 12, gap: 2, borderWidth: 1, borderColor: colors.line },
+  detailTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+  detailLine: { fontSize: 15, fontWeight: '600', color: colors.muted },
 });

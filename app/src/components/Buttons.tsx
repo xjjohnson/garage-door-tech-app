@@ -2,7 +2,8 @@ import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { colors, radius, touch, type } from '../theme';
+import { Icon, IconName } from './Icon';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 /** A big button. `primary` is the Johnsons green, for the one main action on a screen. */
 export function Action({ label, onPress, primary, grow, disabled, testID, hint }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; disabled?: boolean; testID?: string; hint?: string }) {
@@ -41,7 +42,19 @@ export function NavRow({ label, detail, href, onPress, testID, badge }: { label:
   );
 }
 
+/** A card tile with an icon and its name under it: Call, Text, ETA, Directions, Go. */
+export function QuickAction({ icon, label, onPress, testID }: { icon: IconName; label: string; onPress: () => void; testID?: string }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} testID={testID} style={({ pressed }) => [styles.quick, pressed && styles.pressed]}>
+      <Icon name={icon} color={colors.selected} />
+      <Text style={styles.quickText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  quick: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, ...shadow },
+  quickText: { fontSize: 14, fontWeight: '800', color: colors.text },
   grow: { flex: 1 },
   button: { minHeight: touch.min, borderRadius: radius.field, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected, borderColor: colors.selected },
