@@ -1,8 +1,10 @@
 import { OdooQuoteSend } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Image, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { ChipRow, MeasureField } from '../components/controls';
+import { PriceBookPicker } from '../components/PriceBookPicker';
+import { usePriceBook } from '../lib/usePriceBook';
 import { SignatureSheet } from '../components/SignaturePad';
 import { photosFor, signatureFor } from '../lib/attachments';
 import { formatJobDate, Job, jobName } from '../lib/jobs';
@@ -33,14 +35,16 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
   const { sheet } = usePriceSheet();
   const { setAccepted, setInspection, setQuoteLines, setTicket } = useJobs();
   const templates = useQuoteTemplates();
-  const set = templatesFor(templates, job.what);
+  const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
+  const override = pickedTemplate ? templates[pickedTemplate] : undefined;
+  const set = override ?? templatesFor(templates, job.what);
   const typed = useMemo(() => job.quoteLines ?? [], [job.quoteLines]);
   const springJob = usesSprings(job.what);
   const springQuote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
   // Jobs the spring calculator can't price (openers, tune-ups) use the job type's Odoo templates.
   const fromTemplates = !!set && !!springQuote.blocked;
   // Spring jobs with springs picked: Odoo's spring templates price them.
-  const springSet = springJob && !springQuote.blocked ? springTemplatesFor(templates, job.what) : undefined;
+  const springSet = springJob && !springQuote.blocked ? (override ?? springTemplatesFor(templates, job.what)) : undefined;
   // No spring answer and no templates: the service call plus the inspection's repairs and lines typed here.
   // Always so for a job that isn't about springs; for a spring job, once there is something to quote.
   const repairOnly = !fromTemplates && !!springQuote.blocked && (!springJob || [...(job.inspection?.repairs ?? []), ...typed].some((r) => r.label.trim()));
@@ -95,6 +99,8 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
           From your Odoo quotation templates for {(springSet ?? set)!.type}.
         </Text>
       ) : null}
+
+      <TemplatePicker templates={templates} current={(springSet ?? (fromTemplates ? set : undefined))?.type} onPick={setPickedTemplate} />
 
       {repairOnly && !springJob ? (
         <View style={styles.notice} testID="quote-no-templates">
@@ -256,26 +262,47 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
   );
 }
 
-const TAX_OPTIONS = [
-  { label: 'Taxed (parts)', value: 'yes' as const },
-  { label: 'No tax (labor)', value: 'no' as const },
-];
+/** Every Odoo quotation template, to quote this job from any of them (the job type's is the one picked to start). */
+function TemplatePicker({ templates, current, onPick }: { templates: Record<string, { type: string }>; current: string | undefined; onPick: (key: string) => void }) {
+  const all = Object.entries(templates).sort((a, b) => a[1].type.localeCompare(b[1].type));
+  if (all.length === 0) return null;
+  return (
+    <View style={styles.stack} testID="quote-template-picker">
+      <Text style={styles.tier}>Quotation templates</Text>
+      <Text style={styles.meta}>Every good / better / best template in Odoo. Tap one to quote from it.</Text>
+      <ChipRow options={all.map(([k, t]) => ({ label: t.type, value: k }))} value={all.find(([, t]) => t.type === current)?.[0] ?? ''} onChange={onPick} testID="quote-template-chips" />
+    </View>
+  );
+}
 
-/** Lines typed on the quote by hand, each with a price; they go on every option, so a job is never stuck without a quote. */
+/** Lines added to the quote from the price book (Odoo's products); they go on every option, so a job is never stuck without a quote. */
 function TypedLines({ lines, onChange }: { lines: Repair[]; onChange: (lines: Repair[]) => void }) {
+  const { book } = usePriceBook();
+  const [picking, setPicking] = useState(false);
   const set = (id: string, patch: Partial<Repair>) => onChange(lines.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   return (
     <View style={styles.stack} testID="quote-lines">
-      {lines.length > 0 ? <Text style={styles.tier}>Lines added by hand</Text> : null}
+      {lines.length > 0 ? <Text style={styles.tier}>Lines from the price book</Text> : null}
       {lines.map((l) => (
         <View key={l.id} style={styles.card} testID={`quote-line-${l.id}`}>
-          <TextInput value={l.label} onChangeText={(label) => set(l.id, { label })} placeholder="Part or work" placeholderTextColor={colors.muted} accessibilityLabel="Line name" testID={`quote-line-name-${l.id}`} style={styles.input} />
+          <Text style={styles.lineLabel} testID={`quote-line-name-${l.id}`}>
+            {l.label}
+            {l.taxable ? ' · taxed (part)' : ''}
+          </Text>
           <MeasureField label="Price" value={l.price} onChange={(price) => set(l.id, { price })} unit="dollars" allowFraction={false} placeholder="Tap to set" testID={`quote-line-price-${l.id}`} />
-          <ChipRow options={TAX_OPTIONS} value={l.taxable ? 'yes' : 'no'} onChange={(v) => set(l.id, { taxable: v === 'yes' })} testID={`quote-line-tax-${l.id}`} />
           <Action label="Remove" onPress={() => onChange(lines.filter((x) => x.id !== l.id))} testID={`quote-line-remove-${l.id}`} />
         </View>
       ))}
-      <Action label="Add a line by hand" onPress={() => onChange([...lines, { id: `q-${Date.now().toString(36)}-${lines.length}`, label: '', price: '', taxable: false }])} testID="quote-line-add" />
+      <Action label="Add from the price book" onPress={() => setPicking(true)} testID="quote-line-add" />
+      <PriceBookPicker
+        visible={picking}
+        items={book.items}
+        onClose={() => setPicking(false)}
+        onPick={(i) => {
+          setPicking(false);
+          onChange([...lines, { id: `q-${Date.now().toString(36)}-${lines.length}`, label: i.name, price: (i.cents / 100).toFixed(2).replace(/\.00$/, ''), taxable: i.kind === 'material', productId: i.id }]);
+        }}
+      />
     </View>
   );
 }
