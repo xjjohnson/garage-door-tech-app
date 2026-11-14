@@ -9,6 +9,7 @@ import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, ODOO_STORAGE_KEY } from '../lib/odoo';
 import { reportNote, reportsToSend, reportTarget, sendVoice, voiceFileName, voiceToSend } from '../lib/odooReports';
 import { AttachmentsProvider } from '../lib/useAttachments';
+import { FollowUpsProvider } from '../lib/useFollowUps';
 import { InvoicesProvider } from '../lib/useInvoices';
 import { JobsProvider } from '../lib/useJobs';
 import { OdooProvider } from '../lib/useOdoo';
@@ -116,11 +117,13 @@ describe('signed inspection reports to Odoo in the background', () => {
     const shown = await render(
       <JobsProvider>
         <InvoicesProvider>
+         <FollowUpsProvider>
           <AttachmentsProvider media={media}>
             <OdooProvider fetchFn={fetchFn} secrets={{ get: async () => 'k', set: async () => undefined, remove: async () => undefined }}>
               <OdooReportSync />
             </OdooProvider>
           </AttachmentsProvider>
+         </FollowUpsProvider>
         </InvoicesProvider>
       </JobsProvider>,
     );
@@ -145,6 +148,57 @@ describe('signed inspection reports to Odoo in the background', () => {
     });
     await settle(20);
     expect(made).toHaveLength(2);
+    await act(async () => shown.unmount());
+  });
+  it('puts the doors and openers on the order\'s house as equipment, once', async () => {
+    const created: Record<string, unknown>[] = [];
+    const fetchFn: Fetch = async (_url, init) => {
+      const { params } = JSON.parse(init.body);
+      const reply = (result: unknown) => ({ ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, result }) });
+      if (params.service === 'common') return reply(2);
+      const [, , , model, method, args] = params.args as [string, number, string, string, string, unknown[]];
+      if (model === 'res.users') return reply([{ id: 2, name: 'Justin', partner_id: [90, 'Justin'] }]);
+      if (model === 'fsm.order' && method === 'fields_get') return reply({ name: {} });
+      if (model === 'fsm.order' && method === 'read') return reply([{ location_id: [77, 'Oak St'] }]);
+      if (model === 'fsm.person') return reply([]);
+      if (model === 'fsm.equipment' && method === 'fields_get') return reply({ name: {}, location_id: {}, notes: { type: 'text' } });
+      if (model === 'fsm.equipment' && method === 'search_read') return reply([]);
+      if (model === 'fsm.equipment' && method === 'create') return created.push(args[0] as Record<string, unknown>), reply(40 + created.length);
+      if (model === 'ir.attachment') return reply(300);
+      if (method === 'message_post') return reply(1);
+      return { ok: true, status: 200, json: async () => ({ jsonrpc: '2.0', id: 1, error: { message: 'Odoo Server Error', data: { name: 'builtins.KeyError', message: `Object ${model} doesn't exist` } } }) };
+    };
+    const now = Date.now();
+    const insp = inspected();
+    insp.doors[0] = { ...insp.doors[0], maker: 'Clopay', size: '16x7', motors: [{ ...insp.doors[0].motors[0], maker: 'LiftMaster', built: '2019' }] };
+    const j = { ...createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat', address: '', phone: '', notes: '' }, { title: '' }, 1000, 'j1'), odooJob: ref, inspection: insp };
+    await AsyncStorage.setItem(REPORT_SYNC_SINCE_KEY, String(now - 60_000));
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([j]));
+    await AsyncStorage.setItem(ATTACHMENTS_STORAGE_KEY, JSON.stringify({ photos: [], signatures: [sig('j1', now - 1000)] }));
+    const shown = await render(
+      <JobsProvider>
+        <InvoicesProvider>
+          <FollowUpsProvider>
+            <AttachmentsProvider media={media}>
+              <OdooProvider fetchFn={fetchFn} secrets={{ get: async () => 'k', set: async () => undefined, remove: async () => undefined }}>
+                <OdooReportSync />
+              </OdooProvider>
+            </AttachmentsProvider>
+          </FollowUpsProvider>
+        </InvoicesProvider>
+      </JobsProvider>,
+    );
+    await settle();
+    await act(async () => {
+      jest.advanceTimersByTime(3500);
+    });
+    await settle(20);
+    expect(created.map((c) => [c.name, c.location_id])).toEqual([['Garage door: Clopay 16x7', 77], ['Opener: LiftMaster 2019', 77]]);
+    await act(async () => {
+      jest.advanceTimersByTime(5 * 60_000 + 10);
+    });
+    await settle(20);
+    expect(created).toHaveLength(2);
     await act(async () => shown.unmount());
   });
 });

@@ -15,12 +15,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { log } from '../lib/log';
 import type { Inspection } from '../lib/inspection';
+import { equipmentReady, equipmentToSend, orderLocation, sendEquipment } from '../lib/odooEquipment';
 import { jobTarget, reportNote, reportsToSend, sendReport, sendVoice, voiceToSend } from '../lib/odooReports';
 import { MAX_ODOO_PDF_BASE64, pdfName } from '../lib/pdf';
 import { inspectionReportHtml } from '../lib/reportFiles';
 import { onSyncNow } from '../lib/syncNow';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useAttachments } from '../lib/useAttachments';
+import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
@@ -39,13 +41,14 @@ export function OdooReportSync() {
   const { status, client } = useOdoo();
   const { jobs, loaded: jobsLoaded, setInspection } = useJobs();
   const attachments = useAttachments();
-  const { business } = useInvoices();
+  const { business, invoices } = useInvoices();
+  const { settings: followSettings } = useFollowUps();
   const [since, setSince] = useState<number | null>(null);
   const running = useRef(false);
   /** Reports too big for Odoo, by job and signing time, so they aren't remade every pass. */
   const tooBig = useRef(new Set<string>());
-  const latest = useRef({ jobs, attachments, business });
-  latest.current = { jobs, attachments, business };
+  const latest = useRef({ jobs, attachments, business, invoices, followSettings });
+  latest.current = { jobs, attachments, business, invoices, followSettings };
 
   useEffect(() => {
     let live = true;
@@ -69,6 +72,8 @@ export function OdooReportSync() {
   const readFile = media?.fileBase64;
   const online = status === 'signedIn' && !!client && !!make && attachments.loaded && jobsLoaded && since !== null;
   const waiting = online ? reportsToSend(jobs, attachments.signatures, since).filter((r) => !tooBig.current.has(`${r.job.id}@${r.signedAt}`)).length + (readFile ? voiceToSend(jobs, since).length : 0) : 0;
+
+  const equipmentWaiting = online ? equipmentToSend(jobs, attachments.signatures, invoices, followSettings, since).length : 0;
 
   const pass = useCallback(async () => {
     if (!client || !make || since === null || running.current) return;
@@ -120,16 +125,34 @@ export function OdooReportSync() {
           break;
         }
       }
+      // Doors and openers as equipment on the house's location; a failure here doesn't hold up reports.
+      const sent = equipmentToSend(latest.current.jobs, latest.current.attachments.signatures, latest.current.invoices, latest.current.followSettings, since);
+      if (sent.length) {
+        const ready = await equipmentReady(client);
+        for (const { job, items, key } of ready ? sent : []) {
+          try {
+            const loc = await orderLocation(client, job.odooJob.id);
+            if (!loc) continue;
+            const n = await sendEquipment(client, loc, items, ready!.htmlNotes);
+            log.info('odoo', `${n} door/opener record(s) on location ${loc}`);
+            const insp = latest.current.jobs.find((j) => j.id === job.id)?.inspection ?? job.inspection;
+            setInspection(job.id, { ...insp, equipment: { at: Date.now(), key } });
+          } catch (e) {
+            log.warn('odoo', `equipment for ${job.odooJob.name}: ${message(e)}`);
+            break;
+          }
+        }
+      }
     } finally {
       running.current = false;
     }
   }, [client, make, readFile, since, setInspection]);
 
   useEffect(() => {
-    if (!online || waiting === 0) return;
+    if (!online || waiting + equipmentWaiting === 0) return;
     const t = setTimeout(pass, AFTER_CHANGE_MS);
     return () => clearTimeout(t);
-  }, [online, waiting, pass]);
+  }, [online, waiting, equipmentWaiting, pass]);
 
   useEffect(() => {
     if (!online) return;
