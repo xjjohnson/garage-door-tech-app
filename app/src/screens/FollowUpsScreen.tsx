@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { invoiceNo } from '../lib/invoices';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { MeasureField, SectionTitle } from '../components/controls';
+import { NewFollowUpSheet, dayAhead } from '../components/PlanSheets';
+import { createManualFollowUp } from '../lib/odooFollowUps';
+import { useOdoo } from '../lib/useOdoo';
 import { followUpId, followUps, textLink } from '../lib/followups';
 import { formatJobDate } from '../lib/jobs';
-import { TIER_LABEL, TIERS } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
@@ -18,22 +19,47 @@ import { colors, touch, type } from '../theme';
 export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
   const { invoices, business } = useInvoices();
   const { customers } = useCustomers();
-  const { settings, dismissed, dismiss, setSettings } = useFollowUps();
+  const { settings, dismissed, dismiss } = useFollowUps();
+  const { client } = useOdoo();
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [added, setAdded] = useState(false);
   const list = useMemo(() => followUps(invoices, settings, business, now(), dismissed), [invoices, settings, business, dismissed, now]);
   const t = now();
 
   const phoneFor = (customerId?: string) => customers.find((c) => c.id === customerId)?.phone ?? '';
-  const num = (v: string, fallback: number) => {
-    const n = Number.parseFloat(v);
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
-  };
+  const withOdoo = customers.filter((c) => c.odooId).map((c) => ({ id: c.odooId as number, name: c.name || c.address || 'Customer' }));
 
   return (
     <View style={styles.stack} testID="followups">
+      {client ? <Action label="New follow-up" primary onPress={() => { setProblem(null); setAdded(false); setAdding(true); }} testID="followup-new" /> : null}
+      {added ? <Text style={styles.meta} testID="followup-added">Added as a to-do on the customer in Odoo.</Text> : null}
+      <NewFollowUpSheet
+        visible={adding}
+        customers={withOdoo}
+        busy={busy}
+        error={problem}
+        onCancel={() => setAdding(false)}
+        onSave={async (f) => {
+          if (!client || f.customerId === undefined) return;
+          setBusy(true);
+          setProblem(null);
+          try {
+            await createManualFollowUp(client, f.customerId, { title: f.title, note: f.note, due: dayAhead(f.days, Date.now()) });
+            setAdding(false);
+            setAdded(true);
+          } catch (e) {
+            setProblem(e instanceof Error ? e.message : String(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
       {list.length === 0 ? (
         <View style={styles.empty} testID="followups-empty">
           <Text style={styles.emptyTitle}>Nothing due</Text>
-          <Text style={styles.emptyBody}>Worn springs and warranty ends show up here from your invoices, 45 days ahead.</Text>
+          <Text style={styles.emptyBody}>Springs near the end of their life and warranties about to end show up here from your invoices, 45 days ahead. Yearly tune-ups are repeating visits on the customer's page.</Text>
         </View>
       ) : null}
       {list.map((f) => {
@@ -64,22 +90,6 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
           </View>
         );
       })}
-
-      <SectionTitle>Settings</SectionTitle>
-      <Text style={styles.note}>These are the starting warranty lengths: on each invoice you can pick that job's warranty. Door uses a day is set in the spring calculator.</Text>
-      {TIERS.map((tier) => (
-        <MeasureField
-          key={tier}
-          label={`${TIER_LABEL[tier]} spring warranty`}
-          value={String(settings.warrantyMonths[tier])}
-          onChange={(v) => setSettings((s) => ({ ...s, warrantyMonths: { ...s.warrantyMonths, [tier]: num(v, s.warrantyMonths[tier]) } }))}
-          unit="months"
-          allowFraction={false}
-          allowDecimal={false}
-          testID={`followup-warranty-${tier}`}
-        />
-      ))}
-      <MeasureField label="Labor warranty" value={String(settings.laborWarrantyMonths)} onChange={(v) => setSettings((s) => ({ ...s, laborWarrantyMonths: num(v, s.laborWarrantyMonths) }))} unit="months" allowFraction={false} allowDecimal={false} testID="followup-labor" />
     </View>
   );
 }
@@ -102,7 +112,6 @@ const styles = StyleSheet.create({
   title: { fontSize: type.value, fontWeight: '900', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },

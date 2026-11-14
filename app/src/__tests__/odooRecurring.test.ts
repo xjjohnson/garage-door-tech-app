@@ -1,4 +1,5 @@
-import { fetchAgreements, fetchRepeats, recurringSupport } from '../lib/odooRecurring';
+import { createManualFollowUp } from '../lib/odooFollowUps';
+import { createRepeat, fetchAgreements, fetchRepeats, recurringSupport, setRepeatState } from '../lib/odooRecurring';
 
 type Call = { model: string; method: string; args: unknown[]; kwargs?: Record<string, unknown> };
 
@@ -37,5 +38,59 @@ describe('repeating visits and agreements', () => {
     expect(await fetchAgreements(fake({}), 7)).toEqual([]);
     const c = fake({ agreement: { fields: ['name', 'partner_id', 'start_date', 'stage_id'], rows: [{ id: 1, name: 'Yearly tune-up', stage_id: [1, 'Active'], start_date: '2026-11-14', end_date: false }] } });
     expect(await fetchAgreements(c, 7)).toEqual([{ id: 1, name: 'Yearly tune-up', code: undefined, status: 'Active', start: '2026-11-14', end: undefined, active: true }]);
+  });
+});
+
+describe('writing repeats and follow-ups', () => {
+  type W = { model: string; method: string; args: unknown[] };
+  const writer = (opts: { sets?: number[]; failAction?: boolean; locations?: unknown[] } = {}) => {
+    const calls: W[] = [];
+    return {
+      calls,
+      session: { uid: 5, kind: 'oca', fields: [] } as never,
+      async call(model: string, method: string, args: unknown[]) {
+        calls.push({ model, method, args });
+        if (method === 'fields_get') return { name: {}, interval_type: {}, fsm_frequency_ids: {}, buffer_early: {}, description: {} };
+        if (model === 'fsm.frequency.set' && method === 'search') return opts.sets ?? [];
+        if (model === 'fsm.location' && method === 'search_read') return opts.locations ?? [{ id: 11, name: '1 Oak St', street: '1 Oak St' }];
+        if (model === 'fsm.recurring' && method === 'action_start' && opts.failAction) throw new Error('no such method');
+        if (method === 'create') return 99;
+        if (model === 'ir.model') return [4];
+        if (model === 'ir.model.data') return [{ res_id: 2 }];
+        return true;
+      },
+    };
+  };
+
+  it('makes a yearly tune-up repeat 30 days ahead and starts it', async () => {
+    const c = writer();
+    const id = await createRepeat(c, 7, { customer: 'Pat', address: '1 Oak St', every: 'yearly', start: Date.UTC(2027, 0, 5), what: 'Annual tune-up' });
+    expect(id).toBe(99);
+    const set = c.calls.find((x) => x.model === 'fsm.frequency.set' && x.method === 'create');
+    expect(set?.args[0]).toMatchObject({ name: 'Yearly', buffer_early: 30, fsm_frequency_ids: [[0, 0, { interval_type: 'yearly' }]] });
+    const rec = c.calls.find((x) => x.model === 'fsm.recurring' && x.method === 'create');
+    expect(rec?.args[0]).toMatchObject({ location_id: 11, fsm_frequency_set_id: 99, start_date: '2027-01-05 00:00:00' });
+    expect(c.calls.some((x) => x.method === 'action_start')).toBe(true);
+  });
+
+  it('reuses an existing yearly set, and sets the state when the button is missing', async () => {
+    const c = writer({ sets: [3], failAction: true });
+    await createRepeat(c, 7, { customer: 'Pat', address: '1 Oak St', every: 'yearly', start: 0, what: 'Tune-up' });
+    expect(c.calls.some((x) => x.model === 'fsm.frequency.set' && x.method === 'create')).toBe(false);
+    expect(c.calls.find((x) => x.model === 'fsm.recurring' && x.method === 'write')?.args).toEqual([[99], { state: 'progress' }]);
+  });
+
+  it('pauses and stops', async () => {
+    const c = writer();
+    await setRepeatState(c, 3, 'pause');
+    await setRepeatState(c, 3, 'stop');
+    expect(c.calls.map((x) => x.method)).toEqual(['action_suspend', 'action_cancel']);
+  });
+
+  it('makes a manual follow-up as a to-do on the customer', async () => {
+    const c = writer();
+    const id = await createManualFollowUp(c, 7, { title: ' Check the opener ', note: 'Remote <b> acting up', due: Date.UTC(2026, 11, 1) });
+    expect(id).toBe(99);
+    expect(c.calls.find((x) => x.method === 'create')?.args[0]).toMatchObject({ res_id: 7, summary: 'Check the opener', date_deadline: '2026-12-01', note: '<p>Remote &lt;b&gt; acting up</p>', user_id: 5, activity_type_id: 2 });
   });
 });
