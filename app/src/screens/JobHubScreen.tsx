@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
+import { CustomerBadgeLine, HouseCard } from '../components/HouseHistory';
 import { JobParts } from '../components/JobParts';
 import { jobAddress, useJobCustomer } from './JobAddressScreen';
 import { checkCounts } from '../lib/inspection';
@@ -84,6 +85,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
           {job.what ? ` · ${job.what}` : ''}
         </Text>
         {jobAddress(job, customer) ? <Text style={styles.sub}>{jobAddress(job, customer)}</Text> : null}
+        <CustomerBadgeLine partnerId={customer?.odooId} testID="job-badge" />
         <Text style={styles.sub} testID="job-hub-status">
           {job.status === 'done' && steps.every((x) => x.done) ? 'Finished' : site ? `On site ${site}` : job.steps?.onMyWayAt ? `On the way since ${formatTime(job.steps.onMyWayAt)}` : 'Not started'}
         </Text>
@@ -148,6 +150,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       ) : null}
       {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
       {customer?.odooId ? <NavRow label="Address" detail={`${jobAddress(job, customer) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
+      {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} now={now} /> : null}
       {job.notes ? (
         <View style={styles.card}>
           <Text style={styles.label}>Notes</Text>
