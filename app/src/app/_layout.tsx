@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { OdooCustomerBackgroundSync } from '../components/OdooCustomerBackgroundSync';
 import { OdooInvoicesSync } from '../components/OdooSales';
 import { OdooJobSync } from '../components/OdooJobSync';
+import { OdooNotesSync } from '../components/OdooNotesSync';
 import { OdooPhotoSync } from '../components/OdooPhotoSync';
 import { OdooFollowUpSync } from '../components/OdooFollowUpSync';
 import { OdooSettingsSync } from '../components/OdooSettingsSync';
@@ -66,6 +67,7 @@ export default function RootLayout() {
                             <OdooRefreshSync />
                             <OdooPartsUsedSync />
                             <OdooPhotoSync />
+                            <OdooNotesSync />
                             <OdooFollowUpSync />
                             <OdooSettingsSync />
                             <OdooReportSync />

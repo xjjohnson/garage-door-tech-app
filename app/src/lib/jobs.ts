@@ -11,6 +11,7 @@ import { OdooRef, parseRef } from './odooSales';
 import { Inspection, parseInspection, parseRepairs, Repair } from './inspection';
 import { DEFAULT_DOOR_FORM, DEFAULT_DRUMS_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, DrumsForm, ExtensionForm, MatchForm, restoreForm } from './forms';
 import { Tier, TIER_LABEL, TIERS } from './prices';
+import { parseEstimates } from './estimates';
 import { parseTicket, Ticket } from './ticket';
 
 export const JOBS_STORAGE_KEY = 'jobs/v1';
@@ -58,6 +59,8 @@ interface JobBase extends JobDetails {
   what?: string;
   /** The running list of services and materials for the job (src/lib/ticket.ts). */
   ticket?: Ticket;
+  /** The job's other estimates, when it holds more than one (src/lib/estimates.ts): `ticket` is the one being worked on, these are the rest, open or declined. */
+  estimates?: Ticket[];
   /** What Odoo was last told about this job after it was made there (src/lib/odooJobs.ts, pushJobChanges). */
   odooSent?: OdooSent;
 }
@@ -230,6 +233,7 @@ export function parseJobs(raw: string | null): Job[] {
       ...(parseSteps(j.steps) ? { steps: parseSteps(j.steps) } : {}),
       ...(typeof j.what === 'string' && j.what ? { what: j.what } : {}),
       ...(parseTicket(j.ticket) ? { ticket: parseTicket(j.ticket) } : {}),
+      ...(parseEstimates(j.estimates).length ? { estimates: parseEstimates(j.estimates) } : {}),
       ...(parseOdooSent(j.odooSent) ? { odooSent: parseOdooSent(j.odooSent) } : {}),
     };
     out.push({ ...base, mode, form: restoreForm<object>(MODE_DEFAULTS[mode], j.form) } as Job);

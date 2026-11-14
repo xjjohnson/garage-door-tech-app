@@ -13,6 +13,7 @@ import { useJobs } from '../lib/useJobs';
 import { AddressSheet } from '../components/AddressSheet';
 import { CustomerOdoo } from '../components/CustomerOdoo';
 import { CustomerBadgeLine } from '../components/HouseHistory';
+import { OdooNotes } from '../components/OdooNotes';
 import { useOdoo } from '../lib/useOdoo';
 import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
@@ -69,6 +70,8 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
       {customer.odooId ? <Addresses partnerId={customer.odooId} /> : null}
 
       {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} name={customerName(customer)} address={customer.address} /> : null}
+
+      {fromOdoo && customer.odooId ? <OdooNotes target={{ model: 'res.partner', id: customer.odooId }} title="Customer notes" testID="customer-notes" /> : null}
 
       {!fromOdoo || waitingJobs.length > 0 ? (
         <Text style={styles.section} accessibilityRole="header">

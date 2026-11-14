@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
-import { appMoney, ClosedDay, DAY_CLOSE_STORAGE_KEY, daySummary, dayText, parseClosedDays } from '../lib/endOfDay';
+import { ClosedDay, DAY_CLOSE_STORAGE_KEY, daySummary, dayText, parseClosedDays, withOdooPayments } from '../lib/endOfDay';
 import { log } from '../lib/log';
 import { postDaySummary } from '../lib/odooDay';
+import { OdooPayTotals, odooPaymentsFor } from '../lib/odooPayments';
 import { formatMoney } from '../lib/prices';
 import { formatTime } from '../lib/schedule';
 import { unsyncedItems } from '../lib/stock';
@@ -37,8 +38,10 @@ export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
   const [odometer, setOdometer] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [odooPay, setOdooPay] = useState<OdooPayTotals | null>(null);
   const t = now();
-  const s = daySummary({ jobs, invoices, shifts: work.shifts, appointments, stock }, t);
+  const local = daySummary({ jobs, invoices, shifts: work.shifts, appointments, stock }, t);
+  const s = odooPay ? withOdooPayments(local, odooPay) : local;
   const closedToday = closed.find((c) => c.day === s.day);
   const notSent = pending.total + unsyncedItems(stock).length;
 
@@ -92,6 +95,19 @@ export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client]);
 
+  // Money taken comes from Odoo's payments when signed in; the phone's own list is the offline fallback.
+  useEffect(() => {
+    if (!client) return;
+    let alive = true;
+    odooPaymentsFor(client, local.day)
+      .then((p) => alive && setOdooPay(p))
+      .catch((e) => log.warn('day', `payments not read from Odoo: ${e instanceof Error ? e.message : String(e)}`));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, local.day, invoices]);
+
   const close = async () => {
     setBusy(true);
     setError(null);
@@ -124,11 +140,15 @@ export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
         <Tile big={`${s.miles} mi`} label="Driven" testID="eod-miles" />
       </View>
 
-      <SectionTitle>Money taken</SectionTitle>
+      <SectionTitle>{s.fromOdoo ? 'Money taken · from Odoo' : 'Money taken'}</SectionTitle>
       <View>
         <Line label="Cash · to deposit" value={formatMoney(s.byMethod.cash)} testID="eod-cash" />
         <Line label={`Checks${s.checks ? ` · ${s.checks} to deposit` : ''}`} value={formatMoney(s.byMethod.check)} testID="eod-checks" />
-        <Line label="Zelle / Venmo / Cash App" value={formatMoney(appMoney(s))} testID="eod-apps" />
+        <Line label="Cash App" value={formatMoney(s.byMethod.cashapp)} testID="eod-cashapp" />
+        <Line label="Venmo" value={formatMoney(s.byMethod.venmo)} testID="eod-venmo" />
+        <Line label="Zelle" value={formatMoney(s.byMethod.zelle)} testID="eod-zelle" />
+        {s.other ? <Line label="Other" value={formatMoney(s.other)} testID="eod-other" /> : null}
+        <Line label="Total taken" value={formatMoney(s.taken)} testID="eod-taken" />
         <Line label="Still owed" value={formatMoney(s.owed)} warn={s.owed > 0} testID="eod-owed" last />
       </View>
 
