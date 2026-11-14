@@ -225,7 +225,7 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     const o = fakeStockOdoo();
     const post = jest.fn(async () => true);
     await postPartsUsed({ ...o.client, call: post } as unknown as OdooClient, { model: 'fsm.order', id: 500 }, [{ name: 'Spring <250>', qty: 2 }]);
-    expect(post).toHaveBeenCalledWith('fsm.order', 'message_post', [[500]], expect.objectContaining({ body: expect.stringContaining('2 × Spring &lt;250&gt;') }));
+    expect(post).toHaveBeenCalledWith('fsm.order', 'message_post', [[500]], expect.objectContaining({ body: expect.stringContaining('2 × Spring <250>') }));
   });
 
   it("gives each tech their own truck: by name, else Truck 1, else they pick", async () => {
@@ -634,7 +634,7 @@ describe('truck, job parts, wrap-up and scorecard screens', () => {
     const client = { session: { uid: 2 }, call } as unknown as OdooClient;
     await postDaySummary(client, { text: 'Justin · Fri, Nov 13\nBilled: $1 <b>' });
     expect(call).toHaveBeenCalledWith('hr.employee', 'search', [[['user_id', '=', 2]]], { limit: 1 });
-    expect(call).toHaveBeenCalledWith('hr.employee', 'message_post', [[31]], expect.objectContaining({ body: expect.stringContaining('Justin · Fri, Nov 13<br>Billed: $1 &lt;b&gt;') }));
+    expect(call).toHaveBeenCalledWith('hr.employee', 'message_post', [[31]], expect.objectContaining({ body: expect.stringContaining('Justin · Fri, Nov 13 · Billed: $1 <b>') }));
     const none = { session: { uid: 3 }, call: async () => [] } as unknown as OdooClient;
     await expect(postDaySummary(none, { text: 'x' })).rejects.toBeInstanceOf(NoEmployeeError);
   });

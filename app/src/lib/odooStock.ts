@@ -616,6 +616,6 @@ export async function receivePurchaseOrder(client: OdooClient, purchaseId: numbe
  * shows what came off the truck for it. One note per call.
  */
 export async function postPartsUsed(client: OdooClient, ref: { model: string; id: number }, uses: { name: string; qty: number }[]): Promise<void> {
-  const body = `<p>Parts used from the truck (from the app):</p><ul>${uses.map((u) => `<li>${u.qty} × ${u.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}</ul>`;
+  const body = `Parts used from the truck (from the app): ${uses.map((u) => `${u.qty} × ${u.name}`).join(', ')}`;
   await client.call(ref.model, 'message_post', [[ref.id]], { body, message_type: 'comment', subtype_xmlid: 'mail.mt_note' });
 }
