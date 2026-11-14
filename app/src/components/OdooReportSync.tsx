@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { log } from '../lib/log';
 import type { Inspection } from '../lib/inspection';
 import { equipmentReady, equipmentToSend, orderLocation, sendEquipment } from '../lib/odooEquipment';
+import { setSurveyStatus } from '../lib/surveyStatus';
 import { surveyIndex, surveyNote, SurveyIndex, sendSurveys, surveysToSend } from '../lib/odooSurveyAnswers';
 import { jobTarget, reportNote, reportsToSend, sendReport, sendVoice, voiceToSend } from '../lib/odooReports';
 import { MAX_ODOO_PDF_BASE64, pdfName } from '../lib/pdf';
@@ -150,6 +151,7 @@ export function OdooReportSync() {
       if (toSurvey.length) {
         try {
           const idx: SurveyIndex | null = await surveyIndex(client);
+          if (!idx) setSurveyStatus({ at: Date.now(), ok: false, text: `${toSurvey.length} inspection(s) waiting, but the Survey app or one of the three surveys isn't in Odoo. Open Settings › Inspection checklists and create them.` });
           for (const { job, inputs, key } of idx ? toSurvey : []) {
             const target = jobTarget(job.odooJob);
             const before = job.inspection.surveys?.ids ?? {};
@@ -160,9 +162,11 @@ export function OdooReportSync() {
             const insp = latest.current.jobs.find((j) => j.id === job.id)?.inspection ?? job.inspection;
             setInspection(job.id, { ...insp, surveys: { at: Date.now(), key, ids } });
             log.info('inspect', `${inputs.length} survey(s) for ${target.label}`);
+            setSurveyStatus({ at: Date.now(), ok: true, text: `Saved ${inputs.length} survey answer(s) for ${target.label}.` });
           }
         } catch (e) {
           log.warn('odoo', `inspection surveys: ${message(e)}`);
+          setSurveyStatus({ at: Date.now(), ok: false, text: `Odoo refused the survey answers: ${message(e)}` });
         }
       }
     } finally {
