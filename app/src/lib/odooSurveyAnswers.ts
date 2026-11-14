@@ -224,6 +224,34 @@ export async function sendSurveys(client: Caller, idx: SurveyIndex, inputs: Surv
   return { ids, created };
 }
 
+const idOf = (v: unknown): number | undefined => (Array.isArray(v) && typeof v[0] === 'number' ? v[0] : typeof v === 'number' ? v : undefined);
+
+/**
+ * The customer of a Field Service order, for the survey's contact. An fsm.order
+ * has no partner of its own (the OCA app keeps it on the order's location), so
+ * this reads the location's owner, else the location's own contact. Any trouble
+ * means no contact: the survey still has the order name in its Job answer.
+ */
+export async function orderPartner(client: Caller, orderId: number): Promise<number | undefined> {
+  try {
+    const [o] = (await client.call('fsm.order', 'read', [[orderId]], { fields: ['location_id'] })) as { location_id?: unknown }[];
+    const loc = idOf(o?.location_id);
+    if (!loc) return undefined;
+    for (const field of ['owner_id', 'partner_id']) {
+      try {
+        const [l] = (await client.call('fsm.location', 'read', [[loc]], { fields: [field] })) as Record<string, unknown>[];
+        const id = idOf(l?.[field]);
+        if (id) return id;
+      } catch {
+        // This Odoo's location has no such field; try the next.
+      }
+    }
+  } catch {
+    // No location to read.
+  }
+  return undefined;
+}
+
 /** The chatter note that points to new surveys from the job's order. */
 export function surveyNote(created: SurveyInput[], ids: Record<string, number>): string {
   const links = created.map((c) => `<a href="/web#id=${ids[c.slot]}&amp;model=survey.user_input&amp;view_type=form">${c.label}</a>`);

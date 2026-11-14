@@ -89,3 +89,27 @@ describe('extra info questions from Odoo', () => {
     }
   });
 });
+
+describe('the survey contact', () => {
+  const { orderPartner } = require('../lib/odooSurveyAnswers');
+  it("uses the order's location owner, never a partner_id on the order", async () => {
+    const calls: [string, string, string[]][] = [];
+    const client = {
+      call: async (m: string, method: string, a: unknown[], kw: { fields: string[] }) => {
+        calls.push([m, method, kw.fields]);
+        if (m === 'fsm.order') {
+          if (kw.fields.includes('partner_id')) throw new Error("Invalid field 'partner_id' on 'fsm.order'");
+          return [{ location_id: [7, 'Home'] }];
+        }
+        return [{ owner_id: [42, 'Pat'] }];
+      },
+    };
+    expect(await orderPartner(client, 5)).toBe(42);
+    expect(calls.every((c) => !(c[0] === 'fsm.order' && c[2].includes('partner_id')))).toBe(true);
+  });
+  it('falls back to the location contact, and to nothing', async () => {
+    const owner = { call: async (m: string, _x: string, _a: unknown[], kw: { fields: string[] }) => (m === 'fsm.order' ? [{ location_id: [7, 'x'] }] : kw.fields[0] === 'owner_id' ? (() => { throw new Error('bad'); })() : [{ partner_id: [9, 'c'] }]) };
+    expect(await orderPartner(owner, 5)).toBe(9);
+    expect(await orderPartner({ call: async () => { throw new Error('boom'); } }, 5)).toBeUndefined();
+  });
+});

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { log } from '../lib/log';
 import type { Inspection } from '../lib/inspection';
 import { setSurveyStatus } from '../lib/surveyStatus';
-import { surveyIndex, surveyNote, SurveyIndex, sendSurveys, surveysToSend } from '../lib/odooSurveyAnswers';
+import { orderPartner, surveyIndex, surveyNote, SurveyIndex, sendSurveys, surveysToSend } from '../lib/odooSurveyAnswers';
 import { jobTarget, reportNote, reportsToSend, sendReport, sendVoice, voiceToSend } from '../lib/odooReports';
 import { MAX_ODOO_PDF_BASE64, pdfName } from '../lib/pdf';
 import { inspectionReportHtml } from '../lib/reportFiles';
@@ -133,8 +133,7 @@ export function OdooReportSync() {
           for (const { job, inputs, key } of idx ? toSurvey : []) {
             const target = jobTarget(job.odooJob);
             const before = job.inspection.surveys?.ids ?? {};
-            const [o] = (await client.call('fsm.order', 'read', [[job.odooJob.id]], { fields: ['partner_id'] })) as { partner_id?: unknown }[];
-            const partner = Array.isArray(o?.partner_id) ? (o!.partner_id as number[])[0] : undefined;
+            const partner = await orderPartner(client, job.odooJob.id);
             const { ids, created } = await sendSurveys(client, idx!, inputs, before, partner);
             if (created.length) await client.call('fsm.order', 'message_post', [[target.id]], { body: surveyNote(created, ids), message_type: 'comment', subtype_xmlid: 'mail.mt_note' }).catch(() => undefined);
             const insp = latest.current.jobs.find((j) => j.id === job.id)?.inspection ?? job.inspection;
