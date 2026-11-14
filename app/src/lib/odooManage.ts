@@ -210,3 +210,117 @@ export async function archivePart(c: Client, id: number): Promise<void> {
   const tmpl = many2one(p?.product_tmpl_id);
   await c.call('product.template', 'write', [[tmpl || id], { active: false }]);
 }
+
+/* -------------------------------------------------------------------- Techs */
+
+export interface TechEdit {
+  /** The Field Service worker's id; absent for a new tech. */
+  id?: number;
+  name: string;
+  phone: string;
+  email: string;
+}
+
+/** The Field Service workers (fsm.person), active ones by name. Empty when Field Service isn't there. */
+export async function listTechs(c: Client): Promise<(TechEdit & { id: number })[]> {
+  if (c.session.kind !== 'oca') return [];
+  const fields = await fieldsOf(c, 'fsm.person');
+  const want = ['name', 'phone', 'email'].filter((f) => f in fields);
+  const rows = (await c.call('fsm.person', 'search_read', [[['active', '=', true]]], { fields: want, order: 'name asc', limit: 200 })) as Record<string, unknown>[];
+  return rows.map((r) => ({ id: r.id as number, name: str(r.name), phone: str(r.phone), email: str(r.email) })).filter((r) => r.name);
+}
+
+/** Creates or updates a tech in Odoo; the id saved. A login is made in Odoo's Users, not here. */
+export async function saveTech(c: Client, e: TechEdit): Promise<number> {
+  const name = e.name.trim();
+  if (!name) throw new Error('Give the tech a name.');
+  const fields = await fieldsOf(c, 'fsm.person');
+  const vals = known(fields, { name, phone: e.phone.trim() || false, email: e.email.trim() || false });
+  if (e.id) {
+    await c.call('fsm.person', 'write', [[e.id], vals]);
+    return e.id;
+  }
+  return (await c.call('fsm.person', 'create', [vals])) as number;
+}
+
+/** Hides a tech: archived in Odoo, so their old jobs keep their name. */
+export async function archiveTech(c: Client, id: number): Promise<void> {
+  await c.call('fsm.person', 'write', [[id], { active: false }]);
+}
+
+/* ------------------------------------------------------------------- Trucks */
+
+export interface TruckEdit {
+  id?: number;
+  name: string;
+  /** The tech who drives it (Field Service Vehicles only). */
+  personId?: number;
+  /** The Inventory location holding its stock, when this Odoo links one to the vehicle. */
+  locationId?: number;
+}
+
+/** Where trucks live: Field Service Vehicles when installed, else Inventory locations named like a truck. */
+export type TruckSource = 'vehicle' | 'location' | 'none';
+
+export async function truckSource(c: Client): Promise<TruckSource> {
+  if (c.session.kind === 'oca' && Object.keys(await fieldsOf(c, 'fsm.vehicle')).length) return 'vehicle';
+  return Object.keys(await fieldsOf(c, 'stock.location')).length ? 'location' : 'none';
+}
+
+/** Inventory locations a truck's stock can sit in. */
+export async function stockLocations(c: Client): Promise<Choice[]> {
+  try {
+    const rows = (await c.call('stock.location', 'search_read', [[['usage', '=', 'internal'], ['active', '=', true]]], { fields: ['complete_name'], order: 'complete_name asc', limit: 200 })) as { id: number; complete_name?: string }[];
+    return rows.map((r) => ({ id: r.id, label: str(r.complete_name) })).filter((r) => r.label);
+  } catch {
+    return [];
+  }
+}
+
+/** The trucks as Odoo has them now. */
+export async function listTruckEdits(c: Client, source: TruckSource): Promise<(TruckEdit & { id: number })[]> {
+  if (source === 'vehicle') {
+    const fields = await fieldsOf(c, 'fsm.vehicle');
+    const want = ['name', 'person_id', 'inventory_location_id'].filter((f) => f in fields);
+    const rows = (await c.call('fsm.vehicle', 'search_read', [[['active', '=', true]]], { fields: want, order: 'name asc', limit: 200 })) as Record<string, unknown>[];
+    return rows.map((r) => ({ id: r.id as number, name: str(r.name), personId: many2one(r.person_id) || undefined, locationId: many2one(r.inventory_location_id) || undefined })).filter((r) => r.name);
+  }
+  if (source === 'location') {
+    const rows = (await c.call('stock.location', 'search_read', [[['usage', '=', 'internal'], ['active', '=', true], ['name', 'ilike', 'truck']]], { fields: ['name'], order: 'name asc', limit: 200 })) as { id: number; name?: string }[];
+    return rows.map((r) => ({ id: r.id, name: str(r.name) })).filter((r) => r.name);
+  }
+  return [];
+}
+
+/**
+ * Creates or updates a truck. The stock side finds a tech's truck by name
+ * ("Truck - <tech>"), so a Field Service vehicle with no stock location of
+ * its own is only a label until it's linked.
+ */
+export async function saveTruck(c: Client, source: TruckSource, e: TruckEdit): Promise<number> {
+  const name = e.name.trim();
+  if (!name) throw new Error('Give the truck a name.');
+  if (source === 'vehicle') {
+    const fields = await fieldsOf(c, 'fsm.vehicle');
+    const vals = known(fields, { name, person_id: e.personId ?? false, inventory_location_id: e.locationId ?? false });
+    if (e.id) {
+      await c.call('fsm.vehicle', 'write', [[e.id], vals]);
+      return e.id;
+    }
+    return (await c.call('fsm.vehicle', 'create', [vals])) as number;
+  }
+  if (source === 'location') {
+    if (e.id) {
+      await c.call('stock.location', 'write', [[e.id], { name }]);
+      return e.id;
+    }
+    return (await c.call('stock.location', 'create', [{ name, usage: 'internal' }])) as number;
+  }
+  throw new Error("This Odoo has no Field Service Vehicles or Inventory, so there's nowhere to keep trucks.");
+}
+
+/** Hides a truck: archived in Odoo, so its stock history stays. */
+export async function archiveTruck(c: Client, source: TruckSource, id: number): Promise<void> {
+  const model = source === 'vehicle' ? 'fsm.vehicle' : 'stock.location';
+  await c.call(model, 'write', [[id], { active: false }]);
+}

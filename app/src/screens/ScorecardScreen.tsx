@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
-import { isOwner, odooScoreData, phoneScoreData, SCORE_PERIOD_LABEL, ScoreData, ScorePeriod, scorecard, scorePeriod, TechScore } from '../lib/scorecard';
+import { isOwner, odooOwnerData, odooScoreData, OwnerData, ownerSummary, phoneOwnerData, phoneScoreData, SCORE_PERIOD_LABEL, ScoreData, ScorePeriod, scorecard, scorePeriod, TechScore } from '../lib/scorecard';
 import { percent } from '../lib/stats';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -23,6 +23,7 @@ export function ScorecardScreen({ now = Date.now }: { now?: () => number }) {
   const [period, setPeriod] = useState<ScorePeriod>('30d');
   const [owner, setOwner] = useState<boolean | null>(null);
   const [odoo, setOdoo] = useState<{ since: number; data: ScoreData } | null>(null);
+  const [ownerOdoo, setOwnerOdoo] = useState<{ since: number; data: OwnerData } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const t = now();
   const p = scorePeriod(period, t);
@@ -46,6 +47,8 @@ export function ScorecardScreen({ now = Date.now }: { now?: () => number }) {
     setError(null);
     odooScoreData(client, since)
       .then((data) => alive && setOdoo({ since, data }))
+      .then(() => odooOwnerData(client, since))
+      .then((data) => alive && setOwnerOdoo({ since, data }))
       .catch((e) => alive && setError(e instanceof Error ? e.message : String(e)));
     return () => {
       alive = false;
@@ -66,6 +69,8 @@ export function ScorecardScreen({ now = Date.now }: { now?: () => number }) {
   const fromOdoo = !!client;
   const data = fromOdoo ? odoo?.data : phoneScoreData(jobs, invoices, business.name.trim() || 'You');
   const scores = data ? scorecard(data, p) : [];
+  const ownerData = fromOdoo ? ownerOdoo?.data : phoneOwnerData(invoices);
+  const summary = data && ownerData ? ownerSummary(data.visits, ownerData, p, t) : null;
   return (
     <View style={styles.stack} testID="scorecard">
       <Text style={styles.sub}>{fromOdoo ? 'Owner only · from Odoo jobs, sales orders and invoices' : 'This phone only · sign in to Odoo to see every tech'}</Text>
@@ -73,12 +78,41 @@ export function ScorecardScreen({ now = Date.now }: { now?: () => number }) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {fromOdoo && !odoo && !error ? <Text style={styles.sub}>Reading Odoo…</Text> : null}
       {data && scores.length === 0 ? <Text style={styles.body}>Nothing in this stretch yet.</Text> : null}
+      {summary ? <Overview s={summary} fromOdoo={fromOdoo} /> : null}
       {scores.map((s) => (
         <TechCard key={s.tech} s={s} />
       ))}
       <Text style={styles.note}>
         A callback is a new job at the same address within 30 days; it counts for the tech on the first job.{fromOdoo ? ' Quotes won counts the quotes in Odoo, and Better or Best needs the option in the order reference.' : ''}
       </Text>
+    </View>
+  );
+}
+
+function Overview({ s, fromOdoo }: { s: ReturnType<typeof ownerSummary>; fromOdoo: boolean }) {
+  return (
+    <View style={styles.card} testID="scorecard-overview">
+      <Text style={styles.name}>The business</Text>
+      <View style={styles.grid}>
+        <Stat big={String(s.jobs)} label="Jobs" />
+        <Stat big={formatMoney(s.revenue)} label="Invoiced" />
+        <Stat big={formatMoney(s.collected)} label="Paid so far" />
+      </View>
+      <View style={styles.grid}>
+        <Stat big={formatMoney(s.openCents)} label={`Open invoices · ${s.openInvoices}`} />
+        <Stat big={formatMoney(s.overdueCents)} label={`Past due · ${s.overdueInvoices}`} warn={s.overdueInvoices > 0} />
+      </View>
+      {fromOdoo ? (
+        <View style={styles.stack} testID="scorecard-followups">
+          <Text style={styles.meta}>Follow-ups waiting</Text>
+          {s.followUps.length === 0 ? <Text style={styles.body}>None open.</Text> : null}
+          {s.followUps.map((f) => (
+            <Text key={f.tech} style={styles.body}>
+              {f.tech}: {f.open} open{f.overdue ? `, ${f.overdue} late` : ''}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

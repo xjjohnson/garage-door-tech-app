@@ -1,4 +1,4 @@
-import { archivePart, listParts, loadQuoteTemplate, saveJobType, savePart, saveQuoteTemplate } from '../lib/odooManage';
+import { archiveTech, listTechs, saveTech, saveTruck, truckSource, archivePart, listParts, loadQuoteTemplate, saveJobType, savePart, saveQuoteTemplate } from '../lib/odooManage';
 
 type Call = [string, string, unknown[], Record<string, unknown>?];
 function fake(answers: Record<string, unknown> = {}) {
@@ -70,5 +70,31 @@ describe('management editing saves straight to Odoo', () => {
     const c = fake({ 'product.product.search_read': [{ id: 88 }] });
     expect(await savePart(c, { name: 'Roller', code: '', cents: 1200, service: true })).toBe(88);
     expect(c.calls.find((x) => x[1] === 'create')![2][0]).toMatchObject({ name: 'Roller', list_price: 12, type: 'service', sale_ok: true, default_code: false });
+  });
+});
+
+describe('techs and trucks save straight to Odoo', () => {
+  it('lists, saves and archives techs, keeping only fields this Odoo has', async () => {
+    const c = fake({ 'fsm.person.fields_get': { name: {}, phone: {}, active: {} }, 'fsm.person.search_read': [{ id: 3, name: 'Sam', phone: '555' }] });
+    expect(await listTechs(c)).toEqual([{ id: 3, name: 'Sam', phone: '555', email: '' }]);
+    await saveTech(c, { name: ' Sam ', phone: '555', email: 'a@b.c' });
+    expect(c.calls.find((x) => x[0] === 'fsm.person' && x[1] === 'create')![2][0]).toEqual({ name: 'Sam', phone: '555' });
+    await saveTech(c, { id: 3, name: 'Sam', phone: '', email: '' });
+    expect(c.calls.at(-1)![2]).toEqual([[3], { name: 'Sam', phone: false }]);
+    await archiveTech(c, 3);
+    expect(c.calls.at(-1)).toEqual(['fsm.person', 'write', [[3], { active: false }], undefined]);
+    await expect(saveTech(c, { name: ' ', phone: '', email: '' })).rejects.toThrow('name');
+  });
+
+  it('saves a truck as a Field Service vehicle, or as an Inventory location without them', async () => {
+    const v = fake({ 'fsm.vehicle.fields_get': { name: {}, person_id: {}, inventory_location_id: {} } });
+    expect(await truckSource(v)).toBe('vehicle');
+    await saveTruck(v, 'vehicle', { name: 'Truck - Sam', personId: 3, locationId: 8 });
+    expect(v.calls.find((x) => x[0] === 'fsm.vehicle' && x[1] === 'create')![2][0]).toEqual({ name: 'Truck - Sam', person_id: 3, inventory_location_id: 8 });
+    const l = fake({ 'fsm.vehicle.fields_get': {}, 'stock.location.fields_get': { name: {} } });
+    expect(await truckSource(l)).toBe('location');
+    await saveTruck(l, 'location', { id: 8, name: 'Truck - Sam' });
+    expect(l.calls.at(-1)).toEqual(['stock.location', 'write', [[8], { name: 'Truck - Sam' }], undefined]);
+    await expect(saveTruck(l, 'none', { name: 'x' })).rejects.toThrow('nowhere');
   });
 });
