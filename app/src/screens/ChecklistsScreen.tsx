@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SectionTitle } from '../components/controls';
+import { REPORT_SYNC_SINCE_KEY } from '../components/OdooReportSync';
+import { surveysToSend } from '../lib/odooSurveyAnswers';
+import { getChecklistStatus, subscribeChecklistStatus, getSurveyStatus, loadSurveyStatus, subscribeSurveyStatus } from '../lib/surveyStatus';
+import { requestSyncNow } from '../lib/syncNow';
+import { useAttachments } from '../lib/useAttachments';
+import { useJobs } from '../lib/useJobs';
 import { createMissingSurveys, SurveyKind, surveyState, SurveyState } from '../lib/odooSurveys';
 import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
@@ -20,6 +27,22 @@ export function ChecklistsScreen() {
   const [owner, setOwner] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const { jobs } = useJobs();
+  const { signatures } = useAttachments();
+  const last = useSyncExternalStore(subscribeSurveyStatus, getSurveyStatus);
+  const listLast = useSyncExternalStore(subscribeChecklistStatus, getChecklistStatus);
+  const [since, setSince] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  useEffect(() => {
+    loadSurveyStatus();
+    AsyncStorage.getItem(REPORT_SYNC_SINCE_KEY).then((v) => setSince(v && Number.isFinite(Number(v)) ? Number(v) : null)).catch(() => undefined);
+  }, []);
+  const waiting = since === null ? 0 : surveysToSend(jobs, signatures, since).length;
+  const sendNow = async () => {
+    setSending(true);
+    await requestSyncNow();
+    setSending(false);
+  };
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -86,6 +109,19 @@ export function ChecklistsScreen() {
           )}
         </>
       )}
+      {state?.installed && !state.missing.length ? (
+        <>
+          <SectionTitle>Inspection answers</SectionTitle>
+          <View style={styles.card} testID="checklists-answers">
+            <Text style={styles.title}>{waiting ? `${waiting} signed inspection${waiting === 1 ? '' : 's'} waiting to be saved in Odoo` : 'Nothing waiting'}</Text>
+            <Text style={styles.meta} testID="checklists-read">{listLast ? `Checklist, ${new Date(listLast.at).toLocaleTimeString()}: ${listLast.text}` : 'Checklist: not read from Odoo yet on this phone.'}</Text>
+            <Text style={styles.meta}>{last ? `${new Date(last.at).toLocaleTimeString()}: ${last.text}` : 'No try yet on this phone. Only inspections signed after the app started sending reports go; sign a new one to test.'}</Text>
+          </View>
+          <Pressable onPress={sendNow} disabled={sending} accessibilityRole="button" style={styles.button} testID="checklists-send">
+            <Text style={styles.buttonText}>{sending ? 'Sending...' : 'Send now'}</Text>
+          </Pressable>
+        </>
+      ) : null}
       {msg && state ? (
         <Text style={styles.note} testID="checklists-msg" accessibilityLiveRegion="polite">{msg}</Text>
       ) : null}
