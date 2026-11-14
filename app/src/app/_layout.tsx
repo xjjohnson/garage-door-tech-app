@@ -15,6 +15,7 @@ import { OdooRefreshSync } from '../components/OdooRefreshSync';
 import { OdooVisitSync } from '../components/OdooVisitSync';
 import { OdooChecklistSync } from '../components/OdooChecklistSync';
 import { OdooReportSync } from '../components/OdooReportSync';
+import { OdooEquipmentSync } from '../components/OdooEquipmentSync';
 import { OdooAttendanceSync } from '../components/OdooAttendanceSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
 import { CalculatorLinkProvider } from '../lib/useCalculatorLink';
@@ -70,6 +71,7 @@ export default function RootLayout() {
                             <OdooReportSync />
                             <OdooChecklistSync />
                             <OdooAttendanceSync />
+                            <OdooEquipmentSync />
                             <OdooInvoicesSync />
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                               <Stack.Screen name="(tabs)" />
