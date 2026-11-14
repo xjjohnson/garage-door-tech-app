@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action } from '../components/Buttons';
+import { SyncNowButton } from '../components/SyncNowButton';
 import { lastCrash } from '../lib/crash';
 import { followUps } from '../lib/followups';
 import { balance, invoiceStatus } from '../lib/invoices';
@@ -13,7 +14,6 @@ import { describePending } from '../lib/pending';
 import { formatMoney } from '../lib/prices';
 import { Appointment, formatTime, mapsLink, onDay } from '../lib/schedule';
 import { useFollowUps } from '../lib/useFollowUps';
-import { useFollowUpInvoices } from '../lib/useFollowUpInvoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useLog } from '../lib/useLog';
@@ -47,12 +47,12 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   const underway = jobs.filter((j) => j.status === 'open' && (j.steps?.onMyWayAt || j.steps?.arrivedAt) && !(next?.jobId === j.id));
   const owed = invoices.filter((i) => ['unpaid', 'partial'].includes(invoiceStatus(i)));
   const owedTotal = owed.reduce((n, i) => n + balance(i), 0);
-  const followInvoices = useFollowUpInvoices();
-  const due = followUps(followInvoices, settings, business, t, dismissed).filter((f) => f.due <= t).length;
+  const due = followUps(invoices, settings, business, t, dismissed).filter((f) => f.due <= t).length;
 
   return (
     <View style={styles.stack} testID="today">
       <SyncLine />
+      <SyncNowButton />
       <OlderJobsLine />
       <CrashNotice />
       <View style={styles.row}>

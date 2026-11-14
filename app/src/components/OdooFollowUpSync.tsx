@@ -1,7 +1,5 @@
 /**
- * Follow-ups and Odoo, in the background while signed in: reads Odoo's own
- * invoices so tune-ups come from every invoice (not only ones the phone made),
- * puts each follow-up that is due soon on the customer's contact in Odoo as a
+ * Follow-ups and Odoo, in the background while signed in: puts each follow-up that is due soon on the customer's contact in Odoo as a
  * to-do (activity), completes it when the tech marks the follow-up handled,
  * and marks the follow-up handled when its activity is done or deleted in
  * Odoo. Renders nothing.
@@ -9,8 +7,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { followUpId, followUps } from '../lib/followups';
 import { log } from '../lib/log';
-import { activitiesReady, activityWindow, ACTIVITY_BATCH, completeActivity, ensureActivity, liveActivities, notOnPhone, asFollowUpInvoice, readOdooInvoices } from '../lib/odooFollowUps';
-import { setOdooInvoiceRows } from '../lib/odooInvoiceCache';
+import { activitiesReady, activityWindow, ACTIVITY_BATCH, completeActivity, ensureActivity, liveActivities } from '../lib/odooFollowUps';
 import { onSyncNow } from '../lib/syncNow';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useCustomers } from '../lib/useCustomers';
@@ -38,16 +35,10 @@ export function OdooFollowUpSync({ now = Date.now }: { now?: () => number }) {
     running.current = true;
     try {
       const t = now();
-      const rows = await readOdooInvoices(client, t);
-      setOdooInvoiceRows(rows);
       if (!(await activitiesReady(client))) return;
 
       const { inv: I, cust: C, fu: F } = latest.current;
-      const all = [...I.invoices, ...notOnPhone(rows, I.invoices).map((r) => asFollowUpInvoice(r, C.customers.find((c) => c.odooId === r.partnerId)?.id))];
-      const partnerOf = (i: (typeof all)[number]): number | undefined => {
-        const m = /^odoo-partner-(\d+)$/.exec(i.address);
-        return m ? Number(m[1]) : C.customers.find((c) => c.id === i.customerId)?.odooId;
-      };
+      const partnerOf = (i: (typeof I.invoices)[number]): number | undefined => C.customers.find((c) => c.id === i.customerId)?.odooId;
 
       // 1. Activities done or deleted in Odoo mean the follow-up was handled; handled in the app completes the activity.
       const mapped = Object.entries(F.activities);
@@ -63,7 +54,7 @@ export function OdooFollowUpSync({ now = Date.now }: { now?: () => number }) {
       }
 
       // 2. New activities for follow-ups due soon, a few a pass.
-      const due = activityWindow(followUps(all, F.settings, I.business, t, F.dismissed), t).filter((f) => !F.activities[followUpId(f.kind, f.invoice)]);
+      const due = activityWindow(followUps(I.invoices, F.settings, I.business, t, F.dismissed), t).filter((f) => !F.activities[followUpId(f.kind, f.invoice)]);
       let made = 0;
       for (const f of due) {
         if (made >= ACTIVITY_BATCH) break;

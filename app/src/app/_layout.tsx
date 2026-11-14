@@ -11,7 +11,9 @@ import { OdooPhotoSync } from '../components/OdooPhotoSync';
 import { OdooFollowUpSync } from '../components/OdooFollowUpSync';
 import { OdooSettingsSync } from '../components/OdooSettingsSync';
 import { OdooPartsUsedSync } from '../components/OdooPartsUsedSync';
+import { OdooRefreshSync } from '../components/OdooRefreshSync';
 import { OdooVisitSync } from '../components/OdooVisitSync';
+import { OdooChecklistSync } from '../components/OdooChecklistSync';
 import { OdooReportSync } from '../components/OdooReportSync';
 import { OdooAttendanceSync } from '../components/OdooAttendanceSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
@@ -60,21 +62,21 @@ export default function RootLayout() {
                             <OdooCustomerBackgroundSync />
                             <OdooJobSync />
                             <OdooVisitSync />
+                            <OdooRefreshSync />
                             <OdooPartsUsedSync />
                             <OdooPhotoSync />
                             <OdooFollowUpSync />
                             <OdooSettingsSync />
                             <OdooReportSync />
+                            <OdooChecklistSync />
                             <OdooAttendanceSync />
                             <OdooInvoicesSync />
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                               <Stack.Screen name="(tabs)" />
-                              <Stack.Screen name="price-sheet" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="price-book" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="ticket/[id]" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="ticket-add" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="job-address/[id]" options={{ presentation: 'modal' }} />
-                              <Stack.Screen name="odoo-product" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="quote/[id]" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="backup" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="customer/[id]" options={{ presentation: 'modal' }} />

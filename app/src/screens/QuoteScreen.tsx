@@ -11,7 +11,7 @@ import { formatJobDate, Job, jobName } from '../lib/jobs';
 import { pdfName, quoteHtml } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
 import { formatNumber } from '../lib/measure';
-import { cents, formatMoney, hasPrices, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
+import { cents, formatMoney, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
 import { buildQuote, QuoteOption, quoteText, repairQuote } from '../lib/quote';
 import { addOption, newLineId } from '../lib/ticket';
 import { formatLife } from '../lib/springNames';
@@ -31,7 +31,7 @@ import { colors, touch, type } from '../theme';
  * spring). Spring jobs fall back to the old price sheet until those templates
  * exist. The tech can send it to the customer and record which option they picked.
  */
-export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () => void }) {
+export function QuoteScreen({ job }: { job: Job }) {
   const { sheet } = usePriceSheet();
   const { setAccepted, setInspection, setQuoteLines, setTicket } = useJobs();
   const templates = useQuoteTemplates();
@@ -65,7 +65,6 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
     setInspection(job.id, { ...job.inspection, repairs: job.inspection.repairs.map((x) => (x.id === r.id ? { ...x, declined: !x.declined || undefined } : x)) });
   };
   const repairs = repairLines(job.inspection);
-  const priced = hasPrices(sheet);
   const { invoices, create, business } = useInvoices();
   const attachments = useAttachments();
   const signature = signatureFor(attachments, 'quote', job.id);
@@ -88,9 +87,8 @@ export function QuoteScreen({ job, onSetPrices }: { job: Job; onSetPrices: () =>
         <View style={styles.notice} testID="quote-no-spring-templates">
           <Text style={styles.noticeTitle}>No Springs templates in Odoo</Text>
           <Text style={styles.noticeBody}>
-            Make quotation templates in Odoo named "Springs · Good", "Springs · Better" and "Springs · Best" with the spring product, labor and extras for each. The calculator picks the spring; the template sets the price. Until then these prices come from the old price sheet{priced ? '' : ', which has no prices yet'}.
+            Make quotation templates in Odoo named "Springs · Good", "Springs · Better" and "Springs · Best" with the spring product, labor and extras for each. The calculator picks the spring; the template sets the price. Until then the phone's fallback prices are used, which may be missing.
           </Text>
-          <Action label="Old price sheet" onPress={onSetPrices} testID="quote-set-prices" />
         </View>
       ) : null}
 

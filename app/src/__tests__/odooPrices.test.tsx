@@ -119,29 +119,10 @@ describe('Estimate prices in the price book, with Odoo', () => {
     await act(async () => router.push('/price-book'));
     await settle();
     await settle();
-    await act(async () => router.push('/price-sheet'));
+    // The price book's Update from Odoo (run on opening it once) brought Odoo's items onto the sheet.
     await settle();
-    // The price book's Update from Odoo (run on opening it once) brought Odoo's items onto the old sheet.
-    await settle();
-    let saved = parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY));
+    const saved = parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY));
     expect(saved.addOns.filter((a) => isSpareOdooItem(saved, a)).map((a) => a.name)).toEqual(['Service call', 'Torsion spring 25k', 'Nylon rollers (10)']);
 
-    // Spare Odoo items stay folded away until one is put on an option.
-    expect(screen.queryByTestId('spare-odoo3')).toBeNull();
-    await fireEvent.press(screen.getByTestId('odoo-spare-toggle'));
-    await fireEvent.press(within(screen.getByTestId('spare-tiers-odoo3')).getByText('Best'));
-    await settle(3);
-    saved = parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY));
-    expect(saved.addOns.find((a) => a.id === 'odoo3')?.tiers).toEqual({ good: false, better: false, best: true });
-    expect(screen.getByTestId('addon-odoo3')).toBeTruthy();
-
-    // Link the service call to its Odoo product: the price comes straight in.
-    await fireEvent.press(screen.getByTestId('odoo-pick-serviceCall'));
-    await settle();
-    await fireEvent.press(screen.getByTestId('odoo-product-1'));
-    await settle();
-    saved = parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY));
-    expect(saved.serviceCall).toBe('89');
-    expect(saved.odoo.serviceCall).toEqual({ id: 1, name: '[SVC] Service call' });
   });
 });

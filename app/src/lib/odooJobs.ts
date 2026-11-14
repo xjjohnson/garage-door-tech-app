@@ -79,21 +79,28 @@ const isDeleted = (e: unknown) => e instanceof Error && /does not exist or has b
  * signal) is thrown, so nothing is taken for deleted.
  */
 async function readExisting(c: Pick<OdooClient, 'call'>, model: string, ids: number[], fields: string[]): Promise<{ rows: Record<string, unknown>[]; deleted: number[] }> {
+  // Which records still exist: a search never errors for a missing id (and leaves out archived ones), so it
+  // settles "deleted" whichever way this Odoo's read treats a missing record. Any other error is thrown.
+  const have = new Set((await c.call(model, 'search', [[['id', 'in', ids]]])) as number[]);
+  const alive = ids.filter((id) => have.has(id));
   let rows: Record<string, unknown>[] = [];
-  try {
-    rows = (await c.call(model, 'read', [ids], { fields })) as Record<string, unknown>[];
-  } catch (e) {
-    if (!isDeleted(e)) throw e;
-    for (const id of ids) {
-      try {
-        rows.push(...((await c.call(model, 'read', [[id]], { fields })) as Record<string, unknown>[]));
-      } catch (e2) {
-        if (!isDeleted(e2)) throw e2;
+  if (alive.length) {
+    try {
+      rows = (await c.call(model, 'read', [alive], { fields })) as Record<string, unknown>[];
+    } catch (e) {
+      if (!isDeleted(e)) throw e;
+      // Deleted between the two calls: read them one by one.
+      for (const id of alive) {
+        try {
+          rows.push(...((await c.call(model, 'read', [[id]], { fields })) as Record<string, unknown>[]));
+        } catch (e2) {
+          if (!isDeleted(e2)) throw e2;
+        }
       }
     }
   }
-  const have = new Set(rows.map((r) => r.id));
-  return { rows, deleted: ids.filter((id) => !have.has(id)) };
+  const got = new Set(rows.map((r) => r.id));
+  return { rows, deleted: ids.filter((id) => !got.has(id)) };
 }
 
 /** The visit's Odoo id for a job sent to Odoo: phone visits take the Odoo job's id, as Odoo's own jobs do. */
@@ -104,7 +111,7 @@ const has = (c: Client, f: string) => c.session.fields.includes(f);
 /** Whether this Odoo has somewhere to keep jobs. */
 export const canSendJobs = (c: Client) => c.session.kind === 'oca' || c.session.kind === 'task';
 
-const squashStreet = (t: string) => t.toLowerCase().replace(/\b(street|st|road|rd|drive|dr|avenue|ave|boulevard|blvd|lane|ln|court|ct|circle|cir|cr)\b\.?/g, '').replace(/[^a-z0-9]/g, '');
+export const squashStreet = (t: string) => t.toLowerCase().replace(/\b(street|st|road|rd|drive|dr|avenue|ave|boulevard|blvd|lane|ln|court|ct|circle|cir|cr)\b\.?/g, '').replace(/[^a-z0-9]/g, '');
 
 /**
  * The Field Service location for a job: one per house (Justin, Nov 13). The

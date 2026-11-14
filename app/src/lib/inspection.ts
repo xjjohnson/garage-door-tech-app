@@ -39,8 +39,8 @@ export const FLAGGED: Rating[] = ['poor', 'risk', 'non', 'fail'];
 export const isFlagged = (r: Rating | undefined) => !!r && FLAGGED.includes(r);
 
 /** Points per answer for the score; N/A doesn't count either way. */
-const POINTS: Record<Rating, number> = { good: 2, fair: 1, poor: 0, risk: 0, na: 0, compliant: 1, non: 0, pass: 1, fail: 0 };
-const MAX: Record<Scale, number> = { condition: 2, gfp: 2, compliance: 1, passfail: 1 };
+export const POINTS: Record<Rating, number> = { good: 2, fair: 1, poor: 0, risk: 0, na: 0, compliant: 1, non: 0, pass: 1, fail: 0 };
+export const MAX: Record<Scale, number> = { condition: 2, gfp: 2, compliance: 1, passfail: 1 };
 
 export interface ItemDef {
   id: string;
@@ -115,6 +115,36 @@ export const GATE_ASTM_ITEMS: ItemDef[] = [
   { id: 'astm-falling', label: 'Gate kept from falling over if disconnected from its supports', scale: 'compliance' },
 ];
 
+/** The questions in each part of the checklist. Built in; Odoo's surveys replace them when set up (src/lib/odooChecklist.ts). */
+export interface Checklist {
+  door: ItemDef[];
+  motor: ItemDef[];
+  ul: ItemDef[];
+  slide: ItemDef[];
+  swing: ItemDef[];
+  astm: ItemDef[];
+}
+
+export const BUILT_IN_CHECKLIST: Checklist = { door: DOOR_ITEMS, motor: MOTOR_ITEMS, ul: GATE_UL_ITEMS, slide: GATE_SLIDE_ITEMS, swing: GATE_SWING_ITEMS, astm: GATE_ASTM_ITEMS };
+
+let active: Checklist = BUILT_IN_CHECKLIST;
+let version = 0;
+const listeners = new Set<() => void>();
+
+/** The checklist in use now. */
+export const checklist = (): Checklist => active;
+/** Switches the checklist (null goes back to the built-in one) and tells the screens showing it. */
+export function setChecklist(c: Checklist | null): void {
+  active = c ?? BUILT_IN_CHECKLIST;
+  version++;
+  listeners.forEach((l) => l());
+}
+export const subscribeChecklist = (l: () => void) => {
+  listeners.add(l);
+  return () => void listeners.delete(l);
+};
+export const checklistVersion = () => version;
+
 export const DOOR_MAKERS = ['Clopay', 'Amarr', 'Wayne Dalton', 'CHI', 'Raynor', 'Overhead Door', 'Martin', 'Garaga', 'Other'];
 export const MOTOR_MAKERS = ['LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Craftsman', 'Marantec', 'Ryobi', 'Other'];
 
@@ -188,6 +218,10 @@ export interface Inspection {
   repairs: Repair[];
   /** When the report last went to Odoo, and where ("Field Service order"). */
   sent?: { at: number; to: string };
+  /** When the doors and openers last went to Odoo as equipment, and what they held (src/lib/odooEquipment.ts). */
+  equipment?: { at: number; key: string };
+  /** The filled-in Odoo surveys made from this inspection: what they held, and their ids by slot (src/lib/odooSurveyAnswers.ts). */
+  surveys?: { at: number; key: string; ids: Record<string, number> };
 }
 
 const blank = (): Answer => ({ note: '', action: '' });
@@ -223,16 +257,16 @@ export interface Section {
 export function sections(insp: Inspection): Section[] {
   const out: Section[] = [];
   insp.doors.forEach((d, i) => {
-    out.push({ key: d.id, title: `Door ${i + 1}`, items: DOOR_ITEMS.map((def) => ({ key: `d:${d.id}:${def.id}`, def, answer: d.answers[def.id] })) });
+    out.push({ key: d.id, title: `Door ${i + 1}`, items: checklist().door.map((def) => ({ key: `d:${d.id}:${def.id}`, def, answer: d.answers[def.id] })) });
     d.motors.forEach((m, j) => {
-      out.push({ key: `${d.id}/${m.id}`, title: `Door ${i + 1} · Motor ${j + 1}`, items: MOTOR_ITEMS.map((def) => ({ key: `m:${d.id}:${m.id}:${def.id}`, def, answer: m.answers[def.id] })) });
+      out.push({ key: `${d.id}/${m.id}`, title: `Door ${i + 1} · Motor ${j + 1}`, items: checklist().motor.map((def) => ({ key: `m:${d.id}:${m.id}:${def.id}`, def, answer: m.answers[def.id] })) });
     });
   });
   if (insp.gate) {
-    out.push({ key: 'gate-ul', title: 'Gate · UL 325', items: GATE_UL_ITEMS.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
-    const typed = insp.gate.type === 'slide' ? GATE_SLIDE_ITEMS : insp.gate.type === 'swing' ? GATE_SWING_ITEMS : null;
+    out.push({ key: 'gate-ul', title: 'Gate · UL 325', items: checklist().ul.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
+    const typed = insp.gate.type === 'slide' ? checklist().slide : insp.gate.type === 'swing' ? checklist().swing : null;
     if (typed) out.push({ key: 'gate-type', title: insp.gate.type === 'slide' ? 'Gate · Slide gate' : 'Gate · Swing gate', items: typed.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
-    out.push({ key: 'gate-astm', title: 'Gate · ASTM F2200', items: GATE_ASTM_ITEMS.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
+    out.push({ key: 'gate-astm', title: 'Gate · ASTM F2200', items: checklist().astm.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
   }
   return out;
 }
@@ -466,5 +500,13 @@ export function parseInspection(v: unknown): Inspection | undefined {
     voice,
     repairs,
     ...(d.sent && typeof (d.sent as { at?: unknown }).at === 'number' ? { sent: { at: (d.sent as { at: number }).at, to: str((d.sent as { to?: unknown }).to) } } : {}),
+    ...(d.equipment && typeof (d.equipment as { at?: unknown }).at === 'number' ? { equipment: { at: (d.equipment as { at: number }).at, key: str((d.equipment as { key?: unknown }).key) } } : {}),
+    ...(d.surveys && typeof (d.surveys as { at?: unknown }).at === 'number' ? { surveys: parseSurveys(d.surveys as { at: number; key?: unknown; ids?: unknown }) } : {}),
   };
+}
+
+function parseSurveys(d: { at: number; key?: unknown; ids?: unknown }): NonNullable<Inspection['surveys']> {
+  const ids: Record<string, number> = {};
+  if (d.ids && typeof d.ids === 'object') for (const [k, v] of Object.entries(d.ids as Record<string, unknown>)) if (typeof v === 'number') ids[k] = v;
+  return { at: d.at, key: typeof d.key === 'string' ? d.key : '', ids };
 }

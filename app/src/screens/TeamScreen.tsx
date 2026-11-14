@@ -1,3 +1,4 @@
+import { requestSyncNow } from '../lib/syncNow';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -164,7 +165,7 @@ function SignedIn({ now }: { now: () => number }) {
       <AppsFound />
       <Text style={styles.meta}>{s.kind === 'oca' ? (s.me ? 'Jobs are Field Service orders.' : 'Jobs are Field Service orders. You aren’t a Field Service worker in Odoo, so nothing is assigned to you; add yourself under Field Service > Workers.') : s.fsm ? 'Jobs are Odoo Field Service tasks.' : 'Field Service isn’t installed, so jobs are Odoo Project tasks.'}</Text>
       <View style={styles.row}>
-        <Action label={busy ? 'Loading...' : 'Refresh'} grow disabled={busy} onPress={load} testID="team-refresh" />
+        <Action label={busy ? 'Loading...' : 'Refresh'} grow disabled={busy} onPress={() => { requestSyncNow().catch(() => undefined); load(); }} testID="team-refresh" />
         <Action label="Sign out" grow onPress={signOut} testID="team-signout" />
       </View>
       {error ? (
@@ -235,6 +236,9 @@ function AppsFound() {
   );
 }
 
+/** A job's notes without the app's own marker line ("App job ..."). */
+const shownNotes = (notes: string) => notes.split('\n').filter((l) => !l.trim().startsWith('App job ')).join('\n').trim();
+
 function Task({ t, now, children }: { t: OdooTask; now: number; children?: React.ReactNode }) {
   const when = t.start ?? t.deadline;
   const maps = mapsLink(t.address);
@@ -248,7 +252,7 @@ function Task({ t, now, children }: { t: OdooTask; now: number; children?: React
         {when ? `${dayLabel(when, now)} ${t.start ? formatTime(t.start) : '(due)'}` : 'No date'}
         {t.stage ? ` · ${t.stage}` : ''}
       </Text>
-      {t.notes ? <Text style={styles.meta} numberOfLines={4}>{t.notes}</Text> : null}
+      {shownNotes(t.notes) ? <Text style={styles.meta} numberOfLines={4}>{shownNotes(t.notes)}</Text> : null}
       {maps || tel ? (
         <View style={styles.row}>
           {maps ? <Action label="Directions" grow onPress={() => Linking.openURL(maps).catch(() => undefined)} /> : null}

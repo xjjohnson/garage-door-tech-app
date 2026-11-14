@@ -73,6 +73,10 @@ function fakeOdoo(refuseDeleted = false) {
           .map((o) => ({ ...o, location_id: o.location_id ? [o.location_id, String(loc(o.location_id)?.name ?? 'Place')] : false, person_id: typeof o.person_id === 'number' ? [o.person_id, 'Someone'] : false })),
       );
     }
+    if (model === 'fsm.order' && method === 'search') {
+      const want = ((args[0] as unknown[][])[0] as [string, string, number[]])[2];
+      return reply(orders.filter((o) => want.includes(o.id as number)).map((o) => o.id));
+    }
     if (model === 'fsm.template' && method === 'search_read') return reply(templates);
     if (model === 'fsm.location' && method === 'read') return reply(locations.filter((l) => (args[0] as number[]).includes(l.id as number)));
     if (model === 'res.partner' && method === 'create') {
@@ -462,6 +466,30 @@ describe('visits as Odoo jobs', () => {
     expect(o.partners.map((p) => p.name)).toEqual(['Pat Smith']);
     const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(saved.map((v) => [v.id, v.odooName])).toEqual([['a-old', undefined], ['odoo-500', 'FSO500']]);
+  });
+
+  it('books a visit onto the open order already at that house instead of making a second one', async () => {
+    const o = fakeOdoo();
+    o.locations.push({ id: 75, name: '1 Oak St', owner_id: 100, street: '1 Oak St' });
+    o.orders.push({ id: 500, name: 'FO0018', location_id: 75, person_id: false, scheduled_date_start: false, scheduled_duration: 0, stage_id: [1, 'New'], description: 'Help door trapped' });
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([visit('a-1', { address: '1 Oak St, Buda, TX 78610' })]));
+    await renderSync(o.fetchFn);
+    await settle();
+    expect(o.orders).toHaveLength(1);
+    expect(o.orders[0]).toMatchObject({ person_id: 40, scheduled_date_start: toOdooTime(at(10, 1)) });
+    expect(String(o.orders[0].description)).toContain('Help door trapped');
+    expect(String(o.orders[0].description)).toContain('App job visit-a-1');
+    const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
+    expect(saved.map((v) => [v.id, v.odooName])).toEqual([['odoo-500', 'FO0018']]);
+  });
+
+  it('removes a visit whose Odoo order was deleted there', async () => {
+    const o = fakeOdoo();
+    o.orders.push({ id: 500, name: 'FSO500', person_id: 40, scheduled_date_start: toOdooTime(at(9, 1)), scheduled_duration: 1, stage_id: [1, 'New'] });
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([visit('odoo-500', { updatedAt: 5, syncedAt: 5 }), visit('odoo-777', { updatedAt: 5, syncedAt: 5 })]));
+    await renderSync(o.fetchFn);
+    await settle();
+    expect(parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY)).map((v) => v.id)).toEqual(['odoo-500']);
   });
 
   it('completes the order when a visit is marked done, and cancels it when cancelled', async () => {

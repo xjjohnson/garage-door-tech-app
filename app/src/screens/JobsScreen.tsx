@@ -1,3 +1,4 @@
+import { SyncNowButton } from '../components/SyncNowButton';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -7,7 +8,6 @@ import { formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJo
 import { formatMoney, TIER_LABEL } from '../lib/prices';
 import { checkCounts } from '../lib/inspection';
 import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
-import { useFollowUpInvoices } from '../lib/useFollowUpInvoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { StatsCard } from './StatsScreen';
@@ -63,6 +63,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         <StockButton />
       </View>
       <FollowUpsButton />
+      <SyncNowButton testID="jobs-sync-now" />
       <View style={styles.searchRow}>
         <TextInput
           value={query}
@@ -150,8 +151,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
 
 /** Follow-ups due, with a count, above the list. */
 function FollowUpsButton() {
-  const { business } = useInvoices();
-  const invoices = useFollowUpInvoices();
+  const { invoices, business } = useInvoices();
   const { settings, dismissed } = useFollowUps();
   const due = useMemo(() => followUps(invoices, settings, business, Date.now(), dismissed).filter((f) => f.due <= Date.now() + 7 * 24 * 3600 * 1000).length, [invoices, settings, business, dismissed]);
   return (

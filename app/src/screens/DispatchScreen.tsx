@@ -1,3 +1,4 @@
+import { requestSyncNow } from '../lib/syncNow';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Action } from '../components/Buttons';
@@ -115,7 +116,7 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
         </Text>
         <Action label="›" onPress={() => setDay((d) => addDays(d, 1))} testID="dispatch-next" hint="Day after" />
       </View>
-      <Action label={busy ? 'Loading...' : 'Refresh'} disabled={busy} onPress={load} testID="dispatch-refresh" />
+      <Action label={busy ? 'Loading...' : 'Refresh'} disabled={busy} onPress={() => { requestSyncNow().catch(() => undefined); load(); }} testID="dispatch-refresh" />
       {error ? (
         <Text style={styles.error} testID="dispatch-error">
           {error}

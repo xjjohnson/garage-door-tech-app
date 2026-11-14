@@ -209,4 +209,20 @@ describe('review requests', () => {
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/^sms:5551234567\?body=Hi%20Pat.*https%3A%2F%2Fg\.page%2Fr%2Fabc$/));
     open.mockRestore();
   });
+
+  it("picks a job's warranty (parts and/or labor) and keeps it", async () => {
+    await AsyncStorage.clear();
+    const i = createInvoice({ ...job, customerId: 'c1' }, good, [], Date.now(), 'i1');
+    await AsyncStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([i]));
+    await renderApp('/invoice/i1');
+    await settle();
+    await fireEvent.press(within(screen.getByTestId('coverage-labor')).getByText('None'));
+    await fireEvent.press(within(screen.getByTestId('coverage-parts')).getByText('3 yr'));
+    expect(screen.queryByTestId('coverage-uses')).toBeNull();
+    expect(screen.getByTestId('invoice-warranty')).toHaveTextContent(/springs until/);
+    expect(screen.getByTestId('invoice-warranty')).not.toHaveTextContent(/labor until/);
+    await settle();
+    const saved = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY))[0];
+    expect(saved.warranty).toEqual({ partsMonths: 36, laborMonths: 0 });
+  });
 });
