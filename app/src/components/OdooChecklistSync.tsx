@@ -11,6 +11,7 @@ import { log } from '../lib/log';
 import { CHECKLIST_STORAGE_KEY, fetchChecklist, parseChecklist } from '../lib/odooChecklist';
 import { onSyncNow } from '../lib/syncNow';
 import { useAppForeground } from '../lib/useAppForeground';
+import { setChecklistStatus } from '../lib/surveyStatus';
 import { useOdoo } from '../lib/useOdoo';
 
 const EVERY_MS = 15 * 60_000;
@@ -36,11 +37,16 @@ export function OdooChecklistSync() {
     if (!client) return;
     try {
       const c = await fetchChecklist(client);
-      if (!c) return;
+      if (!c) {
+        setChecklistStatus({ at: Date.now(), ok: false, text: "The Survey app or one of the three surveys isn't in Odoo, so the built-in checklist is used." });
+        return;
+      }
       setChecklist(c);
+      setChecklistStatus({ at: Date.now(), ok: true, text: `Read from Odoo: ${c.door.length} door, ${c.motor.length} opener and ${c.ul.length + c.slide.length + c.swing.length + c.astm.length} gate items.` });
       await AsyncStorage.setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(c)).catch(() => undefined);
     } catch (e) {
       log.warn('odoo', `checklist: ${e instanceof Error ? e.message : String(e)}`);
+      setChecklistStatus({ at: Date.now(), ok: false, text: `Odoo refused the checklist read: ${e instanceof Error ? e.message : String(e)}` });
     }
   }, [client]);
 
