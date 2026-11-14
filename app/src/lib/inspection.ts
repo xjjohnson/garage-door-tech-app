@@ -116,7 +116,27 @@ export const GATE_ASTM_ITEMS: ItemDef[] = [
 ];
 
 /** The questions in each part of the checklist. Built in; Odoo's surveys replace them when set up (src/lib/odooChecklist.ts). */
+export interface InfoLabels {
+  door: Record<'job' | 'number' | 'lube' | 'maker' | 'size' | 'age' | 'code' | 'cycles' | 'notes', string>;
+  opener: Record<'job' | 'door' | 'number' | 'maker' | 'built' | 'notes', string>;
+  gate: Record<'job' | 'type' | 'notes', string>;
+}
+
+/** The names of the info questions, as the surveys made from the built-in checklist have them. */
+export const DEFAULT_INFO: InfoLabels = {
+  door: { job: 'Job', number: 'Door number', lube: 'Rollers, track and opener lubricated', maker: 'Door manufacturer', size: 'Size (for example 16x7)', age: 'Door age (year installed)', code: 'Spring date code', cycles: 'Spring cycles', notes: 'Notes and actions' },
+  opener: { job: 'Job', door: 'Door number', number: 'Opener number', maker: 'Opener manufacturer', built: 'Opener build date', notes: 'Notes and actions' },
+  gate: { job: 'Job', type: 'Gate type', notes: 'Notes and actions' },
+};
+
+export const DOOR_MAKERS: string[] = ['Clopay', 'Amarr', 'Wayne Dalton', 'CHI', 'Raynor', 'Overhead Door', 'Martin', 'Garaga', 'Other'];
+export const MOTOR_MAKERS: string[] = ['LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Craftsman', 'Marantec', 'Ryobi', 'Other'];
+
 export interface Checklist {
+  /** What the info questions are called, and the makers to pick from. */
+  info: InfoLabels;
+  doorMakers: string[];
+  motorMakers: string[];
   door: ItemDef[];
   motor: ItemDef[];
   ul: ItemDef[];
@@ -125,7 +145,7 @@ export interface Checklist {
   astm: ItemDef[];
 }
 
-export const BUILT_IN_CHECKLIST: Checklist = { door: DOOR_ITEMS, motor: MOTOR_ITEMS, ul: GATE_UL_ITEMS, slide: GATE_SLIDE_ITEMS, swing: GATE_SWING_ITEMS, astm: GATE_ASTM_ITEMS };
+export const BUILT_IN_CHECKLIST: Checklist = { info: DEFAULT_INFO, doorMakers: DOOR_MAKERS, motorMakers: MOTOR_MAKERS, door: DOOR_ITEMS, motor: MOTOR_ITEMS, ul: GATE_UL_ITEMS, slide: GATE_SLIDE_ITEMS, swing: GATE_SWING_ITEMS, astm: GATE_ASTM_ITEMS };
 
 let active: Checklist = BUILT_IN_CHECKLIST;
 let version = 0;
@@ -145,8 +165,6 @@ export const subscribeChecklist = (l: () => void) => {
 };
 export const checklistVersion = () => version;
 
-export const DOOR_MAKERS = ['Clopay', 'Amarr', 'Wayne Dalton', 'CHI', 'Raynor', 'Overhead Door', 'Martin', 'Garaga', 'Other'];
-export const MOTOR_MAKERS = ['LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Craftsman', 'Marantec', 'Ryobi', 'Other'];
 
 export interface Answer {
   rating?: Rating;
