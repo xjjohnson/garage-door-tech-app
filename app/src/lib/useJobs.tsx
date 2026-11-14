@@ -5,6 +5,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { mergeJobs, MergeResult } from './backup';
 import { Inspection, Repair } from './inspection';
 import { AcceptedQuote, cleanDetails, createJob, Job, JobDetails, JobInputs, JOBS_STORAGE_KEY, JobStatus, JobSteps, OdooSent, parseJobs } from './jobs';
+import { EstimateSet } from './estimates';
 import { EMPTY_TICKET, Ticket } from './ticket';
 
 interface JobsApi {
@@ -41,6 +42,8 @@ interface JobsApi {
   setOdooSent: (id: string, sent: OdooSent) => void;
   /** Changes the job's ticket (src/lib/ticket.ts). */
   setTicket: (id: string, fn: (prev: Ticket) => Ticket) => void;
+  /** Changes the job's estimates: the ticket being worked on and the others (src/lib/estimates.ts). */
+  setEstimates: (id: string, fn: (prev: EstimateSet) => EstimateSet) => void;
 }
 
 const JobsContext = createContext<JobsApi | null>(null);
@@ -200,9 +203,22 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [change],
   );
 
+  const setEstimates = useCallback<JobsApi['setEstimates']>(
+    (id, fn) =>
+      change((prev) =>
+        prev.map((j) => {
+          if (j.id !== id) return j;
+          const next = fn({ ticket: j.ticket ?? EMPTY_TICKET, others: j.estimates ?? [] });
+          const { estimates: _old, ...rest } = j;
+          return { ...rest, ticket: next.ticket, ...(next.others.length ? { estimates: next.others } : {}), updatedAt: Date.now() } as Job;
+        }),
+      ),
+    [change],
+  );
+
   const api = useMemo(
-    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setOdooSent }),
-    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setOdooSent],
+    () => ({ jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setEstimates, setOdooSent }),
+    [jobs, loaded, add, updateInputs, updateDetails, setStatus, setAccepted, remove, restore, linkCustomers, renameCustomer, setInspection, setOdooOrder, setQuoteSignatureSent, setOdooJob, setQuoteLines, setSendToOdoo, setStep, setTicket, setEstimates, setOdooSent],
   );
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }
