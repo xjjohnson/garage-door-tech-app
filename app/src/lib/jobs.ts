@@ -10,7 +10,7 @@ import { OdooJobRef, parseJobRef } from './odooJobs';
 import { OdooRef, parseRef } from './odooSales';
 import { Inspection, parseInspection, parseRepairs, Repair } from './inspection';
 import { DEFAULT_DOOR_FORM, DEFAULT_DRUMS_FORM, DEFAULT_EXTENSION_FORM, DEFAULT_MATCH_FORM, DoorForm, DrumsForm, ExtensionForm, MatchForm, restoreForm } from './forms';
-import { Tier, TIERS } from './prices';
+import { Tier, TIER_LABEL, TIERS } from './prices';
 import { parseTicket, Ticket } from './ticket';
 
 export const JOBS_STORAGE_KEY = 'jobs/v1';
@@ -84,6 +84,9 @@ export interface JobSteps {
 
 export interface AcceptedQuote {
   tier: Tier;
+  /** The picked template's key and name, when the option was one Odoo quotation template rather than good / better / best. */
+  key?: string;
+  title?: string;
   /** Total with tax, in cents, as quoted. */
   total: number;
   at: number;
@@ -246,7 +249,17 @@ function parseAccepted(v: unknown): AcceptedQuote | undefined {
   if (!v || typeof v !== 'object') return undefined;
   const a = v as Record<string, unknown>;
   if (!TIERS.includes(a.tier as Tier) || typeof a.total !== 'number' || typeof a.at !== 'number') return undefined;
-  return { tier: a.tier as Tier, total: a.total, at: a.at };
+  return { tier: a.tier as Tier, total: a.total, at: a.at, ...(typeof a.key === 'string' && a.key ? { key: a.key } : {}), ...(typeof a.title === 'string' && a.title ? { title: a.title } : {}) };
+}
+
+/** What to call the accepted option: the template's name, or Good / Better / Best. */
+export function acceptedLabel(a: AcceptedQuote): string {
+  return a.title ?? TIER_LABEL[a.tier];
+}
+
+/** Whether an accepted pick is this option. */
+export function isAccepted(a: AcceptedQuote | undefined, o: { tier: Tier; key?: string }): boolean {
+  return !!a && a.tier === o.tier && a.key === o.key;
 }
 
 /** A tel: link with only the characters a dialer understands, or nothing if there's no number. */

@@ -2,12 +2,12 @@ import { OdooQuoteSend } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ChipRow, MeasureField } from '../components/controls';
+import { ChipRow, MeasureField, MultiChipRow } from '../components/controls';
 import { PriceBookPicker } from '../components/PriceBookPicker';
 import { usePriceBook } from '../lib/usePriceBook';
 import { SignatureSheet } from '../components/SignaturePad';
 import { photosFor, signatureFor } from '../lib/attachments';
-import { formatJobDate, Job, jobName } from '../lib/jobs';
+import { acceptedLabel, formatJobDate, isAccepted, Job, jobName } from '../lib/jobs';
 import { pdfName, quoteHtml } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
 import { formatNumber } from '../lib/measure';
@@ -35,14 +35,16 @@ export function QuoteScreen({ job }: { job: Job }) {
   const { sheet } = usePriceSheet();
   const { setAccepted, setInspection, setQuoteLines, setTicket } = useJobs();
   const templates = useQuoteTemplates();
-  const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
-  const override = pickedTemplate ? templates[pickedTemplate] : undefined;
-  const set = override ?? templatesFor(templates, job.what);
+  // Quotation templates picked by name, any number at once; each is its own option. A pick already accepted stays shown.
+  const [pickedTemplates, setPickedTemplates] = useState<string[]>(() => (job.accepted?.key ? [job.accepted.key] : []));
+  const chosen = pickedTemplates.flatMap((k) => (templates[k] ? [{ key: k, set: templates[k] }] : []));
+  const override = chosen.length > 0;
+  const set = templatesFor(templates, job.what);
   const typed = useMemo(() => job.quoteLines ?? [], [job.quoteLines]);
   const springJob = usesSprings(job.what);
   const springQuote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
   // Jobs the spring calculator can't price (openers, tune-ups) use the job type's Odoo templates.
-  const fromTemplates = !!set && (!!springQuote.blocked || !!override);
+  const fromTemplates = override || (!!set && !!springQuote.blocked);
   // Spring jobs with springs picked: Odoo's spring templates price them.
   const springSet = springJob && !springQuote.blocked && !override ? springTemplatesFor(templates, job.what) : undefined;
   // No spring answer and no templates: the service call plus the inspection's repairs and lines typed here.
@@ -50,14 +52,16 @@ export function QuoteScreen({ job }: { job: Job }) {
   const repairOnly = !fromTemplates && !!springQuote.blocked && (!springJob || [...(job.inspection?.repairs ?? []), ...typed].some((r) => r.label.trim()));
   const quote = useMemo(
     () =>
-      fromTemplates && set
+      override
+        ? { options: chosen.flatMap((c) => templateQuote(c.set, sheet, repairLines(job.inspection, typed)).options.map((o) => ({ ...o, key: c.key }))) }
+        : fromTemplates && set
         ? templateQuote(set, sheet, repairLines(job.inspection, typed))
         : springSet
           ? springTemplateQuote(springQuote, springSet, sheet, repairLines(job.inspection, typed))
           : repairOnly
           ? repairQuote(repairLines(job.inspection, typed), sheet)
           : withRepairs(springQuote, job.inspection, sheet, typed),
-    [fromTemplates, springSet, repairOnly, set, springQuote, job.inspection, typed, sheet],
+    [override, chosen, fromTemplates, springSet, repairOnly, set, springQuote, job.inspection, typed, sheet],
   );
   const addOns = job.inspection?.repairs.filter((r) => r.label.trim()) ?? [];
   const toggleAddOn = (r: Repair) => {
@@ -73,7 +77,7 @@ export function QuoteScreen({ job }: { job: Job }) {
   const [signing, setSigning] = useState(false);
   const [pdfError, setPdfError] = useState(false);
   const invoice = invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
-  const picked = job.accepted ? quote.options.find((o) => o.tier === job.accepted!.tier && o.available) : undefined;
+  const picked = job.accepted ? quote.options.find((o) => isAccepted(job.accepted, o) && o.available) : undefined;
 
   return (
     <View style={styles.stack} testID="quote">
@@ -92,13 +96,13 @@ export function QuoteScreen({ job }: { job: Job }) {
         </View>
       ) : null}
 
-      {(fromTemplates && set) || springSet ? (
+      {override || (fromTemplates && set) || springSet ? (
         <Text style={styles.meta} testID="quote-from-templates">
-          From your Odoo quotation templates for {(springSet ?? set)!.type}.
+          From your Odoo quotation templates for {override ? chosen.map((c) => c.set.type).join(', ') : (springSet ?? set)!.type}.
         </Text>
       ) : null}
 
-      <TemplatePicker templates={templates} pickedKey={pickedTemplate} onPick={setPickedTemplate} />
+      <TemplatePicker templates={templates} picked={pickedTemplates} onChange={setPickedTemplates} />
 
       {repairOnly && !springJob ? (
         <View style={styles.notice} testID="quote-no-templates">
@@ -167,17 +171,17 @@ export function QuoteScreen({ job }: { job: Job }) {
 
       {quote.options.map((o) => (
         <OptionCard
-          key={o.tier}
+          key={o.key ?? o.tier}
           option={o}
-          accepted={job.accepted?.tier === o.tier}
-          onAccept={() => setAccepted(job.id, job.accepted?.tier === o.tier ? undefined : { tier: o.tier, total: o.total, at: Date.now() })}
+          accepted={isAccepted(job.accepted, o)}
+          onAccept={() => setAccepted(job.id, isAccepted(job.accepted, o) ? undefined : { tier: o.tier, ...(o.key ? { key: o.key, title: o.title } : {}), total: o.total, at: Date.now() })}
         />
       ))}
 
       {job.accepted ? (
         <>
           <Text style={styles.meta} testID="quote-accepted-note">
-            Customer picked {picked?.title ?? TIER_LABEL[job.accepted.tier]} at {formatMoney(job.accepted.total)} on {formatJobDate(job.accepted.at)}.
+            Customer picked {picked?.title ?? acceptedLabel(job.accepted)} at {formatMoney(job.accepted.total)} on {formatJobDate(job.accepted.at)}.
           </Text>
           {signature ? (
             <Text style={styles.meta} testID="quote-signed">
@@ -188,7 +192,7 @@ export function QuoteScreen({ job }: { job: Job }) {
           <SignatureSheet
             visible={signing}
             title="Approve the quote"
-            agreement={`I approve the ${picked?.title ?? TIER_LABEL[job.accepted.tier]} option for ${formatMoney(job.accepted.total)}.`}
+            agreement={`I approve the ${picked?.title ?? acceptedLabel(job.accepted)} option for ${formatMoney(job.accepted.total)}.`}
             initialName={job.customer}
             onCancel={() => setSigning(false)}
             onSave={(s) => {
@@ -211,7 +215,7 @@ export function QuoteScreen({ job }: { job: Job }) {
         <>
           {picked.total !== job.accepted!.total ? (
             <Text style={styles.meta} testID="quote-price-changed">
-              Prices have changed since the customer picked {TIER_LABEL[picked.tier]}: the invoice will be {formatMoney(picked.total)}, not {formatMoney(job.accepted!.total)}.
+              Prices have changed since the customer picked {picked.title ?? TIER_LABEL[picked.tier]}: the invoice will be {formatMoney(picked.total)}, not {formatMoney(job.accepted!.total)}.
             </Text>
           ) : null}
           <Action
@@ -261,7 +265,7 @@ export function QuoteScreen({ job }: { job: Job }) {
 }
 
 /** Every Odoo quotation template, to quote this job from any of them (the job type's is the one picked to start). */
-function TemplatePicker({ templates, pickedKey, onPick }: { templates: Record<string, { type: string; plain?: boolean }>; pickedKey: string | null; onPick: (key: string) => void }) {
+function TemplatePicker({ templates, picked, onChange }: { templates: Record<string, { type: string; plain?: boolean }>; picked: string[]; onChange: (keys: string[]) => void }) {
   const all = Object.entries(templates)
     .filter(([, t]) => t.plain)
     .sort((a, b) => a[1].type.localeCompare(b[1].type));
@@ -269,8 +273,8 @@ function TemplatePicker({ templates, pickedKey, onPick }: { templates: Record<st
   return (
     <View style={styles.stack} testID="quote-template-picker">
       <Text style={styles.tier}>Quotation templates</Text>
-      <Text style={styles.meta}>Every quotation template in Odoo. Tap one to quote from it.</Text>
-      <ChipRow options={all.map(([k, t]) => ({ label: t.type, value: k }))} value={pickedKey ?? ''} onChange={onPick} testID="quote-template-chips" />
+      <Text style={styles.meta}>Every quotation template in Odoo. Tap as many as you want to show together; the customer picks one.</Text>
+      <MultiChipRow options={all.map(([k, t]) => ({ label: t.type, value: k }))} values={picked} onChange={onChange} testID="quote-template-chips" />
     </View>
   );
 }
@@ -326,17 +330,17 @@ function OptionCard({ option, accepted, onAccept }: { option: QuoteOption; accep
   const label = option.title ?? TIER_LABEL[option.tier];
   if (!option.available) {
     return (
-      <View style={[styles.card, styles.cardOff]} testID={`quote-${option.tier}`}>
+      <View style={[styles.card, styles.cardOff]} testID={`quote-${option.key ?? option.tier}`}>
         <Text style={styles.tier}>{label}</Text>
         <Text style={styles.meta}>{option.reason}</Text>
       </View>
     );
   }
   return (
-    <View style={[styles.card, accepted && styles.cardOn]} testID={`quote-${option.tier}`}>
+    <View style={[styles.card, accepted && styles.cardOn]} testID={`quote-${option.key ?? option.tier}`}>
       <View style={styles.top}>
         <Text style={styles.tier}>{label}</Text>
-        <Text style={styles.total} testID={`quote-total-${option.tier}`}>
+        <Text style={styles.total} testID={`quote-total-${option.key ?? option.tier}`}>
           {formatMoney(option.total)}
         </Text>
       </View>
@@ -363,7 +367,7 @@ function OptionCard({ option, accepted, onAccept }: { option: QuoteOption; accep
         label={accepted ? `✓ Customer picked ${label}` : `Customer picked ${label}`}
         primary={accepted}
         onPress={onAccept}
-        testID={`quote-accept-${option.tier}`}
+        testID={`quote-accept-${option.key ?? option.tier}`}
       />
     </View>
   );

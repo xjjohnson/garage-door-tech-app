@@ -6,10 +6,10 @@ import { ChipOption, ChipRow, MeasureField, SectionTitle, Segmented } from '../c
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
 import { Business, invoiceLabel, invoiceStatus, newId, PAY_LABEL, PAY_METHODS, payLinks, PayMethod } from '../lib/invoices';
 import { QrCode } from '../components/QrCode';
-import { Job, jobName } from '../lib/jobs';
+import { acceptedLabel, Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
-import { cents, formatMoney, priceText, TIER_LABEL } from '../lib/prices';
+import { cents, formatMoney, priceText } from '../lib/prices';
 import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -303,7 +303,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       <SectionTitle>Optional</SectionTitle>
       <NavRow
         label="Good, better, best"
-        detail={job.accepted ? `${TIER_LABEL[job.accepted.tier]} picked` : 'Options from your Odoo quotation templates, if you want them'}
+        detail={job.accepted ? `${acceptedLabel(job.accepted)} picked` : 'Options from your Odoo quotation templates, if you want them'}
         href={{ pathname: '/quote/[id]', params: { id: job.id } }}
         testID="ticket-estimate"
       />

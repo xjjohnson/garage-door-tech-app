@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { customerName } from '../lib/customers';
 import { invoiceLabel } from '../lib/invoices';
-import { MODE_LABEL } from '../lib/jobs';
+import { acceptedLabel, MODE_LABEL } from '../lib/jobs';
 import { log } from '../lib/log';
-import { formatMoney, TIER_LABEL } from '../lib/prices';
+import { formatMoney } from '../lib/prices';
 import { requestSyncNow } from '../lib/syncNow';
 import { useCustomerSync } from '../lib/useCustomerSync';
 import { useOdoo } from '../lib/useOdoo';
@@ -69,7 +69,7 @@ export function WaitingScreen() {
           <Row
             key={j.id}
             testID={`waiting-quote-${j.id}`}
-            title={`${j.customer.trim() || 'No name'} · ${TIER_LABEL[j.accepted!.tier]} ${formatMoney(j.accepted!.total)}`}
+            title={`${j.customer.trim() || 'No name'} · ${acceptedLabel(j.accepted!)} ${formatMoney(j.accepted!.total)}`}
             detail={[j.what || j.summaryTitle || MODE_LABEL[j.mode], j.address].filter(Boolean).join(' · ')}
             how={j.ticket?.lines.length ? 'Picked by the customer, not in Odoo yet. Open its ticket and tap Save as estimate.' : 'Picked by the customer, not sent yet. Open it and tap Send to Odoo as a sales order.'}
             onPress={() => (j.ticket?.lines.length ? router.push({ pathname: '/ticket/[id]', params: { id: j.id } }) : router.push({ pathname: '/quote/[id]', params: { id: j.id } }))}

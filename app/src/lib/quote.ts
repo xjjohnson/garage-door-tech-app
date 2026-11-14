@@ -26,6 +26,8 @@ export interface QuoteLine {
 
 export interface QuoteOption {
   tier: Tier;
+  /** Set on an option that is one Odoo quotation template picked by name (not good / better / best); tells those apart. */
+  key?: string;
   /** Shown instead of the tier name ("Repairs"). */
   title?: string;
   /** False when no spring of this rating fits; the reason says why. */

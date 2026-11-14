@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, Segmented } from '../components/controls';
 import { JobDetailsSheet } from '../components/JobDetailsSheet';
-import { formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
-import { formatMoney, TIER_LABEL } from '../lib/prices';
+import { acceptedLabel, formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
+import { formatMoney } from '../lib/prices';
 import { checkCounts } from '../lib/inspection';
 import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
@@ -204,7 +204,7 @@ function JobCard({
         {job.summaryDetail ? <Text style={styles.meta}>{job.summaryDetail}</Text> : null}
         {job.accepted ? (
           <Text style={styles.accepted} testID={`job-accepted-${job.id}`}>
-            Picked {TIER_LABEL[job.accepted.tier]}, {formatMoney(job.accepted.total)}
+            Picked {acceptedLabel(job.accepted)}, {formatMoney(job.accepted.total)}
           </Text>
         ) : null}
         {invoice ? (
