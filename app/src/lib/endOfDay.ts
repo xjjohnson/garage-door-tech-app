@@ -23,6 +23,10 @@ export interface DaySummary {
   /** Payments taken today, cents, by how. */
   byMethod: Record<PayMethod, number>;
   checks: number;
+  /** Payments Odoo has that match none of the five ways, cents. */
+  other?: number;
+  /** The money figures came from Odoo's payments, not the phone's. */
+  fromOdoo?: true;
   taken: number;
   /** Still owed on today's invoices, cents. */
   owed: number;
@@ -80,6 +84,11 @@ export function daySummary(data: { jobs: Job[]; invoices: Invoice[]; shifts: Shi
   };
 }
 
+/** Swaps the phone's money figures for what Odoo's payments say was taken today. */
+export function withOdooPayments(s: DaySummary, o: { byMethod: Record<PayMethod, number>; other: number; checks: number }): DaySummary {
+  return { ...s, byMethod: o.byMethod, checks: o.checks, other: o.other, fromOdoo: true, taken: Object.values(o.byMethod).reduce((a, b) => a + b, 0) + o.other };
+}
+
 /** The phone-pay apps together, as the wrap-up shows them. */
 export const appMoney = (s: Pick<DaySummary, 'byMethod'>) => s.byMethod.cashapp + s.byMethod.venmo + s.byMethod.zelle;
 
@@ -89,6 +98,7 @@ export function dayText(s: DaySummary, who: string): string {
   const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const lines = [`${who ? `${who} · ` : ''}${date}`, `Jobs: ${s.jobsDone} of ${s.jobs} done`, `Billed: ${formatMoney(s.billed)}`];
   for (const m of ['cash', 'check', 'cashapp', 'venmo', 'zelle'] as PayMethod[]) if (s.byMethod[m] > 0) lines.push(`${PAY_LABEL[m]}${m === 'check' ? ` (${s.checks})` : ''}: ${formatMoney(s.byMethod[m])}`);
+  if (s.other) lines.push(`Other: ${formatMoney(s.other)}`);
   if (s.byMethod.cash + s.byMethod.check > 0) lines.push(`To deposit: ${formatMoney(s.byMethod.cash + s.byMethod.check)}`);
   if (s.owed > 0) lines.push(`Still owed: ${formatMoney(s.owed)}`);
   lines.push(`Hours: ${formatHours(s.ms)}`, `Miles: ${s.miles}`);

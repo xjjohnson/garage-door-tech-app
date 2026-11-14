@@ -34,6 +34,16 @@ async function count(c: CheckClient, model: string, domain: unknown[] = []): Pro
   }
 }
 
+/** True when the model exists and this user can read it. */
+async function hasModel(c: CheckClient, model: string): Promise<boolean> {
+  try {
+    const f = await c.call(model, 'fields_get', [], { attributes: ['type'] });
+    return !!f && typeof f === 'object';
+  } catch {
+    return false;
+  }
+}
+
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[]> {
@@ -93,6 +103,29 @@ export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[
         : { id: 'agreements', label: 'Service agreements', state: 'warn', detail: 'Agreement app not found.', fix: 'In Odoo, Apps > install Agreement (agreement) for service agreements.' },
     );
   }
+
+  const [survey, attendance, equipment] = await Promise.all([
+    hasModel(c, 'survey.survey'),
+    hasModel(c, 'hr.attendance'),
+    s.kind === 'oca' ? hasModel(c, 'fsm.equipment') : Promise.resolve(true),
+  ]);
+  out.push(
+    survey
+      ? { id: 'surveys', label: 'Surveys (inspections)', state: 'ok', detail: 'Survey app found.' }
+      : { id: 'surveys', label: 'Surveys (inspections)', state: 'warn', detail: 'Survey app not found.', fix: 'In Odoo, Apps > install Surveys so inspections can be saved there.' },
+  );
+  if (s.kind === 'oca') {
+    out.push(
+      equipment
+        ? { id: 'equipment', label: 'Equipment (doors and openers)', state: 'ok', detail: 'Field Service Equipment found.' }
+        : { id: 'equipment', label: 'Equipment (doors and openers)', state: 'warn', detail: 'Field Service Equipment not found.', fix: 'In Odoo, Apps > install Field Service Equipment Stock (fieldservice_equipment_stock) so doors and openers are tracked.' },
+    );
+  }
+  out.push(
+    attendance
+      ? { id: 'attendance', label: 'Attendance (time clock)', state: 'ok', detail: 'Attendances app found.' }
+      : { id: 'attendance', label: 'Attendance (time clock)', state: 'warn', detail: 'Attendances app not found.', fix: 'In Odoo, Apps > install Attendances so the time clock saves there.' },
+  );
 
   const trucks = await count(c, 'stock.location', [['usage', '=', 'internal'], ['name', 'ilike', 'truck']]);
   out.push(
