@@ -115,6 +115,36 @@ export const GATE_ASTM_ITEMS: ItemDef[] = [
   { id: 'astm-falling', label: 'Gate kept from falling over if disconnected from its supports', scale: 'compliance' },
 ];
 
+/** The questions in each part of the checklist. Built in; Odoo's surveys replace them when set up (src/lib/odooChecklist.ts). */
+export interface Checklist {
+  door: ItemDef[];
+  motor: ItemDef[];
+  ul: ItemDef[];
+  slide: ItemDef[];
+  swing: ItemDef[];
+  astm: ItemDef[];
+}
+
+export const BUILT_IN_CHECKLIST: Checklist = { door: DOOR_ITEMS, motor: MOTOR_ITEMS, ul: GATE_UL_ITEMS, slide: GATE_SLIDE_ITEMS, swing: GATE_SWING_ITEMS, astm: GATE_ASTM_ITEMS };
+
+let active: Checklist = BUILT_IN_CHECKLIST;
+let version = 0;
+const listeners = new Set<() => void>();
+
+/** The checklist in use now. */
+export const checklist = (): Checklist => active;
+/** Switches the checklist (null goes back to the built-in one) and tells the screens showing it. */
+export function setChecklist(c: Checklist | null): void {
+  active = c ?? BUILT_IN_CHECKLIST;
+  version++;
+  listeners.forEach((l) => l());
+}
+export const subscribeChecklist = (l: () => void) => {
+  listeners.add(l);
+  return () => void listeners.delete(l);
+};
+export const checklistVersion = () => version;
+
 export const DOOR_MAKERS = ['Clopay', 'Amarr', 'Wayne Dalton', 'CHI', 'Raynor', 'Overhead Door', 'Martin', 'Garaga', 'Other'];
 export const MOTOR_MAKERS = ['LiftMaster', 'Chamberlain', 'Genie', 'Linear', 'Craftsman', 'Marantec', 'Ryobi', 'Other'];
 
@@ -225,16 +255,16 @@ export interface Section {
 export function sections(insp: Inspection): Section[] {
   const out: Section[] = [];
   insp.doors.forEach((d, i) => {
-    out.push({ key: d.id, title: `Door ${i + 1}`, items: DOOR_ITEMS.map((def) => ({ key: `d:${d.id}:${def.id}`, def, answer: d.answers[def.id] })) });
+    out.push({ key: d.id, title: `Door ${i + 1}`, items: checklist().door.map((def) => ({ key: `d:${d.id}:${def.id}`, def, answer: d.answers[def.id] })) });
     d.motors.forEach((m, j) => {
-      out.push({ key: `${d.id}/${m.id}`, title: `Door ${i + 1} · Motor ${j + 1}`, items: MOTOR_ITEMS.map((def) => ({ key: `m:${d.id}:${m.id}:${def.id}`, def, answer: m.answers[def.id] })) });
+      out.push({ key: `${d.id}/${m.id}`, title: `Door ${i + 1} · Motor ${j + 1}`, items: checklist().motor.map((def) => ({ key: `m:${d.id}:${m.id}:${def.id}`, def, answer: m.answers[def.id] })) });
     });
   });
   if (insp.gate) {
-    out.push({ key: 'gate-ul', title: 'Gate · UL 325', items: GATE_UL_ITEMS.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
-    const typed = insp.gate.type === 'slide' ? GATE_SLIDE_ITEMS : insp.gate.type === 'swing' ? GATE_SWING_ITEMS : null;
+    out.push({ key: 'gate-ul', title: 'Gate · UL 325', items: checklist().ul.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
+    const typed = insp.gate.type === 'slide' ? checklist().slide : insp.gate.type === 'swing' ? checklist().swing : null;
     if (typed) out.push({ key: 'gate-type', title: insp.gate.type === 'slide' ? 'Gate · Slide gate' : 'Gate · Swing gate', items: typed.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
-    out.push({ key: 'gate-astm', title: 'Gate · ASTM F2200', items: GATE_ASTM_ITEMS.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
+    out.push({ key: 'gate-astm', title: 'Gate · ASTM F2200', items: checklist().astm.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
   }
   return out;
 }

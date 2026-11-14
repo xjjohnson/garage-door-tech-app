@@ -13,6 +13,7 @@ import { OdooSettingsSync } from '../components/OdooSettingsSync';
 import { OdooPartsUsedSync } from '../components/OdooPartsUsedSync';
 import { OdooRefreshSync } from '../components/OdooRefreshSync';
 import { OdooVisitSync } from '../components/OdooVisitSync';
+import { OdooChecklistSync } from '../components/OdooChecklistSync';
 import { OdooReportSync } from '../components/OdooReportSync';
 import { OdooAttendanceSync } from '../components/OdooAttendanceSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
@@ -67,6 +68,7 @@ export default function RootLayout() {
                             <OdooFollowUpSync />
                             <OdooSettingsSync />
                             <OdooReportSync />
+                            <OdooChecklistSync />
                             <OdooAttendanceSync />
                             <OdooInvoicesSync />
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>

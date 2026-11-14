@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action } from '../components/Buttons';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
@@ -27,8 +27,7 @@ import {
   SCALES,
   sections,
   setAnswer,
-  summary,
-} from '../lib/inspection';
+  summary, checklistVersion, subscribeChecklist } from '../lib/inspection';
 import { inspectionReportHtml } from '../lib/reportFiles';
 import { Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
@@ -59,6 +58,8 @@ const GATE_TYPES = [
  */
 export function InspectionScreen({ job }: { job: Job }) {
   const { setInspection } = useJobs();
+  // Redraw when the checklist changes (Odoo's surveys arrive).
+  useSyncExternalStore(subscribeChecklist, checklistVersion);
   const attachments = useAttachments();
   const { business } = useInvoices();
   const odoo = useOdoo();
