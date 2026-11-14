@@ -1,6 +1,7 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
+import { Dock } from '../components/Page';
 import type { OdooClient } from '../lib/odoo';
 import {
   archiveJobType,
@@ -114,9 +115,11 @@ function EditShell({ title, canEdit, busy, msg, onSave, onArchive, onBack, child
       <Text style={styles.title}>{title}</Text>
       {children}
       {canEdit ? (
+        <Dock>
         <Pressable onPress={onSave} disabled={busy} accessibilityRole="button" accessibilityState={{ disabled: busy }} testID="manage-save" style={styles.primary}>
           <Text style={styles.primaryText}>{busy ? 'Saving...' : 'Save to Odoo'}</Text>
         </Pressable>
+        </Dock>
       ) : null}
       {canEdit && onArchive ? (
         <Pressable onPress={onArchive} disabled={busy} accessibilityRole="button" testID="manage-archive" style={styles.danger}>

@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action, NavRow, QuickAction } from '../components/Buttons';
+import { Dock } from '../components/Page';
+import { Pressable } from 'react-native';
 import { SectionTitle } from '../components/controls';
 import { CustomerBadgeLine, EquipmentChips, HouseCard } from '../components/HouseHistory';
 import { JobParts } from '../components/JobParts';
@@ -24,6 +26,14 @@ import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, shadow, touch, type } from '../theme';
 
+type Tab = 'overview' | 'work' | 'photos' | 'notes';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'work', label: 'Work' },
+  { id: 'photos', label: 'Photos' },
+  { id: 'notes', label: 'Notes' },
+];
+
 const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
 
 /**
@@ -37,6 +47,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const { appointments } = useSchedule();
   const [, tick] = useState(0);
   const [etaPick, setEtaPick] = useState(false);
+  const [tab, setTab] = useState<Tab>('overview');
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30000);
     return () => clearInterval(t);
@@ -136,24 +147,31 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         })}
       </View>
 
-      {next ? (
-        <Action label={nextLabel(next.id, job, !!inv)} primary onPress={() => go(next.id)} testID="job-next" />
-      ) : (
-        <Text style={styles.done} testID="job-finished">
-          Job finished and paid.
-        </Text>
-      )}
-      {next && next.id === 'onMyWay' ? <Action label="Skip, I'm already here" onPress={() => go('arrived')} testID="job-skip-arrived" /> : null}
+      <View style={styles.tabs} accessibilityRole="tablist" testID="job-tabs">
+        {TABS.map((t) => (
+          <Pressable key={t.id} onPress={() => setTab(t.id)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }} testID={`job-tab-${t.id}`} style={[styles.tab, tab === t.id && styles.tabOn]}>
+            <Text style={[styles.tabText, tab === t.id && styles.tabTextOn]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
 
+      {tab === 'overview' ? (
+        <>
       <TuneUpOffer partnerId={customer?.odooId} customer={job.customer} address={jobAddress(job, customer)} what={job.what} workDone={!!job.steps?.workDoneAt || !!inv} now={now} />
 
-      <SectionTitle>The job</SectionTitle>
       <NavRow
         label="Visit"
         detail={visit ? `${dayLabel(visit.start, now())} ${formatTime(visit.start)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''} · change` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
         href={{ pathname: '/schedule', params: { job: job.id } }}
         testID="job-visit"
       />
+      {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
+      {customer?.odooId ? <NavRow label="Address" detail={`${jobAddress(job, customer) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
+      {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} now={now} /> : null}
+        </>
+      ) : null}
+      {tab === 'work' ? (
+        <>
       <NavRow
         label="Inspection"
         detail={job.inspection ? `${checkCounts(job.inspection).done} of ${checkCounts(job.inspection).total} checked · ${checkCounts(job.inspection).fix} flagged` : 'Checklist, photos and signature'}
@@ -166,7 +184,6 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         href={{ pathname: '/ticket/[id]', params: { id: job.id } }}
         testID="job-open-ticket"
       />
-      <NavRow label="Photos" detail="Before and after" href={{ pathname: '/photos/[id]', params: { id: job.id } }} testID="job-open-photos" />
       <JobParts jobId={job.id} />
       {inv ? (
         <NavRow
@@ -176,9 +193,19 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
           testID="job-open-invoice"
         />
       ) : null}
-      {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
-      {customer?.odooId ? <NavRow label="Address" detail={`${jobAddress(job, customer) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
-      {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} now={now} /> : null}
+      <View style={styles.row}>
+        {job.steps?.workDoneAt ? <Action label="Undo work done" grow onPress={() => setStep(job.id, 'workDoneAt', undefined)} testID="job-undo-work" /> : null}
+        <Action label={job.status === 'done' ? 'Reopen job' : 'Close job'} grow onPress={() => setStatus(job.id, job.status === 'done' ? 'open' : 'done')} testID="job-close" />
+      </View>
+        </>
+      ) : null}
+      {tab === 'photos' ? (
+        <>
+      <NavRow label="Photos" detail="Before and after" href={{ pathname: '/photos/[id]', params: { id: job.id } }} testID="job-open-photos" />
+        </>
+      ) : null}
+      {tab === 'notes' ? (
+        <>
       {job.notes ? (
         <View style={styles.card}>
           <Text style={styles.label}>Notes</Text>
@@ -188,10 +215,19 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
 
       {job.odooJob ? <JobNotes job={job.odooJob} now={now} /> : null}
 
-      <View style={styles.row}>
-        {job.steps?.workDoneAt ? <Action label="Undo work done" grow onPress={() => setStep(job.id, 'workDoneAt', undefined)} testID="job-undo-work" /> : null}
-        <Action label={job.status === 'done' ? 'Reopen job' : 'Close job'} grow onPress={() => setStatus(job.id, job.status === 'done' ? 'open' : 'done')} testID="job-close" />
-      </View>
+        </>
+      ) : null}
+      <Dock>
+      {next ? (
+        <Action label={nextLabel(next.id, job, !!inv)} primary onPress={() => go(next.id)} testID="job-next" />
+      ) : (
+        <Text style={styles.done} testID="job-finished">
+          Job finished and paid.
+        </Text>
+      )}
+      {next && next.id === 'onMyWay' ? <Action label="Skip, I'm already here" onPress={() => go('arrived')} testID="job-skip-arrived" /> : null}
+
+      </Dock>
     </View>
   );
 }
@@ -244,6 +280,11 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
+  tabs: { flexDirection: 'row', gap: 6 },
+  tab: { paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: radius.pill },
+  tabOn: { backgroundColor: colors.selected },
+  tabText: { fontSize: 15, fontWeight: '700', color: colors.muted },
+  tabTextOn: { color: colors.onSelected },
   row: { flexDirection: 'row', gap: 8 },
   hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: 16, gap: 6, ...shadow },
   chipRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },

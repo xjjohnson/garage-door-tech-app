@@ -235,6 +235,7 @@ describe('Ticket screen', () => {
     await renderApp('/job/j1');
     await settle();
     expect(screen.getByTestId('job-step-quote')).toHaveTextContent('Ticket');
+    await fireEvent.press(screen.getByTestId('job-tab-work'));
     expect(screen.getByTestId('job-open-ticket')).toHaveTextContent(/Services and materials/);
     await fireEvent.press(screen.getByTestId('job-open-ticket'));
     await settle();
@@ -586,6 +587,7 @@ describe('Ticket screen', () => {
     // Parts used on the job page asks for it too.
     await fireEvent.press(screen.getByTestId('ticket-parts-open-job'));
     await settle();
+    await fireEvent.press(screen.getByTestId('job-tab-work'));
     expect(screen.getByTestId(`job-part-missing-${line.id}`)).toHaveTextContent(/not on the truck/);
     await fireEvent.press(screen.getByTestId(`job-part-missing-bought-${line.id}`));
     await settle();

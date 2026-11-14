@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { colors, touch, type } from '../theme';
+import { colors, radius, touch, type } from '../theme';
 import { Keypad } from './Keypad';
 
 /** A labelled group of inputs. */
@@ -255,8 +255,8 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   hint: { fontSize: 16, color: colors.muted },
-  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 14, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
-  sectionFirst: { marginTop: 0, paddingTop: 0, borderTopWidth: 0 },
+  section: { fontSize: 14, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: 16, marginBottom: 2 },
+  sectionFirst: { marginTop: 0 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     minHeight: touch.min,
@@ -264,10 +264,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
+    borderRadius: radius.field,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -276,9 +276,9 @@ const styles = StyleSheet.create({
   // Runs to the screen edges (the screen has 16 px padding) so the row visibly continues.
   chipScroll: { marginHorizontal: -16, flexGrow: 0 },
   chipScrollContent: { gap: 8, paddingHorizontal: 16 },
-  segments: { flexDirection: 'row', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
-  segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, backgroundColor: colors.card },
-  segmentDivider: { borderLeftWidth: 3, borderLeftColor: colors.border },
+  segments: { flexDirection: 'row', backgroundColor: colors.info, borderRadius: radius.pill, padding: 3, gap: 2 },
+  segment: { flex: 1, minHeight: touch.min - 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, borderRadius: radius.pill },
+  segmentDivider: {},
   segmentText: { fontSize: 16, fontWeight: '800', color: colors.text, textAlign: 'center' },
   chipOn: { backgroundColor: colors.selected },
   chipPressed: { backgroundColor: colors.info },
@@ -287,14 +287,14 @@ const styles = StyleSheet.create({
   chipTextOn: { color: colors.onSelected },
   measure: {
     minHeight: 64,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    borderRadius: radius.field,
+    borderWidth: 1,
+    borderColor: colors.line,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.card,
   },
   measureText: { fontSize: type.big, fontWeight: '800', color: colors.text },
   measureUnit: { fontSize: type.value, fontWeight: '700', color: colors.muted },

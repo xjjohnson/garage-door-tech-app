@@ -12,7 +12,7 @@ import { Icon } from './Icon';
 import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
-import { badgeText, CustomerBadge, fetchCustomerBadge, fetchHouseHistory, houseOfOrder, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';
+import { badgeText, CustomerBadge, fetchCustomerBadge, fetchCustomerEquipment, HouseEquipment, fetchHouseHistory, houseOfOrder, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';
 import { formatMoney } from '../lib/prices';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, type } from '../theme';
@@ -165,14 +165,41 @@ const styles = StyleSheet.create({
 /** "Opener 2" and "Door 1" style chips for the house's equipment records; tap one for its history and warranty. */
 export function EquipmentChips({ orderId, now = Date.now, onDark }: { orderId: number | undefined; now?: () => number; onDark?: boolean }) {
   const { house } = useHouseHistory(orderId);
+  if (!orderId || !house) return null;
+  return <ChipList equipment={house.equipment} now={now} onDark={onDark} />;
+}
+
+/** The same chips for every door and opener across a customer's houses. */
+export function CustomerEquipmentChips({ partnerId, now = Date.now, onDark }: { partnerId: number | undefined; now?: () => number; onDark?: boolean }) {
+  const { client } = useOdoo();
+  const [equipment, setEquipment] = useState<HouseEquipment[]>([]);
+  useEffect(() => {
+    if (!client || !partnerId) return;
+    let live = true;
+    readSaved<HouseEquipment[]>(HOUSE_STORAGE_KEY, `c${partnerId}`).then((s) => live && s && setEquipment((e) => (e.length ? e : s)));
+    fetchCustomerEquipment(client, partnerId)
+      .then((list) => {
+        if (!live) return;
+        setEquipment(list);
+        writeSaved(HOUSE_STORAGE_KEY, `c${partnerId}`, list);
+      })
+      .catch((e) => log.warn('odoo', `customer equipment: ${e instanceof Error ? e.message : String(e)}`));
+    return () => {
+      live = false;
+    };
+  }, [client, partnerId]);
+  return <ChipList equipment={equipment} now={now} onDark={onDark} testID="customer-equipment-chips" />;
+}
+
+function ChipList({ equipment, now, onDark, testID = 'equipment-chips' }: { equipment: HouseEquipment[]; now: () => number; onDark?: boolean; testID?: string }) {
   const [open, setOpen] = useState<number | null>(null);
-  if (!orderId || !house || house.equipment.length === 0) return null;
-  const sel = house.equipment.find((e) => e.id === open);
+  if (equipment.length === 0) return null;
+  const sel = equipment.find((e) => e.id === open);
   const w = sel ? warrantyStatus(sel, now()) : null;
   return (
-    <View style={chipStyles.wrap} testID="equipment-chips">
+    <View style={chipStyles.wrap} testID={testID}>
       <View style={chipStyles.row}>
-        {house.equipment.map((e) => (
+        {equipment.map((e) => (
           <Pressable
             key={e.id}
             onPress={() => setOpen(open === e.id ? null : e.id)}

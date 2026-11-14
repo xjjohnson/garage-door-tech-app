@@ -649,6 +649,7 @@ describe('truck, job parts, wrap-up and scorecard screens', () => {
 
     await renderApp('/job/j1');
     await settle();
+    await fireEvent.press(screen.getByTestId('job-tab-work'));
     await fireEvent.press(screen.getByTestId('job-parts-pick'));
     await fireEvent.press(screen.getByTestId('truck-pick-rol'));
     expect(screen.getByTestId('job-parts')).toHaveTextContent(/1 x Nylon rollers/);

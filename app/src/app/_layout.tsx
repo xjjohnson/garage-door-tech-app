@@ -149,7 +149,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 const styles = StyleSheet.create({
-  fail: { flex: 1, backgroundColor: colors.card, padding: 24, justifyContent: 'center', gap: 16 },
+  fail: { flex: 1, backgroundColor: colors.bg, padding: 24, justifyContent: 'center', gap: 16 },
   failTitle: { fontSize: type.big, fontWeight: '800', color: colors.text },
   failBody: { fontSize: type.body, fontWeight: '600', color: colors.muted, lineHeight: 26 },
   failButton: { minHeight: touch.min, borderRadius: 12, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' },

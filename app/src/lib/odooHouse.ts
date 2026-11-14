@@ -166,3 +166,14 @@ export function badgeText(b: Pick<CustomerBadge, 'visits' | 'spend'>, money: (ce
 
 /** A repeat customer has been here more than once before this job. */
 export const isRepeat = (b: Pick<CustomerBadge, 'visits'>) => b.visits >= 2;
+
+/** Every door and opener on file across a customer's houses (their Field Service locations), oldest first. */
+export async function fetchCustomerEquipment(c: Caller, partnerId: number): Promise<HouseEquipment[]> {
+  if (c.session.kind !== 'oca') return [];
+  const eqFields = await fieldsOf(c, 'fsm.equipment');
+  if (!eqFields?.includes('location_id') || !eqFields.includes('name')) return [];
+  const locs = (await c.call('fsm.location', 'search_read', [['|', ['partner_id', '=', partnerId], ['owner_id', '=', partnerId]]], { fields: ['name'], limit: 200 })) as { id: number }[];
+  if (locs.length === 0) return [];
+  const rows = (await c.call('fsm.equipment', 'search_read', [[['location_id', 'in', locs.map((l) => l.id)]]], { fields: ['name', ...(eqFields.includes('notes') ? ['notes'] : [])], order: 'id asc', limit: 100 })) as Record<string, unknown>[];
+  return rows.map((r) => ({ id: r.id as number, name: str(r.name) || `#${r.id}`, ...readEquipmentNotes(str(r.notes)) }));
+}
