@@ -235,3 +235,36 @@ export async function endAgreement(c: Caller, id: number, now: number, repeatIds
   await c.call('agreement', 'write', [[id], { end_date: day(now) }]);
   for (const r of repeatIds) await setRepeatState(c, r, 'stop');
 }
+
+// ---- Tune-up plan offered after a repair ----
+
+/** Whether a job's type is a repair worth following with a tune-up plan: any job that is not itself a tune-up, an inspection or an estimate. */
+export const isRepairJob = (what: string | undefined) => !/tune|inspect|estimate|quote/i.test(what ?? '');
+
+/** Whether this house already has a repeating visit that is on or waiting to start, so the offer is not made twice. */
+export function hasOpenTuneUp(repeats: RepeatRow[], address = ''): boolean {
+  const open = repeats.filter((r) => r.active && (r.status === 'Active' || r.status === 'Draft' || r.status === 'Paused'));
+  const key = address.trim().split(',')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+  const here = key ? open.filter((r) => !r.place || r.place.toLowerCase().replace(/[^a-z0-9]/g, '').includes(key)) : open;
+  return here.length > 0;
+}
+
+export interface TuneUpPlan {
+  repeatId: number;
+  /** Absent when this Odoo has no Agreement app: the repeat alone was made. */
+  agreementId?: number;
+}
+
+/**
+ * One tap after a repair: the yearly "Annual tune-up" repeating visit for the
+ * customer's house, first one a year out (Odoo makes each visit about 30 days
+ * ahead), and a record-only agreement under it. Nothing is billed.
+ */
+export async function offerTuneUpPlan(c: Caller, partnerId: number, who: { customer: string; address: string }, now: number): Promise<TuneUpPlan> {
+  const year = 365 * 24 * 60 * 60 * 1000;
+  const repeatId = await createRepeat(c, partnerId, { customer: who.customer, address: who.address, every: 'yearly', start: now + year, what: 'Annual tune-up' });
+  const { agreements } = await recurringSupport(c);
+  if (!agreements) return { repeatId };
+  const agreementId = await createAgreement(c, partnerId, { name: 'Yearly tune-up plan', notes: 'Annual tune-up, offered after a repair (made in the Johnsons app).', start: now, repeatId });
+  return { repeatId, agreementId };
+}

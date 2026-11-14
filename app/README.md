@@ -1083,3 +1083,7 @@ npm test            # Jest: keypad and form logic, and the screens (React Native
 npm run typecheck   # TypeScript
 npm run test:math   # the original Vitest suite in ../spring-calc (run npm ci there first)
 ```
+
+## Weather on Today
+
+Each visit on Today (the Next card and Later today) shows a weather line for its hour, such as "Rain likely · 66°F · 80% rain", and a red "Heads up" line near the top when rain, snow, a storm or extreme heat or cold is coming on the route. It comes from Open-Meteo (free, no key; `src/lib/weather.ts`, `useWeather.ts`) using the points the map already geocodes. It is read-only, kept in memory for 30 minutes, and shows nothing when there is no signal or the address isn't on the map yet. No Odoo involved.
