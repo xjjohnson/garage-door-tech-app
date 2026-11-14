@@ -1,3 +1,4 @@
+import type { Business } from '../lib/invoices';
 import { router } from 'expo-router';
 import { AddressSuggestions } from '../components/AddressSuggestions';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
@@ -83,7 +84,7 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
       </Text>
       {list.length === 0 ? <Text style={styles.meta}>Nothing on this day.</Text> : null}
       {list.map((a) => (
-        <Visit key={a.id} a={a} now={now()} businessName={business.name} onStatus={(s) => setStatus(a.id, s)} onMove={(start) => update(a.id, { start })} clash={a.status === 'booked' && overlaps(appointments, a).length > 0} />
+        <Visit key={a.id} a={a} now={now()} business={business} onStatus={(s) => setStatus(a.id, s)} onMove={(start) => update(a.id, { start })} clash={a.status === 'booked' && overlaps(appointments, a).length > 0} />
       ))}
       <Action label="Book a visit" primary onPress={() => setBooking(blank(day))} testID="schedule-book" />
 
@@ -113,7 +114,7 @@ function blank(day: number, who: Partial<NewAppointment> = {}): NewAppointment {
   return { start: slotsFor(day)[4], minutes: 60, name: '', address: '', phone: '', what: '', ...who };
 }
 
-function Visit({ a, now, businessName, onStatus, onMove, clash }: { a: Appointment; now: number; businessName: string; onStatus: (s: Appointment['status']) => void; onMove: (start: number) => void; clash: boolean }) {
+function Visit({ a, now, business, onStatus, onMove, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onMove: (start: number) => void; clash: boolean }) {
   const [eta, setEta] = useState(false);
   const maps = mapsLink(a.address);
   const tel = phoneLink(a.phone);
@@ -143,7 +144,7 @@ function Visit({ a, now, businessName, onStatus, onMove, clash }: { a: Appointme
                     grow
                     onPress={() => {
                       setEta(false);
-                      Linking.openURL(textLink(a.phone, onMyWayText(a, businessName, m))!).catch(() => undefined);
+                      Linking.openURL(textLink(a.phone, onMyWayText(a, business, m))!).catch(() => undefined);
                     }}
                     testID={`visit-eta-${m}-${a.id}`}
                   />
@@ -152,7 +153,7 @@ function Visit({ a, now, businessName, onStatus, onMove, clash }: { a: Appointme
             ) : (
               <View style={styles.row}>
                 <Action label="On my way" grow primary onPress={() => setEta(true)} testID={`visit-omw-${a.id}`} />
-                <Action label="Remind" grow onPress={() => Linking.openURL(textLink(a.phone, reminderText(a, businessName, now))!).catch(() => undefined)} testID={`visit-remind-${a.id}`} />
+                <Action label="Remind" grow onPress={() => Linking.openURL(textLink(a.phone, reminderText(a, business.name, now))!).catch(() => undefined)} testID={`visit-remind-${a.id}`} />
               </View>
             )
           ) : null}

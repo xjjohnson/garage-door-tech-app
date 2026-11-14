@@ -7,6 +7,9 @@
  * An appointment keeps what a field-service system keeps for a visit
  * (customer, address, start, length, status), so a later sync can map it.
  */
+import type { Business } from './invoices';
+import { messageText } from './messageTexts';
+
 export const SCHEDULE_STORAGE_KEY = 'schedule/v1';
 
 export type VisitStatus = 'booked' | 'done' | 'cancelled';
@@ -108,9 +111,10 @@ export function mapsLink(address: string): string | undefined {
   return a ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a)}` : undefined;
 }
 
-export function onMyWayText(a: Pick<Appointment, 'name'>, businessName: string, etaMinutes: number): string {
-  const first = a.name.split(/\s+/)[0] || 'there';
-  return `Hi ${first}, it's ${businessName || 'your garage door tech'}. I'm on my way and should be there in about ${etaMinutes} minutes.`;
+/** The On my way text (or, with kind 'eta', the ETA update), in the owner's wording from Management > Texts. */
+export function onMyWayText(a: Pick<Appointment, 'name'>, business: string | Partial<Business>, etaMinutes: number, kind: 'onMyWay' | 'eta' = 'onMyWay'): string {
+  const b: Partial<Business> = typeof business === 'string' ? { name: business } : business;
+  return messageText(b, kind, { name: a.name, minutes: etaMinutes });
 }
 
 export function reminderText(a: Pick<Appointment, 'name' | 'start'>, businessName: string, now: number): string {
