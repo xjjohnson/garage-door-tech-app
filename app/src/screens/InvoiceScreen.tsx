@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipOption, ChipRow, MeasureField, SectionTitle } from '../components/controls';
+import { CoveragePicker } from '../components/CoveragePicker';
 import { QrCode } from '../components/QrCode';
 import { SignatureSheet } from '../components/SignaturePad';
 import { signatureFor } from '../lib/attachments';
@@ -26,9 +27,10 @@ const CONFIRM_MS = 4000;
  * filled in; the tech records each payment by how it came in.
  */
 export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
-  const { business, addPayment, removePayment, setVoid } = useInvoices();
+  const { business, addPayment, removePayment, setVoid, setCoverage } = useInvoices();
   const status = invoiceStatus(invoice);
-  const warranty = warrantyFor(invoice, useFollowUps().settings);
+  const followSettings = useFollowUps().settings;
+  const warranty = warrantyFor(invoice, followSettings);
   const phone = useCustomers().customers.find((c) => c.id === invoice.customerId)?.phone ?? '';
   const review = reviewLink(business) ? textLink(phone, reviewRequestText(invoice, business)) : undefined;
   const due = balance(invoice);
@@ -85,6 +87,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
           {(warranty.partsUntil ?? 0) > Date.now() || (warranty.laborUntil ?? 0) > Date.now() ? ' (covered now)' : ' (ended)'}
         </Text>
       ) : null}
+      {status !== 'void' ? <CoveragePicker invoice={invoice} settings={followSettings} onChange={(patch) => setCoverage(invoice.id, patch)} /> : null}
       {invoice.customerId ? (
         <Action label="Customer history" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: invoice.customerId! } })} testID="invoice-customer" />
       ) : null}

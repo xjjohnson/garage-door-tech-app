@@ -61,6 +61,10 @@ export interface Invoice {
   autoSend?: boolean;
   /** The delivery address picked on the ticket; partner_shipping_id on the invoice in Odoo. */
   shipTo?: ShipTo;
+  /** Warranty picked for this job, in months (0 for none); what isn't set follows the follow-up settings. */
+  warranty?: { partsMonths?: number; laborMonths?: number };
+  /** How many times a day this door is used, to work out how long the springs should last; else the follow-up setting. */
+  cyclesPerDay?: number;
 }
 
 /** The customer reference the invoice goes to Odoo with. */
@@ -275,9 +279,23 @@ export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
       ...(str(x.ref) ? { ref: str(x.ref) } : {}),
       ...(x.autoSend === true ? { autoSend: true } : {}),
       ...(parseShipTo(x.shipTo) ? { shipTo: parseShipTo(x.shipTo) } : {}),
+      ...parseCoverage(x),
     });
   }
   return out;
+}
+
+/** The per-job warranty and uses a day, when saved and sensible. */
+function parseCoverage(x: Record<string, unknown>): Pick<Invoice, 'warranty' | 'cyclesPerDay'> {
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined);
+  const w = x.warranty && typeof x.warranty === 'object' ? (x.warranty as Record<string, unknown>) : {};
+  const partsMonths = n(w.partsMonths);
+  const laborMonths = n(w.laborMonths);
+  const cycles = n(x.cyclesPerDay);
+  return {
+    ...(partsMonths !== undefined || laborMonths !== undefined ? { warranty: { ...(partsMonths !== undefined ? { partsMonths } : {}), ...(laborMonths !== undefined ? { laborMonths } : {}) } } : {}),
+    ...(cycles ? { cyclesPerDay: cycles } : {}),
+  };
 }
 
 export function parseBusiness(raw: string | null | object): Business {
