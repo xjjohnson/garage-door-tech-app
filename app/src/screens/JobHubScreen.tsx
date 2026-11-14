@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
 import { JobParts } from '../components/JobParts';
+import { OdooNotes } from '../components/OdooNotes';
 import { jobAddress, useJobCustomer } from './JobAddressScreen';
 import { checkCounts } from '../lib/inspection';
 import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
@@ -15,7 +16,9 @@ import { dayLabel, formatTime, mapsLink, onMyWayText } from '../lib/schedule';
 import { useSchedule } from '../lib/useSchedule';
 import { currentTotals, subtotal } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
+import { houseOf, NoteTarget } from '../lib/odooNotes';
 import { useJobs } from '../lib/useJobs';
+import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
 
 const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
@@ -155,11 +158,32 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         </View>
       ) : null}
 
+      {job.odooJob ? <JobNotes job={job.odooJob} now={now} /> : null}
+
       <View style={styles.row}>
         {job.steps?.workDoneAt ? <Action label="Undo work done" grow onPress={() => setStep(job.id, 'workDoneAt', undefined)} testID="job-undo-work" /> : null}
         <Action label={job.status === 'done' ? 'Reopen job' : 'Close job'} grow onPress={() => setStatus(job.id, job.status === 'done' ? 'open' : 'done')} testID="job-close" />
       </View>
     </View>
+  );
+}
+
+/** The job's notes in Odoo, and the house's (the Field Service location), which every visit there shares. */
+function JobNotes({ job, now }: { job: NonNullable<Job['odooJob']>; now: () => number }) {
+  const { client } = useOdoo();
+  const [house, setHouse] = useState<NoteTarget | null>(null);
+  useEffect(() => {
+    if (!client) return;
+    houseOf(client, job)
+      .then(setHouse)
+      .catch(() => undefined);
+  }, [client, job]);
+  const target = useMemo<NoteTarget>(() => ({ model: job.model, id: job.id }), [job.model, job.id]);
+  return (
+    <>
+      <OdooNotes target={target} title="Job notes" now={now} testID="job-notes" />
+      {house ? <OdooNotes target={house} title="House notes" now={now} testID="house-notes" /> : null}
+    </>
   );
 }
 
