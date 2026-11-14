@@ -273,6 +273,18 @@ describe('repair-only quote', () => {
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$127.50');
   });
 
+  it('still lets a custom line be typed, as the second choice', async () => {
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
+    await renderApp('/quote/j1');
+    await settle();
+    await fireEvent.press(screen.getByTestId('quote-line-custom'));
+    const [line] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines!;
+    await fireEvent.changeText(screen.getByTestId(`quote-line-name-${line.id}`), 'Cable replacement');
+    await settle();
+    expect(screen.queryByTestId('quote-blocked')).toBeNull();
+    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
+  });
+
   it('offers every Odoo quotation template, not only the job type\'s', async () => {
     await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(SETS));
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Tune-up' }]));
