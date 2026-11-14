@@ -1,7 +1,7 @@
 /**
  * Doors and openers Justin sells as Odoo equipment (OCA Field Service,
- * fsm.equipment). A door or opener on an invoice (a price-book product in
- * a Doors or Openers category) becomes an equipment record on the house's
+ * fsm.equipment). A part sold on an invoice that the tech ticked under
+ * "Track as equipment" (on the warranty card) becomes an equipment record on the house's
  * Field Service location, with the warranty picked for the job written on
  * it. Equipment comes from what is sold, not from the inspection sheet.
  * Kept free of React.
@@ -12,19 +12,15 @@
  * Notes is replaced, so anything typed there in Odoo stays. Odoo without
  * the equipment app is skipped quietly.
  */
-import type { PriceBookItem } from './priceBook';
 import { FollowUpSettings, warrantyFor, Warranty } from './followups';
-import type { Invoice } from './invoices';
+import { Invoice, trackKey } from './invoices';
 import type { OdooClient } from './odoo';
 
 type Caller = Pick<OdooClient, 'call'>;
 
-export type EquipmentKind = 'door' | 'opener';
-
 export interface EquipmentItem {
   /** The phone's id for it, written in the notes so a later visit finds it. */
   key: string;
-  kind: EquipmentKind;
   name: string;
   /** The Odoo product it was sold as. */
   productId?: number;
@@ -101,36 +97,26 @@ export async function sendEquipment(client: Caller, locationId: number, items: E
   return n;
 }
 
-/** Categories (any level of a product's path) that hold what Justin sells as doors and as openers. */
-const OPENER = /opener|operator/i;
-const DOOR = /^(new |residential |commercial )?(garage )?doors?( installs?| sales)?$/i;
 const MAX_PER_LINE = 6;
 
-/** Whether a price-book product is a door or an opener, by its category. */
-export function equipmentKind(item: Pick<PriceBookItem, 'category'>): EquipmentKind | null {
-  if (item.category.some((c) => OPENER.test(c))) return 'opener';
-  if (item.category.some((c) => DOOR.test(c.trim()))) return 'door';
-  return null;
-}
-
 /**
- * The equipment an invoice sells: each line that is a door or opener product
- * (one record per unit), with the warranty picked for the job.
+ * The equipment an invoice sells: each line the tech ticked under "Track as
+ * equipment" on the job's warranty card (one record per unit), with the
+ * warranty picked for the job. Nothing is guessed from categories.
  */
-export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'lines' | 'createdAt' | 'warranty' | 'source' | 'tier'>, book: Pick<PriceBookItem, 'id' | 'name' | 'category'>[], settings: FollowUpSettings): EquipmentItem[] {
+export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'lines' | 'createdAt' | 'warranty' | 'source' | 'tier'>, settings: FollowUpSettings): EquipmentItem[] {
+  const tracked = inv.warranty?.tracked ?? [];
+  if (!tracked.length) return [];
   const warranty = warrantyLines(warrantyFor(inv as Invoice, settings), inv.number);
   const out: EquipmentItem[] = [];
   inv.lines.forEach((l, i) => {
-    const item = l.productId ? book.find((b) => b.id === l.productId) : undefined;
-    const kind = item && equipmentKind(item);
-    if (!item || !kind) return;
+    if (!tracked.includes(trackKey(l))) return;
     const units = Math.min(MAX_PER_LINE, Math.max(1, Math.round(l.qty ?? 1)));
     for (let u = 0; u < units; u++) {
       out.push({
         key: `${inv.id}:${i}:${u}`,
-        kind,
-        name: units > 1 ? `${item.name} ${u + 1}` : item.name,
-        productId: item.id,
+        name: units > 1 ? `${l.label} ${u + 1}` : l.label,
+        ...(l.productId ? { productId: l.productId } : {}),
         lines: [`Sold: ${dateOf(inv.createdAt)} (invoice ${inv.number})`, ...warranty],
       });
     }

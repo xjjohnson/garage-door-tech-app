@@ -92,20 +92,20 @@ export function BusinessScreen() {
         </Pressable>
       ) : null}
       <SectionTitle>Warranty lengths</SectionTitle>
-      <Text style={styles.note}>The starting warranty on each job, saved on this phone. On an invoice you can pick that job&apos;s own warranty.</Text>
+      <Text style={styles.note}>The starting warranty on each job, saved on this phone: parts in years, labor in days. On an invoice you can pick that job&apos;s own warranty.</Text>
       {TIERS.map((tier) => (
         <MeasureField
           key={tier}
           label={`${TIER_LABEL[tier]} spring warranty`}
-          value={String(settings.warrantyMonths[tier])}
-          onChange={(v) => setSettings((s) => ({ ...s, warrantyMonths: { ...s.warrantyMonths, [tier]: num(v, s.warrantyMonths[tier]) } }))}
-          unit="months"
+          value={String(settings.warrantyMonths[tier] / 12)}
+          onChange={(v) => setSettings((s) => ({ ...s, warrantyMonths: { ...s.warrantyMonths, [tier]: num(v, s.warrantyMonths[tier] / 12) * 12 } }))}
+          unit="years"
           allowFraction={false}
           allowDecimal={false}
           testID={`followup-warranty-${tier}`}
         />
       ))}
-      <MeasureField label="Labor warranty" value={String(settings.laborWarrantyMonths)} onChange={(v) => setSettings((s) => ({ ...s, laborWarrantyMonths: num(v, s.laborWarrantyMonths) }))} unit="months" allowFraction={false} allowDecimal={false} testID="followup-labor" />
+      <MeasureField label="Labor warranty" value={String(settings.laborWarrantyDays)} onChange={(v) => setSettings((s) => ({ ...s, laborWarrantyDays: num(v, s.laborWarrantyDays) }))} unit="days" allowFraction={false} allowDecimal={false} testID="followup-labor" />
       {preview.length > 0 ? (
         <>
           <SectionTitle>Check your codes</SectionTitle>

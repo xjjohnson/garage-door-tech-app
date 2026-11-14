@@ -62,8 +62,11 @@ export interface Invoice {
   /** The delivery address picked on the ticket; partner_shipping_id on the invoice in Odoo. */
   shipTo?: ShipTo;
   /** Warranty picked for this job, in months (0 for none); what isn't set follows the follow-up settings. */
-  warranty?: { partsMonths?: number; laborMonths?: number };
+  warranty?: { partsMonths?: number; /** Labor by days (laborMonths is how 0.5.62 to 0.5.77 saved it). */ laborDays?: number; laborMonths?: number; /** The lines sold that are tracked as equipment in Odoo (see trackKey). */ tracked?: string[] };
 }
+
+/** Identifies an invoice line for equipment tracking: its Odoo product and name. */
+export const trackKey = (l: Pick<QuoteLine, 'label' | 'productId'>) => `${l.productId ?? ''}:${l.label}`;
 
 /** The customer reference the invoice goes to Odoo with. */
 export const invoiceRef = (inv: Pick<Invoice, 'ref' | 'number'>) => inv.ref?.trim() || `Invoice ${inv.number}`;
@@ -289,9 +292,15 @@ function parseCoverage(x: Record<string, unknown>): Pick<Invoice, 'warranty'> {
   const w = x.warranty && typeof x.warranty === 'object' ? (x.warranty as Record<string, unknown>) : {};
   const partsMonths = n(w.partsMonths);
   const laborMonths = n(w.laborMonths);
-  return {
-    ...(partsMonths !== undefined || laborMonths !== undefined ? { warranty: { ...(partsMonths !== undefined ? { partsMonths } : {}), ...(laborMonths !== undefined ? { laborMonths } : {}) } } : {}),
+  const laborDays = n(w.laborDays);
+  const tracked = Array.isArray(w.tracked) ? w.tracked.filter((k): k is string => typeof k === 'string') : [];
+  const warranty = {
+    ...(partsMonths !== undefined ? { partsMonths } : {}),
+    ...(laborMonths !== undefined ? { laborMonths } : {}),
+    ...(laborDays !== undefined ? { laborDays } : {}),
+    ...(tracked.length ? { tracked } : {}),
   };
+  return Object.keys(warranty).length ? { warranty } : {};
 }
 
 export function parseBusiness(raw: string | null | object): Business {

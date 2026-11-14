@@ -15,13 +15,14 @@ export interface FollowUpSettings {
   cyclesPerDay: number;
   /** Warranty on the springs put in, by option, in months; 0 for none. */
   warrantyMonths: Record<Tier, number>;
-  laborWarrantyMonths: number;
+  /** Warranty on labor, in days. */
+  laborWarrantyDays: number;
 }
 
 export const DEFAULT_FOLLOW_UP: FollowUpSettings = {
   cyclesPerDay: 4,
   warrantyMonths: { good: 12, better: 36, best: 60 },
-  laborWarrantyMonths: 12,
+  laborWarrantyDays: 365,
 };
 
 export function addMonths(ms: number, months: number): number {
@@ -40,10 +41,11 @@ export function warrantyFor(inv: Invoice, s: FollowUpSettings): Warranty {
   // A ticket isn't a spring option, so it has no spring warranty of its own.
   // The job's own choice wins; else the settings' lengths.
   const p = inv.warranty?.partsMonths ?? (inv.source === 'ticket' ? 0 : s.warrantyMonths[inv.tier]);
-  const l = inv.warranty?.laborMonths ?? s.laborWarrantyMonths;
+  const w = inv.warranty;
+  const laborUntil = w?.laborDays !== undefined ? (w.laborDays > 0 ? inv.createdAt + w.laborDays * DAY : null) : w?.laborMonths !== undefined ? (w.laborMonths > 0 ? addMonths(inv.createdAt, w.laborMonths) : null) : s.laborWarrantyDays > 0 ? inv.createdAt + s.laborWarrantyDays * DAY : null;
   return {
     partsUntil: p > 0 ? addMonths(inv.createdAt, p) : null,
-    laborUntil: l > 0 ? addMonths(inv.createdAt, l) : null,
+    laborUntil,
   };
 }
 
@@ -137,7 +139,8 @@ export function parseFollowUpSettings(v: unknown): FollowUpSettings {
       better: n(w.better, DEFAULT_FOLLOW_UP.warrantyMonths.better),
       best: n(w.best, DEFAULT_FOLLOW_UP.warrantyMonths.best),
     },
-    laborWarrantyMonths: n(d.laborWarrantyMonths, DEFAULT_FOLLOW_UP.laborWarrantyMonths),
+    // Phones that saved months keep that length, as days.
+    laborWarrantyDays: n(d.laborWarrantyDays, typeof d.laborWarrantyMonths === 'number' && d.laborWarrantyMonths >= 0 ? Math.round(d.laborWarrantyMonths * 30.4) : DEFAULT_FOLLOW_UP.laborWarrantyDays),
   };
 }
 
