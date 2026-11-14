@@ -12,6 +12,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { AddressSheet } from '../components/AddressSheet';
 import { CustomerOdoo } from '../components/CustomerOdoo';
+import { CustomerBadgeLine } from '../components/HouseHistory';
 import { OdooNotes } from '../components/OdooNotes';
 import { useOdoo } from '../lib/useOdoo';
 import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
@@ -53,6 +54,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
         {!fromOdoo && s.acceptedTotal > 0 ? `. ${formatMoney(s.acceptedTotal)} in accepted quotes` : ''}
         {fromOdoo ? null : `. Customer since ${formatJobDate(customer.createdAt)}.`}
       </Text>
+      {fromOdoo ? <CustomerBadgeLine partnerId={customer.odooId} /> : null}
       {owed > 0 ? (
         <Text style={styles.owed} testID="customer-owed">
           Owes {formatMoney(owed)}
