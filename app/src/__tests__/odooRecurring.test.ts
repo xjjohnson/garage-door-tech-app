@@ -1,5 +1,6 @@
 import { createManualFollowUp, fetchTodos } from '../lib/odooFollowUps';
 import { fetchMyTodos } from '../lib/odooFollowUps';
+import { hasOpenTuneUp, isRepairJob, offerTuneUpPlan } from '../lib/odooRecurring';
 import { agreementCode, createAgreement, createRepeat, editAgreement, endAgreement, fetchAgreements, fetchRepeats, recurringSupport, setRepeatState } from '../lib/odooRecurring';
 
 type Call = { model: string; method: string; args: unknown[]; kwargs?: Record<string, unknown> };
@@ -152,5 +153,56 @@ describe('my to-dos across customers', () => {
       ],
     };
     expect(await fetchMyTodos(c)).toEqual([{ id: 1, title: 'Call', partnerId: 7, customer: 'john smith', due: '2026-11-21', note: undefined }]);
+  });
+});
+
+describe('tune-up plan after a repair', () => {
+  it('offers only after repairs, and not where a repeat is already open', () => {
+    expect(isRepairJob('Broken spring')).toBe(true);
+    expect(isRepairJob(undefined)).toBe(true);
+    expect(isRepairJob('Tune-up')).toBe(false);
+    const r = { id: 1, name: 'R', status: 'Active', active: true, place: '12 Oak St' };
+    expect(hasOpenTuneUp([r], '12 Oak St, Austin')).toBe(true);
+    expect(hasOpenTuneUp([r], '99 Elm Ave')).toBe(false);
+    expect(hasOpenTuneUp([{ ...r, status: 'Closed' }], '12 Oak St')).toBe(false);
+    expect(hasOpenTuneUp([r], '')).toBe(true);
+  });
+
+  const odoo = (agreement: boolean) => {
+    const calls: { model: string; method: string; args: unknown[] }[] = [];
+    return {
+      calls,
+      session: { uid: 5, kind: 'oca' } as never,
+      async call(model: string, method: string, args: unknown[]) {
+        calls.push({ model, method, args });
+        if (method === 'fields_get') {
+          if (model === 'agreement' && !agreement) throw new Error('Object does not exist');
+          return { name: {}, code: {}, partner_id: {}, location_id: {}, description: {}, domain: {}, agreement_id: {}, buffer_early: {} };
+        }
+        if (model === 'fsm.frequency.set' && method === 'search') return [3];
+        if (model === 'fsm.location' && method === 'search_read') return [{ id: 11, name: '1 Oak St', street: '1 Oak St' }];
+        if (model === 'agreement' && method === 'create') return 55;
+        if (method === 'create') return 99;
+        if (method === 'next_by_code') return 'AGR9';
+        return true;
+      },
+    };
+  };
+
+  it('makes the yearly repeat a year out and a record-only agreement under it', async () => {
+    const c = odoo(true);
+    const now = Date.UTC(2026, 10, 14);
+    const plan = await offerTuneUpPlan(c, 7, { customer: 'Pat', address: '1 Oak St' }, now);
+    expect(plan).toEqual({ repeatId: 99, agreementId: 55 });
+    const rep = c.calls.find((x) => x.model === 'fsm.recurring' && x.method === 'create');
+    expect(rep?.args[0]).toMatchObject({ location_id: 11, fsm_frequency_set_id: 3, start_date: '2027-11-14 00:00:00' });
+    expect(c.calls.find((x) => x.model === 'agreement' && x.method === 'create')?.args[0]).toMatchObject({ partner_id: 7, name: 'Yearly tune-up plan' });
+    expect(c.calls.find((x) => x.model === 'fsm.recurring' && x.method === 'write' && JSON.stringify(x.args).includes('agreement_id'))?.args).toEqual([[99], { agreement_id: 55 }]);
+  });
+
+  it('makes just the repeat when there is no Agreement app', async () => {
+    const c = odoo(false);
+    expect(await offerTuneUpPlan(c, 7, { customer: 'Pat', address: '1 Oak St' }, 0)).toEqual({ repeatId: 99 });
+    expect(c.calls.some((x) => x.model === 'agreement' && x.method === 'create')).toBe(false);
   });
 });
