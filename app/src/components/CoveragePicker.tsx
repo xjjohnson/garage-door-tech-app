@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { ChipOption, ChipRow } from './controls';
 import { FollowUpSettings, warrantyFor } from '../lib/followups';
 import { DAY } from '../lib/followups';

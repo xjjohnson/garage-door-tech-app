@@ -1,6 +1,7 @@
 import { requestSyncNow } from '../lib/syncNow';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
 import { smsLink } from '../lib/jobSteps';
@@ -256,7 +257,7 @@ const styles = StyleSheet.create({
   block: { minHeight: touch.min, minWidth: 96, maxWidth: '100%', borderRadius: 8, borderWidth: 2, borderColor: colors.border, paddingHorizontal: 8, paddingVertical: 4, justifyContent: 'center', backgroundColor: colors.bg },
   blockTime: { fontSize: 13, fontWeight: '900', color: colors.text },
   blockText: { fontSize: 15, fontWeight: '800', color: colors.text },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   sheet: { maxHeight: '85%', backgroundColor: colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: 3, borderColor: colors.border },
   sheetBody: { padding: 16, paddingBottom: 28, gap: 10 },

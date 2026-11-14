@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { applyKey, EIGHTHS, KeypadKey, SIXTEENTHS } from '../lib/measure';
 import { colors, touch, type } from '../theme';
 
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   fractionKey: { flexBasis: '22%', flexGrow: 1, minHeight: touch.min },
   blank: { flex: 1 },
   fractionBlank: { flexBasis: '22%', flexGrow: 1 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   keyText: { fontSize: type.big, fontWeight: '800', color: colors.text },
   fractionText: { fontSize: type.value },
   done: { backgroundColor: colors.selected, flex: 2 },

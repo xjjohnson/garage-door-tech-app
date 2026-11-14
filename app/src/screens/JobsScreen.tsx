@@ -1,7 +1,8 @@
 import { SyncNowButton } from '../components/SyncNowButton';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { ChipOption, Segmented } from '../components/controls';
 import { JobDetailsSheet } from '../components/JobDetailsSheet';
 import { acceptedLabel, formatJobDate, Job, jobName, JobStatus, MODE_LABEL, phoneLink, searchJobs, sortJobs } from '../lib/jobs';
@@ -314,7 +315,7 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.selected },
   due: { backgroundColor: colors.safety },
   armed: { backgroundColor: colors.stop, borderColor: colors.stop },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
 });

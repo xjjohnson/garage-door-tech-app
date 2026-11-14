@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { formatJobDate, jobName } from '../lib/jobs';
 import { olderJobs } from '../lib/odooJobs';
@@ -75,6 +76,6 @@ const styles = StyleSheet.create({
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   card: { minHeight: touch.min, padding: 12, gap: 4, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card },
   cardOn: { borderWidth: 4, backgroundColor: colors.bg },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
 });

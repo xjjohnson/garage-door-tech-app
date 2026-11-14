@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
 import { formatJobDate } from '../lib/jobs';
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
   stack: { gap: 10 },
   input: { minHeight: touch.min, borderRadius: 12, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
   row: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   top: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   name: { fontSize: type.body, fontWeight: '900', color: colors.text },
   money: { fontSize: type.body, fontWeight: '900', color: colors.text },

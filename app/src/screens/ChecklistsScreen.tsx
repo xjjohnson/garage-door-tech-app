@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { SectionTitle } from '../components/controls';
 import { REPORT_SYNC_SINCE_KEY } from '../components/OdooReportSync';
 import { surveysToSend } from '../lib/odooSurveyAnswers';
@@ -138,6 +139,6 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 14, gap: 2 },
   title: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: type.body, color: colors.muted },
-  button: { minHeight: touch.min, borderRadius: 10, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  button: { minHeight: touch.min, borderRadius: 10, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   buttonText: { fontSize: type.body, fontWeight: '700', color: colors.onSelected },
 });

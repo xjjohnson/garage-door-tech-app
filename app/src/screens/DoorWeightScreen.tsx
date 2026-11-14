@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { ChipOption, ChipRow, Field, MeasureField } from '../components/controls';
 import { Card, Warnings } from '../components/results';
 import { formatFeetInches, parseMeasurement } from '../lib/measure';

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { OdooError } from '../lib/odoo';
 import { CrampedAddress, crampedAddresses, splitAddresses } from '../lib/odooContacts';
 import { useCustomerSync } from '../lib/useCustomerSync';
@@ -129,5 +130,5 @@ const styles = StyleSheet.create({
   tick: { fontSize: 24, color: colors.text },
   grow: { flex: 1 },
   pickName: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { DAY } from '../lib/followups';
 import type { AgreementRow, FrequencySet, RepeatRow } from '../lib/odooRecurring';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
@@ -210,6 +211,6 @@ const styles = StyleSheet.create({
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
   save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '900', color: colors.onSelected },
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { Discount, DiscountPreset, discountAmountText, discountText, parseDollars, parsePct } from '../lib/discounts';
 import { colors, touch, type } from '../theme';
 import { Action } from './Buttons';

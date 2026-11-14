@@ -1,5 +1,6 @@
 import { ReactNode, useRef } from 'react';
-import { Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, ScrollViewInstance, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { colors, touch, type } from '../theme';
 
 export type BarTone = 'waiting' | 'ok' | 'stop';
@@ -95,7 +96,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 3,
     borderTopColor: colors.border,
   },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   pressedText: { color: colors.text },
   barText: { flex: 1, gap: 2 },
   barTitle: { fontSize: type.value, fontWeight: '900' },

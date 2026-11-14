@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { JobInputs, jobName } from '../lib/jobs';
 import { useJobs } from '../lib/useJobs';
 import { colors, touch, type } from '../theme';
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
   primary: { backgroundColor: colors.selected },
   off: { backgroundColor: colors.card, borderColor: colors.muted, borderStyle: 'dashed' },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   primaryText: { color: colors.onSelected },
   offText: { color: colors.muted },

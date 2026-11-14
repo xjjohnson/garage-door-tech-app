@@ -1,5 +1,6 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import type { OdooClient } from '../lib/odoo';
 import {
   archiveJobType,
@@ -505,14 +506,14 @@ const styles = StyleSheet.create({
   multiline: { minHeight: 120, paddingTop: 12, textAlignVertical: 'top' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: touch.min, backgroundColor: colors.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   rowText: { flex: 1, gap: 2 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   chevron: { fontSize: 28, fontWeight: '800', color: colors.text },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: 16, color: colors.muted },
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 10 },
   pick: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 14, backgroundColor: colors.bg },
   back: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primary: { minHeight: touch.min, borderRadius: 10, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  primary: { minHeight: touch.min, borderRadius: 10, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
   danger: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.stop, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   dangerText: { fontSize: type.body, fontWeight: '800', color: colors.stop },

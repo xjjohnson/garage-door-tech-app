@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import { categoryLevel, PriceBookItem, searchItems } from '../lib/priceBook';
 import { formatMoney } from '../lib/prices';
@@ -82,5 +83,5 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 15, fontWeight: '700', color: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

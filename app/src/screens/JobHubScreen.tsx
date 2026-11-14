@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
 import { CustomerBadgeLine, HouseCard } from '../components/HouseHistory';
@@ -248,9 +249,9 @@ const styles = StyleSheet.create({
   step: { flex: 1, gap: 6 },
   bar: { height: 8, borderRadius: 4, backgroundColor: colors.info },
   barDone: { backgroundColor: colors.text },
-  barNext: { backgroundColor: colors.brand },
+  barNext: { backgroundColor: colors.selected },
   stepText: { fontSize: 13, fontWeight: '800', color: colors.text },
-  stepNext: { color: colors.brand, fontWeight: '900' },
+  stepNext: { color: colors.selected, fontWeight: '900' },
   stepLater: { color: colors.muted, fontWeight: '700' },
   done: { fontSize: type.body, fontWeight: '900', color: colors.ok, minHeight: touch.min, textAlignVertical: 'center' },
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 4 },

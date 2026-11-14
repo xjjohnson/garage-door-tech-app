@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { useEffect, useRef, useState } from 'react';
 import type { ScrollViewInstance } from 'react-native';
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Customer, CustomerFields, customerName, emailLink, summarize } from '../lib/customers';
 import { acceptedLabel, formatJobDate, MODE_LABEL, phoneLink } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
   jobTitle: { fontSize: type.body, fontWeight: '900', color: colors.text },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.bg },
   primary: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },

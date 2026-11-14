@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import type { StockProduct } from '../lib/odooStock';
 import { colors, touch, type } from '../theme';
@@ -140,5 +141,5 @@ const styles = StyleSheet.create({
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 15, fontWeight: '700', color: colors.muted },
   error: { fontSize: 16, fontWeight: '800', color: colors.stop },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

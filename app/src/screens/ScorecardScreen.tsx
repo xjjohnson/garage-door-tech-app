@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
 import { isOwner, odooOwnerData, odooScoreData, OwnerData, ownerSummary, phoneOwnerData, phoneScoreData, SCORE_PERIOD_LABEL, ScoreData, ScorePeriod, scorecard, scorePeriod, TechScore } from '../lib/scorecard';
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 13, fontWeight: '800', color: colors.muted },
   meta: { fontSize: 15, fontWeight: '800', color: colors.muted },
   track: { height: 12, borderRadius: 6, backgroundColor: colors.info, overflow: 'hidden' },
-  fill: { height: '100%', backgroundColor: colors.brand },
+  fill: { height: '100%', backgroundColor: colors.selected },
   note: { fontSize: 15, fontWeight: '600', color: colors.muted },
   error: { fontSize: 16, fontWeight: '800', color: colors.stop },
 });

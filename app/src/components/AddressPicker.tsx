@@ -5,7 +5,8 @@
  * contact id to use as the delivery address (partner_shipping_id): the
  * customer's own id for the main address.
  */
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { addressLine, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
 import { colors, touch, type } from '../theme';
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
   stack: { gap: 8 },
   option: { minHeight: touch.min, padding: 10, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg, gap: 2 },
   on: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   title: { fontSize: 16, fontWeight: '800', color: colors.muted },
   line: { fontSize: type.body, fontWeight: '800', color: colors.text },
   onText: { color: colors.onSelected },

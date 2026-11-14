@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { CheckResult, runSetupCheck, setupSummary } from '../lib/setupCheck';
 import { useOdoo } from '../lib/useOdoo';

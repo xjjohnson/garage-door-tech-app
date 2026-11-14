@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { formatInches, formatNumber } from '../lib/measure';
 import { expectedLife, formatLife, springName } from '../lib/springNames';
 import { useFollowUps } from '../lib/useFollowUps';

@@ -7,7 +7,8 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
 import { whatOf } from '../lib/odooJobs';
@@ -144,6 +145,6 @@ const styles = StyleSheet.create({
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.bg },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

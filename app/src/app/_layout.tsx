@@ -1,7 +1,8 @@
 import { ErrorBoundaryProps, Stack } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { OdooCustomerBackgroundSync } from '../components/OdooCustomerBackgroundSync';
@@ -31,8 +32,10 @@ import { StockProvider } from '../lib/useStock';
 import { WorkLogProvider } from '../lib/useWorkLog';
 import { BUILD_INFO } from '../lib/appVersion';
 import { installCrashHandler } from '../lib/crash';
+import { loadFonts } from '../lib/fonts';
 import { describeError, log } from '../lib/log';
-import { colors, touch, type } from '../theme';
+import { useColorSchemeReload } from '../lib/useColorSchemeReload';
+import { colors, isDark, touch, type } from '../theme';
 
 // Errors nobody caught go to the log before anything else runs.
 installCrashHandler(log);
@@ -45,8 +48,10 @@ installCrashHandler(log);
 export default function RootLayout() {
   useEffect(() => {
     log.prune();
+    loadFonts();
     log.info('app', `started · ${BUILD_INFO}`);
   }, []);
+  useColorSchemeReload();
   return (
     <SafeAreaProvider>
       <JobsProvider>
@@ -60,7 +65,7 @@ export default function RootLayout() {
                       <AttachmentsProvider>
                         <OdooProvider>
                           <CalculatorLinkProvider>
-                            <StatusBar style="dark" />
+                            <StatusBar style={isDark ? 'light' : 'dark'} />
                             <OdooCustomerBackgroundSync />
                             <OdooJobSync />
                             <OdooVisitSync />
@@ -147,9 +152,9 @@ const styles = StyleSheet.create({
   fail: { flex: 1, backgroundColor: colors.bg, padding: 24, justifyContent: 'center', gap: 16 },
   failTitle: { fontSize: type.big, fontWeight: '900', color: colors.text },
   failBody: { fontSize: type.body, fontWeight: '600', color: colors.muted, lineHeight: 26 },
-  failButton: { minHeight: touch.min, borderRadius: 12, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
+  failButton: { minHeight: touch.min, borderRadius: 12, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' },
   failSecondary: { backgroundColor: colors.bg, borderWidth: 2, borderColor: colors.border },
-  failPressed: { backgroundColor: colors.safety },
+  failPressed: { backgroundColor: colors.info },
   failButtonText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
   failSecondaryText: { color: colors.text },
 });
