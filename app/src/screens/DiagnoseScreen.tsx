@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { ChipOption, ChipRow, Segmented } from '../components/controls';
 import { DIAG_BRANDS, DIAG_SAFETY, DiagSource, SYMPTOMS } from '../data/diagnostics';
 import { familiesFor, familyById, findCode, hostOf } from '../lib/diagnose';
@@ -222,5 +223,5 @@ const styles = StyleSheet.create({
   source: { minHeight: touch.min, padding: 10, borderRadius: 10, borderWidth: 2, borderColor: colors.border, justifyContent: 'center', gap: 2 },
   sourceTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   sourceHost: { fontSize: 14, fontWeight: '600', color: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

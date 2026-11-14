@@ -6,7 +6,8 @@
  * read is kept for no signal. Notes are internal only.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { log } from '../lib/log';
 import type { VoiceNote } from '../lib/inspection';
 import { cacheNotes, fetchNotes, NoteRow, NoteTarget, onOutboxChange, PendingNote, queueNote, readCachedNotes, readOutbox, dropFromOutbox } from '../lib/odooNotes';

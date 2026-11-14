@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { MeasureField, SectionTitle, Segmented } from '../components/controls';
 import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
@@ -202,6 +203,6 @@ const styles = StyleSheet.create({
   onClock: { borderWidth: 4, borderColor: colors.selected },
   onClockText: { fontWeight: '900' },
   danger: { borderColor: colors.caution, borderWidth: 4 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import { createProduct, searchProducts, StockProduct } from '../lib/odooStock';
 import { findByCode, openPurchases, StockItem } from '../lib/stock';
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
   undoText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
   button: { flex: 1, minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: colors.bg },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '85%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

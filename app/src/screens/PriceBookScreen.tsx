@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle, Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
@@ -154,6 +155,6 @@ const styles = StyleSheet.create({
   price: { fontSize: type.body, fontWeight: '900', color: colors.text },
   star: { minWidth: touch.min, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   starText: { fontSize: 30, color: colors.text },
-  starOn: { color: colors.brand },
-  pressed: { backgroundColor: colors.safety },
+  starOn: { color: colors.selected },
+  pressed: { backgroundColor: colors.info },
 });

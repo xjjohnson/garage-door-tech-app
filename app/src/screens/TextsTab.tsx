@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { fillText, TEXT_DEFAULT, TEXT_FIELD, TEXT_LABEL, TEXT_WORDS, TextKind, wording } from '../lib/messageTexts';
 import { reviewLink } from '../lib/invoices';
 import { queueBusiness } from '../lib/settingsSync';
@@ -81,6 +82,6 @@ const styles = StyleSheet.create({
   meta: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   back: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primary: { minHeight: touch.min, borderRadius: 10, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  primary: { minHeight: touch.min, borderRadius: 10, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
 });

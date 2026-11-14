@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, SectionTitle } from '../components/controls';
 import { Card, ErrorCard, EXTENSION_SAFETY_TEXT, MissingCard, SafetyBanner, Stat, Warnings } from '../components/results';

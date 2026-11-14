@@ -1,7 +1,8 @@
 import { OdooQuoteSend } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Image, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { ChipRow, MeasureField, MultiChipRow } from '../components/controls';
 import { PriceBookPicker } from '../components/PriceBookPicker';
 import { usePriceBook } from '../lib/usePriceBook';
@@ -424,7 +425,7 @@ const styles = StyleSheet.create({
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
   primary: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
   input: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },

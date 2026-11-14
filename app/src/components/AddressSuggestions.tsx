@@ -5,7 +5,8 @@
  * New job has its own list, which also offers saved customers.
  */
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import type { AddressSuggestion } from '../lib/addressSuggest';
 import { useAddressSuggestions } from '../lib/useAddressSuggestions';
 import { rememberPoint } from '../lib/useGeocode';
@@ -63,5 +64,5 @@ const styles = StyleSheet.create({
   suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: colors.info, paddingVertical: 6 },
   name: { fontSize: 17, fontWeight: '800', color: colors.text },
   sub: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

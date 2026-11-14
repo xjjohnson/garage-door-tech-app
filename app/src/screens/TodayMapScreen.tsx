@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { ComponentType, Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import RNWebView, { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { Action } from '../components/Buttons';
 import { formatMiles, googleNavLink, googleRouteLink, googleSearchLink, miles, Point, wazeNavLink } from '../lib/geocode';
@@ -175,7 +176,7 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
   const sel = all.find((p) => p.id === selected) ?? null;
   const prev = sel?.appointment ? stops[stops.findIndex((s) => s.id === sel.id) - 1] : undefined;
   const fromPrev = sel && prev && pointOf(sel) && pointOf(prev) ? miles(pointOf(prev)!, pointOf(sel)!) : undefined;
-  const html = useMemo(() => mapHtml(colors.brand), []);
+  const html = useMemo(() => mapHtml(colors.selected), []);
   const route = googleRouteLink(stops.filter((s) => s.kind !== 'done').map((s) => s.address));
   const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
 
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
   dot: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.border },
   dotText: { fontSize: 16, fontWeight: '900', color: colors.text },
   dotTextLight: { color: colors.onSelected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   problemBar: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.safety },
   problemText: { fontSize: 16, fontWeight: '900', color: colors.text },
   problems: { gap: 10 },
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
 });
 
 const dotStyle = StyleSheet.create({
-  next: { backgroundColor: colors.brand, borderColor: colors.brand },
+  next: { backgroundColor: colors.selected, borderColor: colors.selected },
   stop: { backgroundColor: colors.text },
   done: { backgroundColor: colors.info },
   owed: { backgroundColor: colors.safety },

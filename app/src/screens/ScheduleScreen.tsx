@@ -3,7 +3,8 @@ import { router } from 'expo-router';
 import { AddressSuggestions } from '../components/AddressSuggestions';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
 import { suggestCustomers } from '../lib/customers';
 import { textLink } from '../lib/followups';
@@ -340,7 +341,7 @@ const styles = StyleSheet.create({
   left: { alignItems: 'flex-start', paddingVertical: 8 },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
   primary: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },

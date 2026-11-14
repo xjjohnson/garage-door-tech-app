@@ -1,7 +1,8 @@
 import { router, usePathname } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import * as Updates from 'expo-updates';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
   settings: { minHeight: touch.min, minWidth: touch.min + 24, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   settingsText: { fontSize: 16, fontWeight: '800', color: colors.text },
   version: { fontSize: 13, fontWeight: '700', color: colors.muted },
-  navPressedLight: { backgroundColor: colors.safety },
+  navPressedLight: { backgroundColor: colors.info },
   // Green bar, the open section in safety yellow with a yellow mark on top.
   nav: { flexDirection: 'row', backgroundColor: colors.selected },
   navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar, alignItems: 'center', justifyContent: 'center', borderTopWidth: 6, borderTopColor: colors.selected },

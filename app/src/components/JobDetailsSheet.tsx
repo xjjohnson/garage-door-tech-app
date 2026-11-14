@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AddressSuggestions } from './AddressSuggestions';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { suggestCustomers } from '../lib/customers';
 import { EMPTY_DETAILS, JobDetails } from '../lib/jobs';
 import { useCustomersIfAny } from '../lib/useCustomers';
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
   suggestionText: { fontSize: type.body, fontWeight: '700', color: colors.text },
   save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '900', color: colors.onSelected },
   pressedText: { color: colors.text },
 });

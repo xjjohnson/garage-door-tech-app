@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { invoiceNo } from '../lib/invoices';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { NewFollowUpSheet, dayAhead } from '../components/PlanSheets';
 import { completeActivity, createManualFollowUp, fetchMyTodos, TodoRow } from '../lib/odooFollowUps';
 import { useOdoo } from '../lib/useOdoo';
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
   primary: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
 });

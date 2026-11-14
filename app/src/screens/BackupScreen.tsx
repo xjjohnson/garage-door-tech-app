@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { SectionTitle } from '../components/controls';
 import { Backup, backupFileName, LAST_BACKUP_KEY, makeBackup, mergeJobs, parseBackup } from '../lib/backup';
 import { BackupFiles, deviceBackupFiles } from '../lib/backupFiles';
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.bg },
   primary: { backgroundColor: colors.selected },
   disabled: { opacity: 0.4 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
 });

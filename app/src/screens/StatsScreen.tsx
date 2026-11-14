@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { SectionTitle } from '../components/controls';
 import { invoiceNo, PAY_LABEL, PAY_METHODS } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
@@ -138,5 +139,5 @@ const styles = StyleSheet.create({
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.safety },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

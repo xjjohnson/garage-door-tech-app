@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { customerName } from '../lib/customers';
 import { invoiceLabel } from '../lib/invoices';
 import { acceptedLabel, MODE_LABEL } from '../lib/jobs';
@@ -161,5 +162,5 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.onSelected },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   off: { opacity: 0.5 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

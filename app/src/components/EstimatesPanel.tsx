@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { addEstimate, awaitingPick, bringBack, choosing, EstimateSet, estimateName, pickEstimate, removeEstimate, renameEstimate, switchTo } from '../lib/estimates';
 import { formatMoney } from '../lib/prices';
 import { formatJobDate } from '../lib/jobs';

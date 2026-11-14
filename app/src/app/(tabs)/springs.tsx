@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/AppText';
 import { useCalculatorLink } from '../../lib/useCalculatorLink';
 import { DoorScreen } from '../../screens/DoorScreen';
 import { DrumsScreen } from '../../screens/DrumsScreen';
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
   segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: colors.bg },
   segmentDivider: { borderLeftWidth: 3, borderLeftColor: colors.border },
   tabOn: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   tabText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   tabTextOn: { color: colors.onSelected },
 });

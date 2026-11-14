@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
 import { ProductPicker } from '../components/ProductPicker';
@@ -664,7 +665,7 @@ const styles = StyleSheet.create({
   lowButton: { borderWidth: 4, borderColor: colors.caution },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },

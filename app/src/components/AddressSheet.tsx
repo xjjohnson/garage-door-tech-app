@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AddressSuggestions } from './AddressSuggestions';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { ChipRow } from './controls';
 import { ADDRESS_TYPES, AddressFields, AddressType, EMPTY_ADDRESS } from '../lib/odooContacts';
 import { colors, touch, type } from '../theme';
@@ -111,6 +112,6 @@ const styles = StyleSheet.create({
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
   save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '900', color: colors.onSelected },
 });

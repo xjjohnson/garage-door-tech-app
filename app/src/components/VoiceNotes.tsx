@@ -4,7 +4,8 @@
  * still shows and recording is hidden.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import type { VoiceNote } from '../lib/inspection';
 import { log } from '../lib/log';
 import { colors, touch, type } from '../theme';

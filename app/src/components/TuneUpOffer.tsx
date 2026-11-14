@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { fetchRepeats, hasOpenTuneUp, isRepairJob, offerTuneUpPlan, recurringSupport } from '../lib/odooRecurring';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, type } from '../theme';

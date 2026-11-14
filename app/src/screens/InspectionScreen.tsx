@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState, useSyncExternalStore } from 'react';
-import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { SignatureSheet } from '../components/SignaturePad';
@@ -487,5 +488,5 @@ const styles = StyleSheet.create({
   boxOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   tick: { color: colors.onSelected, fontSize: 20, fontWeight: '900' },
   toggleText: { flex: 1, fontSize: type.body, fontWeight: '800', color: colors.text },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

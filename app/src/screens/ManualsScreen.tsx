@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, Segmented } from '../components/controls';
 import { DOC_KIND_LABEL, MANUAL_LINKS, ManualLink, Market, MARKET_LABEL } from '../data/manuals';
 import { deviceManualFiles, ManualFiles } from '../lib/manualFiles';
@@ -349,7 +350,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
   item: { minHeight: touch.min, padding: 12, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg, gap: 4 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   itemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   brandRow: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   brand: { fontSize: type.body, fontWeight: '900', color: colors.text },

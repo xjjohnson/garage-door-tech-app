@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
 import { ClosedDay, DAY_CLOSE_STORAGE_KEY, daySummary, dayText, parseClosedDays, withOdooPayments } from '../lib/endOfDay';
@@ -242,10 +243,10 @@ const styles = StyleSheet.create({
   checks: { gap: 4 },
   check: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 10 },
   box: { width: 28, height: 28, borderRadius: 6, borderWidth: 3, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  boxDone: { backgroundColor: colors.brand, borderColor: colors.brand },
+  boxDone: { backgroundColor: colors.selected, borderColor: colors.selected },
   tick: { color: colors.onSelected, fontSize: 17, fontWeight: '900' },
   checkText: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   field: { gap: 4 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   input: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },

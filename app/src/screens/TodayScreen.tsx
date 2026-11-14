@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { SyncNowButton } from '../components/SyncNowButton';
 import { lastCrash } from '../lib/crash';
@@ -266,9 +267,9 @@ const styles = StyleSheet.create({
   lineTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   lineSub: { fontSize: 15, fontWeight: '600', color: colors.muted },
   chevron: { fontSize: type.big, fontWeight: '900', color: colors.text },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   next: { borderWidth: 3, borderColor: colors.border, borderRadius: 16, overflow: 'hidden' },
-  nextBand: { backgroundColor: colors.brand, color: colors.onSelected, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, fontWeight: '900', letterSpacing: 0.6 },
+  nextBand: { backgroundColor: colors.selected, color: colors.onSelected, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, fontWeight: '900', letterSpacing: 0.6 },
   nextBody: { padding: 14, gap: 4 },
   nextTitle: { fontSize: 23, fontWeight: '900', color: colors.text },
   nextSub: { fontSize: 17, fontWeight: '600', color: colors.muted },

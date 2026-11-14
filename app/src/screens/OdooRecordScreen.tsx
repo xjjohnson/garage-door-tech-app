@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';

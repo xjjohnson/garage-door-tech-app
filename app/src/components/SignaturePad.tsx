@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, LayoutChangeEvent, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, LayoutChangeEvent, Modal, PanResponder, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import Svg, { Path } from 'react-native-svg';
 import { strokePath } from '../lib/attachments';
 import { colors, touch, type } from '../theme';
@@ -112,6 +113,6 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { backgroundColor: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

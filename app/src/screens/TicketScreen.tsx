@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { EstimatesPanel } from '../components/EstimatesPanel';
 import { ChipOption, ChipRow, MeasureField, SectionTitle, Segmented } from '../components/controls';
@@ -629,7 +630,7 @@ const styles = StyleSheet.create({
   input: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
   small: { minWidth: touch.min, minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.bg },
   smallText: { fontSize: type.body, fontWeight: '900', color: colors.text },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between' },
   totalLabel: { fontSize: type.body, fontWeight: '700', color: colors.text },
   totalValue: { fontSize: type.body, fontWeight: '800', color: colors.text },

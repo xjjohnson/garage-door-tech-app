@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { MeasureField, SectionTitle } from '../components/controls';
 import { TIER_LABEL, TIERS } from '../lib/prices';
 import { useFollowUps } from '../lib/useFollowUps';

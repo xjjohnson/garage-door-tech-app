@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Segmented } from '../components/controls';
 import { JobPhoto, PHOTO_KINDS, PHOTO_LABEL, PhotoKind, photosFor } from '../lib/attachments';
 import { formatJobDate } from '../lib/jobs';
@@ -130,6 +131,6 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { opacity: 0.5 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

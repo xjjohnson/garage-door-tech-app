@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { log } from '../lib/log';
 import { requestSyncNow } from '../lib/syncNow';
 import { useOdoo } from '../lib/useOdoo';
@@ -47,5 +48,5 @@ const styles = StyleSheet.create({
   text: { fontSize: type.body, fontWeight: '800', color: colors.text },
   ok: { fontSize: 16, color: colors.muted, fontWeight: '700' },
   off: { opacity: 0.5 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

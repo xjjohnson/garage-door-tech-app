@@ -7,7 +7,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
@@ -360,5 +361,5 @@ const styles = StyleSheet.create({
   warn: { color: colors.stop },
   owed: { fontSize: type.value, fontWeight: '900', color: colors.stop },
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

@@ -1,7 +1,8 @@
 import { OdooInvoiceSync, useInvoiceOdoo } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { CoveragePicker } from '../components/CoveragePicker';
 import { QrCode } from '../components/QrCode';
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.selected },
   disabled: { opacity: 0.4 },
   armed: { backgroundColor: colors.stop, borderColor: colors.stop },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
 });

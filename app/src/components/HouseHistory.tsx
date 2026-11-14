@@ -7,7 +7,8 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
 import { badgeText, CustomerBadge, fetchCustomerBadge, fetchHouseHistory, houseOfOrder, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';

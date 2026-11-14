@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { colors, touch, type } from '../theme';
 import { Keypad } from './Keypad';
 
@@ -280,7 +281,7 @@ const styles = StyleSheet.create({
   segmentDivider: { borderLeftWidth: 3, borderLeftColor: colors.border },
   segmentText: { fontSize: 16, fontWeight: '800', color: colors.text, textAlign: 'center' },
   chipOn: { backgroundColor: colors.selected },
-  chipPressed: { backgroundColor: colors.safety },
+  chipPressed: { backgroundColor: colors.info },
   chipText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   chipSub: { fontSize: 14, fontWeight: '600', color: colors.muted },
   chipTextOn: { color: colors.onSelected },
