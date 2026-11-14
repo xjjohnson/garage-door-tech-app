@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { log } from '../lib/log';
 import type { Inspection } from '../lib/inspection';
 import { equipmentReady, equipmentToSend, orderLocation, sendEquipment } from '../lib/odooEquipment';
+import { surveyIndex, surveyNote, SurveyIndex, sendSurveys, surveysToSend } from '../lib/odooSurveyAnswers';
 import { jobTarget, reportNote, reportsToSend, sendReport, sendVoice, voiceToSend } from '../lib/odooReports';
 import { MAX_ODOO_PDF_BASE64, pdfName } from '../lib/pdf';
 import { inspectionReportHtml } from '../lib/reportFiles';
@@ -73,6 +74,7 @@ export function OdooReportSync() {
   const online = status === 'signedIn' && !!client && !!make && attachments.loaded && jobsLoaded && since !== null;
   const waiting = online ? reportsToSend(jobs, attachments.signatures, since).filter((r) => !tooBig.current.has(`${r.job.id}@${r.signedAt}`)).length + (readFile ? voiceToSend(jobs, since).length : 0) : 0;
 
+  const surveysWaiting = online ? surveysToSend(jobs, attachments.signatures, since!).length : 0;
   const equipmentWaiting = online ? equipmentToSend(jobs, attachments.signatures, invoices, followSettings, since).length : 0;
 
   const pass = useCallback(async () => {
@@ -143,16 +145,36 @@ export function OdooReportSync() {
           }
         }
       }
+      // Filled-in Odoo surveys; skipped until the Survey app and the three surveys are in Odoo. A failure doesn't hold up anything else.
+      const toSurvey = surveysToSend(latest.current.jobs, latest.current.attachments.signatures, since);
+      if (toSurvey.length) {
+        try {
+          const idx: SurveyIndex | null = await surveyIndex(client);
+          for (const { job, inputs, key } of idx ? toSurvey : []) {
+            const target = jobTarget(job.odooJob);
+            const before = job.inspection.surveys?.ids ?? {};
+            const [o] = (await client.call('fsm.order', 'read', [[job.odooJob.id]], { fields: ['partner_id'] })) as { partner_id?: unknown }[];
+            const partner = Array.isArray(o?.partner_id) ? (o!.partner_id as number[])[0] : undefined;
+            const { ids, created } = await sendSurveys(client, idx!, inputs, before, partner);
+            if (created.length) await client.call('fsm.order', 'message_post', [[target.id]], { body: surveyNote(created, ids), message_type: 'comment', subtype_xmlid: 'mail.mt_note' }).catch(() => undefined);
+            const insp = latest.current.jobs.find((j) => j.id === job.id)?.inspection ?? job.inspection;
+            setInspection(job.id, { ...insp, surveys: { at: Date.now(), key, ids } });
+            log.info('inspect', `${inputs.length} survey(s) for ${target.label}`);
+          }
+        } catch (e) {
+          log.warn('odoo', `inspection surveys: ${message(e)}`);
+        }
+      }
     } finally {
       running.current = false;
     }
   }, [client, make, readFile, since, setInspection]);
 
   useEffect(() => {
-    if (!online || waiting + equipmentWaiting === 0) return;
+    if (!online || waiting + equipmentWaiting + surveysWaiting === 0) return;
     const t = setTimeout(pass, AFTER_CHANGE_MS);
     return () => clearTimeout(t);
-  }, [online, waiting, equipmentWaiting, pass]);
+  }, [online, waiting, equipmentWaiting, surveysWaiting, pass]);
 
   useEffect(() => {
     if (!online) return;
