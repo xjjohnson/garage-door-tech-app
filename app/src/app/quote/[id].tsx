@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Text } from 'react-native';
 import { Page } from '../../components/Page';
 import { useJobs } from '../../lib/useJobs';
@@ -13,7 +13,7 @@ export default function QuoteRoute() {
   return (
     <Page title="Estimate" testID="quote-sheet">
       {job ? (
-        <QuoteScreen job={job} onSetPrices={() => router.push('/price-sheet')} />
+        <QuoteScreen job={job} />
       ) : loaded ? (
         <Text style={{ fontSize: type.body, color: colors.text }}>That job isn't saved on this phone any more.</Text>
       ) : null}

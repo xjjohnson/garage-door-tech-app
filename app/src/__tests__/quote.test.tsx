@@ -112,23 +112,15 @@ describe('quotes in the app', () => {
   it('asks for prices, then quotes the job and records what the customer picked', async () => {
     const job = createJob(MATCH, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: '.225 × 2" × 24"' }, 1000, 'j1');
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
+    await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify({ ...DEFAULT_PRICE_SHEET, spring: { good: '60', better: '60', best: '60' }, springLabor: '150' }));
     await renderApp();
     await fireEvent.press(screen.getByTestId('section-jobs'));
     await fireEvent.press(await screen.findByTestId('job-toggle-j1'));
     await fireEvent.press(screen.getByTestId('job-quote-j1'));
 
-    // No Springs templates in Odoo yet: the old price sheet prices it.
-    expect(screen.getByTestId('quote-no-spring-templates')).toHaveTextContent(/which has no prices yet/);
-    await fireEvent.press(screen.getByTestId('quote-set-prices'));
-    expect(screen.getByTestId('price-sheet')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('price-spring-good'));
-    await keypad(['6', '0']);
-    await fireEvent.press(screen.getByTestId('price-labor'));
-    await keypad(['1', '5', '0']);
-    expect(parsePriceSheet(await AsyncStorage.getItem(PRICE_SHEET_STORAGE_KEY)).springLabor).toBe('150');
-    // Closing the price sheet goes back to the quote, now priced.
-    await fireEvent.press(screen.getByTestId('prices-sheet-close'));
-    expect(screen.getByTestId('quote-no-spring-templates')).not.toHaveTextContent(/which has no prices yet/);
+    // No Springs templates in Odoo yet: the notice says to make them, with no price sheet to open.
+    expect(screen.getByTestId('quote-no-spring-templates')).toBeTruthy();
+    expect(screen.queryByTestId('quote-set-prices')).toBeNull();
     // 2 × $60 + $150 labor, no tax set.
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$270');
     await fireEvent.press(screen.getByTestId('quote-accept-good'));
