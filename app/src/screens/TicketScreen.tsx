@@ -2,15 +2,17 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Action, NavRow } from '../components/Buttons';
+import { EstimatesPanel } from '../components/EstimatesPanel';
 import { ChipOption, ChipRow, MeasureField, SectionTitle, Segmented } from '../components/controls';
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
 import { Business, invoiceLabel, invoiceStatus, newId, PAY_LABEL, PAY_METHODS, payLinks, PayMethod } from '../lib/invoices';
 import { QrCode } from '../components/QrCode';
+import { awaitingPick, cancelDeclined, EstimateSet, openEstimates, pickEstimate } from '../lib/estimates';
 import { acceptedLabel, Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts } from '../lib/ticket';
+import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useStock } from '../lib/useStock';
@@ -31,13 +33,15 @@ const SYNC_DELAY_MS = 1500;
  * Odoo and opens it for the customer to sign.
  */
 export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => number }) {
-  const { setTicket, setOdooOrder, setStep } = useJobs();
+  const { setTicket, setEstimates, setOdooOrder, setStep } = useJobs();
   const invoiceOdoo = useInvoiceOdoo(now);
   const { invoices, create, business } = useInvoices();
   const { sheet } = usePriceSheet();
   const client = useSalesOdoo();
   const partner = usePartner();
   const ticket = job.ticket ?? EMPTY_TICKET;
+  const others = job.estimates ?? [];
+  const estimateSet: EstimateSet = { ticket, others };
   const odooTotals = currentTotals(ticket);
   const shown = odooTotals ?? estimateTotals(ticket, sheet.taxPercent);
   const invoice = invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
@@ -56,12 +60,14 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const sync = async (): Promise<Ticket | undefined> => {
     if (!client || (ticket.lines.length === 0 && !ticket.deposits?.length && !ticket.order)) return;
     const n = ++run.current;
+    // The estimate being synced: its result is dropped if another estimate was opened meanwhile.
+    const estId = ticket.id;
     setSyncing(true);
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
       const r = await syncTicket(client, pid, ticket, ticketRef(ticket), now());
-      if (n === run.current) setTicket(job.id, (t) => ({ ...t, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved }));
+      if (n === run.current) setTicket(job.id, (t) => (t.id === estId ? { ...t, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : t));
       return { ...ticket, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved };
     } catch (e) {
       if (n === run.current) setError(message(e));
@@ -71,6 +77,45 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   };
   const syncRef = useRef(sync);
   syncRef.current = sync;
+
+  // The job's other open estimates are quotations in Odoo too: each is saved once it has lines.
+  const staleOthers = client && !invoice ? openEstimates(others).filter((t) => t.id && t.lines.length > 0 && !currentTotals(t)) : [];
+  const staleKey = staleOthers.map((t) => `${t.id}:${linesKey(t.lines)}`).join('#');
+  useEffect(() => {
+    if (!client || staleOthers.length === 0) return;
+    let live = true;
+    (async () => {
+      for (const t of staleOthers) {
+        try {
+          const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
+          const r = await syncTicket(client, pid, t, ticketRef(t), now());
+          if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines) === linesKey(t.lines) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : o)) }));
+        } catch (e) {
+          log.warn('ticket', `${job.id}: couldn't save estimate ${t.title ?? t.id}: ${message(e)}`);
+        }
+      }
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, staleKey]);
+
+  // Declined estimates are cancelled in Odoo (now, or the next time Odoo can be reached).
+  const cancelKey = others.filter((t) => t.cancelPending && t.order).map((t) => t.id).join('#');
+  useEffect(() => {
+    if (!client || !cancelKey) return;
+    let live = true;
+    cancelDeclined(client, others)
+      .then((done) => {
+        if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.cancelPending && done.find((d) => d.id === o.id && !d.cancelPending) ? { ...o, cancelPending: undefined } : o)) }));
+      })
+      .catch((e) => log.warn('ticket', `${job.id}: couldn't cancel declined estimates: ${message(e)}`));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, cancelKey]);
 
   // Ask Odoo for totals a moment after the lines stop changing (not after the invoice is made).
   // Deposits are written to the quotation too, so they're kept in Odoo and not only on the phone.
@@ -87,6 +132,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     setMaking(true);
     setError(null);
     try {
+      // Making the invoice from the open estimate is the customer's pick: the others are declined.
+      if (awaitingPick(estimateSet)) setEstimates(job.id, (s) => pickEstimate(s, undefined, now()));
       // Odoo's totals for the lines as they are now, if it can be reached.
       const synced = client && !odooTotals ? await sync() : undefined;
       const t = synced ?? ticket;
@@ -197,6 +244,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       {invoice ? (
         <NavRow label={`${invoiceLabel(invoice)} made`} detail="Changes to the ticket now don't change the invoice" href={{ pathname: '/invoice/[id]', params: { id: invoice.id } }} testID="ticket-invoice" />
       ) : null}
+
+      <EstimatesPanel set={estimateSet} taxPercent={sheet.taxPercent} locked={!!invoice} onChange={(fn) => setEstimates(job.id, fn)} now={now} />
 
       {section('service')}
       {section('material')}

@@ -52,6 +52,16 @@ export interface Ticket {
   depositsSaved?: string;
   /** Ticket material lines (by id) the tech bought for this job rather than took off the truck. */
   bought?: string[];
+  /** Estimates: which estimate this is when a job holds several (src/lib/estimates.ts). Set once there is more than one. */
+  id?: string;
+  /** Estimates: the name shown in the list ("Good", "Replace the opener"). */
+  title?: string;
+  /** Estimates: when the customer picked this one. */
+  pickedAt?: number;
+  /** Estimates: when another one was picked and this one was declined (its quotation is cancelled in Odoo). */
+  declinedAt?: number;
+  /** Estimates: declined, but its quotation in Odoo still has to be cancelled (offline when it was declined). */
+  cancelPending?: boolean;
 }
 
 /** A deposit taken on the ticket: the same shape as an invoice payment. */
@@ -330,5 +340,7 @@ export function parseTicket(v: unknown): Ticket | undefined {
     t && typeof t === 'object' && typeof t.key === 'string'
       ? { untaxed: Number(t.untaxed) || 0, tax: Number(t.tax) || 0, total: Number(t.total) || 0, key: t.key, at: Number(t.at) || 0 }
       : undefined;
-  return { lines, ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
+  const str = (x: unknown) => (typeof x === 'string' && x ? x : undefined);
+  const at = (x: unknown) => (typeof x === 'number' && x > 0 ? x : undefined);
+  return { lines, ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
 }

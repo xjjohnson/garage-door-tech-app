@@ -13,6 +13,7 @@ import { useAttachments } from '../lib/useAttachments';
 import { formatNumber } from '../lib/measure';
 import { cents, formatMoney, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
 import { buildQuote, QuoteOption, quoteText, repairQuote } from '../lib/quote';
+import { addEstimate } from '../lib/estimates';
 import { addOption, newLineId } from '../lib/ticket';
 import { formatLife } from '../lib/springNames';
 import { Repair, repairLines, withRepairs } from '../lib/inspection';
@@ -33,7 +34,7 @@ import { colors, touch, type } from '../theme';
  */
 export function QuoteScreen({ job }: { job: Job }) {
   const { sheet } = usePriceSheet();
-  const { setAccepted, setInspection, setQuoteLines, setTicket } = useJobs();
+  const { setAccepted, setInspection, setQuoteLines, setTicket, setEstimates } = useJobs();
   const templates = useQuoteTemplates();
   // Quotation templates picked by name, any number at once; each is its own option. A pick already accepted stays shown.
   const [pickedTemplates, setPickedTemplates] = useState<string[]>(() => (job.accepted?.key ? [job.accepted.key] : []));
@@ -177,6 +178,26 @@ export function QuoteScreen({ job }: { job: Job }) {
           onAccept={() => setAccepted(job.id, isAccepted(job.accepted, o) ? undefined : { tier: o.tier, ...(o.key ? { key: o.key, title: o.title } : {}), total: o.total, at: Date.now() })}
         />
       ))}
+
+      {!invoice && quote.options.filter((o) => o.available).length > 1 ? (
+        <Action
+          label="Make each option its own estimate"
+          onPress={() => {
+            const t = Date.now();
+            setEstimates(job.id, (s) =>
+              quote.options
+                .filter((o) => o.available)
+                .reduce((acc, o, i) => {
+                  let n = 0;
+                  const lines = addOption({ lines: [] }, o, sheet.odoo, () => newLineId(t + i * 1000 + n++)).lines;
+                  return addEstimate(acc, { lines, title: o.title ?? TIER_LABEL[o.tier] }, () => newLineId(t + 500 + i));
+                }, s),
+            );
+            router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
+          }}
+          testID="quote-to-estimates"
+        />
+      ) : null}
 
       {job.accepted ? (
         <>
