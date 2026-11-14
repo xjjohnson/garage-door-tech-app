@@ -39,8 +39,8 @@ export const FLAGGED: Rating[] = ['poor', 'risk', 'non', 'fail'];
 export const isFlagged = (r: Rating | undefined) => !!r && FLAGGED.includes(r);
 
 /** Points per answer for the score; N/A doesn't count either way. */
-const POINTS: Record<Rating, number> = { good: 2, fair: 1, poor: 0, risk: 0, na: 0, compliant: 1, non: 0, pass: 1, fail: 0 };
-const MAX: Record<Scale, number> = { condition: 2, gfp: 2, compliance: 1, passfail: 1 };
+export const POINTS: Record<Rating, number> = { good: 2, fair: 1, poor: 0, risk: 0, na: 0, compliant: 1, non: 0, pass: 1, fail: 0 };
+export const MAX: Record<Scale, number> = { condition: 2, gfp: 2, compliance: 1, passfail: 1 };
 
 export interface ItemDef {
   id: string;
