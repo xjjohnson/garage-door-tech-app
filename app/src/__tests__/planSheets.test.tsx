@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { NewFollowUpSheet, RepeatSheet } from '../components/PlanSheets';
+import { AgreementSheet, NewFollowUpSheet, RepeatSheet } from '../components/PlanSheets';
 
 describe('repeat and follow-up sheets', () => {
   it('picks a customer, then saves a follow-up', async () => {
@@ -18,5 +18,16 @@ describe('repeat and follow-up sheets', () => {
     await render(<RepeatSheet visible customer="Pat" sets={[{ id: 4, name: 'Every 6 months' }]} onSave={onSave} onCancel={() => undefined} />);
     await fireEvent.press(screen.getByTestId('repeat-sheet-save'));
     expect(onSave).toHaveBeenCalledWith({ every: 'yearly', days: 365, what: 'Annual tune-up' });
+  });
+});
+
+describe('agreement sheet', () => {
+  it('saves a one year plan under a repeat, and edits only name and notes', async () => {
+    const onSave = jest.fn();
+    const repeats = [{ id: 3, name: 'FSM/REC/1', status: 'Active', active: true, every: 'Yearly' }];
+    await render(<AgreementSheet visible customer="Pat" repeats={repeats} onSave={onSave} onCancel={() => undefined} />);
+    await fireEvent.press(screen.getByText('Yearly (FSM/REC/1)'));
+    await fireEvent.press(screen.getByTestId('agreement-sheet-save'));
+    expect(onSave).toHaveBeenCalledWith({ name: 'Yearly service plan', notes: '', years: 1, repeatId: 3 });
   });
 });

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DAY } from '../lib/followups';
-import type { FrequencySet } from '../lib/odooRecurring';
+import type { AgreementRow, FrequencySet, RepeatRow } from '../lib/odooRecurring';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { colors, touch, type } from '../theme';
 import { ChipRow } from './controls';
@@ -130,6 +130,63 @@ export function NewFollowUpSheet({ visible, customer, customers, busy, error, on
         <Text style={styles.label}>Note (optional)</Text>
         <TextInput value={note} onChangeText={setNote} multiline placeholder="Anything to remember" placeholderTextColor={colors.muted} accessibilityLabel="Note" testID="followup-note" style={[styles.input, styles.multi]} />
       </View>
+    </Sheet>
+  );
+}
+
+export interface AgreementChoice {
+  name: string;
+  notes: string;
+  /** Years the agreement runs from today; 0 for no end. */
+  years: number;
+  repeatId?: number;
+}
+
+const TERMS = [
+  { label: '1 year', value: 1 },
+  { label: '2 years', value: 2 },
+  { label: '3 years', value: 3 },
+  { label: 'No end', value: 0 },
+];
+
+/** Makes (or, with `editing`, renames) a service agreement: a record of the plan, with no billing. */
+export function AgreementSheet({ visible, customer, editing, repeats, busy, error, onSave, onCancel }: { visible: boolean; customer: string; editing?: AgreementRow; repeats: RepeatRow[]; busy?: boolean; error?: string | null; onSave: (c: AgreementChoice) => void; onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [notes, setNotes] = useState('');
+  const [years, setYears] = useState(1);
+  const [repeatId, setRepeatId] = useState(0);
+  useEffect(() => {
+    if (visible) {
+      setName(editing?.name ?? 'Yearly service plan');
+      setNotes(editing?.notes ?? '');
+      setYears(1);
+      setRepeatId(0);
+    }
+  }, [visible, editing]);
+  const open = repeats.filter((r) => r.status === 'Active' || r.status === 'Draft' || r.status === 'Paused');
+  return (
+    <Sheet visible={visible} title={editing ? 'Edit agreement' : `New agreement for ${customer}`} canSave={name.trim() !== ''} saveLabel={editing ? 'Save to Odoo' : 'Create in Odoo'} busy={busy} error={error} onSave={() => onSave({ name, notes, years, repeatId: repeatId || undefined })} onCancel={onCancel} testID="agreement-sheet">
+      <View style={styles.field}>
+        <Text style={styles.label}>Name</Text>
+        <TextInput value={name} onChangeText={setName} placeholder="Yearly service plan" placeholderTextColor={colors.muted} accessibilityLabel="Name" testID="agreement-name" style={styles.input} />
+      </View>
+      {!editing ? (
+        <>
+          <Text style={styles.label}>Runs for</Text>
+          <ChipRow options={TERMS} value={years} onChange={setYears} testID="agreement-term" />
+          {open.length ? (
+            <>
+              <Text style={styles.label}>Covers this repeating visit</Text>
+              <ChipRow options={[{ label: 'None', value: 0 }, ...open.map((r) => ({ label: r.every ? `${r.every} (${r.name})` : r.name, value: r.id }))]} value={repeatId} onChange={setRepeatId} testID="agreement-repeat" />
+            </>
+          ) : null}
+        </>
+      ) : null}
+      <View style={styles.field}>
+        <Text style={styles.label}>Notes (optional)</Text>
+        <TextInput value={notes} onChangeText={setNotes} multiline placeholder="What it covers" placeholderTextColor={colors.muted} accessibilityLabel="Notes" testID="agreement-notes" style={[styles.input, styles.multi]} />
+      </View>
+      {!editing ? <Text style={styles.note}>This only records the plan. It does not bill anything.</Text> : null}
     </Sheet>
   );
 }
