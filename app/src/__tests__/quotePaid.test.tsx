@@ -49,11 +49,11 @@ describe('quotation templates', () => {
       }),
     };
     const sets = await fetchTemplates(client);
+    const good = [{ productId: 11, label: 'Chain drive opener', qty: 1, unitCents: 30000, taxable: false }, { productId: 12, label: 'Labor', qty: 2, unitCents: 7500, taxable: true }];
     expect(sets).toEqual({
-      opener: {
-        type: 'Opener',
-        tiers: { good: [{ productId: 11, label: 'Chain drive opener', qty: 1, unitCents: 30000, taxable: false }, { productId: 12, label: 'Labor', qty: 2, unitCents: 7500, taxable: true }] },
-      },
+      opener: { type: 'Opener', tiers: { good } },
+      'template: opener · good': { type: 'Opener · Good', tiers: { good }, plain: true },
+      'template: something else': { type: 'Something else', tiers: { good: [] }, plain: true },
     });
     expect(parseTemplates(JSON.stringify(sets))).toEqual(sets);
     expect(parseTemplates('nope')).toEqual({});
@@ -286,14 +286,16 @@ describe('repair-only quote', () => {
   });
 
   it('offers every Odoo quotation template, not only the job type\'s', async () => {
-    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(SETS));
+    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ ...SETS, 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true } }));
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Tune-up' }]));
     await renderApp('/quote/j1');
     await settle();
     expect(screen.getByTestId('quote-no-templates')).toBeTruthy();
-    await fireEvent.press(screen.getByText('Opener'));
+    await fireEvent.press(screen.getByText('Opener · Good'));
     await settle();
-    expect(screen.getByTestId('quote-from-templates')).toHaveTextContent('From your Odoo quotation templates for Opener.');
+    expect(screen.getByTestId('quote-from-templates')).toHaveTextContent('From your Odoo quotation templates for Opener · Good.');
+    expect(screen.getByTestId('quote-good')).toHaveTextContent(/Opener · Good/);
+    expect(screen.queryByTestId('quote-better')).toBeNull();
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$465');
   });
 
