@@ -131,7 +131,7 @@ describe('job steps', () => {
 });
 
 describe('Odoo setup check', () => {
-  const fake = (session: Partial<CheckClient['session']>, counts: Record<string, number | Error>): CheckClient => ({
+  const fake = (session: Partial<CheckClient['session']>, counts: Record<string, unknown>): CheckClient => ({
     session: { name: 'Justin', kind: 'oca', me: 7, apps: { products: true, sales: true, invoicing: true }, ...session },
     call: async (model) => {
       const v = counts[model];
@@ -146,9 +146,9 @@ describe('Odoo setup check', () => {
   });
 
   it('is all green when everything is there', async () => {
-    const r = await runSetupCheck(fake({}, { 'sale.order.template': 3, 'stock.location': 2, 'ir.mail_server': 1 }));
+    const r = await runSetupCheck(fake({}, { 'sale.order.template': 3, 'stock.location': 2, 'ir.mail_server': 1, 'fsm.recurring': { location_id: {} }, agreement: { partner_id: {} } }));
     expect(r.map((x) => [x.id, x.state])).toEqual([
-      ['signin', 'ok'], ['fsm', 'ok'], ['worker', 'ok'], ['sales', 'ok'], ['templates', 'ok'], ['invoicing', 'ok'], ['truck', 'ok'], ['email', 'ok'],
+      ['signin', 'ok'], ['fsm', 'ok'], ['worker', 'ok'], ['sales', 'ok'], ['templates', 'ok'], ['invoicing', 'ok'], ['recurring', 'ok'], ['agreements', 'ok'], ['truck', 'ok'], ['email', 'ok'],
     ]);
     expect(setupSummary(r)).toBe('Odoo is ready for this version.');
   });
@@ -162,7 +162,9 @@ describe('Odoo setup check', () => {
     expect(by.invoicing.state).toBe('missing');
     expect(by.truck.state).toBe('warn');
     expect(by.email.detail).toMatch(/admin/);
-    expect(setupSummary(r)).toBe('2 missing, 3 to look at.');
+    expect(by.recurring.state).toBe('warn');
+    expect(by.agreements.state).toBe('warn');
+    expect(setupSummary(r)).toBe('2 missing, 5 to look at.');
   });
 });
 
