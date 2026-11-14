@@ -14,9 +14,9 @@ import type { OdooTask } from '../lib/odoo';
 import { whatOf } from '../lib/odooJobs';
 import { fetchForCustomer, ListKind, OdooListRow } from '../lib/odooLists';
 import { createManualFollowUp } from '../lib/odooFollowUps';
-import { AgreementRow, createRepeat, fetchAgreements, fetchFrequencySets, fetchRepeats, FrequencySet, RepeatAction, RepeatRow, setRepeatState } from '../lib/odooRecurring';
+import { AgreementRow, createAgreement, createRepeat, editAgreement, endAgreement, fetchAgreements, fetchFrequencySets, fetchRepeats, FrequencySet, RepeatAction, RepeatRow, setRepeatState } from '../lib/odooRecurring';
 import { Action } from './Buttons';
-import { dayAhead, NewFollowUpSheet, RepeatSheet } from './PlanSheets';
+import { AgreementSheet, dayAhead, NewFollowUpSheet, RepeatSheet } from './PlanSheets';
 import { formatMoney } from '../lib/prices';
 import { dayLabel, formatTime } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
@@ -112,7 +112,8 @@ export function useCustomerRecords(partnerId: number, now: () => number = Date.n
 export function CustomerOdoo({ partnerId, name = 'this customer', address = '', now = Date.now }: { partnerId: number; name?: string; address?: string; now?: () => number }) {
   const { client } = useOdoo();
   const { records, fresh, error, refresh } = useCustomerRecords(partnerId, now);
-  const [sheet, setSheet] = useState<'repeat' | 'followup' | null>(null);
+  const [sheet, setSheet] = useState<'repeat' | 'followup' | 'agreement' | null>(null);
+  const [editing, setEditing] = useState<AgreementRow | undefined>();
   const [sets, setSets] = useState<FrequencySet[]>([]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -136,6 +137,21 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
     setSheet('repeat');
     if (client) fetchFrequencySets(client).then(setSets).catch(() => setSets([]));
   };
+  const openAgreement = (a?: AgreementRow) => {
+    setProblem(null);
+    setEditing(a);
+    setSheet('agreement');
+  };
+  const end = (a: AgreementRow) =>
+    client &&
+    run(() =>
+      endAgreement(
+        client,
+        a.id,
+        Date.now(),
+        (records?.repeats ?? []).filter((r) => r.agreementId === a.id && (r.status === 'Active' || r.status === 'Paused')).map((r) => r.id),
+      ),
+    );
   const change = (id: number, action: RepeatAction) => client && run(() => setRepeatState(client, id, action));
   const openJob = useOpenOdooJob();
   const { invoices: local } = useInvoices();
@@ -185,7 +201,25 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         <Action label="New follow-up" grow onPress={() => { setProblem(null); setSheet('followup'); }} testID="customer-new-followup" />
         {oca ? <Action label="Repeat visits" grow onPress={openRepeat} testID="customer-repeat" /> : null}
       </View>
-      <Plans repeats={records?.repeats} agreements={records?.agreements} onChange={change} busy={busy} />
+      {oca ? <Action label="New agreement" onPress={() => openAgreement()} testID="customer-agreement" /> : null}
+      <Plans repeats={records?.repeats} agreements={records?.agreements} onChange={change} onEdit={openAgreement} onEnd={end} busy={busy} />
+      <AgreementSheet
+        visible={sheet === 'agreement'}
+        customer={name}
+        editing={editing}
+        repeats={records?.repeats ?? []}
+        busy={busy}
+        error={problem}
+        onCancel={() => setSheet(null)}
+        onSave={(a) =>
+          client &&
+          run(() =>
+            editing
+              ? editAgreement(client, editing.id, { name: a.name, notes: a.notes })
+              : createAgreement(client, partnerId, { name: a.name, notes: a.notes, start: Date.now(), end: a.years ? Date.now() + a.years * 365 * 24 * 60 * 60 * 1000 : undefined, repeatId: a.repeatId }),
+          )
+        }
+      />
       <RepeatSheet
         visible={sheet === 'repeat'}
         customer={name}
@@ -212,7 +246,7 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
 const span = (a?: string, b?: string) => [a, b].filter(Boolean).join(' to ');
 
 /** Repeating visits and agreements read from Odoo; nothing shows when the customer has none. */
-function Plans({ repeats, agreements, onChange, busy }: { repeats?: RepeatRow[]; agreements?: AgreementRow[]; onChange: (id: number, a: RepeatAction) => void; busy: boolean }) {
+function Plans({ repeats, agreements, onChange, onEdit, onEnd, busy }: { repeats?: RepeatRow[]; agreements?: AgreementRow[]; onChange: (id: number, a: RepeatAction) => void; onEdit: (a: AgreementRow) => void; onEnd: (a: AgreementRow) => void; busy: boolean }) {
   return (
     <>
       {repeats && repeats.length ? (
@@ -249,6 +283,14 @@ function Plans({ repeats, agreements, onChange, busy }: { repeats?: RepeatRow[];
                 {a.status ? <Text style={styles.badge}>{a.status.toUpperCase()}</Text> : null}
               </View>
               <Text style={styles.meta}>{[a.code, span(a.start, a.end), a.active ? '' : 'Archived'].filter(Boolean).join(' · ')}</Text>
+              {a.notes ? <Text style={styles.detail}>{a.notes}</Text> : null}
+              {(repeats ?? []).some((r) => r.agreementId === a.id) ? <Text style={styles.meta}>Covers: {(repeats ?? []).filter((r) => r.agreementId === a.id).map((r) => r.every ?? r.name).join(', ')}</Text> : null}
+              {a.active ? (
+                <View style={styles.row}>
+                  <Action label="Edit" grow disabled={busy} onPress={() => onEdit(a)} testID={`customer-agreement-edit-${a.id}`} />
+                  <Action label="End today" grow disabled={busy} onPress={() => onEnd(a)} testID={`customer-agreement-end-${a.id}`} />
+                </View>
+              ) : null}
             </View>
           ))}
         </>

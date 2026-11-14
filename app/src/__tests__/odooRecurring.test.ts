@@ -1,5 +1,5 @@
 import { createManualFollowUp } from '../lib/odooFollowUps';
-import { createRepeat, fetchAgreements, fetchRepeats, recurringSupport, setRepeatState } from '../lib/odooRecurring';
+import { createAgreement, createRepeat, editAgreement, endAgreement, fetchAgreements, fetchRepeats, recurringSupport, setRepeatState } from '../lib/odooRecurring';
 
 type Call = { model: string; method: string; args: unknown[]; kwargs?: Record<string, unknown> };
 
@@ -92,5 +92,38 @@ describe('writing repeats and follow-ups', () => {
     const id = await createManualFollowUp(c, 7, { title: ' Check the opener ', note: 'Remote <b> acting up', due: Date.UTC(2026, 11, 1) });
     expect(id).toBe(99);
     expect(c.calls.find((x) => x.method === 'create')?.args[0]).toMatchObject({ res_id: 7, summary: 'Check the opener', date_deadline: '2026-12-01', note: '<p>Remote &lt;b&gt; acting up</p>', user_id: 5, activity_type_id: 2 });
+  });
+});
+
+describe('agreements', () => {
+  const rec = () => {
+    const calls: { model: string; method: string; args: unknown[] }[] = [];
+    return {
+      calls,
+      session: { uid: 5 } as never,
+      async call(model: string, method: string, args: unknown[]) {
+        calls.push({ model, method, args });
+        if (method === 'fields_get') return { name: {}, description: {}, domain: {}, agreement_id: {} };
+        return method === 'create' ? 41 : true;
+      },
+    };
+  };
+
+  it('makes a record-only agreement and links the repeat', async () => {
+    const c = rec();
+    const id = await createAgreement(c, 7, { name: 'Yearly tune-up plan', notes: 'Two visits <a year>', start: Date.UTC(2026, 10, 14), end: Date.UTC(2027, 10, 14), repeatId: 3 });
+    expect(id).toBe(41);
+    expect(c.calls.find((x) => x.model === 'agreement' && x.method === 'create')?.args[0]).toMatchObject({ name: 'Yearly tune-up plan', partner_id: 7, start_date: '2026-11-14', end_date: '2027-11-14', description: '<p>Two visits &lt;a year&gt;</p>', domain: 'sale' });
+    expect(c.calls.find((x) => x.model === 'fsm.recurring' && x.method === 'write')?.args).toEqual([[3], { agreement_id: 41 }]);
+  });
+
+  it('edits and ends, stopping the repeats under it', async () => {
+    const c = rec();
+    await editAgreement(c, 41, { name: ' New name ', notes: '' });
+    expect(c.calls.find((x) => x.method === 'write')?.args).toEqual([[41], { name: 'New name', description: false }]);
+    const e = rec();
+    await endAgreement(e, 41, Date.UTC(2026, 11, 1), [3]);
+    expect(e.calls.filter((x) => x.method !== 'fields_get').map((x) => `${x.model}.${x.method}`)).toEqual(['agreement.write', 'fsm.recurring.action_cancel']);
+    expect(e.calls[0].args).toEqual([[41], { end_date: '2026-12-01' }]);
   });
 });
