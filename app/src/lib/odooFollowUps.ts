@@ -101,3 +101,43 @@ export async function createManualFollowUp(client: Caller, partnerId: number, f:
     },
   ])) as number;
 }
+
+export interface TodoRow {
+  id: number;
+  title: string;
+  /** The customer (contact) it is on, when read across customers. */
+  partnerId?: number;
+  customer?: string;
+  due?: string;
+  note?: string;
+}
+
+/** The open to-dos on a customer's contact: follow-ups made by the app and anything added in Odoo. */
+export async function fetchTodos(client: Caller, partnerId: number, limit = 20): Promise<TodoRow[]> {
+  const rows = (await client.call('mail.activity', 'search_read', [[['res_model', '=', 'res.partner'], ['res_id', '=', partnerId]]], { fields: ['summary', 'date_deadline', 'note', 'activity_type_id'], order: 'date_deadline asc', limit })) as Record<string, unknown>[];
+  return rows.map((r) => ({
+    id: r.id as number,
+    title: (typeof r.summary === 'string' && r.summary) || (Array.isArray(r.activity_type_id) && typeof r.activity_type_id[1] === 'string' ? r.activity_type_id[1] : 'To-do'),
+    due: typeof r.date_deadline === 'string' ? r.date_deadline : undefined,
+    note: typeof r.note === 'string' ? r.note.replace(/<small>.*?<\/small>/g, '').replace(/<[^>]+>/g, '').trim() || undefined : undefined,
+  }));
+}
+
+/**
+ * Every open to-do on a customer that is mine, soonest first: follow-ups added
+ * by hand in the app or in Odoo. The ones the app makes from invoices (they
+ * carry its marker) are left out; the list works those out itself.
+ */
+export async function fetchMyTodos(client: Caller, limit = 50): Promise<TodoRow[]> {
+  const rows = (await client.call('mail.activity', 'search_read', [[['res_model', '=', 'res.partner'], ['user_id', '=', client.session.uid]]], { fields: ['summary', 'date_deadline', 'note', 'activity_type_id', 'res_id', 'res_name'], order: 'date_deadline asc', limit })) as Record<string, unknown>[];
+  return rows
+    .filter((r) => !(typeof r.note === 'string' && r.note.includes('johnsons-followup:')))
+    .map((r) => ({
+      id: r.id as number,
+      title: (typeof r.summary === 'string' && r.summary) || (Array.isArray(r.activity_type_id) && typeof r.activity_type_id[1] === 'string' ? r.activity_type_id[1] : 'To-do'),
+      partnerId: typeof r.res_id === 'number' ? r.res_id : undefined,
+      customer: typeof r.res_name === 'string' ? r.res_name : undefined,
+      due: typeof r.date_deadline === 'string' ? r.date_deadline : undefined,
+      note: typeof r.note === 'string' ? r.note.replace(/<[^>]+>/g, '').trim() || undefined : undefined,
+    }));
+}

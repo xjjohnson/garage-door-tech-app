@@ -1,5 +1,6 @@
-import { createManualFollowUp } from '../lib/odooFollowUps';
-import { createAgreement, createRepeat, editAgreement, endAgreement, fetchAgreements, fetchRepeats, recurringSupport, setRepeatState } from '../lib/odooRecurring';
+import { createManualFollowUp, fetchTodos } from '../lib/odooFollowUps';
+import { fetchMyTodos } from '../lib/odooFollowUps';
+import { agreementCode, createAgreement, createRepeat, editAgreement, endAgreement, fetchAgreements, fetchRepeats, recurringSupport, setRepeatState } from '../lib/odooRecurring';
 
 type Call = { model: string; method: string; args: unknown[]; kwargs?: Record<string, unknown> };
 
@@ -103,7 +104,8 @@ describe('agreements', () => {
       session: { uid: 5 } as never,
       async call(model: string, method: string, args: unknown[]) {
         calls.push({ model, method, args });
-        if (method === 'fields_get') return { name: {}, description: {}, domain: {}, agreement_id: {} };
+        if (method === 'fields_get') return { name: {}, code: {}, description: {}, domain: {}, agreement_id: {} };
+        if (method === 'next_by_code') return 'AGR0007';
         return method === 'create' ? 41 : true;
       },
     };
@@ -125,5 +127,30 @@ describe('agreements', () => {
     await endAgreement(e, 41, Date.UTC(2026, 11, 1), [3]);
     expect(e.calls.filter((x) => x.method !== 'fields_get').map((x) => `${x.model}.${x.method}`)).toEqual(['agreement.write', 'fsm.recurring.action_cancel']);
     expect(e.calls[0].args).toEqual([[41], { end_date: '2026-12-01' }]);
+  });
+});
+
+describe('agreement code and to-dos', () => {
+  it('makes a code when Odoo has no sequence', async () => {
+    const c = { session: {} as never, call: async () => { throw new Error('no sequence'); } };
+    expect(await agreementCode(c, Date.UTC(2026, 10, 14))).toMatch(/^JOH-261114-[A-Z0-9]{4}$/);
+  });
+
+  it('reads the open to-dos without the app marker', async () => {
+    const c = { session: {} as never, call: async () => [{ id: 4, summary: 'Call back', date_deadline: '2026-11-21', note: '<p>Opener</p><p><small>johnsons-followup:x</small></p>' }, { id: 5, summary: false, date_deadline: false, note: false }] };
+    expect(await fetchTodos(c, 7)).toEqual([{ id: 4, title: 'Call back', due: '2026-11-21', note: 'Opener' }, { id: 5, title: 'To-do', due: undefined, note: undefined }]);
+  });
+});
+
+describe('my to-dos across customers', () => {
+  it('lists mine, leaves out the app\'s invoice follow-ups, and names the customer', async () => {
+    const c = {
+      session: { uid: 5 } as never,
+      call: async () => [
+        { id: 1, summary: false, activity_type_id: [2, 'Call'], date_deadline: '2026-11-21', note: false, res_id: 7, res_name: 'john smith' },
+        { id: 2, summary: 'Springs near end', date_deadline: '2026-11-22', note: '<p>x</p><p><small>johnsons-followup:springs:1</small></p>', res_id: 8, res_name: 'Kim' },
+      ],
+    };
+    expect(await fetchMyTodos(c)).toEqual([{ id: 1, title: 'Call', partnerId: 7, customer: 'john smith', due: '2026-11-21', note: undefined }]);
   });
 });
