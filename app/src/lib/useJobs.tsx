@@ -223,6 +223,12 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   return <JobsContext.Provider value={api}>{children}</JobsContext.Provider>;
 }
 
+/** The saved jobs, or none where there is no JobsProvider (some tests and screens render without one). */
+export function useJobsList(): Job[] {
+  return useContext(JobsContext)?.jobs ?? NO_JOBS;
+}
+const NO_JOBS: Job[] = [];
+
 export function useJobs(): JobsApi {
   const api = useContext(JobsContext);
   if (!api) throw new Error('useJobs needs a JobsProvider above it');

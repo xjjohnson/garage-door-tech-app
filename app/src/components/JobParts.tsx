@@ -94,9 +94,15 @@ export function JobParts({ jobId }: { jobId: string }) {
           <Text style={[styles.body, styles.grow]}>
             {u.qty} x {u.name}
           </Text>
-          <Pressable onPress={() => undoUse(u.id)} accessibilityRole="button" accessibilityLabel={`Put ${u.name} back on the truck`} testID={`job-part-undo-${u.id}`} style={styles.undo}>
-            <Text style={styles.undoText}>Undo</Text>
-          </Pressable>
+          {u.move && u.sentAt ? (
+            <Text style={styles.note} testID={`job-part-moved-${u.id}`}>
+              In Odoo
+            </Text>
+          ) : (
+            <Pressable onPress={() => undoUse(u.id)} accessibilityRole="button" accessibilityLabel={`Put ${u.name} back on the truck`} testID={`job-part-undo-${u.id}`} style={styles.undo}>
+              <Text style={styles.undoText}>Undo</Text>
+            </Pressable>
+          )}
         </View>
       ))}
       {waiting.map((po) => (
