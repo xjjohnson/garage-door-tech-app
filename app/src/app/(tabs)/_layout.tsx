@@ -1,6 +1,7 @@
 import { router, usePathname } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import * as Updates from 'expo-updates';
+import { Icon } from '../../components/Icon';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +11,7 @@ import { APK_MANIFEST_URL } from '../../config';
 import { SHORT_VERSION } from '../../lib/appVersion';
 import { dateLine } from '../../lib/schedule';
 import { SECTIONS, TOOL_PAGES } from '../../lib/sections';
-import { colors, touch, type } from '../../theme';
+import { colors, radius, touch, type } from '../../theme';
 
 /**
  * The five tabs (Today, Jobs, Sales, Customers, Tools) and the tool pages
@@ -31,10 +32,10 @@ export default function TabsLayout() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
-      {/* Settings at the top right, with the running version on it so it's always in sight. */}
+      {/* The forest header with the page title; Settings at the top right, with the running version on it so it's always in sight. */}
       <View style={styles.header} testID="header">
         {tool ? (
-          <Pressable onPress={() => router.navigate('/tools')} accessibilityRole="button" accessibilityLabel="Back to Tools" testID="back-to-tools" style={({ pressed }) => [styles.back, pressed && styles.navPressedLight]}>
+          <Pressable onPress={() => router.navigate('/tools')} accessibilityRole="button" accessibilityLabel="Back to Tools" testID="back-to-tools" style={({ pressed }) => [styles.back, pressed && styles.headPressed]}>
             <Text style={styles.backText}>‹ Tools</Text>
           </Pressable>
         ) : (
@@ -51,7 +52,7 @@ export default function TabsLayout() {
           accessibilityRole="button"
           accessibilityLabel={`Settings, app ${SHORT_VERSION}`}
           testID="open-settings"
-          style={({ pressed }) => [styles.settings, pressed && styles.navPressedLight]}
+          style={({ pressed }) => [styles.settings, pressed && styles.headPressed]}
         >
           <Text style={styles.settingsText}>Settings</Text>
           <Text style={styles.version} testID="header-version">
@@ -61,7 +62,8 @@ export default function TabsLayout() {
       </View>
       {/* The runtime version is the installed APK's app.json version (appVersion policy). */}
       <ApkUpdateBanner manifestUrl={APK_MANIFEST_URL} currentVersion={Updates.runtimeVersion} />
-      <View style={styles.root}>
+      {/* The rounded sheet that rides up over the header. */}
+      <View style={styles.sheet}>
         <Tabs tabBar={() => null} screenOptions={{ headerShown: false, lazy: true, sceneStyle: { backgroundColor: colors.bg } }}>
           {[...SECTIONS, ...TOOL_PAGES].map((s) => (
             <Tabs.Screen key={s.id} name={s.name} options={{ title: s.label }} />
@@ -81,8 +83,9 @@ export default function TabsLayout() {
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
               testID={`section-${s.id}`}
-              style={({ pressed }) => [styles.navItem, on && styles.navItemOn, pressed && !on && styles.navPressed]}
+              style={({ pressed }) => [styles.navItem, pressed && !on && styles.navPressed]}
             >
+              <Icon name={ICONS[s.id]} color={on ? colors.selected : colors.muted} />
               <Text style={[styles.navText, on && styles.navTextOn]} numberOfLines={1} adjustsFontSizeToFit>
                 {s.label}
               </Text>
@@ -94,26 +97,27 @@ export default function TabsLayout() {
   );
 }
 
+const ICONS = { today: 'clock', jobs: 'wrench', customers: 'users', sales: 'dollar', tools: 'gear' } as const;
+
 const MARK = require('../../../assets/brand/mark.png');
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  root: { flex: 1, backgroundColor: colors.head },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 26, backgroundColor: colors.head },
   headText: { flex: 1 },
-  mark: { width: 44, height: 44 },
-  back: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  backText: { fontSize: 16, fontWeight: '800', color: colors.text },
-  title: { fontSize: type.big, fontWeight: '900', color: colors.text },
-  subtitle: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  settings: { minHeight: touch.min, minWidth: touch.min + 24, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  settingsText: { fontSize: 16, fontWeight: '800', color: colors.text },
-  version: { fontSize: 13, fontWeight: '700', color: colors.muted },
-  navPressedLight: { backgroundColor: colors.info },
-  // Green bar, the open section in safety yellow with a yellow mark on top.
-  nav: { flexDirection: 'row', backgroundColor: colors.selected },
-  navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar, alignItems: 'center', justifyContent: 'center', borderTopWidth: 6, borderTopColor: colors.selected },
-  navItemOn: { borderTopColor: colors.safety },
-  navPressed: { backgroundColor: colors.muted },
-  navText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
-  navTextOn: { color: colors.safety, fontWeight: '900' },
+  mark: { width: 44, height: 44, borderRadius: 10 },
+  back: { minHeight: touch.min - 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  backText: { fontSize: 16, fontWeight: '800', color: colors.onHead },
+  title: { fontSize: type.big - 2, fontWeight: '800', color: colors.onHead },
+  subtitle: { fontSize: 15, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
+  settings: { minHeight: touch.min - 8, minWidth: touch.min + 16, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  settingsText: { fontSize: 15, fontWeight: '800', color: colors.onHead },
+  version: { fontSize: 12, fontWeight: '700', color: colors.onHead, opacity: 0.85 },
+  headPressed: { backgroundColor: 'rgba(255,255,255,0.35)' },
+  sheet: { flex: 1, marginTop: -18, backgroundColor: colors.bg, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
+  nav: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6, paddingBottom: 4 },
+  navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar - 6, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  navPressed: { backgroundColor: colors.info },
+  navText: { fontSize: 13, fontWeight: '700', color: colors.muted },
+  navTextOn: { color: colors.selected, fontWeight: '800' },
 });
