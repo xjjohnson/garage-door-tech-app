@@ -13,6 +13,7 @@ import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
 import { whatOf } from '../lib/odooJobs';
 import { fetchForCustomer, ListKind, OdooListRow } from '../lib/odooLists';
+import { AgreementRow, fetchAgreements, fetchRepeats, RepeatRow } from '../lib/odooRecurring';
 import { formatMoney } from '../lib/prices';
 import { dayLabel, formatTime } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
@@ -27,6 +28,8 @@ export interface CustomerRecords {
   jobs: OdooTask[];
   quotes: OdooListRow[];
   invoices: OdooListRow[];
+  repeats?: RepeatRow[];
+  agreements?: AgreementRow[];
   at: number;
 }
 
@@ -42,7 +45,7 @@ export function parseSavedRecords(raw: string | null): Record<string, CustomerRe
     for (const [k, v] of Object.entries(d as Record<string, Record<string, unknown>>)) {
       if (!v || typeof v.at !== 'number') continue;
       const row = (x: OdooListRow) => typeof x.id === 'number' && typeof x.name === 'string';
-      out[k] = { jobs: arr<OdooTask>(v.jobs, (x) => typeof x.id === 'number' && typeof x.name === 'string'), quotes: arr(v.quotes, row), invoices: arr(v.invoices, row), at: v.at };
+      out[k] = { jobs: arr<OdooTask>(v.jobs, (x) => typeof x.id === 'number' && typeof x.name === 'string'), quotes: arr(v.quotes, row), invoices: arr(v.invoices, row), repeats: arr<RepeatRow>(v.repeats, (x) => typeof x.id === 'number' && typeof x.name === 'string'), agreements: arr<AgreementRow>(v.agreements, (x) => typeof x.id === 'number' && typeof x.name === 'string'), at: v.at };
     }
     return out;
   } catch {
@@ -74,13 +77,16 @@ export function useCustomerRecords(partnerId: number, now: () => number = Date.n
     try {
       const apps = client.session.apps;
       const t = now();
-      const [jobs, quotes, invoices] = await Promise.all([
+      const [jobs, quotes, invoices, repeats, agreements] = await Promise.all([
         client.customerJobs(partnerId, LIMIT),
         apps?.sales ? fetchForCustomer(client, 'quotations', partnerId, LIMIT, t) : Promise.resolve([]),
         apps?.invoicing ? fetchForCustomer(client, 'invoices', partnerId, LIMIT, t) : Promise.resolve([]),
+        // Optional apps: a missing one just shows nothing.
+        client.session.kind === 'oca' ? fetchRepeats(client, partnerId, LIMIT).catch(() => []) : Promise.resolve([]),
+        client.session.kind === 'oca' ? fetchAgreements(client, partnerId, LIMIT).catch(() => []) : Promise.resolve([]),
       ]);
       if (n !== asked.current) return;
-      const got = { jobs, quotes, invoices, at: t };
+      const got = { jobs, quotes, invoices, repeats, agreements, at: t };
       setRecords(got);
       setFresh(true);
       const all = parseSavedRecords(await AsyncStorage.getItem(CUSTOMER_ODOO_STORAGE_KEY).catch(() => null));
@@ -146,9 +152,52 @@ export function CustomerOdoo({ partnerId, now = Date.now }: { partnerId: number;
         );
       })}
 
+      <Plans repeats={records?.repeats} agreements={records?.agreements} />
       <Rows title="Quotes" kind="quotations" rows={records?.quotes} onOpen={openRecord} />
       <Rows title="Invoices" kind="invoices" rows={records?.invoices} onOpen={openRecord} />
     </View>
+  );
+}
+
+const span = (a?: string, b?: string) => [a, b].filter(Boolean).join(' to ');
+
+/** Repeating visits and agreements read from Odoo; nothing shows when the customer has none. */
+function Plans({ repeats, agreements }: { repeats?: RepeatRow[]; agreements?: AgreementRow[] }) {
+  return (
+    <>
+      {repeats && repeats.length ? (
+        <>
+          <Text style={styles.section} accessibilityRole="header">
+            Repeating visits
+          </Text>
+          {repeats.map((r) => (
+            <View key={r.id} style={styles.item} testID={`customer-odoo-repeat-${r.id}`}>
+              <View style={styles.top}>
+                <Text style={styles.title}>{r.name}</Text>
+                {r.status ? <Text style={styles.badge}>{r.status.toUpperCase()}</Text> : null}
+              </View>
+              <Text style={styles.meta}>{[r.every, span(r.start, r.end), r.place].filter(Boolean).join(' · ')}</Text>
+            </View>
+          ))}
+        </>
+      ) : null}
+      {agreements && agreements.length ? (
+        <>
+          <Text style={styles.section} accessibilityRole="header">
+            Agreements
+          </Text>
+          {agreements.map((a) => (
+            <View key={a.id} style={styles.item} testID={`customer-odoo-agreement-${a.id}`}>
+              <View style={styles.top}>
+                <Text style={styles.title}>{a.name}</Text>
+                {a.status ? <Text style={styles.badge}>{a.status.toUpperCase()}</Text> : null}
+              </View>
+              <Text style={styles.meta}>{[a.code, span(a.start, a.end), a.active ? '' : 'Archived'].filter(Boolean).join(' · ')}</Text>
+            </View>
+          ))}
+        </>
+      ) : null}
+    </>
   );
 }
 
