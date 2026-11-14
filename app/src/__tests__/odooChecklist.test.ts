@@ -73,3 +73,18 @@ describe('info questions from Odoo', () => {
     expect(r.choices.get('maker')).toEqual(['Clopay', 'Other']);
   });
 });
+
+describe('extra info questions', () => {
+  it('leftover info questions become extras, with their type and choices', () => {
+    const { DEFAULT_INFO } = require('../lib/inspection');
+    const { infoFrom } = require('../lib/odooChecklist');
+    const q = (id: number, title: string, labels: string[] = [], type?: string) => ({ id, title, isPage: false, labels, type });
+    const base = Object.values(DEFAULT_INFO.gate as Record<string, string>).filter((t) => t !== 'Notes and actions').map((t, i) => q(i + 1, t));
+    const r = infoFrom([...base, q(30, 'Notes and actions', [], 'text_box'), q(20, 'Gate color'), q(21, 'Insulated', ['Yes', 'No']), q(22, 'Opener count', [], 'numerical_box')], DEFAULT_INFO.gate, 'notes');
+    expect(r.extras).toEqual([
+      { id: 'q20', label: 'Gate color', type: 'char' },
+      { id: 'q21', label: 'Insulated', type: 'choice', choices: ['Yes', 'No'] },
+      { id: 'q22', label: 'Opener count', type: 'number' },
+    ]);
+  });
+});

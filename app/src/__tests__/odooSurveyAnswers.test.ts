@@ -61,3 +61,31 @@ describe('inspection answers as Odoo surveys', () => {
     expect(r.created.map((c) => c.kind)).toEqual(['opener']);
   });
 });
+
+describe('extra info questions from Odoo', () => {
+  it('keeps an answer by question id and sends it to the matching survey question', () => {
+    const { BUILT_IN_CHECKLIST, setChecklist, setExtra, EMPTY_INSPECTION } = require('../lib/inspection');
+    setChecklist({ ...BUILT_IN_CHECKLIST, extras: { door: [{ id: 'q50', label: 'Garage color', type: 'char' }, { id: 'q51', label: 'Insulated', type: 'choice', choices: ['Yes', 'No'] }, { id: 'q52', label: 'Panels', type: 'number' }], opener: [], gate: [] } });
+    try {
+      const base = EMPTY_INSPECTION(1000);
+      const d = base.doors[0].id;
+      let i = setExtra(base, { door: d }, 'q50', 'White');
+      i = setExtra(i, { door: d }, 'q51', 'Yes');
+      i = setExtra(i, { door: d }, 'q52', '4');
+      expect(i.doors[0].extra).toEqual({ q50: 'White', q51: 'Yes', q52: '4' });
+      expect(setExtra(i, { door: d }, 'q50', '').doors[0].extra).toEqual({ q51: 'Yes', q52: '4' });
+      const lines = surveyInputs(i, 'FSO/1')[0].lines;
+      expect(lines).toContainEqual({ question: 'Garage color', text: 'White' });
+      expect(lines).toContainEqual({ question: 'Insulated', choice: 'Yes' });
+      const ix: SurveyIndex = {
+        surveys: { door: 1 },
+        questions: { 1: { byTitle: new Map([['Garage color', 60], ['Insulated', 61], ['Panels', 62]]), choices: new Map([[61, new Map([['Yes', 611]])]]) } },
+      };
+      const cmds = lineCommands(ix, 1, lines) as [number, number, Record<string, unknown>][];
+      expect(cmds.map((c) => c[2].answer_type).sort()).toEqual(['char_box', 'numerical_box', 'suggestion']);
+      expect(cmds.find((c) => c[2].question_id === 62)![2].value_numerical_box).toBe(4);
+    } finally {
+      setChecklist(null);
+    }
+  });
+});

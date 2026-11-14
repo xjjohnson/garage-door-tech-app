@@ -8,6 +8,8 @@ import { VoiceNotes } from '../components/VoiceNotes';
 import { photosFor, signatureFor } from '../lib/attachments';
 import {
   checklist,
+  ExtraDef,
+  setExtra,
   Answer,
   AnswerKey,
   EMPTY_INSPECTION,
@@ -162,6 +164,7 @@ export function InspectionScreen({ job }: { job: Job }) {
             <Field label={info.door.code} value={d.springCode} onChange={(springCode) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, springCode } : x)) }))} testID={`door-${di}-spring-code`} />
             <Field label={info.door.cycles} value={d.springCycles} placeholder="10,000" onChange={(springCycles) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, springCycles } : x)) }))} testID={`door-${di}-cycles`} />
           </View>
+          <ExtraFields defs={checklist().extras.door} values={d.extra} onChange={(id, v) => save((i) => setExtra(i, { door: d.id }, id, v))} testPrefix={`door-${di}-extra`} />
           <SectionItems insp={insp} sectionKey={d.id} job={job} photos={photos.map((p) => p.item ?? '')} onAnswer={answer} onPhoto={media ? takePhoto : undefined} onRepair={addRepair} onRestGood={() => save((i) => restGood(i, d.id))} />
 
           {d.motors.map((m, mi) => (
@@ -176,6 +179,7 @@ export function InspectionScreen({ job }: { job: Job }) {
                 testID={`motor-${di}-${mi}-maker`}
               />
               <Field label={info.opener.built} value={m.built} placeholder="2019" onChange={(built) => save((i) => ({ ...i, doors: i.doors.map((x) => (x.id === d.id ? { ...x, motors: x.motors.map((y) => (y.id === m.id ? { ...y, built } : y)) } : x)) }))} testID={`motor-${di}-${mi}-built`} />
+              <ExtraFields defs={checklist().extras.opener} values={m.extra} onChange={(id, v) => save((i) => setExtra(i, { door: d.id, motor: m.id }, id, v))} testPrefix={`motor-${di}-${mi}-extra`} />
               <SectionItems insp={insp} sectionKey={`${d.id}/${m.id}`} job={job} photos={photos.map((p) => p.item ?? '')} onAnswer={answer} onPhoto={media ? takePhoto : undefined} onRepair={addRepair} onRestGood={() => save((i) => restGood(i, `${d.id}/${m.id}`))} />
               <Action
                 label={tapAgain(m.id, `Remove motor ${mi + 1}`)}
@@ -211,6 +215,7 @@ export function InspectionScreen({ job }: { job: Job }) {
       {insp.gate ? (
         <View style={styles.stack}>
           <ChipRow options={GATE_TYPES} value={insp.gate.type as 'swing' | 'slide'} onChange={(t) => save((i) => ({ ...i, gate: { ...i.gate!, type: t } }))} testID="gate-type" />
+          <ExtraFields defs={checklist().extras.gate} values={insp.gate.extra} onChange={(id, v) => save((i) => setExtra(i, {}, id, v))} testPrefix="gate-extra" />
           {insp.gate.type ? (
             <>
               <Text style={styles.subTitle}>{insp.gate.type === 'slide' ? 'Slide gate' : 'Swing gate'}</Text>
@@ -411,6 +416,24 @@ function Toggle({ label, on, onPress, testID }: { label: string; on: boolean; on
       <View style={[styles.box, on && styles.boxOn]}>{on ? <Text style={styles.tick}>✓</Text> : null}</View>
       <Text style={styles.toggleText}>{label}</Text>
     </Pressable>
+  );
+}
+
+/** The extra info questions added in Odoo: a pick list, or a box to type in. */
+function ExtraFields({ defs, values, onChange, testPrefix }: { defs: ExtraDef[]; values: Record<string, string> | undefined; onChange: (id: string, value: string) => void; testPrefix: string }) {
+  return (
+    <>
+      {defs.map((d) =>
+        d.type === 'choice' ? (
+          <View key={d.id} style={styles.field}>
+            <Text style={styles.fieldLabel}>{d.label}</Text>
+            <ChipRow options={(d.choices ?? []).map((c) => ({ label: c, value: c }))} value={values?.[d.id] ?? ''} onChange={(v) => onChange(d.id, v)} scroll compact testID={`${testPrefix}-${d.id}`} />
+          </View>
+        ) : (
+          <Field key={d.id} label={d.label} value={values?.[d.id] ?? ''} placeholder={d.type === 'date' ? 'YYYY-MM-DD' : undefined} onChange={(v) => onChange(d.id, v)} testID={`${testPrefix}-${d.id}`} />
+        ),
+      )}
+    </>
   );
 }
 
