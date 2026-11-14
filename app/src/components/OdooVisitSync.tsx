@@ -9,7 +9,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { findCustomer } from '../lib/customers';
 import { log } from '../lib/log';
 import { canSendJobs, myId, partnerFor, visitId } from '../lib/odooJobs';
-import { createVisitOrder, pushVisitStatus, visitOrder, visitsToClose, visitsToCreate } from '../lib/odooVisits';
+import { createVisitOrder, pushVisitStatus, visitOrder, visitsToCheck, visitsToClose, visitsToCreate } from '../lib/odooVisits';
+import { readJobStates } from '../lib/odooJobs';
 import { onSyncNow } from '../lib/syncNow';
 import type { OdooPartner } from '../lib/customerSync';
 import { useAppForeground } from '../lib/useAppForeground';
@@ -78,6 +79,20 @@ export function OdooVisitSync({ now = Date.now }: { now?: () => number }) {
         } catch (e) {
           failed.current.set(`close:${v.id}`, now());
           log.warn('odoo', `visit ${v.id} (${v.status}) not sent: ${message(e)}`);
+        }
+      }
+
+      // 3. Visits whose Odoo job was deleted there leave the schedule.
+      const check = visitsToCheck(latest.current.schedule.appointments);
+      for (const model of ['fsm.order', 'project.task'] as const) {
+        const mine = check.map((v) => ({ v, ref: visitOrder(client, v) })).filter((x) => x.ref?.model === model);
+        if (!mine.length) continue;
+        const states = await readJobStates(client, model, mine.map((x) => x.ref!.id));
+        const gone = new Set(states.filter((s) => s.deleted).map((s) => s.id));
+        const drop = mine.filter((x) => gone.has(x.ref!.id)).map((x) => x.v.id);
+        if (drop.length) {
+          latest.current.schedule.replace(drop, []);
+          log.info('odoo', `${drop.length} visit(s) removed: their jobs were deleted in Odoo`);
         }
       }
     } catch (e) {

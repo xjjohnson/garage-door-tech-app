@@ -1,3 +1,4 @@
+import { SyncNowButton } from '../components/SyncNowButton';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -62,6 +63,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         <StockButton />
       </View>
       <FollowUpsButton />
+      <SyncNowButton testID="jobs-sync-now" />
       <View style={styles.searchRow}>
         <TextInput
           value={query}
