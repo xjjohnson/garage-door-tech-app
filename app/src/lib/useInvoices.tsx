@@ -29,8 +29,8 @@ interface InvoicesApi {
   addPayment: (invoiceId: string, p: Omit<Payment, 'id' | 'at'>) => void;
   removePayment: (invoiceId: string, paymentId: string) => void;
   setVoid: (invoiceId: string, voided: boolean) => void;
-  /** Picks this job's warranty (months, labor and/or parts) and how often the door is used a day. */
-  setCoverage: (invoiceId: string, patch: Partial<Pick<Invoice, 'warranty' | 'cyclesPerDay'>>) => void;
+  /** Picks this job's warranty (months, labor and/or parts). */
+  setCoverage: (invoiceId: string, patch: Partial<Pick<Invoice, 'warranty'>>) => void;
   /** Keeps what Odoo said about this invoice after sending or checking it. */
   setOdoo: (invoiceId: string, odoo: OdooInvoiceState) => void;
   /** Adds a backup's invoices (the copy changed last wins) and, if it has one, its business details. */

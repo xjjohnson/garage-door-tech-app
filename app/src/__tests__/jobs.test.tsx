@@ -66,50 +66,37 @@ beforeEach(async () => {
 });
 
 describe('saved jobs in the app', () => {
-  it('saves a spring result as a job, lists it, reopens it in the calculator and saves changes back', async () => {
+  it('does not make jobs from the calculator, but opens a saved job and saves changes back', async () => {
     await renderApp('/springs');
-    // No answer yet: nothing to save.
-    expect(screen.getByTestId('job-save')).toBeDisabled();
+    // The calculator has no "Save as a job" any more.
+    expect(screen.queryByTestId('job-save')).toBeNull();
+    expect(screen.queryByTestId('linked-job')).toBeNull();
+    await enter('field-twenty', ['4', '1/2']);
+    await enter('field-length', ['2', '4']);
+    expect(screen.queryByTestId('job-save')).toBeNull();
+    expect(screen.queryByTestId('job-update')).toBeNull();
+    // Expected life from door uses a day (25,000+ cycles at 4 a day).
+    expect(screen.getByTestId('uses-per-day')).toHaveTextContent('4a day');
+
+    const saved = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: 'Springs' }, 1000, 'j1');
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([saved]));
+    await renderApp('/springs');
+    await fireEvent.press(screen.getByTestId('section-jobs'));
+    await screen.findByTestId('job-j1');
+    await fireEvent.press(screen.getByTestId('job-toggle-j1'));
+    await fireEvent.press(screen.getByTestId('job-open-j1'));
+    expect(await screen.findByTestId('linked-job')).toHaveTextContent('Job: Pat Smith');
 
     await enter('field-twenty', ['4', '1/2']);
     await enter('field-length', ['2', '4']);
-    await fireEvent.press(screen.getByTestId('job-save'));
-    const sheet = screen.getByTestId('job-sheet');
-    // Needs a customer or an address.
-    expect(within(sheet).getByTestId('job-sheet-save')).toBeDisabled();
-    await fireEvent.changeText(within(sheet).getByTestId('job-customer'), 'Pat Smith');
-    await fireEvent.changeText(within(sheet).getByTestId('job-address'), '12 Oak St');
-    await fireEvent.changeText(within(sheet).getByTestId('job-phone'), '555 010 2030');
-    await fireEvent.press(within(sheet).getByTestId('job-sheet-save'));
-    expect(screen.getByTestId('job-saved')).toHaveTextContent('Saved to Jobs: Pat Smith');
-    expect(screen.getByTestId('linked-job')).toHaveTextContent('Job: Pat Smith');
-
-    expect(await storedJobs()).toHaveLength(1);
-    const [saved] = await storedJobs();
-    expect(saved).toMatchObject({ customer: 'Pat Smith', mode: 'match', summaryTitle: '.225 × 2" × 24"' });
+    await fireEvent.press(screen.getByTestId('job-update'));
+    expect((await storedJobs())[0].summaryTitle).toBe('.225 × 2" × 24"');
+    expect((await storedJobs())[0].form).toMatchObject({ length: '24' });
 
     // Clearing the calculator unlinks it from the job.
     await fireEvent.press(screen.getByTestId('clear-match'));
     await fireEvent.press(screen.getByTestId('clear-match'));
     expect(screen.queryByTestId('linked-job')).toBeNull();
-
-    await fireEvent.press(screen.getByTestId('section-jobs'));
-    const card = screen.getByTestId(`job-${saved.id}`);
-    expect(within(card).getByText('.225 × 2" × 24"')).toBeTruthy();
-    expect(within(card).getByText('12 Oak St')).toBeTruthy();
-    await fireEvent.press(within(card).getByTestId(`job-toggle-${saved.id}`));
-    expect(within(card).getByTestId(`job-call-${saved.id}`)).toBeTruthy();
-    await fireEvent.press(within(card).getByTestId(`job-open-${saved.id}`));
-
-    // Back on the calculator with the job's inputs.
-    const results = await screen.findByTestId('match-results');
-    expect(within(results).getByText('.225 × 2" × 24"')).toBeTruthy();
-    expect(screen.getByTestId('linked-job')).toHaveTextContent('Job: Pat Smith');
-
-    await enter('field-length', ['back', 'back', '2', '6']);
-    await fireEvent.press(screen.getByTestId('job-update'));
-    expect((await storedJobs())[0].summaryTitle).toBe('.225 × 2" × 26"');
-    expect((await storedJobs())[0].form).toMatchObject({ length: '26' });
   });
 
   it('edits, marks done and deletes (on a second tap) from the Jobs list', async () => {

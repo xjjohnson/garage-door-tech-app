@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { formatInches, formatNumber } from '../lib/measure';
-import { formatLife, springName } from '../lib/springNames';
+import { expectedLife, formatLife, springName } from '../lib/springNames';
+import { useFollowUps } from '../lib/useFollowUps';
+import { MeasureField } from './controls';
 import { findWire, SpringSpec, Warning } from '../springCalc';
 import { colors, type } from '../theme';
 
@@ -97,9 +99,29 @@ export function lbRange(r: { low: number; high: number }): string {
   return `${formatNumber(r.low)}–${formatNumber(r.high)} lb`;
 }
 
+/** How many times a day the door is used: sets the expected life shown under each spring's cycle rating. */
+export function UsesPerDay() {
+  const { settings, setSettings } = useFollowUps();
+  return (
+    <MeasureField
+      label="Door uses a day"
+      hint="About 4 is typical for a home. Sets each spring's expected life and the follow-ups."
+      value={String(settings.cyclesPerDay)}
+      onChange={(v) => {
+        const n = Number.parseFloat(v);
+        if (Number.isFinite(n) && n > 0) setSettings((s) => ({ ...s, cyclesPerDay: n }));
+      }}
+      unit="a day"
+      allowFraction={false}
+      testID="uses-per-day"
+    />
+  );
+}
+
 /** One spring: its name in big type, then rate, life, growth and weight. */
 export function SpringDetails({ spec, children }: { spec: SpringSpec; children?: ReactNode }) {
   const color = wireColor(spec.wireIn);
+  const uses = useFollowUps().settings.cyclesPerDay;
   return (
     <View style={styles.spring}>
       <Text style={styles.springName}>{springName(spec)}</Text>
@@ -110,6 +132,7 @@ export function SpringDetails({ spec, children }: { spec: SpringSpec; children?:
         value={formatLife(spec.life)}
         sub={spec.makerChartLife.cycles > spec.life.cycles && !spec.life.belowMinimum ? `maker chart: ${formatLife(spec.makerChartLife)}` : undefined}
       />
+      <Stat label="Expected life" value={expectedLife(spec.life, uses)} />
       <Stat label="Grows when wound" value={formatInches(spec.growthIn)} />
       <Stat label="Weight each" value={`${spec.weightLb.toFixed(1)} lb`} />
       {children}

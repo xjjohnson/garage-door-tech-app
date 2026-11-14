@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, MultiChipRow, SectionTitle } from '../components/controls';
-import { Card, ErrorCard, MissingCard, SafetyBanner, SpringDetails, Stat, Warnings } from '../components/results';
+import { Card, ErrorCard, MissingCard, SafetyBanner, SpringDetails, UsesPerDay, Stat, Warnings } from '../components/results';
 import { SaveJobPanel } from '../components/SaveJobPanel';
 import { CYCLE_CHOICES, DEFAULT_DRUMS_FORM, DrumsForm, DrumsResult, COMMERCIAL_ID_CHOICES, HEIGHT_CHOICES, LIFT_CHOICES, TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT, Outcome, runDrums } from '../lib/forms';
 import { OpenJobRequest } from '../lib/jobs';
@@ -121,6 +121,7 @@ export function DrumsScreen({ open }: { open?: OpenJobRequest }) {
   const results = (
     <>
       <SectionTitle>Results</SectionTitle>
+      <UsesPerDay />
       {outcome.status === 'error' ? <ErrorCard message={outcome.message} /> : null}
       {outcome.status === 'ok' && outcome.result.highLift ? <Warnings warnings={outcome.result.highLift.warnings} /> : null}
       {outcome.status === 'ok' && outcome.result.heavy ? <Warnings warnings={outcome.result.heavy.warnings} /> : null}

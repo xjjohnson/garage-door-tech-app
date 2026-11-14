@@ -4,13 +4,13 @@ import { JobInputs, jobName } from '../lib/jobs';
 import { useJobs } from '../lib/useJobs';
 import { colors, touch, type } from '../theme';
 import { BarSummary } from './CalcLayout';
-import { JobDetailsSheet } from './JobDetailsSheet';
 
 const SAVED_MS = 4000;
 
 /**
- * Under a calculator's results: save these inputs as a job, or, when the
- * screen was opened from a saved job, save the changes back to it.
+ * Under a calculator's results: when the screen was opened from a saved job,
+ * save the changes back to it. A calculator no longer makes jobs on its own
+ * (Justin, Nov 13); jobs start from Jobs or Odoo.
  */
 export function SaveJobPanel({
   inputs,
@@ -29,8 +29,7 @@ export function SaveJobPanel({
   onLink: (id: string | undefined) => void;
   testID?: string;
 }) {
-  const { jobs, add, updateInputs } = useJobs();
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const { jobs, updateInputs } = useJobs();
   const [saved, setSaved] = useState<string | null>(null);
   const linked = linkedId ? jobs.find((j) => j.id === linkedId) : undefined;
 
@@ -42,47 +41,27 @@ export function SaveJobPanel({
 
   const answer = { title: summary.title, detail: summary.detail };
 
+  if (!linked) return null;
+
   return (
     <View style={styles.box} testID={testID}>
-      {linked ? (
-        <Text style={styles.linked} testID="linked-job">
-          Job: {jobName(linked)}
-        </Text>
-      ) : null}
-      {!ready ? <Text style={styles.hint}>Enter the measurements to save this as a job.</Text> : null}
+      <Text style={styles.linked} testID="linked-job">
+        Job: {jobName(linked)}
+      </Text>
       {saved ? (
         <Text style={styles.saved} accessibilityLiveRegion="polite" testID="job-saved">
           {saved}
         </Text>
       ) : null}
-      {linked ? (
-        <View style={styles.row}>
-          <Button
-            label="Save changes"
-            primary
-            grow
-            disabled={!ready}
-            onPress={() => {
-              updateInputs(linked.id, inputs, answer);
-              setSaved(`Saved to ${jobName(linked)}`);
-            }}
-            testID="job-update"
-          />
-          <Button label="New job" grow disabled={!ready} onPress={() => setSheetOpen(true)} testID="job-new" />
-        </View>
-      ) : (
-        <Button label="Save as a job" primary disabled={!ready} onPress={() => setSheetOpen(true)} testID="job-save" />
-      )}
-      <JobDetailsSheet
-        visible={sheetOpen}
-        title="Save as a job"
-        onCancel={() => setSheetOpen(false)}
-        onSave={(details) => {
-          const job = add(inputs, details, answer);
-          setSheetOpen(false);
-          onLink(job.id);
-          setSaved(`Saved to Jobs: ${jobName(job)}`);
+      <Button
+        label="Save changes"
+        primary
+        disabled={!ready}
+        onPress={() => {
+          updateInputs(linked.id, inputs, answer);
+          setSaved(`Saved to ${jobName(linked)}`);
         }}
+        testID="job-update"
       />
     </View>
   );
