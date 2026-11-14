@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
 import { invoiceNo } from '../lib/invoices';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NewFollowUpSheet, dayAhead } from '../components/PlanSheets';
-import { createManualFollowUp } from '../lib/odooFollowUps';
+import { completeActivity, createManualFollowUp, fetchMyTodos, TodoRow } from '../lib/odooFollowUps';
 import { useOdoo } from '../lib/useOdoo';
-import { followUpId, followUps, textLink } from '../lib/followups';
+import { DAY, followUpId, followUps, textLink } from '../lib/followups';
 import { formatJobDate } from '../lib/jobs';
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
@@ -25,8 +25,23 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
+  const [todos, setTodos] = useState<TodoRow[] | null>(null);
+  const [todoError, setTodoError] = useState<string | null>(null);
+  const loadTodos = useCallback(async () => {
+    if (!client) return;
+    try {
+      setTodos(await fetchMyTodos(client));
+      setTodoError(null);
+    } catch (e) {
+      setTodoError(e instanceof Error ? e.message : String(e));
+    }
+  }, [client]);
+  useEffect(() => {
+    loadTodos();
+  }, [loadTodos]);
   const list = useMemo(() => followUps(invoices, settings, business, now(), dismissed), [invoices, settings, business, dismissed, now]);
   const t = now();
+  const t0 = t;
 
   const phoneFor = (customerId?: string) => customers.find((c) => c.id === customerId)?.phone ?? '';
   const withOdoo = customers.filter((c) => c.odooId).map((c) => ({ id: c.odooId as number, name: c.name || c.address || 'Customer' }));
@@ -49,6 +64,7 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
             await createManualFollowUp(client, f.customerId, { title: f.title, note: f.note, due: dayAhead(f.days, Date.now()) });
             setAdding(false);
             setAdded(true);
+            loadTodos();
           } catch (e) {
             setProblem(e instanceof Error ? e.message : String(e));
           } finally {
@@ -56,7 +72,31 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
           }
         }}
       />
-      {list.length === 0 ? (
+      {todoError ? <Text style={styles.meta} testID="followup-todo-error">Couldn&apos;t read your to-dos from Odoo: {todoError}</Text> : null}
+      {(todos ?? []).map((t) => {
+        const mine = customers.find((c) => c.odooId === t.partnerId);
+        const overdue = !!t.due && Date.parse(t.due) < t0 - DAY;
+        return (
+          <View key={`todo-${t.id}`} style={[styles.item, overdue && styles.overdue]} testID={`followup-todo-${t.id}`}>
+            <Text style={styles.title}>{t.title}</Text>
+            <Text style={styles.detail}>{t.customer || mine?.name || 'Customer'}</Text>
+            <Text style={styles.meta}>{t.due ? `${overdue ? 'Due since' : 'Due'} ${t.due}` : 'No date'} · to-do in Odoo</Text>
+            {t.note ? <Text style={styles.meta}>{t.note}</Text> : null}
+            <View style={styles.row}>
+              {mine ? <Action label="Customer" grow onPress={() => router.push({ pathname: '/customer/[id]', params: { id: mine.id } })} testID={`followup-todo-customer-${t.id}`} /> : null}
+              <Action
+                label="Done"
+                grow
+                onPress={() => {
+                  if (client) completeActivity(client, t.id).then(loadTodos).catch((e) => setTodoError(e instanceof Error ? e.message : String(e)));
+                }}
+                testID={`followup-todo-done-${t.id}`}
+              />
+            </View>
+          </View>
+        );
+      })}
+      {list.length === 0 && (todos ?? []).length === 0 ? (
         <View style={styles.empty} testID="followups-empty">
           <Text style={styles.emptyTitle}>Nothing due</Text>
           <Text style={styles.emptyBody}>Springs near the end of their life and warranties about to end show up here from your invoices, 45 days ahead. Yearly tune-ups are repeating visits on the customer's page.</Text>
