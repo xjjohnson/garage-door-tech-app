@@ -624,6 +624,19 @@ invoice. Materials on the ticket that are truck stock items (same Odoo
 product) show under the job's **Parts used**, and Create invoice takes them off
 the truck, less any already taken off by hand for that job.
 
+**Customer signs the estimate they pick** (from 0.5.98). Each estimate on the
+Ticket screen has **Customer signs to approve** (or "...to pick this one" while
+the customer is still choosing). Signing is how the customer picks: with several
+open and none picked, the signed one is picked and the others are declined
+(cancelled in Odoo), like "Customer picked this one". The signature covers the
+lines as they are; if the estimate changes afterwards it says "Changed since the
+customer signed" and asks again. The drawing is saved on that estimate's own
+quotation in Odoo (the sales order's signature, signed by and signed on fields),
+once per signature and quotation, as soon as the quotation exists and the phone
+has signal. The job's ticket row on the job page shows "Signed by ...". The
+signature is stored on the estimate (`Ticket.signed`), so it follows the estimate
+when it is moved in the list.
+
 **Parts used as real stock moves** (from 0.5.96, needs Field Service Stock). On
 an Odoo that has Field Service Stock (the `fsm_order_id` field on stock moves and
 deliveries; checked with fields_get at sign-in), a part taken for a job that is

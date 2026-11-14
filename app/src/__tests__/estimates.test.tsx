@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
-import { addEstimate, awaitingPick, bringBack, cancelDeclined, choosing, EstimateSet, openEstimates, parseEstimates, pickEstimate, removeEstimate, switchTo } from '../lib/estimates';
+import { addEstimate, awaitingPick, bringBack, cancelDeclined, choosing, EstimateSet, openEstimates, parseEstimates, pickEstimate, removeEstimate, signEstimate, markSignatureSent, switchTo } from '../lib/estimates';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
-import { addTyped, EMPTY_TICKET, Ticket } from '../lib/ticket';
+import { addTyped, EMPTY_TICKET, signaturePending, signedNow, Ticket, parseTicket } from '../lib/ticket';
 import { renderApp } from '../testing/renderApp';
 
 const line = (name: string, cents: number) => ({ name, unitCents: cents, kind: 'service' as const });
@@ -103,6 +103,33 @@ describe('Estimates (logic)', () => {
     expect(next.others).toEqual([]);
   });
 
+  it('signing an estimate picks it, declines the rest, and covers the lines as they are', () => {
+    let s = addEstimate({ ticket: { ...withLine(EMPTY_TICKET, 'Good', 10000, 'a'), order: { id: 1, name: 'S1' } }, others: [] }, { lines: [], title: 'Better' }, mk);
+    s = { ...s, ticket: { ...withLine(s.ticket, 'Better', 20000, 'b'), order: { id: 2, name: 'S2' } } };
+    const good = s.others[0]!;
+    s = signEstimate(s, good.id, { id: 'sg1', by: 'Josh', at: 50 }, mk);
+    expect(s.ticket).toMatchObject({ title: 'Estimate 1', pickedAt: 50, signed: { id: 'sg1', by: 'Josh', at: 50 } });
+    expect(s.others[0]).toMatchObject({ title: 'Better', declinedAt: 50, cancelPending: true });
+    expect(s.others[0]!.signed).toBeUndefined();
+    expect(signedNow(s.ticket)).toBeTruthy();
+    expect(signaturePending(s.ticket)).toBe(true);
+    const sent = markSignatureSent(s.ticket, 'sg1', 1);
+    expect(signaturePending(sent)).toBe(false);
+    // A new quotation (different order id) needs the signature again.
+    expect(signaturePending({ ...sent, order: { id: 9, name: 'S9' } })).toBe(true);
+    // Changing the lines after signing means the signature no longer counts.
+    const changed = withLine(sent, 'Extra', 500, 'c');
+    expect(signedNow(changed)).toBeUndefined();
+    expect(signaturePending(changed)).toBe(false);
+    expect(parseTicket(JSON.parse(JSON.stringify(sent)))!.signed).toEqual(sent.signed);
+  });
+
+  it('signs the lone estimate without picking anything', () => {
+    const s = signEstimate({ ticket: withLine(EMPTY_TICKET, 'Repair', 15000, 'a'), others: [] }, undefined, { id: 'sg', by: '', at: 5 });
+    expect(s.ticket.signed).toMatchObject({ id: 'sg' });
+    expect(s.ticket.pickedAt).toBeUndefined();
+  });
+
   it('reads saved estimates and drops ones without an id', () => {
     expect(parseEstimates([{ id: 'x', lines: [], title: 'Good', declinedAt: 5, cancelPending: true }, { lines: [] }, 3])).toEqual([{ lines: [], id: 'x', title: 'Good', declinedAt: 5, cancelPending: true }]);
     expect(parseEstimates(undefined)).toEqual([]);
@@ -148,5 +175,37 @@ describe('Estimates (screen)', () => {
     expect(j.estimates![0]).toMatchObject({ declinedAt: expect.any(Number) });
     expect(screen.queryByTestId('estimates-waiting')).toBeNull();
     expect(screen.getByTestId(`estimate-${j.estimates![0]!.id}`)).toHaveTextContent(/Declined/);
+  });
+
+  const signNow = async (testID: string) => {
+    await fireEvent.press(screen.getByTestId(testID));
+    const pad = screen.getByTestId('signature-pad');
+    await fireEvent(pad, 'layout', { nativeEvent: { layout: { width: 300, height: 200 } } });
+    let tick = 0;
+    const touch = (x: number, y: number) => ({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, touches: [], changedTouches: [], identifier: 1, timestamp: Date.now() }, touchHistory: { touchBank: [{ touchActive: true, startPageX: x, startPageY: y, startTimeStamp: 0, currentPageX: x, currentPageY: y, currentTimeStamp: ++tick, previousPageX: x, previousPageY: y, previousTimeStamp: tick - 1 }], numberActiveTouches: 1, indexOfSingleActiveTouch: 0, mostRecentTimeStamp: tick } });
+    await fireEvent(pad, 'responderGrant', touch(10, 10));
+    await fireEvent(pad, 'responderMove', touch(50, 40));
+    await fireEvent(pad, 'responderRelease', touch(50, 40));
+    await fireEvent.press(screen.getByTestId('signature-save'));
+    await settle();
+  };
+
+  it('the customer signs the estimate they pick, and the job shows it', async () => {
+    await AsyncStorage.clear();
+    const job = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Josh', address: '12 Oak St', phone: '', notes: '' }, { title: '' }, 1000, 'j1');
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
+    await renderApp('/ticket/j1');
+    await settle();
+    await addLine('Repair the spring', '150');
+    await fireEvent.press(screen.getByTestId('estimate-add'));
+    await settle();
+    await addLine('Replace the door', '900');
+    const before = await saved();
+    const repairId = before.estimates![0]!.id!;
+    await signNow(`estimate-sign-${repairId}`);
+    const j = await saved();
+    expect(j.ticket).toMatchObject({ title: 'Estimate 1', pickedAt: expect.any(Number), signed: { by: 'Josh' } });
+    expect(j.estimates![0]).toMatchObject({ declinedAt: expect.any(Number) });
+    expect(screen.getByTestId(`estimate-signed-${j.ticket!.id}`)).toHaveTextContent(/Signed by Josh/);
   });
 });

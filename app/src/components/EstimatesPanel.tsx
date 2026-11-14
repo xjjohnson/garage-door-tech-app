@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { addEstimate, awaitingPick, bringBack, choosing, EstimateSet, estimateName, pickEstimate, removeEstimate, renameEstimate, switchTo } from '../lib/estimates';
 import { formatMoney } from '../lib/prices';
-import { currentTotals, estimateTotals, Ticket } from '../lib/ticket';
+import { formatJobDate } from '../lib/jobs';
+import { currentTotals, estimateTotals, signedNow, Ticket } from '../lib/ticket';
 import { colors, type } from '../theme';
 import { Action } from './Buttons';
+import { SignatureResult, SignatureSheet } from './SignaturePad';
 import { SectionTitle } from './controls';
+
+const list0 = (s: EstimateSet): Ticket[] => [s.ticket, ...s.others];
 
 /** What the customer would pay for an estimate: Odoo's total when it has priced it, else the phone's guess. */
 const totalOf = (t: Ticket, taxPercent: string) => (currentTotals(t) ?? estimateTotals(t, taxPercent)).total;
@@ -15,9 +19,12 @@ const totalOf = (t: Ticket, taxPercent: string) => (currentTotals(t) ?? estimate
  * each its own quotation in Odoo. The one open below is the ticket being worked
  * on. Picking one declines the rest (cancelled in Odoo, kept here as Declined).
  */
-export function EstimatesPanel({ set, taxPercent, locked, onChange, now }: { set: EstimateSet; taxPercent: string; locked: boolean; onChange: (fn: (s: EstimateSet) => EstimateSet) => void; now: () => number }) {
+export function EstimatesPanel({ set, taxPercent, locked, onChange, now, customer, onSign }: { set: EstimateSet; taxPercent: string; locked: boolean; onChange: (fn: (s: EstimateSet) => EstimateSet) => void; now: () => number; customer?: string; onSign?: (estimateId: string | undefined, s: SignatureResult) => void }) {
   const [renaming, setRenaming] = useState(false);
-  const list = [set.ticket, ...set.others];
+  // The estimate being signed: its id, or '' for the lone estimate that has no id yet.
+  const [signing, setSigning] = useState<string | null>(null);
+  const signTarget = signing === null ? undefined : list0(set).find((t) => (t.id ?? '') === signing);
+  const list = list0(set);
   const many = list.length > 1;
   const waiting = awaitingPick(set);
   const mkId = () => `e${now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -40,6 +47,14 @@ export function EstimatesPanel({ set, taxPercent, locked, onChange, now }: { set
                 {t.order ? ` · quotation ${t.order.name}` : ''}
                 {declined && t.cancelPending ? ' · cancelling in Odoo when online' : ''}
               </Text>
+              {t.signed ? (
+                <Text style={signedNow(t) ? styles.signed : styles.meta} testID={`estimate-signed-${t.id}`}>
+                  {signedNow(t) ? `✓ Signed by ${t.signed.by || 'the customer'} on ${formatJobDate(t.signed.at)}${t.signed.sent ? ' · saved on the quotation in Odoo' : ''}` : 'Changed since the customer signed. Have them sign again.'}
+                </Text>
+              ) : null}
+              {!locked && !declined && onSign && t.lines.length > 0 ? (
+                <Action label={signedNow(t) ? 'Sign again' : waiting ? 'Customer signs to pick this one' : 'Customer signs to approve'} onPress={() => setSigning(t.id ?? '')} testID={`estimate-sign-${t.id}`} />
+              ) : null}
               {!locked ? (
                 <View style={styles.buttons}>
                   {!active && !declined ? <Action label="Open" onPress={() => onChange((s) => switchTo(s, t.id!, mkId))} testID={`estimate-open-${t.id}`} /> : null}
@@ -51,6 +66,30 @@ export function EstimatesPanel({ set, taxPercent, locked, onChange, now }: { set
             </View>
           );
         })
+      ) : null}
+      {!many && set.ticket.lines.length > 0 ? (
+        <View style={styles.card} testID="estimate-single">
+          {set.ticket.signed ? (
+            <Text style={signedNow(set.ticket) ? styles.signed : styles.meta} testID="estimate-signed-single">
+              {signedNow(set.ticket) ? `✓ Signed by ${set.ticket.signed.by || 'the customer'} on ${formatJobDate(set.ticket.signed.at)}${set.ticket.signed.sent ? ' · saved on the quotation in Odoo' : ''}` : 'Changed since the customer signed. Have them sign again.'}
+            </Text>
+          ) : null}
+          {!locked && onSign ? <Action label={signedNow(set.ticket) ? 'Sign again' : 'Customer signs to approve'} onPress={() => setSigning(set.ticket.id ?? '')} testID="estimate-sign-single" /> : null}
+        </View>
+      ) : null}
+      {onSign ? (
+        <SignatureSheet
+          visible={!!signTarget}
+          title="Approve the estimate"
+          agreement={signTarget ? `I approve ${signTarget.title?.trim() ? `"${signTarget.title.trim()}"` : 'this estimate'} for ${formatMoney(totalOf(signTarget, taxPercent))}.` : ''}
+          initialName={customer ?? ''}
+          onCancel={() => setSigning(null)}
+          onSave={(sig) => {
+            const id = signTarget?.id;
+            setSigning(null);
+            onSign(id, sig);
+          }}
+        />
       ) : null}
       {many && !locked ? (
         renaming ? (
@@ -85,6 +124,7 @@ const styles = StyleSheet.create({
   name: { flex: 1, fontSize: type.body, fontWeight: '900', color: colors.text },
   amount: { fontSize: type.body, fontWeight: '900', color: colors.text },
   struck: { textDecorationLine: 'line-through' },
+  signed: { fontSize: 15, fontWeight: '800', color: colors.text },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
   buttons: { gap: 6 },
   input: { minHeight: 48, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },

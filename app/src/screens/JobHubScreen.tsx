@@ -15,7 +15,7 @@ import { log } from '../lib/log';
 import { formatMoney } from '../lib/prices';
 import { dayLabel, formatTime, mapsLink, onMyWayText } from '../lib/schedule';
 import { useSchedule } from '../lib/useSchedule';
-import { currentTotals, subtotal } from '../lib/ticket';
+import { currentTotals, signedNow, subtotal } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
 import { houseOf, NoteTarget } from '../lib/odooNotes';
 import { useJobs } from '../lib/useJobs';
@@ -214,7 +214,8 @@ function ticketDetail(job: Job): string {
   if (!t || t.lines.length === 0) return 'Services and materials from the price book';
   const shown = currentTotals(t)?.total ?? subtotal(t);
   const est = t.estimateAt ? `Estimate${t.order ? ` ${t.order.name}` : ''} · ` : '';
-  return `${est}${t.lines.length === 1 ? '1 item' : `${t.lines.length} items`} · ${formatMoney(shown)}${currentTotals(t) ? '' : ' before tax'}`;
+  const sg = signedNow(t) ? `Signed by ${t.signed!.by || 'customer'} · ` : '';
+  return `${est}${sg}${t.lines.length === 1 ? '1 item' : `${t.lines.length} items`} · ${formatMoney(shown)}${currentTotals(t) ? '' : ' before tax'}`;
 }
 
 function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {

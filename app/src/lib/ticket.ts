@@ -62,7 +62,26 @@ export interface Ticket {
   declinedAt?: number;
   /** Estimates: declined, but its quotation in Odoo still has to be cancelled (offline when it was declined). */
   cancelPending?: boolean;
+  /** The customer's signature approving this estimate (0.8): saved on its quotation in Odoo. */
+  signed?: EstimateSigned;
 }
+
+/** A customer's signature on one estimate. `key` is linesKey of what they signed, so a changed estimate asks again. */
+export interface EstimateSigned {
+  /** The Signature (src/lib/attachments.ts) holding the drawing. */
+  id: string;
+  by: string;
+  at: number;
+  key: string;
+  /** `<signature id>:<quotation id>` once saved on that quotation in Odoo. */
+  sent?: string;
+}
+
+/** The estimate's signature, if the customer signed it as it is now. */
+export const signedNow = (t: Ticket): EstimateSigned | undefined => (t.signed && t.signed.key === linesKey(t.lines) ? t.signed : undefined);
+
+/** Whether this signature still has to be saved on the estimate's quotation in Odoo. */
+export const signaturePending = (t: Ticket): boolean => !!t.order && !!signedNow(t) && t.signed!.sent !== `${t.signed!.id}:${t.order.id}`;
 
 /** A deposit taken on the ticket: the same shape as an invoice payment. */
 export interface Deposit {
@@ -342,5 +361,7 @@ export function parseTicket(v: unknown): Ticket | undefined {
       : undefined;
   const str = (x: unknown) => (typeof x === 'string' && x ? x : undefined);
   const at = (x: unknown) => (typeof x === 'number' && x > 0 ? x : undefined);
-  return { lines, ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
+  const sg = d.signed as Record<string, unknown> | undefined;
+  const signed = sg && typeof sg === 'object' && str(sg.id) && at(sg.at) && typeof sg.key === 'string' ? { id: str(sg.id)!, by: typeof sg.by === 'string' ? sg.by : '', at: at(sg.at)!, key: sg.key, ...(str(sg.sent) ? { sent: str(sg.sent) } : {}) } : undefined;
+  return { lines, ...(signed ? { signed } : {}), ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
 }
