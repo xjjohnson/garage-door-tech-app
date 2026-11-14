@@ -15,11 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { log } from '../lib/log';
 import type { Inspection } from '../lib/inspection';
-<<<<<<< HEAD
-=======
-import { equipmentReady, equipmentToSend, orderLocation, sendEquipment } from '../lib/odooEquipment';
 import { setSurveyStatus } from '../lib/surveyStatus';
->>>>>>> origin/main
 import { surveyIndex, surveyNote, SurveyIndex, sendSurveys, surveysToSend } from '../lib/odooSurveyAnswers';
 import { jobTarget, reportNote, reportsToSend, sendReport, sendVoice, voiceToSend } from '../lib/odooReports';
 import { MAX_ODOO_PDF_BASE64, pdfName } from '../lib/pdf';
