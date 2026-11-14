@@ -7,6 +7,9 @@ import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, Vie
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
 import { suggestCustomers } from '../lib/customers';
 import { textLink } from '../lib/followups';
+import { formatMiles } from '../lib/geocode';
+import { nearDays } from '../lib/routeDays';
+import { useGeocode } from '../lib/useGeocode';
 import { phoneLink } from '../lib/jobs';
 import { addDays, Appointment, dayLabel, formatTime, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming } from '../lib/schedule';
 import { useCustomers } from '../lib/useCustomers';
@@ -228,6 +231,7 @@ function BookSheet({
             <Field label="Phone" value={a.phone} onChange={(phone) => set({ phone })} placeholder="For texts on the day" phone testID="book-phone" />
             <SectionTitle>What for</SectionTitle>
             <ChipRow options={WHAT.map((w) => ({ label: w, value: w }))} value={a.what} onChange={(what) => set({ what })} scroll testID="book-what" />
+            <NearDays address={a.address} appointments={appointments} today={today} days={days} day={day} skipJob={editing ? a.jobId : undefined} onPick={(d) => set({ start: d + minutesIntoDay })} />
             <SectionTitle>Day</SectionTitle>
             <ChipRow options={days.map((d) => ({ label: dayLabel(d, today), value: d }))} value={day} onChange={(d) => set({ start: d + minutesIntoDay })} scroll testID="book-day" />
             <SectionTitle>Time</SectionTitle>
@@ -263,6 +267,30 @@ function BookSheet({
         </View>
       </KeyboardBackdrop>
     </Modal>
+  );
+}
+
+/** Days someone is already booked near the address being booked, so one trip covers more. Needs the address and visits to be found on the map. */
+function NearDays({ address, appointments, today, days, day, skipJob, onPick }: { address: string; appointments: Appointment[]; today: number; days: number[]; day: number; skipJob?: string; onPick: (day: number) => void }) {
+  const typed = address.trim();
+  const booked = useMemo(() => appointments.filter((x) => x.status === 'booked' && x.start >= today && !(skipJob && x.jobId === skipJob)), [appointments, today, skipJob]);
+  const geoAddresses = useMemo(() => (typed.length >= 8 ? [typed, ...booked.map((x) => x.address)] : []), [typed, booked]);
+  const { points } = useGeocode(geoAddresses);
+  const dayKey = days.join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const near = useMemo(() => nearDays(booked, points, points[typed], days, undefined, typed), [booked, points, typed, dayKey]);
+  if (near.length === 0) return null;
+  return (
+    <View style={styles.field} testID="book-near">
+      <SectionTitle>Already nearby</SectionTitle>
+      <ChipRow
+        options={near.slice(0, 4).map((n) => ({ label: `${dayLabel(n.day, today)} · ${formatMiles(n.miles)} from ${n.name || 'a visit'}${n.count > 1 ? ` +${n.count - 1}` : ''}`, value: n.day }))}
+        value={day}
+        onChange={onPick}
+        scroll
+        testID="book-near-days"
+      />
+    </View>
   );
 }
 
