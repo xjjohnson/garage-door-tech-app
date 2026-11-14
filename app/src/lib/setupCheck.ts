@@ -20,7 +20,7 @@ export interface CheckResult {
 
 /** Just enough of OdooClient for the checks, so tests can pass a fake. */
 export interface CheckClient {
-  session: Pick<OdooSession, 'kind' | 'me' | 'apps' | 'name'>;
+  session: Pick<OdooSession, 'kind' | 'me' | 'apps' | 'name'> & { uid?: number };
   call(model: string, method: string, args: unknown[], kwargs?: Record<string, unknown>): Promise<unknown>;
 }
 
@@ -41,6 +41,17 @@ async function hasModel(c: CheckClient, model: string): Promise<boolean> {
     return !!f && typeof f === 'object';
   } catch {
     return false;
+  }
+}
+
+/** Whether the user is in an Odoo group (true or false), or null when it can't be checked. */
+async function hasGroup(c: CheckClient, uid: number | undefined, group: string): Promise<boolean | null> {
+  if (!uid) return null;
+  try {
+    const r = await c.call('res.users', 'has_group', [[uid], group]);
+    return typeof r === 'boolean' ? r : null;
+  } catch {
+    return null;
   }
 }
 
@@ -76,6 +87,15 @@ export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[
   );
 
   if (s.apps.sales) {
+    // Quick discounts put a percent on Odoo's line discount; Odoo hides that column until the setting is on.
+    const discounts = await hasGroup(c, s.uid, 'sale.group_discount_per_so_line');
+    out.push(
+      discounts === true
+        ? { id: 'discounts', label: 'Discounts on quotations', state: 'ok', detail: 'Line discounts are turned on.' }
+        : discounts === false
+          ? { id: 'discounts', label: 'Discounts on quotations', state: 'warn', detail: 'Discounts are turned off in Odoo Sales.', fix: 'Sales > Configuration > Settings > Pricing > turn on Discounts. Quick discounts still save, but Odoo will not show the Disc.% column until it is on.' }
+          : { id: 'discounts', label: 'Discounts on quotations', state: 'warn', detail: "Can't check the Discounts setting.", fix: 'In Odoo, Sales > Configuration > Settings > Pricing, make sure Discounts is on.' },
+    );
     const n = await count(c, 'sale.order.template', [['active', '=', true]]);
     out.push(
       n === null

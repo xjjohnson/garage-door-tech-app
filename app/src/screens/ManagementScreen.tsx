@@ -36,15 +36,17 @@ import { useOdoo } from '../lib/useOdoo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, touch, type } from '../theme';
 import { ChecklistsScreen } from './ChecklistsScreen';
+import { DiscountsTab } from './DiscountsTab';
 import { TextsTab } from './TextsTab';
 
-type Tab = 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'texts' | 'checklists';
+type Tab = 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'discounts' | 'texts' | 'checklists';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'jobTypes', label: 'Job types' },
   { id: 'templates', label: 'Templates' },
   { id: 'parts', label: 'Parts' },
   { id: 'techs', label: 'Techs' },
   { id: 'trucks', label: 'Trucks' },
+  { id: 'discounts', label: 'Discounts' },
   { id: 'texts', label: 'Texts' },
   { id: 'checklists', label: 'Checklists' },
 ];
@@ -89,6 +91,7 @@ export function ManagementScreen() {
       {tab === 'parts' ? <Parts client={client} canEdit={owner === true} /> : null}
       {tab === 'techs' ? <Techs client={client} canEdit={owner === true} /> : null}
       {tab === 'trucks' ? <Trucks client={client} canEdit={owner === true} /> : null}
+      {tab === 'discounts' ? <DiscountsTab canEdit={owner === true} /> : null}
       {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
       {tab === 'checklists' ? <ChecklistsScreen /> : null}
     </View>

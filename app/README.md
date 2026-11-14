@@ -624,6 +624,17 @@ invoice. Materials on the ticket that are truck stock items (same Odoo
 product) show under the job's **Parts used**, and Create invoice takes them off
 the truck, less any already taken off by hand for that job.
 
+**Quick discounts** (from 0.5.99). On a ticket or estimate, **Add a discount**
+offers the owner's presets (standard list: Senior 10%, Military 10%, $25 off)
+plus a custom % off or $ off. A percent goes on every line as Odoo's own line
+discount (so taxed parts are taxed on the lower price); dollars off is one
+"Discount: ..." service line with a negative price and no tax. Either way Odoo
+works out the totals (the phone's offline guess follows the same rules). The
+presets are edited in Management > Discounts and kept in the company's settings
+file with the business details, so every phone shows the same list. The setup
+check has a "Discounts on quotations" row: Odoo hides the Disc.% column until
+Sales > Configuration > Settings > Discounts is on (the discount still saves).
+
 **Parts used as real stock moves** (from 0.5.96, needs Field Service Stock). On
 an Odoo that has Field Service Stock (the `fsm_order_id` field on stock moves and
 deliveries; checked with fields_get at sign-in), a part taken for a job that is

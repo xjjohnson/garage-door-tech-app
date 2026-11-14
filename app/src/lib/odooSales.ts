@@ -77,16 +77,16 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
 /** Order or invoice line values for the phone's lines. Lines with nothing to charge are left out. */
 export function lineValues(lines: QuoteLine[], links: Record<string, OdooLink>, serviceProduct: () => number, qtyField: 'product_uom_qty' | 'quantity'): Record<string, unknown>[] {
   return lines
-    .filter((l) => l.cents > 0)
+    .filter((l) => l.cents !== 0)
     .map((l) => {
       const linked = l.key ? links[l.key]?.id : undefined;
       const qty = l.qty && l.qty > 0 ? l.qty : 1;
-      return { product_id: linked ?? l.productId ?? serviceProduct(), name: l.label, [qtyField]: qty, price_unit: l.cents / qty / 100 };
+      return { product_id: linked ?? l.productId ?? serviceProduct(), name: l.label, [qtyField]: qty, price_unit: l.cents / qty / 100, ...(l.discountPct ? { discount: l.discountPct } : {}) };
     });
 }
 
 /** Lines that need the fallback service product. */
-const needsService = (lines: QuoteLine[], links: Record<string, OdooLink>) => lines.some((l) => l.cents > 0 && !(l.key && links[l.key]) && !l.productId);
+const needsService = (lines: QuoteLine[], links: Record<string, OdooLink>) => lines.some((l) => l.cents !== 0 && !(l.key && links[l.key]) && !l.productId);
 
 /** Finds, or makes the first time, the service product for lines that aren't linked to an Odoo product. */
 export async function serviceProduct(client: OdooClient): Promise<number> {
