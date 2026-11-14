@@ -10,6 +10,7 @@
  * Odoo or similar can map it one to one.
  */
 import { formatJobDate } from './jobs';
+import { messageText } from './messageTexts';
 import { OdooInvoiceState, parseInvoiceState } from './odooSales';
 import { parseShipTo, ShipTo } from './ticket';
 import { formatMoney, Tier, TIER_LABEL, TIERS } from './prices';
@@ -106,9 +107,13 @@ export interface Business {
   zelle: string;
   /** The link customers use to leave a review (Google, Yelp, Facebook...). */
   reviewUrl: string;
+  /** Wording of the pre-written texts; blank means the standard wording (see messageTexts.ts). */
+  textOnMyWay: string;
+  textEta: string;
+  textReview: string;
 }
 
-export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '', reviewUrl: '' };
+export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '', reviewUrl: '', textOnMyWay: '', textEta: '', textReview: '' };
 
 export function paid(inv: Pick<Invoice, 'payments'>): number {
   return inv.payments.reduce((n, p) => n + p.amount, 0);
@@ -314,7 +319,7 @@ export function parseBusiness(raw: string | null | object): Business {
   }
   if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
   const d = data as Record<string, unknown>;
-  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl) };
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview) };
 }
 
 /** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */
@@ -344,6 +349,5 @@ export function reviewLink(b: Pick<Business, 'reviewUrl'>): string {
 
 /** The text asking a paid-up customer for a review. */
 export function reviewRequestText(inv: Pick<Invoice, 'billTo'>, b: Business): string {
-  const name = inv.billTo.split(/\s+/)[0] || 'there';
-  return `Hi ${name}, thanks for choosing ${b.name || 'us'}! If you're happy with the work on your garage door, a quick review helps a lot: ${reviewLink(b)}`;
+  return messageText(b, 'review', { name: inv.billTo, reviewLink: reviewLink(b) });
 }

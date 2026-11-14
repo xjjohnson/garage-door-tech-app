@@ -24,7 +24,7 @@ import { renderApp } from '../testing/renderApp';
 
 const MATCH = { mode: 'match' as const, form: { ...DEFAULT_MATCH_FORM, twentyCoil: '4 1/2', length: '24' } };
 const SHEET: PriceSheet = { ...DEFAULT_PRICE_SHEET, serviceCall: '89', springLabor: '150', spring: { good: '60', better: '85', best: '120' }, taxPercent: '8.25' };
-const BIZ: Business = { name: 'Ace Doors', phone: '555-000-1111', cashtag: '$AceDoors', venmo: '@ace-doors', zelle: 'pay@acedoors.com', reviewUrl: '' };
+const BIZ: Business = { name: 'Ace Doors', phone: '555-000-1111', cashtag: '$AceDoors', venmo: '@ace-doors', zelle: 'pay@acedoors.com', reviewUrl: '', textOnMyWay: '', textEta: '', textReview: '' };
 
 const job = createJob(MATCH, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: '.225 × 2" × 24"' }, 1000, 'j1');
 const good = buildQuote(MATCH, SHEET).options[0];
