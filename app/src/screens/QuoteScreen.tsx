@@ -1,7 +1,7 @@
 import { OdooQuoteSend } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ChipRow, MeasureField } from '../components/controls';
 import { PriceBookPicker } from '../components/PriceBookPicker';
 import { usePriceBook } from '../lib/usePriceBook';
@@ -273,6 +273,11 @@ function TemplatePicker({ templates, current, onPick }: { templates: Record<stri
   );
 }
 
+const TAX_OPTIONS = [
+  { label: 'Taxed (parts)', value: 'yes' as const },
+  { label: 'No tax (labor)', value: 'no' as const },
+];
+
 /** Lines added to the quote from the price book (Odoo's products); they go on every option, so a job is never stuck without a quote. */
 function TypedLines({ lines, onChange }: { lines: Repair[]; onChange: (lines: Repair[]) => void }) {
   const { book } = usePriceBook();
@@ -283,15 +288,25 @@ function TypedLines({ lines, onChange }: { lines: Repair[]; onChange: (lines: Re
       {lines.length > 0 ? <Text style={styles.tier}>Lines from the price book</Text> : null}
       {lines.map((l) => (
         <View key={l.id} style={styles.card} testID={`quote-line-${l.id}`}>
-          <Text style={styles.lineLabel} testID={`quote-line-name-${l.id}`}>
-            {l.label}
-            {l.taxable ? ' · taxed (part)' : ''}
-          </Text>
+          {l.productId ? (
+            <Text style={styles.lineLabel} testID={`quote-line-name-${l.id}`}>
+              {l.label}
+              {l.taxable ? ' · taxed (part)' : ''}
+            </Text>
+          ) : (
+            <>
+              <TextInput value={l.label} onChangeText={(label) => set(l.id, { label })} placeholder="Custom line (not in Odoo)" placeholderTextColor={colors.muted} accessibilityLabel="Line name" testID={`quote-line-name-${l.id}`} style={styles.input} />
+              <ChipRow options={TAX_OPTIONS} value={l.taxable ? 'yes' : 'no'} onChange={(v) => set(l.id, { taxable: v === 'yes' })} testID={`quote-line-tax-${l.id}`} />
+            </>
+          )}
           <MeasureField label="Price" value={l.price} onChange={(price) => set(l.id, { price })} unit="dollars" allowFraction={false} placeholder="Tap to set" testID={`quote-line-price-${l.id}`} />
           <Action label="Remove" onPress={() => onChange(lines.filter((x) => x.id !== l.id))} testID={`quote-line-remove-${l.id}`} />
         </View>
       ))}
       <Action label="Add from the price book" onPress={() => setPicking(true)} testID="quote-line-add" />
+      <Pressable onPress={() => onChange([...lines, { id: `q-${Date.now().toString(36)}-${lines.length}`, label: '', price: '', taxable: false }])} accessibilityRole="button" testID="quote-line-custom" style={styles.customLink}>
+        <Text style={styles.customText}>Or type a custom line</Text>
+      </Pressable>
       <PriceBookPicker
         visible={picking}
         items={book.items}
@@ -376,6 +391,8 @@ const styles = StyleSheet.create({
   tier: { fontSize: type.value, fontWeight: '900', color: colors.text },
   total: { fontSize: type.big, fontWeight: '900', color: colors.text },
   line: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  customLink: { minHeight: touch.min, justifyContent: 'center', alignItems: 'center' },
+  customText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
   lineLabel: { flex: 1, fontSize: type.body, color: colors.text },
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
   button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
