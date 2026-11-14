@@ -147,11 +147,11 @@ export function HouseCard({ orderId, now = Date.now }: { orderId: number | undef
 
 const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  repeat: { fontSize: 13, fontWeight: '900', color: colors.onSelected, backgroundColor: colors.selected, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden' },
+  repeat: { fontSize: 13, fontWeight: '800', color: colors.onSelected, backgroundColor: colors.selected, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden' },
   badge: { fontSize: 16, fontWeight: '800', color: colors.text },
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 6 },
-  label: { fontSize: 15, fontWeight: '900', color: colors.muted },
-  sub: { fontSize: 15, fontWeight: '900', color: colors.text, marginTop: 6 },
+  label: { fontSize: 15, fontWeight: '800', color: colors.muted },
+  sub: { fontSize: 15, fontWeight: '800', color: colors.text, marginTop: 6 },
   item: { gap: 1 },
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },

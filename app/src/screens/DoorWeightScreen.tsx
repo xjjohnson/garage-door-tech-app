@@ -98,9 +98,9 @@ export function DoorWeightScreen() {
 
 const styles = StyleSheet.create({
   stack: { gap: 14 },
-  banner: { backgroundColor: colors.caution, borderWidth: 3, borderColor: colors.border, borderRadius: 10, padding: 12, gap: 4 },
-  bannerTitle: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  banner: { backgroundColor: colors.caution, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, padding: 12, gap: 4 },
+  bannerTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   bannerText: { fontSize: 17, fontWeight: '700', color: colors.text, lineHeight: 24 },
-  big: { fontSize: type.big, fontWeight: '900', color: colors.text },
+  big: { fontSize: type.big, fontWeight: '800', color: colors.text },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
 });

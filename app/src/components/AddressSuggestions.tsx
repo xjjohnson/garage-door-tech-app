@@ -61,7 +61,7 @@ export function AddressSuggestions({
 }
 
 const styles = StyleSheet.create({
-  suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: colors.info, paddingVertical: 6 },
+  suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 6 },
   name: { fontSize: 17, fontWeight: '800', color: colors.text },
   sub: { fontSize: 15, fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },

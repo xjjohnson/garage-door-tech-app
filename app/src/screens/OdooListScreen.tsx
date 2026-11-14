@@ -150,12 +150,12 @@ function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRo
 
 const styles = StyleSheet.create({
   stack: { gap: 10 },
-  input: { minHeight: touch.min, borderRadius: 12, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
-  row: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  row: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
   top: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  name: { fontSize: type.body, fontWeight: '900', color: colors.text },
-  money: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  name: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  money: { fontSize: type.body, fontWeight: '800', color: colors.text },
   customer: { fontSize: 17, fontWeight: '700', color: colors.text },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
   warn: { color: colors.stop },

@@ -12,6 +12,6 @@ export function SectionScroll({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, borderTopWidth: 3, borderTopColor: colors.border, backgroundColor: colors.bg },
+  scroll: { flex: 1, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
   content: { padding: 16, paddingBottom: 48 },
 });

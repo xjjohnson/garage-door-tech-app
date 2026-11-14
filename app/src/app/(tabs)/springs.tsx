@@ -67,9 +67,9 @@ export default function SpringsRoute() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   hidden: { display: 'none' },
-  segmentWrap: { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 3, borderBottomColor: colors.border },
-  segments: { flexDirection: 'row', borderWidth: 3, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
-  segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: colors.bg },
+  segmentWrap: { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  segments: { flexDirection: 'row', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
+  segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: colors.card },
   segmentDivider: { borderLeftWidth: 3, borderLeftColor: colors.border },
   tabOn: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.info },

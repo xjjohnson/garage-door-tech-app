@@ -27,7 +27,7 @@ import { useStartJob } from '../lib/useStartJob';
 import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 const CRASH_SEEN_KEY = 'crash/seen';
 
@@ -260,32 +260,32 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   grow: { flex: 1 },
   count: { fontSize: 17, fontWeight: '800', color: colors.muted },
-  h2: { fontSize: 19, fontWeight: '900', color: colors.text, marginBottom: 2 },
-  list: { gap: 0 },
-  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 2, borderBottomColor: colors.info },
-  time: { width: 76, fontSize: 17, fontWeight: '900', color: colors.text },
+  h2: { fontSize: 19, fontWeight: '800', color: colors.text, marginBottom: 2 },
+  list: { gap: 10 },
+  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 10, ...shadow },
+  time: { width: 76, fontSize: 17, fontWeight: '800', color: colors.text },
   lineTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   lineSub: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  chevron: { fontSize: type.big, fontWeight: '900', color: colors.text },
+  chevron: { fontSize: type.big, fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.info },
-  next: { borderWidth: 3, borderColor: colors.border, borderRadius: 16, overflow: 'hidden' },
-  nextBand: { backgroundColor: colors.selected, color: colors.onSelected, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, fontWeight: '900', letterSpacing: 0.6 },
+  next: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, ...shadow },
+  nextBand: { alignSelf: 'flex-start', backgroundColor: colors.selected, color: colors.onSelected, marginTop: 14, marginLeft: 14, paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.pill, overflow: 'hidden', fontSize: 13, fontWeight: '800', letterSpacing: 0.6 },
   nextBody: { padding: 14, gap: 4 },
-  nextTitle: { fontSize: 23, fontWeight: '900', color: colors.text },
+  nextTitle: { fontSize: 23, fontWeight: '800', color: colors.text },
   nextSub: { fontSize: 17, fontWeight: '600', color: colors.muted },
   nextButtons: { paddingHorizontal: 14, paddingBottom: 14 },
   weather: { fontSize: 15, fontWeight: '700', color: colors.muted },
-  weatherWarn: { color: colors.stop, fontWeight: '900' },
+  weatherWarn: { color: colors.stop, fontWeight: '800' },
   weatherDay: { fontSize: 16, fontWeight: '800', color: colors.stop },
   tiles: { flexDirection: 'row', gap: 10 },
-  tile: { flex: 1, borderRadius: 14, backgroundColor: colors.card, padding: 12, gap: 2, minHeight: touch.min },
-  tileWarn: { backgroundColor: colors.safety },
-  tileBig: { fontSize: 26, fontWeight: '900', color: colors.text },
+  tile: { flex: 1, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 2, minHeight: touch.min, ...shadow },
+  tileWarn: { backgroundColor: colors.warnBg },
+  tileBig: { fontSize: 26, fontWeight: '800', color: colors.text },
   tileLabel: { fontSize: 15, fontWeight: '800', color: colors.text },
   sync: { fontSize: 15, fontWeight: '800', color: colors.muted },
   syncOk: { color: colors.ok },
-  syncPill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.card },
-  syncWarn: { backgroundColor: colors.safety },
-  crash: { borderWidth: 3, borderColor: colors.stop, borderRadius: 12, padding: 12, gap: 10 },
+  syncPill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.card },
+  syncWarn: { backgroundColor: colors.warnBg },
+  crash: { borderWidth: 1.5, borderColor: colors.stop, borderRadius: 12, padding: 12, gap: 10 },
   crashText: { fontSize: 17, fontWeight: '800', color: colors.text },
 });

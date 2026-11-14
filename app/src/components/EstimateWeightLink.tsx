@@ -13,7 +13,7 @@ export function EstimateWeightLink({ testID }: { testID?: string }) {
 }
 
 const styles = StyleSheet.create({
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   pressed: { backgroundColor: colors.info },
   text: { fontSize: type.body, fontWeight: '800', color: colors.text },
 });

@@ -136,15 +136,15 @@ export function OdooJobsList({ filter, search, now = Date.now }: { filter: 'open
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
+  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   headTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  name: { flex: 1, fontSize: type.value, fontWeight: '900', color: colors.text },
-  badge: { fontSize: 14, fontWeight: '900', color: colors.text, backgroundColor: colors.safety, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', letterSpacing: 1 },
+  name: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
+  badge: { fontSize: 14, fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', letterSpacing: 1 },
   address: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  answer: { fontSize: type.body, fontWeight: '900', color: colors.text, marginTop: 4 },
+  answer: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: 4 },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

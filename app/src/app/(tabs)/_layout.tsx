@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   settingsText: { fontSize: 15, fontWeight: '800', color: colors.onHead },
   version: { fontSize: 12, fontWeight: '700', color: colors.onHead, opacity: 0.85 },
   headPressed: { backgroundColor: 'rgba(255,255,255,0.35)' },
-  sheet: { flex: 1, marginTop: -18, backgroundColor: colors.bg, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
+  sheet: { flex: 1, marginTop: -18, backgroundColor: colors.card, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
   nav: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6, paddingBottom: 4 },
   navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar - 6, alignItems: 'center', justifyContent: 'center', gap: 2 },
   navPressed: { backgroundColor: colors.info },

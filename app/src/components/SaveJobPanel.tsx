@@ -84,13 +84,13 @@ function Button({ label, onPress, primary, disabled, grow, testID }: { label: st
 }
 
 const styles = StyleSheet.create({
-  box: { gap: 8, paddingTop: 14, marginTop: 4, borderTopWidth: 3, borderTopColor: colors.border },
-  linked: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  box: { gap: 8, paddingTop: 14, marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border },
+  linked: { fontSize: type.body, fontWeight: '800', color: colors.text },
   hint: { fontSize: 16, color: colors.muted },
-  saved: { fontSize: type.body, fontWeight: '800', color: colors.text, backgroundColor: colors.safety, padding: 10, borderRadius: 10, overflow: 'hidden' },
+  saved: { fontSize: type.body, fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, padding: 10, borderRadius: 14, overflow: 'hidden' },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   off: { backgroundColor: colors.card, borderColor: colors.muted, borderStyle: 'dashed' },
   pressed: { backgroundColor: colors.info },

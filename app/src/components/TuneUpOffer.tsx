@@ -70,7 +70,7 @@ export function TuneUpOffer({ partnerId, customer, address, what, workDone, now 
 
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 8 },
-  title: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   body: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
   row: { flexDirection: 'row', gap: 8 },

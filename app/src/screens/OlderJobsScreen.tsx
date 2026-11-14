@@ -74,8 +74,8 @@ export function OlderJobsScreen() {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  card: { minHeight: touch.min, padding: 12, gap: 4, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card },
-  cardOn: { borderWidth: 4, backgroundColor: colors.bg },
+  card: { minHeight: touch.min, padding: 12, gap: 4, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  cardOn: { borderWidth: 4, backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
 });

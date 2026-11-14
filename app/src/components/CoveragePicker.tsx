@@ -70,12 +70,12 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
 }
 
 const styles = StyleSheet.create({
-  box: { gap: 6, padding: 12, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
+  box: { gap: 6, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
   title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   label: { fontSize: 16, fontWeight: '700', color: colors.muted },
   hint: { fontSize: 15, color: colors.muted },
   track: { gap: 6, marginTop: 6 },
-  line: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, padding: 10, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
+  line: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
   lineOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   lineText: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: colors.text },
   lineTextOn: { color: colors.onSelected },

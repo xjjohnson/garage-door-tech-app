@@ -56,14 +56,14 @@ export function SetupCheckScreen() {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   note: { fontSize: type.body, color: colors.muted, fontWeight: '600' },
-  summary: { fontSize: type.value, fontWeight: '900', color: colors.text },
-  row: { flexDirection: 'row', gap: 12, borderWidth: 2, borderColor: colors.border, borderRadius: 14, padding: 12 },
-  mark: { width: 32, fontSize: 26, fontWeight: '900', textAlign: 'center' },
+  summary: { fontSize: type.value, fontWeight: '800', color: colors.text },
+  row: { flexDirection: 'row', gap: 12, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, padding: 12 },
+  mark: { width: 32, fontSize: 26, fontWeight: '800', textAlign: 'center' },
   ok: { color: colors.ok },
   bad: { color: colors.stop },
   warn: { color: colors.text },
   body: { flex: 1, gap: 2 },
-  label: { fontSize: type.label, fontWeight: '900', color: colors.text },
+  label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   detail: { fontSize: 16, fontWeight: '700', color: colors.muted },
   fix: { fontSize: 16, fontWeight: '600', color: colors.text },
 });

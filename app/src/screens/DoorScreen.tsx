@@ -176,6 +176,6 @@ function DoorResults({ result, springCount }: { result: DoorResult; springCount:
 const styles = StyleSheet.create({
   stack: { gap: 14 },
   note: { fontSize: 17, color: colors.text, lineHeight: 24 },
-  divider: { borderTopWidth: 2, borderTopColor: colors.border, paddingTop: 10 },
-  optionNumber: { fontSize: 16, fontWeight: '900', color: colors.muted, letterSpacing: 1 },
+  divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
+  optionNumber: { fontSize: 16, fontWeight: '800', color: colors.muted, letterSpacing: 1 },
 });

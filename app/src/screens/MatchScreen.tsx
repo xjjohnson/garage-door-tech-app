@@ -252,6 +252,6 @@ const styles = StyleSheet.create({
   stack: { gap: 14 },
   note: { fontSize: 17, color: colors.text, lineHeight: 24 },
   stopNote: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  divider: { borderTopWidth: 2, borderTopColor: colors.border, paddingTop: 10 },
-  upgradeTarget: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
+  upgradeTarget: { fontSize: type.body, fontWeight: '800', color: colors.text },
 });

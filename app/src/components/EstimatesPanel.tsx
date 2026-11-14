@@ -118,15 +118,15 @@ export function EstimatesPanel({ set, taxPercent, locked, onChange, now, custome
 
 const styles = StyleSheet.create({
   box: { gap: 8 },
-  card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 6, borderWidth: 2, borderColor: 'transparent' },
+  card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 6, borderWidth: 1.5, borderColor: 'transparent' },
   cardOn: { borderColor: colors.border },
   cardOff: { opacity: 0.65 },
   top: { flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
-  name: { flex: 1, fontSize: type.body, fontWeight: '900', color: colors.text },
-  amount: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  name: { flex: 1, fontSize: type.body, fontWeight: '800', color: colors.text },
+  amount: { fontSize: type.body, fontWeight: '800', color: colors.text },
   struck: { textDecorationLine: 'line-through' },
   signed: { fontSize: 15, fontWeight: '800', color: colors.text },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
   buttons: { gap: 6 },
-  input: { minHeight: 48, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
+  input: { minHeight: 48, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
 });

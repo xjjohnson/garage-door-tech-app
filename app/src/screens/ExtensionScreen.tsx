@@ -169,6 +169,6 @@ function ExtensionResults({ result }: { result: ExtensionResult }) {
 
 const styles = StyleSheet.create({
   stack: { gap: 14 },
-  big: { fontSize: type.big, fontWeight: '900', color: colors.text },
+  big: { fontSize: type.big, fontWeight: '800', color: colors.text },
   note: { fontSize: 17, color: colors.text, lineHeight: 24 },
 });

@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderColor: colors.info },
   label: { fontSize: type.body, color: colors.text, flex: 1 },
   muted: { fontSize: type.body, color: colors.muted },
-  small: { minHeight: touch.min, minWidth: touch.min, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: colors.border, borderRadius: 8 },
+  small: { minHeight: touch.min, minWidth: touch.min, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: colors.border, borderRadius: 8 },
   smallText: { fontSize: type.body, fontWeight: '700', color: colors.text },
   error: { fontSize: type.body, color: colors.stop, marginTop: 6 },
 });

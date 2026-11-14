@@ -47,7 +47,7 @@ export function CalcLayout({ inputs, results, summary, testID }: { inputs: React
 
 const TONE = {
   waiting: { box: { backgroundColor: colors.card }, text: { color: colors.text }, sub: { color: colors.muted } },
-  ok: { box: { backgroundColor: colors.bg }, text: { color: colors.text }, sub: { color: colors.muted } },
+  ok: { box: { backgroundColor: colors.card }, text: { color: colors.text }, sub: { color: colors.muted } },
   stop: { box: { backgroundColor: colors.stop }, text: { color: colors.onStop }, sub: { color: colors.onStop } },
 } as const;
 
@@ -93,13 +93,13 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderTopWidth: 3,
+    borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   pressed: { backgroundColor: colors.info },
   pressedText: { color: colors.text },
   barText: { flex: 1, gap: 2 },
-  barTitle: { fontSize: type.value, fontWeight: '900' },
+  barTitle: { fontSize: type.value, fontWeight: '800' },
   barDetail: { fontSize: 16, fontWeight: '700' },
-  barGo: { fontSize: 16, fontWeight: '900' },
+  barGo: { fontSize: 16, fontWeight: '800' },
 });

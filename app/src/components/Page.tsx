@@ -30,7 +30,7 @@ export function Page({ title, children, testID }: { title: string; children: Rea
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.card },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.head },
   title: { flex: 1, fontSize: type.big, fontWeight: '800', color: colors.onHead },
   close: { minHeight: touch.min - 8, minWidth: touch.min + 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },

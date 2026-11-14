@@ -56,7 +56,7 @@ export function AddressPicker({
 
 const styles = StyleSheet.create({
   stack: { gap: 8 },
-  option: { minHeight: touch.min, padding: 10, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg, gap: 2 },
+  option: { minHeight: touch.min, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, gap: 2 },
   on: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.info },
   title: { fontSize: 16, fontWeight: '800', color: colors.muted },
