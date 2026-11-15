@@ -64,6 +64,10 @@ export default function TabsLayout() {
               </Text>
             </Pressable>
           </View>
+        ) : current.id === 'tools' && !tool ? (
+          <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel={`Settings, app ${SHORT_VERSION}`} testID="open-settings" style={({ pressed }) => [styles.gear, pressed && styles.headPressed]}>
+            <Icon name="gear" size={24} color={colors.onHead} />
+          </Pressable>
         ) : (
           <Pressable
             onPress={() => router.push('/settings')}
@@ -150,6 +154,7 @@ const styles = StyleSheet.create({
   settings: { minHeight: touch.min - 8, minWidth: touch.min + 16, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   settingsText: { fontSize: 15, fontWeight: '800', color: colors.onHead },
   version: { fontSize: 12, fontWeight: '700', color: colors.onHead, opacity: 0.85 },
+  gear: { width: touch.min - 8, height: touch.min - 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   actionCol: { alignItems: 'flex-end', gap: 4 },
   newJob: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: touch.min - 12, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)' },
   versionLink: { fontSize: 12, fontWeight: '700', color: colors.onHead, opacity: 0.85 },

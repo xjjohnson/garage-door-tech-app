@@ -33,7 +33,7 @@ export function NavRow({ label, detail, href, onPress, testID, badge }: { label:
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
       <View style={styles.rowText}>
-        <Text style={styles.buttonText}>{label}</Text>
+        <Text style={[styles.buttonText, styles.left]}>{label}</Text>
         {detail ? <Text style={styles.meta}>{detail}</Text> : null}
       </View>
       {badge ? <Text style={styles.badge}>{badge}</Text> : null}
@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   row: { minHeight: touch.min, borderBottomWidth: 1, borderBottomColor: colors.line, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 8 },
   rowText: { flex: 1, gap: 2 },
+  left: { textAlign: 'left' },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   badge: { fontSize: 14, fontWeight: '800', color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
   chevron: { fontSize: type.big, fontWeight: '700', color: colors.muted },
