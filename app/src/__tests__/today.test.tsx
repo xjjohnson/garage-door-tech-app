@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 import { JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { log } from '../lib/log';
-import { parseSchedule, SCHEDULE_STORAGE_KEY } from '../lib/schedule';
+import { parseSchedule, SCHEDULE_STORAGE_KEY, startOfDay } from '../lib/schedule';
 import { renderApp } from '../testing/renderApp';
 
 let openURL: jest.SpyInstance;
@@ -40,6 +40,34 @@ describe('Today', () => {
     const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(saved[0].jobId).toBeTruthy();
     expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].id).toBe(saved[0].jobId);
+  });
+});
+
+describe('Home page: Today, Week and Map', () => {
+  const appt = (id: string, start: number, name: string, status = 'booked') => ({ id, start, minutes: 60, name, address: '1 Elm St', phone: '', what: 'Broken spring', status, createdAt: 1, updatedAt: 1 });
+
+  it("shows the day's numbers and the four status steps on the next visit", async () => {
+    const start = Date.now() + 60_000;
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt('a1', start, 'Pat Lee'), appt('a2', startOfDay(start) + 60_000, 'Dana Cruz', 'done')]));
+    await renderApp();
+    expect(await screen.findByTestId('today-kpi-done')).toHaveTextContent(/^1 \/ 2/);
+    expect(screen.getByTestId('today-kpi-collected')).toHaveTextContent(/^\$0/);
+    expect(screen.getByTestId('today-steps-a1')).toHaveTextContent(/On my way.*Arrived.*Work done.*Paid/);
+    expect(within(screen.getByTestId('today-steps-a1')).getByLabelText('On my way, next')).toBeTruthy();
+  });
+
+  it('Week has seven day chips with visit counts and shows the picked day with its times', async () => {
+    const start = Date.now() + 86_400_000;
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt('a1', start, 'Pat Lee'), appt('a2', start + 1_000, 'Dana Cruz')]));
+    await renderApp();
+    await fireEvent.press(within(screen.getByTestId('today-view')).getByText('Week'));
+    expect(await screen.findByTestId('week-days')).toBeTruthy();
+    expect(screen.getByTestId('week-count')).toHaveTextContent('Nothing booked');
+    expect(screen.getByTestId('day-1').props.accessibilityLabel).toMatch(/2 visits/);
+    await fireEvent.press(screen.getByTestId('day-1'));
+    expect(screen.getByTestId('week-count')).toHaveTextContent('2 visits');
+    expect(screen.getByTestId('week-visit-a1')).toHaveTextContent(/Pat Lee/);
+    expect(screen.getByTestId('week-wrap-up')).toBeTruthy();
   });
 });
 

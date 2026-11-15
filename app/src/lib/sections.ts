@@ -5,7 +5,7 @@ import type { Href } from 'expo-router';
  * address. Today, Jobs, Customers, Sales and More (the tools page).
  */
 export const SECTIONS = [
-  { id: 'today', name: 'index', href: '/', label: 'Today', title: 'Today', subtitle: '' },
+  { id: 'today', name: 'index', href: '/', label: 'Home', title: 'Home', subtitle: '' },
   { id: 'jobs', name: 'jobs', href: '/jobs', label: 'Jobs', title: 'Jobs', subtitle: 'Jobs and visits' },
   { id: 'customers', name: 'customers', href: '/customers', label: 'Customers', title: 'Customers', subtitle: 'Doors, history and contact' },
   { id: 'sales', name: 'sales', href: '/sales', label: 'Sales', title: 'Sales', subtitle: 'Owed, quotes and follow-ups' },
