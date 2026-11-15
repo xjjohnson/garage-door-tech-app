@@ -124,6 +124,28 @@ describe('schedule screen', () => {
     expect(screen.getByTestId('schedule-day')).toHaveTextContent('Tomorrow: 0 booked');
   });
 
+  it('shows a month calendar with dots, and Reschedule moves a visit to another day and time', async () => {
+    await AsyncStorage.clear();
+    const tomorrow = addDays(startOfDay(Date.now()), 1);
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt('a', at(tomorrow, 9))]));
+    await renderApp('/schedule');
+    await settle();
+    expect(screen.getByTestId('schedule-calendar')).toBeTruthy();
+    expect(screen.getByTestId('month-title')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId(`cal-${new Date(tomorrow).getDate()}`));
+    expect(screen.getByTestId('schedule-day')).toHaveTextContent('Tomorrow: 1 booked');
+    await fireEvent.press(screen.getByTestId('visit-reschedule-a'));
+    expect(screen.getByTestId('book-sheet')).toBeTruthy();
+    expect(screen.queryByTestId('book-clash')).toBeNull();
+    await fireEvent.press(within(screen.getByTestId('book-day')).getByText(dayLabel(addDays(tomorrow, 1), startOfDay(Date.now()))));
+    await fireEvent.press(within(screen.getByTestId('book-time')).getByText('2:00 pm'));
+    await fireEvent.press(screen.getByTestId('book-save'));
+    await settle(3);
+    const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
+    expect(saved).toHaveLength(1);
+    expect(saved[0].start).toBe(at(addDays(tomorrow, 1), 14));
+  });
+
   it('opens the schedule from Tools and warns about a clash when booking', async () => {
     await AsyncStorage.clear();
     const tomorrow = addDays(startOfDay(Date.now()), 1);
