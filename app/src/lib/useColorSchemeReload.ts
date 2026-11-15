@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { AppState, Appearance } from 'react-native';
 import { scheme } from '../theme';
 import { applyThemePref, loadThemePref } from './themePref';
+import { writeStartChoice } from './themeStart';
 
 function nowScheme() {
   return Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
@@ -53,6 +54,8 @@ export function useColorSchemeReload() {
     let alive = true;
     loadThemePref().then((pref) => {
       if (!alive) return;
+      // Keep the instant copy in step (it's missing right after an update from an older version).
+      writeStartChoice(pref === 'match' ? null : pref);
       applyThemePref(pref);
       restartIfChanged();
     });
