@@ -152,12 +152,28 @@ export async function sendInvoice(client: OdooClient, partnerId: number, lines: 
  * auto-post is switched off and it is posted now.
  */
 export async function postMove(client: Pick<OdooClient, 'call'>, id: number): Promise<void> {
+  // Odoo refuses a manual post of a move set to auto-post on a date, so switch that off first (when this Odoo has the field).
+  const clearAutoPost = async (): Promise<boolean> => {
+    try {
+      const [row] = (await client.call('account.move', 'read', [[id]], { fields: ['auto_post'] })) as { auto_post?: unknown }[];
+      if (!row || row.auto_post === undefined || row.auto_post === 'no' || row.auto_post === false) return false;
+      await client.call('account.move', 'write', [[id], { auto_post: 'no' }]);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  await clearAutoPost();
   try {
     await client.call('account.move', 'action_post', [[id]]);
   } catch (e) {
-    if (!/auto-posted/i.test(e instanceof Error ? e.message : String(e))) throw e;
-    await client.call('account.move', 'write', [[id], { auto_post: 'no' }]);
-    await client.call('account.move', 'action_post', [[id]]);
+    // Still refused for that reason (or the read above couldn't tell): switch it off now and post once more.
+    if ((await clearAutoPost()) || /auto-?posted/i.test(e instanceof Error ? e.message : String(e))) {
+      await client.call('account.move', 'write', [[id], { auto_post: 'no' }]).catch(() => undefined);
+      await client.call('account.move', 'action_post', [[id]]);
+      return;
+    }
+    throw e;
   }
 }
 
