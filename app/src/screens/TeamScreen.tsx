@@ -187,40 +187,6 @@ function SignedIn({ now }: { now: () => number }) {
           </View>
         </Task>
       ))}
-
-      <SectionTitle>Dispatch</SectionTitle>
-      <Text style={styles.note}>Give unassigned jobs to a tech. They see them when they open Team on their phone.</Text>
-      {open && open.length === 0 ? <Text style={styles.note}>No unassigned jobs.</Text> : null}
-      {(open ?? []).map((t) => (
-        <Task key={t.id} t={t} now={now()}>
-          <Text style={styles.label}>Give to</Text>
-          <View style={styles.wrap}>
-            {techs.map((u) => (
-              <Action key={u.id} label={u.id === s.me ? `${u.name} (me)` : u.name} onPress={() => assign(t, u.id)} testID={`team-assign-${t.id}-${u.id}`} />
-            ))}
-          </View>
-        </Task>
-      ))}
-
-      {techs.length > 1 ? (
-        <>
-          <SectionTitle>A tech's jobs</SectionTitle>
-          <ChipRow options={techs.map((u) => ({ label: u.id === s.me ? 'Me' : u.name, value: u.id }))} value={tech} onChange={setTech} scroll testID="team-techs" />
-          {theirs && theirs.length === 0 ? <Text style={styles.note}>Nothing assigned.</Text> : null}
-          {(theirs ?? []).map((t) => (
-            <Task key={t.id} t={t} now={now()}>
-              <Text style={styles.label}>Move to</Text>
-              <View style={styles.wrap}>
-                {techs
-                  .filter((u) => u.id !== tech)
-                  .map((u) => (
-                    <Action key={u.id} label={u.id === s.me ? 'Me' : u.name} onPress={() => assign(t, u.id)} testID={`team-move-${t.id}-${u.id}`} />
-                  ))}
-              </View>
-            </Task>
-          ))}
-        </>
-      ) : null}
     </View>
   );
 }

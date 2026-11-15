@@ -190,13 +190,13 @@ describe('Team screen', () => {
   };
   afterEach(() => jest.restoreAllMocks());
 
-  it('signs in, puts my Odoo job on the schedule and gives an open job to a tech', async () => {
+  it('signs in from Settings and puts my Odoo job on the schedule', async () => {
     await AsyncStorage.clear();
     const o = fakeOdoo();
     jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
-    const app = await renderApp('/tools');
+    const app = await renderApp('/settings');
     await settle();
-    await fireEvent.press(screen.getByTestId('tools-team'));
+    await fireEvent.press(screen.getByTestId('settings-odoo-account'));
     expect(app.getPathname()).toBe('/team');
     await settle();
     await fireEvent.changeText(screen.getByTestId('team-url'), 'acme.odoo.com');
@@ -212,10 +212,6 @@ describe('Team screen', () => {
     expect(screen.getByTestId('team-who')).toHaveTextContent('Signed in as Justin · acme.odoo.com');
     expect(screen.getByTestId('task-11')).toHaveTextContent(/Broken spring.*Pat Smith.*1 Oak St/);
 
-    await fireEvent.press(screen.getByTestId('team-assign-12-3'));
-    await settle();
-    expect(o.tasks.find((t) => t.id === 12)!.user_ids).toEqual([3]);
-    expect(screen.queryByTestId('team-assign-12-3')).toBeNull();
     // The password or key never goes into AsyncStorage.
     expect(JSON.stringify(await AsyncStorage.multiGet(await AsyncStorage.getAllKeys()))).not.toContain('key123');
 

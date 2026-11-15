@@ -4,12 +4,13 @@ import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-n
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
+import { Icon } from '../components/Icon';
 import { smsLink } from '../lib/jobSteps';
 import { OdooError, OdooTask, OdooUser } from '../lib/odoo';
 import { addDays, dayLabel, formatTime, slotsFor, startOfDay } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 /** Whether the signed-in Odoo user may hand out jobs (Field Service Dispatcher or Manager, or an Odoo admin). */
 export function useCanDispatch(): boolean {
@@ -126,13 +127,29 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
   return (
     <View style={styles.stack} testID="dispatch">
       <View style={styles.dayRow}>
-        <Action label="‹" onPress={() => setDay((d) => addDays(d, -1))} testID="dispatch-prev" hint="Day before" />
+        <Pressable onPress={() => setDay((d) => addDays(d, -1))} accessibilityRole="button" accessibilityLabel="Day before" testID="dispatch-prev" style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
+          <Icon name="back" size={20} color={colors.text} />
+        </Pressable>
         <Text style={[styles.day, styles.grow]} testID="dispatch-day">
           {dayLabel(day, t)}
         </Text>
-        <Action label="›" onPress={() => setDay((d) => addDays(d, 1))} testID="dispatch-next" hint="Day after" />
+        <Pressable onPress={() => setDay((d) => addDays(d, 1))} accessibilityRole="button" accessibilityLabel="Day after" testID="dispatch-next" style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
+          <Icon name="chevron" size={20} color={colors.text} />
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            requestSyncNow().catch(() => undefined);
+            load();
+          }}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={busy ? 'Loading' : 'Refresh'}
+          testID="dispatch-refresh"
+          style={({ pressed }) => [styles.step, busy && styles.off, pressed && styles.pressed]}
+        >
+          <Icon name="sync" size={20} color={colors.selected} />
+        </Pressable>
       </View>
-      <Action label={busy ? 'Loading...' : 'Refresh'} disabled={busy} onPress={() => { requestSyncNow().catch(() => undefined); load(); }} testID="dispatch-refresh" />
       {error ? (
         <Text style={styles.error} testID="dispatch-error">
           {error}
@@ -141,7 +158,10 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
       {!client.canSchedule ? <Text style={styles.note}>This Odoo has no planned start on its jobs, so jobs can be given to a worker but not a time.</Text> : null}
 
       <View style={styles.unassigned} testID="dispatch-unassigned">
-        <Text style={styles.h2}>Not assigned · {open?.length ?? '…'}</Text>
+        <View style={styles.unHead}>
+          <Icon name="warn" size={22} color={colors.warn} />
+          <Text style={styles.unTitle}>Not assigned · {open?.length ?? '…'}</Text>
+        </View>
         {open && open.length === 0 ? <Text style={styles.cardSub}>Every open job has a worker.</Text> : null}
         {(showAll ? unassigned : unassigned.slice(0, SHOWN)).map((task) => (
           <View key={task.id} style={styles.card} testID={`dispatch-open-${task.id}`}>
@@ -161,10 +181,14 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
       {lanes.map(({ w, jobs, freeAt }) => (
         <View key={w.id} style={styles.lane} testID={`dispatch-lane-${w.id}`}>
           <View style={styles.laneHead}>
+            <Text style={styles.avatar}>{w.name.trim().split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() ?? '').join('')}</Text>
             <Text style={[styles.h2, styles.grow]}>{w.id === me ? `${w.name} (me)` : w.name}</Text>
             <Text style={styles.meta}>
               {jobs.length === 0 ? 'Nothing booked' : `${jobs.length} job${jobs.length === 1 ? '' : 's'} · free after ${formatTime(freeAt!)}`}
             </Text>
+          </View>
+          <View style={styles.bar}>
+            <View style={[styles.barFill, { width: `${Math.min(100, Math.round((jobs.reduce((n, x) => n + (x.minutes ?? 60), 0) / 480) * 100))}%` }]} />
           </View>
           {jobs.length > 0 ? (
             <View style={styles.wrap}>
@@ -203,38 +227,77 @@ function AssignSheet({
   techs: OdooUser[];
   me: number;
   canTime: boolean;
-  lanes: { w: OdooUser; freeAt?: number }[];
+  lanes: { w: OdooUser; jobs: OdooTask[]; freeAt?: number }[];
   now: number;
   onCancel: () => void;
   onSave: (task: OdooTask, techId: number, start: number | undefined, text: boolean) => void;
 }) {
-  const [tech, setTech] = useState<number>(task.assignees[0] ?? techs[0]?.id ?? 0);
+  const slots = slotsFor(day);
   // 0 keeps the time Odoo has (or none).
   const [start, setStart] = useState<number>(task.start && startOfDay(task.start) === day ? task.start : 0);
-  const slots = slotsFor(day);
-  const free = (id: number) => lanes.find((l) => l.w.id === id)?.freeAt;
   const when = start || undefined;
+  const laneOf = (id: number) => lanes.find((l) => l.w.id === id);
+  // A worker is busy when another of their jobs overlaps the time being picked.
+  const busyAt = (id: number) => {
+    if (!when) return false;
+    const mins = (task.minutes ?? 60) * 60000;
+    return (laneOf(id)?.jobs ?? []).some((j) => j.id !== task.id && (j.start ?? 0) < when + mins && endOf(j) > when);
+  };
+  // Suggest the free worker with the fewest jobs that day.
+  const suggested = [...techs].filter((w) => !busyAt(w.id)).sort((a, b) => (laneOf(a.id)?.jobs.length ?? 0) - (laneOf(b.id)?.jobs.length ?? 0))[0]?.id;
+  const [tech, setTech] = useState<number>(task.assignees[0] ?? suggested ?? techs[0]?.id ?? 0);
+  const name = tech === 0 ? '' : techs.find((w) => w.id === tech)?.name ?? '';
+  const reported = task.notes
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('App job '))
+    .join(' ')
+    .trim();
+  const line = (id: number) => {
+    const l = laneOf(id);
+    const n = l?.jobs.length ?? 0;
+    const free = busyAt(id) ? 'Busy at that time' : n === 0 ? 'Free all day' : `Free after ${formatTime(l!.freeAt!)}`;
+    return `${free} · ${n} job${n === 1 ? '' : 's'}${id === suggested && !task.assignees.includes(id) ? ' · suggested' : ''}`;
+  };
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
       <View style={styles.backdrop}>
         <View style={styles.sheet} testID="dispatch-sheet">
+          <View style={styles.grab} />
           <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
             <Text style={styles.sheetTitle}>
               Assign {task.customer || task.name}
               {task.customer ? ` · ${task.name}` : ''}
             </Text>
-            {task.address ? <Text style={styles.cardSub}>{task.address}</Text> : null}
-            <Text style={styles.label}>Worker</Text>
-            <ChipRow
-              options={[
-                ...techs.map((w) => ({ label: `${w.id === me ? 'Me' : w.name}${free(w.id) ? ` · after ${formatTime(free(w.id)!)}` : ''}`, value: w.id })),
-                // Only a job that has a worker can have the worker taken off.
-                ...(task.assignees.length > 0 ? [{ label: 'No one (unassign)', value: 0 }] : []),
-              ]}
-              value={tech}
-              onChange={setTech}
-              testID="dispatch-sheet-techs"
-            />
+            <Text style={styles.cardSub}>{[task.address, task.start ? `${dayLabel(task.start, now)} ${formatTime(task.start)}` : 'No date'].filter(Boolean).join(' · ')}</Text>
+            {reported ? (
+              <Text style={styles.cardSub} numberOfLines={3}>
+                {reported}
+              </Text>
+            ) : null}
+            <View style={styles.picks} testID="dispatch-sheet-techs">
+              {techs.map((w) => {
+                const on = tech === w.id;
+                return (
+                  <Pressable key={w.id} onPress={() => setTech(w.id)} accessibilityRole="radio" accessibilityState={{ selected: on }} style={({ pressed }) => [styles.pick, w.id === suggested && styles.pickSug, on && styles.pickOn, pressed && styles.pressed]}>
+                    <Text style={styles.avatar}>{w.name.trim().split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() ?? '').join('')}</Text>
+                    <View style={styles.grow}>
+                      <Text style={styles.pickName}>{`${w.id === me ? 'Me' : w.name}`}</Text>
+                      <Text style={styles.cardSub}>{line(w.id)}</Text>
+                    </View>
+                    {on ? <Icon name="check" size={22} color={colors.selected} /> : null}
+                  </Pressable>
+                );
+              })}
+              {/* Only a job that has a worker can have the worker taken off. */}
+              {task.assignees.length > 0 ? (
+                <Pressable onPress={() => setTech(0)} accessibilityRole="radio" accessibilityState={{ selected: tech === 0 }} style={({ pressed }) => [styles.pick, tech === 0 && styles.pickOn, pressed && styles.pressed]}>
+                  <View style={styles.grow}>
+                    <Text style={styles.pickName}>No one (unassign)</Text>
+                  </View>
+                  {tech === 0 ? <Icon name="check" size={22} color={colors.selected} /> : null}
+                </Pressable>
+              ) : null}
+            </View>
             {canTime && tech !== 0 ? (
               <>
                 <Text style={styles.label}>Start, {dayLabel(day, now)}</Text>
@@ -247,7 +310,7 @@ function AssignSheet({
                 />
               </>
             ) : null}
-            <Action label={tech === 0 ? 'Remove worker' : 'Assign'} primary disabled={tech === 0 && task.assignees.length === 0} onPress={() => onSave(task, tech, when, false)} testID="dispatch-save" />
+            <Action label={tech === 0 ? 'Remove worker' : name ? `Assign to ${first(name)}` : 'Assign'} primary disabled={tech === 0 && task.assignees.length === 0} onPress={() => onSave(task, tech, when, false)} testID="dispatch-save" />
             {tech !== 0 && smsLink(task.phone, 'x') && when ? <Action label="Assign and text the customer" disabled={!tech} onPress={() => onSave(task, tech, when, true)} testID="dispatch-save-text" /> : null}
             <Action label="Cancel" onPress={onCancel} testID="dispatch-cancel" />
           </ScrollView>
@@ -261,25 +324,38 @@ const styles = StyleSheet.create({
   stack: { gap: 14 },
   grow: { flex: 1 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  dayRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  day: { fontSize: type.value, fontWeight: '800', color: colors.text, textAlign: 'center' },
+  dayRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  step: { width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  off: { opacity: 0.5 },
+  day: { fontSize: 22, fontWeight: '800', color: colors.text, textAlign: 'center' },
   h2: { fontSize: 18, fontWeight: '800', color: colors.text },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   meta: { fontSize: 15, fontWeight: '800', color: colors.muted },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  unassigned: { backgroundColor: colors.warnBg, borderRadius: 16, padding: 12, gap: 8 },
+  unassigned: { backgroundColor: colors.warnBg, borderRadius: radius.card, padding: 12, gap: 8 },
+  unHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  unTitle: { fontSize: 18, fontWeight: '800', color: colors.warn },
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardTitle: { fontSize: 17, fontWeight: '800', color: colors.text },
   cardSub: { fontSize: 14, fontWeight: '700', color: colors.muted },
-  lane: { gap: 6 },
-  laneHead: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  lane: { gap: 8, padding: 12, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, ...shadow },
+  laneHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatar: { width: 38, height: 38, borderRadius: 19, textAlign: 'center', textAlignVertical: 'center', lineHeight: 38, overflow: 'hidden', fontSize: 14, fontWeight: '800', color: colors.selected, backgroundColor: colors.info },
+  bar: { height: 6, borderRadius: radius.pill, backgroundColor: colors.line, overflow: 'hidden' },
+  barFill: { height: 6, backgroundColor: colors.selected },
   block: { minHeight: touch.min, minWidth: 96, maxWidth: '100%', borderRadius: 8, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 8, paddingVertical: 4, justifyContent: 'center', backgroundColor: colors.card },
   blockTime: { fontSize: 13, fontWeight: '800', color: colors.text },
   blockText: { fontSize: 15, fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.info },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
-  sheet: { maxHeight: '85%', backgroundColor: colors.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: 1, borderColor: colors.border },
+  sheet: { maxHeight: '90%', backgroundColor: colors.card, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, borderTopWidth: 1, borderColor: colors.border },
+  grab: { width: 44, height: 5, borderRadius: 3, backgroundColor: colors.line, alignSelf: 'center', marginTop: 8 },
+  picks: { gap: 8 },
+  pick: { minHeight: touch.min + 4, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: radius.card, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.card },
+  pickSug: { backgroundColor: colors.info },
+  pickOn: { borderColor: colors.selected },
+  pickName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   sheetBody: { padding: 16, paddingBottom: 28, gap: 10 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
 });

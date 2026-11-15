@@ -101,8 +101,8 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
           detail={business.name ? `${business.name}: name, payment handles and review link` : 'Name, payment handles and review link for invoices'}
           href="/business"
           testID="settings-business"
-          last
         />
+        <IconRow icon="users" label="Odoo account" detail={signedIn ? `Signed in at ${odoo.client!.session.url}. Sign out or refresh` : odooLine} href="/team" testID="settings-odoo-account" last />
       </RowGroup>
 
       <Caption>Appearance</Caption>
