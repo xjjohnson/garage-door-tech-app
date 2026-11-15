@@ -9,6 +9,9 @@ import {
   archiveQuoteTemplate,
   archiveTech,
   archiveTruck,
+  ensureTruckLocation,
+  truckLocationNamed,
+  vehicleLinksLocation,
   Choice,
   JobTypeEdit,
   listJobTypes,
@@ -444,7 +447,11 @@ function Trucks({ client, canEdit }: TabProps) {
   const [source, setSource] = useState<TruckSource | null>(null);
   const [techs, setTechs] = useState<Choice[]>([]);
   const [places, setPlaces] = useState<Choice[]>([]);
+  const [links, setLinks] = useState(true);
+  const [made, setMade] = useState<Choice | null>(null);
+  const [locMsg, setLocMsg] = useState('');
   useEffect(() => {
+    vehicleLinksLocation(client).then(setLinks, () => undefined);
     truckSource(client).then(setSource, () => setSource('none'));
     listTechs(client).then((t) => setTechs(t.map((x) => ({ id: x.id, label: x.name }))), () => undefined);
     stockLocations(client).then(setPlaces);
@@ -477,7 +484,38 @@ function Trucks({ client, canEdit }: TabProps) {
       <EditShell title={edit.id ? edit.name || 'Truck' : 'New truck'} canEdit={canEdit} busy={busy} msg={msg} onSave={() => run(() => saveTruck(client, source, edit))} onArchive={edit.id ? () => run(() => archiveTruck(client, source, edit.id!)) : undefined} onBack={() => { setEdit(null); setMsg(''); }} archiveLabel="Remove this truck">
         <TextField label="Name" value={edit.name} onChange={(name) => setEdit({ ...edit, name })} editable={canEdit} testID="manage-truck-name" hint={'Truck stock finds a tech\'s truck by their name in it, like "Truck - Justin Johnson".'} />
         {source === 'vehicle' && techs.length ? pick('Driver', techs, edit.personId, (personId) => setEdit({ ...edit, personId }), 'driver') : null}
-        {source === 'vehicle' && places.length ? pick('Stock location', places, edit.locationId, (locationId) => setEdit({ ...edit, locationId }), 'place') : null}
+        {source === 'vehicle' && links && places.length ? pick('Stock location', places, edit.locationId, (locationId) => setEdit({ ...edit, locationId }), 'place') : null}
+        {source === 'vehicle' ? (
+          <View style={styles.field}>
+            {!links ? <Text style={styles.label}>Stock location</Text> : null}
+            <Text style={styles.note} testID="manage-truck-place-note">
+              {links ? 'Or make a new Inventory location named for this truck.' : `This Odoo's vehicles aren't linked to a stock location, so Truck stock finds the truck's stock by the truck's name. ${made ? `Stock location: ${made.label}.` : 'Make the stock location for this truck:'}`}
+            </Text>
+            {canEdit && edit.name.trim() ? (
+              <Pressable
+                accessibilityRole="button"
+                testID="manage-truck-make-place"
+                style={styles.chip}
+                onPress={async () => {
+                  setLocMsg('');
+                  try {
+                    const hadOne = await truckLocationNamed(client, edit.name);
+                    const loc = await ensureTruckLocation(client, edit.name);
+                    setMade(loc);
+                    setPlaces((p) => (p.some((x) => x.id === loc.id) ? p : [...p, loc]));
+                    if (links) setEdit({ ...edit, locationId: loc.id });
+                    setLocMsg(hadOne ? `Using the existing location ${loc.label}.` : `Made ${loc.label} in Odoo Inventory.`);
+                  } catch (e) {
+                    setLocMsg(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+              >
+                <Text style={styles.tabText}>{`Make "${edit.name.trim()}" stock location`}</Text>
+              </Pressable>
+            ) : null}
+            {locMsg ? <Text style={styles.note} testID="manage-truck-place-msg">{locMsg}</Text> : null}
+          </View>
+        ) : null}
       </EditShell>
     );
   }
