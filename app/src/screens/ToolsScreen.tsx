@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { followUps } from '../lib/followups';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
+import { StatsCard } from './StatsScreen';
 import { StockButton } from './StockScreen';
 import { ClockButton } from './WorkLogScreen';
 import { NavRow } from '../components/Buttons';
@@ -26,6 +27,7 @@ export function ToolsScreen() {
       <NavRow label="Schedule" detail="Book and move visits" href="/schedule" testID="tools-schedule" />
 
       <SectionTitle>Business</SectionTitle>
+      <StatsCard />
       <NavRow label="Price book" detail="Parts and labor prices" href="/price-book" testID="tools-price-book" />
       <NavRow label="Business numbers" detail="Sales, close rate, average ticket" href="/stats" testID="tools-stats" />
       <NavRow label="Tech scorecard" detail="Owner only: quotes won, ticket, callbacks" href="/scorecard" testID="tools-scorecard" />

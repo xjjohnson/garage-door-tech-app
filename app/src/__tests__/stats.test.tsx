@@ -78,8 +78,8 @@ describe('business numbers in the app', () => {
     await AsyncStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify(INVOICES));
   });
 
-  it('shows the short version on Jobs and the full page behind it', async () => {
-    const app = await renderApp('/jobs');
+  it('shows the short version on Tools and the full page behind it', async () => {
+    const app = await renderApp('/tools');
     for (let i = 0; i < 5; i++) await act(async () => undefined);
     expect(screen.getByTestId('stats-card')).toHaveTextContent(/2Open jobs/);
     expect(screen.getByTestId('stats-card')).toHaveTextContent(/\$200Owed to you/);

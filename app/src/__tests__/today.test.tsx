@@ -34,7 +34,7 @@ describe('Today', () => {
     await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt]));
     const app = await renderApp();
     expect(await screen.findByTestId('today-next')).toHaveTextContent(/Pat Lee/);
-    await fireEvent.press(screen.getByTestId('today-start'));
+    await fireEvent.press(screen.getByTestId('today-next'));
     expect(app.getPathname()).toMatch(/^\/job\//);
     expect(screen.getByTestId('job-hub-title')).toHaveTextContent(/Pat Lee|Broken spring/);
     const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
@@ -45,8 +45,8 @@ describe('Today', () => {
 
 describe('new job and the job hub', () => {
   it('makes a job in three answers and walks its steps', async () => {
-    const app = await renderApp();
-    await fireEvent.press(screen.getByTestId('today-new-job'));
+    const app = await renderApp('/jobs');
+    await fireEvent.press(screen.getByTestId('jobs-new-job'));
     expect(app.getPathname()).toBe('/new-job');
     await fireEvent.changeText(screen.getByTestId('new-job-name'), 'Sam Ortiz');
     await fireEvent.changeText(screen.getByTestId('new-job-address'), '9 Oak Ave');
