@@ -680,3 +680,26 @@ describe('Ticket screen', () => {
     expect(screen.getByTestId('invoice-odoo-state')).toHaveTextContent(/INV\/2026\/00080/);
   });
 });
+
+describe('saving the same estimate twice at once', () => {
+  it('makes one quotation, then updates it', async () => {
+    let creates = 0;
+    const client = {
+      call: jest.fn(async (model: string, method: string) => {
+        if (model === 'sale.order' && method === 'create') {
+          creates++;
+          await Promise.resolve();
+          await Promise.resolve();
+          return 90;
+        }
+        if (model === 'sale.order' && method === 'read') return [{ name: 'S00090', state: 'draft', amount_untaxed: 10, amount_tax: 0, amount_total: 10 }];
+        return true;
+      }),
+    };
+    const t = addTyped(EMPTY_TICKET, { name: 'Haul away', unitCents: 1000, kind: 'service' }, 'b');
+    const [a, b] = await Promise.all([syncTicket(client as never, 5, t, '', 1, 'jobX:e1'), syncTicket(client as never, 5, t, '', 2, 'jobX:e1')]);
+    expect(creates).toBe(1);
+    expect(a.order.id).toBe(90);
+    expect(b.order.id).toBe(90);
+  });
+});
