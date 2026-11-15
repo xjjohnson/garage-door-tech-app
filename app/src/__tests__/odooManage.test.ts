@@ -1,4 +1,4 @@
-import { postMove } from '../lib/odooSales';
+import { postMove, sendOrderSignature } from '../lib/odooSales';
 import { archiveTech, archiveTruck, listTruckEdits, listTechs, saveTech, saveTruck, truckSource, archivePart, listParts, loadQuoteTemplate, saveJobType, savePart, saveQuoteTemplate } from '../lib/odooManage';
 
 type Call = [string, string, unknown[], Record<string, unknown>?];
@@ -130,5 +130,23 @@ describe('posting a move Odoo set to auto-post', () => {
     await postMove(c as never, 7);
     expect(calls.map((x) => x[1])).toEqual(['action_post', 'write', 'action_post']);
     expect(calls[1]![2]).toEqual([[7], { auto_post: 'no' }]);
+  });
+});
+
+describe('estimate signature on the quotation', () => {
+  it('writes the signature fields and posts a note with the drawing', async () => {
+    const calls: unknown[][] = [];
+    const c = {
+      call: async (model: string, method: string, args: unknown[], kw?: Record<string, unknown>) => {
+        calls.push([model, method, args, kw]);
+        if (method === 'fields_get') return { signature: {}, signed_by: {}, signed_on: {} };
+        if (model === 'ir.attachment') return 55;
+        return true;
+      },
+    };
+    
+    expect(await sendOrderSignature(c as never, 81, { name: 'David Smith', at: Date.UTC(2026, 10, 14, 21, 0), png: 'AAAA' })).toBe(true);
+    expect(calls.map((x) => `${x[0]}.${x[1]}`)).toEqual(['sale.order.fields_get', 'sale.order.write', 'ir.attachment.create', 'sale.order.message_post']);
+    expect(calls[3]![3]).toMatchObject({ attachment_ids: [55], subtype_xmlid: 'mail.mt_note' });
   });
 });

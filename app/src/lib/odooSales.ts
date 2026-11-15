@@ -322,10 +322,23 @@ export function voidNote(o: Pick<OdooInvoiceState, 'name' | 'voided' | 'refund' 
  */
 export async function sendOrderSignature(client: OdooClient, orderId: number, sig: { name: string; at: number; png: string }): Promise<boolean> {
   const fields = (await client.call('sale.order', 'fields_get', [['signature', 'signed_by', 'signed_on']], { attributes: ['type'] })) as Record<string, unknown>;
-  if (!fields || !('signature' in fields)) return false;
-  const on = new Date(sig.at).toISOString().replace('T', ' ').slice(0, 19);
-  await client.call('sale.order', 'write', [[orderId], { signature: sig.png, ...('signed_by' in fields ? { signed_by: sig.name || 'Customer' } : {}), ...('signed_on' in fields ? { signed_on: on } : {}) }]);
-  return true;
+  const hasField = !!fields && 'signature' in fields;
+  const who = sig.name.trim() || 'Customer';
+  if (hasField) {
+    const on = new Date(sig.at).toISOString().replace('T', ' ').slice(0, 19);
+    await client.call('sale.order', 'write', [[orderId], { signature: sig.png, ...('signed_by' in fields ? { signed_by: who } : {}), ...('signed_on' in fields ? { signed_on: on } : {}) }]);
+  }
+  // Writing Odoo's signature fields leaves nothing in the chatter, so the signed approval is also posted as a note
+  // with the drawing attached: it is what shows in the quotation's notes.
+  try {
+    const att = (await client.call('ir.attachment', 'create', [{ name: `Signature - ${who}.png`, type: 'binary', datas: sig.png, res_model: 'sale.order', res_id: orderId, mimetype: 'image/png' }])) as number;
+    await client.call('sale.order', 'message_post', [[orderId]], { body: `<p>Estimate approved: signed by ${who.replace(/&/g, '&amp;').replace(/</g, '&lt;')} on ${new Date(sig.at).toLocaleString('en-US')} in the app.</p>`, attachment_ids: [att], message_type: 'comment', subtype_xmlid: 'mail.mt_note' });
+    return true;
+  } catch (e) {
+    // The signature field alone still counts when only the note failed.
+    if (hasField) return true;
+    throw e;
+  }
 }
 
 /** A time as the phone's calendar day (YYYY-MM-DD), so an evening payment isn't dated tomorrow by UTC. */

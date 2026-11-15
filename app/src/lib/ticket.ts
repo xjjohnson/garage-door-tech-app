@@ -314,7 +314,24 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
  * no longer a draft (confirmed or cancelled in Odoo) is left alone and a new
  * one is made.
  */
-export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string }> {
+/** Saves of the same estimate wait for each other, and a quotation made is remembered, so a slow save can't make a second one. */
+const saving = new Map<string, Promise<unknown>>();
+
+export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number, key?: string): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string }> {
+  if (!key) return syncTicketNow(client, partnerId, t, ref, now);
+  const prev = saving.get(key);
+  const run = (async () => {
+    const before = prev ? ((await prev.catch(() => undefined)) as { order?: OdooRef } | undefined) : undefined;
+    // An earlier save of this estimate just made its quotation (the phone hadn't noted it yet): update that one.
+    return syncTicketNow(client, partnerId, !t.order && before?.order ? { ...t, order: before.order } : t, ref, now);
+  })();
+  saving.set(key, run);
+  const done = () => void (saving.get(key) === run && saving.delete(key));
+  run.then(done, done);
+  return run;
+}
+
+async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string }> {
   const lines = toQuoteLines(t);
   const needService = lines.some((l) => l.cents !== 0 && !l.productId);
   const service = needService ? await serviceProduct(client) : 0;
