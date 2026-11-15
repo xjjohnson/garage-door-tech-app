@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
+import { Icon } from './Icon';
 import { OdooError } from '../lib/odoo';
 import { CrampedAddress, crampedAddresses, splitAddresses } from '../lib/odooContacts';
 import { useCustomerSync } from '../lib/useCustomerSync';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -60,17 +61,20 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
   };
 
   return (
-    <View style={styles.box} testID="odoo-customers">
-      <Text style={styles.note}>Customers sync with Odoo on their own: Odoo's come onto this phone, and new or changed ones here go up. Tap below to sync older customers and check right now.</Text>
-      <Pressable onPress={sync} disabled={busy} accessibilityRole="button" testID="odoo-customers-sync" style={({ pressed }) => [styles.button, busy && styles.off, pressed && styles.pressed]}>
-        <Text style={styles.buttonText}>{busy ? 'Syncing...' : 'Sync customers with Odoo'}</Text>
-      </Pressable>
+    <View style={styles.wrapAll} testID="odoo-customers">
+      <View style={styles.bar}>
+        <Icon name="wrap" size={22} color={colors.selected} />
+        <View style={styles.barText}>
+          <Text style={styles.barTitle}>Synced with Odoo</Text>
+          <Text style={styles.barSub} numberOfLines={2} testID={result && !busy && !error ? 'odoo-customers-result' : undefined}>
+            {busy ? 'Syncing...' : error ? 'Last sync failed' : result ?? 'New and changed customers go on their own'}
+          </Text>
+        </View>
+        <Pressable onPress={sync} disabled={busy} accessibilityRole="button" accessibilityLabel="Sync customers with Odoo" testID="odoo-customers-sync" style={({ pressed }) => [styles.barButton, busy && styles.off, pressed && styles.pressed]}>
+          <Text style={styles.barButtonText}>{busy ? 'Syncing' : 'Sync now'}</Text>
+        </Pressable>
+      </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {result ? (
-        <Text style={styles.note} testID="odoo-customers-result">
-          {result}
-        </Text>
-      ) : null}
       {cramped.length > 0 ? (
         <View style={styles.box} testID="odoo-cramped">
           <Text style={styles.note}>
@@ -120,6 +124,13 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
 }
 
 const styles = StyleSheet.create({
+  wrapAll: { gap: 8 },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingLeft: 12, paddingRight: 8, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, ...shadow },
+  barText: { flex: 1, gap: 1 },
+  barTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+  barSub: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  barButton: { minHeight: 44, minWidth: 88, borderRadius: radius.field, borderWidth: 1.5, borderColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  barButtonText: { fontSize: 15, fontWeight: '800', color: colors.selected },
   box: { gap: 8, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },

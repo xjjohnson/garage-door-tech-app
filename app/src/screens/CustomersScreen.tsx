@@ -1,16 +1,16 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Icon } from '../components/Icon';
 import { onHeaderAdd } from '../lib/headerAdd';
 import { OdooCustomerSync } from '../components/OdooCustomerSync';
-import { customerName, EMPTY_CUSTOMER, searchCustomers, sortCustomers, summarize } from '../lib/customers';
+import { customerName, EMPTY_CUSTOMER, searchCustomers, summarize } from '../lib/customers';
 import { CustomerSheet } from './CustomerScreen';
-import { formatJobDate } from '../lib/jobs';
-import { formatMoney } from '../lib/prices';
+import { invoiceStatus } from '../lib/invoices';
 import { useCustomers } from '../lib/useCustomers';
 import { useCustomerCounts } from '../lib/useCustomerCounts';
+import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { colors, radius, shadow, touch, type } from '../theme';
 
@@ -18,16 +18,52 @@ const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2)
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
-/** Everyone the tech has saved a job for, most recent first, with a search box. */
+type Filter = 'all' | 'open' | 'owes' | 'repeat';
+
+/** Everyone the tech has saved a job for, A to Z with letter dividers, a search box and filters. */
 export function CustomersScreen() {
   const { customers, loaded, add } = useCustomers();
   const [adding, setAdding] = useState(false);
   const { jobs } = useJobs();
+  const { invoices } = useInvoices();
   const odooCounts = useCustomerCounts();
   const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
   // The Add pill in the header opens the sheet.
   useEffect(() => onHeaderAdd(() => setAdding(true)), []);
-  const shown = useMemo(() => searchCustomers(sortCustomers(customers.map((c) => summarize(c, jobs))), query), [customers, jobs, query]);
+
+  // Who still owes money: unpaid invoices, matched to the customer through their job.
+  const owes = useMemo(() => {
+    const byJob = new Map(jobs.map((j) => [j.id, j.customerId]));
+    const set = new Set<string>();
+    for (const i of invoices) {
+      const c = i.jobId ? byJob.get(i.jobId) : undefined;
+      if (c && ['unpaid', 'partial'].includes(invoiceStatus(i))) set.add(c);
+    }
+    return set;
+  }, [jobs, invoices]);
+
+  const rows = useMemo(() => {
+    return searchCustomers(customers.map((c) => summarize(c, jobs)), query).map((sum) => {
+      const c = sum.customer;
+      // Linked to Odoo, the counts are Odoo's (plus any job still waiting to go there); otherwise the phone's own.
+      const odoo = c.odooId ? odooCounts[c.odooId] : undefined;
+      const waiting = odoo ? sum.jobs.filter((j) => !j.odooJob && !j.odooOrder) : sum.jobs;
+      const jobsN = odoo ? odoo.jobs + waiting.length : sum.jobs.length;
+      const openN = odoo ? odoo.open + waiting.filter((j) => j.status === 'open').length : sum.openJobs;
+      return { sum, jobsN, openN, quotes: odoo?.quotes ?? 0, owes: owes.has(c.id) };
+    });
+  }, [customers, jobs, query, odooCounts, owes]);
+
+  const counts = { all: rows.length, open: rows.filter((r) => r.openN > 0).length, owes: rows.filter((r) => r.owes).length, repeat: rows.filter((r) => r.jobsN >= 2).length };
+  const shown = useMemo(() => {
+    const keep = rows.filter((r) => (filter === 'open' ? r.openN > 0 : filter === 'owes' ? r.owes : filter === 'repeat' ? r.jobsN >= 2 : true));
+    return keep.sort((a, b) => customerName(a.sum.customer).localeCompare(customerName(b.sum.customer), undefined, { sensitivity: 'base' }));
+  }, [rows, filter]);
+  const letterOf = (r: (typeof shown)[number]) => {
+    const l = customerName(r.sum.customer).trim()[0]?.toUpperCase() ?? '#';
+    return /[A-Z]/.test(l) ? l : '#';
+  };
 
   return (
     <View style={styles.stack} testID="customers">
@@ -63,6 +99,23 @@ export function CustomersScreen() {
         ) : null}
       </View>
 
+      {customers.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityRole="tablist">
+          {(
+            [
+              ['all', `All ${counts.all}`],
+              ['open', 'Open jobs'],
+              ['owes', 'Owes money'],
+              ['repeat', 'Repeat'],
+            ] as const
+          ).map(([id, label]) => (
+            <Pressable key={id} onPress={() => setFilter(id)} accessibilityRole="tab" accessibilityState={{ selected: filter === id }} testID={`customers-filter-${id}`} style={[styles.chip, filter === id && styles.chipOn]}>
+              <Text style={[styles.chipText, filter === id && styles.chipTextOn]}>{label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
+
       {loaded && customers.length === 0 ? (
         <View style={styles.empty} testID="customers-empty">
           <Text style={styles.emptyTitle}>No customers yet</Text>
@@ -75,39 +128,47 @@ export function CustomersScreen() {
         </Text>
       ) : null}
 
-      {shown.map(({ customer: c, jobs: theirs, openJobs, acceptedTotal, lastJobAt }) => {
-        // Linked to Odoo, the counts are Odoo's (plus any job still waiting to go there); otherwise the phone's own.
-        const odoo = c.odooId ? odooCounts[c.odooId] : undefined;
-        const waiting = odoo ? theirs.filter((j) => !j.odooJob && !j.odooOrder) : theirs;
-        const jobsN = odoo ? odoo.jobs + waiting.length : theirs.length;
-        const openN = odoo ? odoo.open + waiting.filter((j) => j.status === 'open').length : openJobs;
-        return (
-          <Pressable
-            key={c.id}
-            onPress={() => router.push({ pathname: '/customer/[id]', params: { id: c.id } })}
-            accessibilityRole="button"
-            testID={`customer-${c.id}`}
-            style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-          >
-            <Text style={styles.avatar}>{initials(customerName(c))}</Text>
-            <View style={styles.itemText}>
-              <Text style={styles.name} numberOfLines={1}>
-                {customerName(c)}
-              </Text>
-              {c.name && c.address ? <Text style={styles.detail} numberOfLines={1}>{c.address}</Text> : null}
-              {c.phone ? <Text style={styles.detail}>{c.phone}</Text> : null}
-              <Text style={styles.meta}>
-                {plural(jobsN, 'job')}
-                {openN > 0 ? ` · ${openN} open` : ''}
-                {odoo && odoo.quotes > 0 ? ` · ${plural(odoo.quotes, 'quote')}` : ''}
-                {!odoo && acceptedTotal > 0 ? ` · ${formatMoney(acceptedTotal)} accepted` : ''}
-                {!odoo && lastJobAt ? ` · last ${formatJobDate(lastJobAt)}` : ''}
-              </Text>
-            </View>
-            {jobsN >= 2 ? <Text style={styles.badge}>{jobsN} VISITS</Text> : null}
-          </Pressable>
-        );
-      })}
+      {shown.length > 0 ? (
+        <View style={styles.group}>
+          {shown.map((r, i) => {
+            const c = r.sum.customer;
+            const letter = letterOf(r);
+            const first = i === 0 || letterOf(shown[i - 1]!) !== letter;
+            const sub = [c.name && c.address ? c.address : '', c.phone].filter(Boolean).join(' · ');
+            const meta = [r.jobsN > 0 ? plural(r.jobsN, 'job') : '', r.openN > 0 ? `${r.openN} open` : '', r.quotes > 0 ? plural(r.quotes, 'quote') : '', r.owes ? 'owes money' : ''].filter(Boolean).join(' · ');
+            return (
+              <View key={c.id}>
+                {first ? (
+                  <Text style={styles.letter} accessibilityRole="header">
+                    {letter}
+                  </Text>
+                ) : null}
+                <Pressable
+                  onPress={() => router.push({ pathname: '/customer/[id]', params: { id: c.id } })}
+                  accessibilityRole="button"
+                  testID={`customer-${c.id}`}
+                  style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+                >
+                  <Text style={styles.avatar}>{initials(customerName(c))}</Text>
+                  <View style={styles.itemText}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {customerName(c)}
+                    </Text>
+                    {sub ? (
+                      <Text style={styles.detail} numberOfLines={1}>
+                        {sub}
+                      </Text>
+                    ) : null}
+                    {meta ? <Text style={styles.meta}>{meta}</Text> : sub ? null : <Text style={styles.meta}>No jobs yet</Text>}
+                  </View>
+                  {r.jobsN >= 2 ? <Text style={styles.badge}>{r.jobsN} VISITS</Text> : null}
+                  <Icon name="chevron" size={18} color={colors.muted} />
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -121,7 +182,14 @@ const styles = StyleSheet.create({
   empty: { padding: 14, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  item: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, ...shadow },
+  chips: { gap: 8, paddingRight: 8 },
+  chip: { minHeight: 44, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  chipOn: { backgroundColor: colors.selected, borderColor: colors.selected },
+  chipText: { fontSize: 15, fontWeight: '800', color: colors.muted },
+  chipTextOn: { color: colors.onSelected },
+  group: { borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, overflow: 'hidden', ...shadow },
+  letter: { fontSize: 13, fontWeight: '800', letterSpacing: 1, color: colors.muted, backgroundColor: colors.bg, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 4 },
+  item: { minHeight: touch.min + 6, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: colors.line },
   avatar: { width: 42, height: 42, borderRadius: 21, textAlign: 'center', textAlignVertical: 'center', lineHeight: 42, overflow: 'hidden', fontSize: 15, fontWeight: '800', color: colors.selected, backgroundColor: colors.info },
   itemText: { flex: 1, gap: 1 },
   name: { fontSize: 18, fontWeight: '800', color: colors.text },
