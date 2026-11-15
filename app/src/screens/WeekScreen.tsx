@@ -8,10 +8,13 @@ import { VisitCard } from '../components/VisitCard';
 import { balance } from '../lib/invoices';
 import { cleanNotes } from '../lib/odooJobs';
 import { formatMoney } from '../lib/prices';
-import { addDays, dayLabel, formatTime, onDay, startOfDay } from '../lib/schedule';
+import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useSchedule } from '../lib/useSchedule';
+import { useGeocode } from '../lib/useGeocode';
 import { useStartJob } from '../lib/useStartJob';
+import { useWeather } from '../lib/useWeather';
+import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import { colors } from '../theme';
 
 /**
@@ -29,6 +32,13 @@ export function WeekScreen({ now = Date.now }: { now?: () => number }) {
   const counts = days.map((d) => onDay(live, d).length);
   const [picked, setPicked] = useState(days[0]);
   const visits = onDay(live, picked);
+  // Weather at each stop of the picked day, when there's signal and the address is on the map; nothing shows otherwise.
+  const { points } = useGeocode(useMemo(() => visits.map((a) => a.address), [visits]));
+  const hours = useWeather(useMemo(() => Object.values(points).filter((p): p is NonNullable<typeof p> => !!p), [points]));
+  const weatherOf = (a: Appointment): Summary | null => {
+    const p = points[a.address.trim()];
+    return p ? summarize(hoursFor(hours[weatherKey(p)] ?? [], a.start, a.minutes)) : null;
+  };
   const owed = invoices.filter((i) => !i.voidedAt).reduce((n, i) => n + balance(i), 0);
 
   return (
@@ -48,6 +58,9 @@ export function WeekScreen({ now = Date.now }: { now?: () => number }) {
           name={a.name}
           address={a.address}
           what={a.what ? cleanNotes(a.what).split('\n')[0] : ''}
+          weather={weatherOf(a) ? weatherText(weatherOf(a)!) : undefined}
+          weatherTestID={`week-weather-${a.id}`}
+          warn={!!weatherOf(a)?.warn}
           muted={a.status === 'done'}
           onPress={() => startJob(a)}
           testID={`week-visit-${a.id}`}

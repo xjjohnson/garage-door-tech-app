@@ -91,6 +91,31 @@ export function onDay(list: Appointment[], day: number): Appointment[] {
   return list.filter((a) => a.start >= from && a.start < to).sort((a, b) => a.start - b.start);
 }
 
+/**
+ * The open stretches of a day between visits (8 am to 5 pm by default), at
+ * least `minMinutes` long, as { start, end } times. Cancelled and done visits
+ * don't take time; with `after` set, anything before that moment is left out.
+ */
+export function freeGaps(list: Appointment[], day: number, opts: { from?: number; to?: number; minMinutes?: number; after?: number } = {}): { start: number; end: number }[] {
+  const { from = 8, to = 17, minMinutes = 60, after } = opts;
+  const base = startOfDay(day);
+  const at = (h: number) => {
+    const d = new Date(base);
+    d.setHours(h, 0, 0, 0);
+    return d.getTime();
+  };
+  let cursor = Math.max(at(from), after ?? 0);
+  const end = at(to);
+  const gaps: { start: number; end: number }[] = [];
+  const busy = onDay(list, day).filter((a) => a.status === 'booked');
+  for (const a of busy) {
+    if (a.start - cursor >= minMinutes * 60_000) gaps.push({ start: cursor, end: Math.min(a.start, end) });
+    cursor = Math.max(cursor, a.start + a.minutes * 60_000);
+  }
+  if (end - cursor >= minMinutes * 60_000) gaps.push({ start: cursor, end });
+  return gaps;
+}
+
 /** Booked visits that overlap this one on the same day. */
 export function overlaps(list: Appointment[], a: Pick<Appointment, 'id' | 'start' | 'minutes'>): Appointment[] {
   const end = a.start + a.minutes * 60_000;
