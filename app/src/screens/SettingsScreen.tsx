@@ -1,15 +1,16 @@
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
-import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Appearance, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
-import { SectionTitle } from '../components/controls';
+import { Segmented, SectionTitle } from '../components/controls';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
+import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type } from '../theme';
+import { colors, scheme, touch, type } from '../theme';
 
 interface Props {
   /** expo-updates; tests pass a fake. */
@@ -48,6 +49,18 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
     }
   };
 
+  const [themePref, setThemePref] = useState<ThemePref>('match');
+  useEffect(() => {
+    loadThemePref().then(setThemePref);
+  }, []);
+  const chooseTheme = async (pref: ThemePref) => {
+    setThemePref(pref);
+    await saveThemePref(pref);
+    // Screens draw their colors once, so restart the app's JS to repaint.
+    const now = Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
+    if (now !== scheme) restart().catch(() => undefined);
+  };
+
   const check = async () => {
     setChecking(true);
     setResult(await checkAndFetchOta(api));
@@ -81,6 +94,14 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
       {result === 'ready' ? (
         <Action label="Restart now" primary onPress={() => restart().catch(() => setRestartFailed(true))} testID="settings-restart" />
       ) : null}
+
+      <SectionTitle>Appearance</SectionTitle>
+      <Segmented<ThemePref>
+        testID="settings-theme"
+        options={[{ value: 'match', label: 'Match phone' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
+        value={themePref}
+        onChange={chooseTheme}
+      />
 
       <SectionTitle>Business</SectionTitle>
       <Link
