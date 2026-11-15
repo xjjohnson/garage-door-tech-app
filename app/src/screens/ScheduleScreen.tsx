@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
+import { MonthCalendar, visitCounts } from '../components/MonthCalendar';
 import { suggestCustomers } from '../lib/customers';
 import { textLink } from '../lib/followups';
 import { formatMiles } from '../lib/geocode';
@@ -19,7 +20,7 @@ import { useCustomers } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { NewAppointment, useSchedule } from '../lib/useSchedule';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 const WHAT_FALLBACK = ['Broken spring', 'Tune-up', 'Opener', 'Off track', 'Cables', 'Estimate', 'Other'];
 const LENGTHS: ChipOption<number>[] = [30, 60, 90, 120].map((m) => ({ label: m < 60 ? `${m} min` : `${m / 60} hr`.replace('1.5 hr', '1½ hr'), value: m }));
@@ -56,8 +57,24 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
   const today = startOfDay(now());
   const [day, setDay] = useState(today);
   const [booking, setBooking] = useState<NewAppointment | null>(null);
-  const days = useMemo(() => Array.from({ length: 15 }, (_, i) => addDays(today, i - 1)), [today]);
   const list = onDay(appointments, day);
+  // The month on show follows the picked day; the arrows move it by themselves.
+  const [shown, setShown] = useState(day);
+  const counts = useMemo(() => visitCounts(appointments.filter((a) => a.status === 'booked').map((a) => a.start)), [appointments]);
+  const pickDay = (d: number) => {
+    setDay(d);
+    setShown(d);
+  };
+  const moveMonth = (delta: number) => {
+    const d = new Date(shown);
+    setShown(new Date(d.getFullYear(), d.getMonth() + delta, 1).getTime());
+  };
+
+  /** Opens the booking sheet on this visit, so its day, time and length can change. */
+  const reschedule = (a: Appointment) => {
+    setEditing(a.id);
+    setBooking({ start: a.start, minutes: a.minutes, name: a.name, address: a.address, phone: a.phone, what: a.what, ...(a.jobId ? { jobId: a.jobId } : {}), ...(a.customerId ? { customerId: a.customerId } : {}) });
+  };
 
   useEffect(() => {
     if (!bookFor) return;
@@ -83,13 +100,13 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
 
   return (
     <View style={styles.stack} testID="schedule">
-      <ChipRow options={days.map((d) => ({ label: dayLabel(d, today), value: d }))} value={day} onChange={setDay} scroll testID="schedule-days" />
+      <MonthCalendar shown={shown} selected={day} today={today} counts={counts} onSelect={pickDay} onMonth={moveMonth} testID="schedule-calendar" />
       <Text style={styles.dayTitle} testID="schedule-day">
         {dayLabel(day, today)}: {list.filter((a) => a.status === 'booked').length} booked
       </Text>
       {list.length === 0 ? <Text style={styles.meta}>Nothing on this day.</Text> : null}
       {list.map((a) => (
-        <Visit key={a.id} a={a} now={now()} business={business} onStatus={(s) => setStatus(a.id, s)} onMove={(start) => update(a.id, { start })} clash={a.status === 'booked' && overlaps(appointments, a).length > 0} />
+        <Visit key={a.id} a={a} now={now()} business={business} onStatus={(s) => setStatus(a.id, s)} onReschedule={() => reschedule(a)} clash={a.status === 'booked' && overlaps(appointments, a).length > 0} />
       ))}
       <Action label="Book a visit" primary onPress={() => setBooking(blank(day))} testID="schedule-book" />
 
@@ -98,6 +115,7 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
         today={today}
         customers={customers}
         editing={!!editing}
+        editingId={editing}
         onCancel={() => {
           setBooking(null);
           setEditing(null);
@@ -119,7 +137,7 @@ function blank(day: number, who: Partial<NewAppointment> = {}): NewAppointment {
   return { start: slotsFor(day)[4], minutes: 60, name: '', address: '', phone: '', what: '', ...who };
 }
 
-function Visit({ a, now, business, onStatus, onMove, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onMove: (start: number) => void; clash: boolean }) {
+function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onReschedule: () => void; clash: boolean }) {
   const [eta, setEta] = useState(false);
   const maps = mapsLink(a.address);
   const tel = phoneLink(a.phone);
@@ -157,7 +175,7 @@ function Visit({ a, now, business, onStatus, onMove, clash }: { a: Appointment; 
           ) : null}
           <View style={styles.row}>
             <Action label="Done" grow onPress={() => onStatus('done')} testID={`visit-done-${a.id}`} />
-            <Action label="Next day" grow onPress={() => onMove(addDays(a.start, 1))} testID={`visit-move-${a.id}`} />
+            <Action label="Reschedule" grow onPress={onReschedule} testID={`visit-reschedule-${a.id}`} />
             <Action label="Cancel" grow onPress={() => onStatus('cancelled')} testID={`visit-cancel-${a.id}`} />
           </View>
           {a.customerId ? <Action label="Customer history" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: a.customerId! } })} testID={`visit-customer-${a.id}`} /> : null}
@@ -177,8 +195,11 @@ function BookSheet({
   onSave,
   onCancel,
   editing,
+  editingId,
 }: {
   editing?: boolean;
+  /** The visit being moved, so it doesn't count as clashing with itself. */
+  editingId?: string | null;
   value: NewAppointment | null;
   today: number;
   customers: ReturnType<typeof useCustomers>['customers'];
@@ -197,7 +218,7 @@ function BookSheet({
   const days = Array.from({ length: 14 }, (_, i) => addDays(today, i));
   const suggestions = a.customerId ? [] : suggestCustomers(customers, a.name);
   const clashes = overlaps(
-    appointments.filter((x) => !(editing && x.jobId && x.jobId === a.jobId)),
+    appointments.filter((x) => !(editing && ((x.jobId && x.jobId === a.jobId) || x.id === editingId))),
     { id: '', start: a.start, minutes: a.minutes },
   );
   const canSave = a.name.trim() !== '' || a.address.trim() !== '';
@@ -206,7 +227,7 @@ function BookSheet({
       <KeyboardBackdrop style={styles.backdrop}>
         <View style={styles.sheet} testID="book-sheet">
           <View style={styles.titleRow}>
-            <Text style={styles.sheetTitle}>{editing ? 'Change the visit' : 'Book a visit'}</Text>
+            <Text style={styles.sheetTitle}>{editing ? 'Reschedule the visit' : 'Book a visit'}</Text>
             <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" testID="book-cancel">
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
@@ -324,7 +345,7 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   dayTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  item: { padding: 12, gap: 6, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  item: { padding: 14, gap: 6, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, ...shadow },
   itemOff: { backgroundColor: colors.card },
   clash: { borderWidth: 4, borderColor: colors.caution },
   time: { fontSize: type.body, fontWeight: '800', color: colors.text },
