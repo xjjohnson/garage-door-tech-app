@@ -1,4 +1,5 @@
 import { Appearance } from 'react-native';
+import { readStartChoice } from './lib/themeStart';
 
 /**
  * The Johnsons look (style H1): forest green on a soft page, white rounded
@@ -78,6 +79,13 @@ const dark: typeof light = {
 
 function startScheme(): 'light' | 'dark' {
   try {
+    // The tech's own choice wins from the first frame, so a phone set to the
+    // other scheme doesn't draw the wrong colors first and restart (a flicker).
+    const chosen = readStartChoice();
+    if (chosen) {
+      Appearance.setColorScheme?.(chosen);
+      return chosen;
+    }
     return Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
   } catch {
     return 'light';

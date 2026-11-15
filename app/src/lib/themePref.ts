@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance } from 'react-native';
+import { writeStartChoice } from './themeStart';
 
 export type ThemePref = 'match' | 'light' | 'dark';
 export const THEME_PREF_KEY = 'johnsons.themePref';
@@ -28,5 +29,6 @@ export async function saveThemePref(pref: ThemePref): Promise<void> {
   } catch {
     // Not saved; it still applies until the app closes.
   }
+  writeStartChoice(pref === 'match' ? null : pref);
   applyThemePref(pref);
 }
