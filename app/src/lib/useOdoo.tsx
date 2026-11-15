@@ -71,7 +71,12 @@ export function OdooProvider({ children, fetchFn, secrets: givenSecrets }: { chi
       const login = parseLogin(await AsyncStorage.getItem(ODOO_STORAGE_KEY).catch(() => null));
       if (!alive) return;
       setSaved(login);
-      const secret = login ? await secrets.get(SECRET_KEY) : null;
+      // The keystore can fail to answer for a moment right after the app restarts; ask a few times before giving up (the password is never cleared here).
+      let secret = login ? await secrets.get(SECRET_KEY) : null;
+      for (let i = 0; login && !secret && alive && i < 3; i++) {
+        await new Promise((r) => setTimeout(r, 250));
+        secret = await secrets.get(SECRET_KEY);
+      }
       if (!alive) return;
       if (login && secret) await signIn(login, secret);
       else setStatus('signedOut');
