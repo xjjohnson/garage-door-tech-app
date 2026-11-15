@@ -7,9 +7,10 @@ import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { INVOICES_STORAGE_KEY } from '../lib/invoices';
 import { createJob, JOBS_STORAGE_KEY } from '../lib/jobs';
 import { mapHtml, parseMapMessage, setDataScript } from '../lib/mapHtml';
-import { SCHEDULE_STORAGE_KEY } from '../lib/schedule';
+import { Appointment, SCHEDULE_STORAGE_KEY } from '../lib/schedule';
 import { setGeocodeDeps } from '../lib/useGeocode';
 import { routeStops } from '../screens/TodayMapScreen';
+import { visitAddress } from '../lib/useVisits';
 import { renderApp } from '../testing/renderApp';
 
 const injected = (WebView as unknown as { injected: string[] }).injected;
@@ -245,6 +246,20 @@ describe('Today › Map', () => {
     expect(screen.getByTestId('map-status')).not.toHaveTextContent(/no address/);
     expect(nominatim.asked).toEqual(['1 Elm St']);
     expect(injected.at(-1)!).toContain('"id":"stop-v1"');
+  });
+
+  it('finds the address the job screen shows: the one picked there, or the job\'s customer\'s', () => {
+    const base = { ...visits()[0], id: 'odoo-39', address: '', jobId: undefined, customerId: undefined } as unknown as Appointment;
+    const blank = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Flash', address: '', phone: '', notes: '' }, { title: '' }, 1, 'j39');
+    const job = { ...blank, odooJob: { model: 'fsm.order' as const, id: 39, name: 'FO039' } };
+    const picked = { ...job, ticket: { lines: [], shipTo: { id: 7, address: '912 Rockmoor Drive, Georgetown 78626' } } } as typeof job;
+    expect(visitAddress(base, [picked])).toBe('912 Rockmoor Drive, Georgetown 78626');
+    const viaCustomer = { ...job, customerId: 'c1' };
+    const cust = [{ id: 'c1', name: 'Flash', phone: '', email: '', address: '5 Far Rd', notes: '', odooId: 12, createdAt: 1, updatedAt: 1 }] as unknown as Parameters<typeof visitAddress>[2];
+    expect(visitAddress(base, [viaCustomer], cust)).toBe('5 Far Rd');
+    const house = { 12: [{ id: 1, type: 'delivery' as const, name: '', address: '1 Elm St', phone: '', email: '' }] };
+    expect(visitAddress(base, [viaCustomer], cust, house)).toBe('1 Elm St');
+    expect(visitAddress(base, [job])).toBe('');
   });
 
   it('lists addresses it could not place, with Google Maps and Try again', async () => {
