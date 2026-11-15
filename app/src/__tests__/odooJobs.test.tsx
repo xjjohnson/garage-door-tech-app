@@ -79,6 +79,7 @@ function fakeOdoo(refuseDeleted = false) {
     }
     if (model === 'fsm.template' && method === 'search_read') return reply(templates);
     if (model === 'fsm.location' && method === 'read') return reply(locations.filter((l) => (args[0] as number[]).includes(l.id as number)));
+    if (model === 'res.partner' && method === 'read') return reply(partners.filter((p) => (args[0] as number[]).includes(p.id as number)));
     if (model === 'res.partner' && method === 'create') {
       partners.push({ id: 100 + partners.length, ...(args[0] as Row) });
       return reply(100 + partners.length - 1);
@@ -169,6 +170,20 @@ describe('jobs in Odoo (logic)', () => {
     o.orders[0].person_id = 41;
     o.orders[0].stage_id = [9, 'Done'];
     expect(await readJobStates(c, 'fsm.order', [500])).toEqual([{ id: 500, start: at(14), minutes: 60, personId: 41, done: true }]);
+  });
+
+  it('gives a job whose place has no street the owner\'s delivery address, else the owner\'s own', async () => {
+    const o = fakeOdoo();
+    o.locations.push({ id: 71, name: 'Flash Garage Doors LLC', partner_id: 8, owner_id: [8, 'Flash Garage Doors LLC'] });
+    o.locations.push({ id: 72, name: 'Lee Park', partner_id: 9, owner_id: [9, 'Lee Park'] });
+    o.partners.push({ id: 200, parent_id: [8, 'Flash Garage Doors LLC'], type: 'delivery', street: '5 House Rd', city: 'Buda', zip: '78610' });
+    o.partners.push({ id: 9, street: '9 Birch Dr', city: 'Kyle', zip: '78640' });
+    o.orders.push({ id: 510, name: 'FSO510', person_id: 40, location_id: 71, scheduled_date_start: toOdooTime(at(11, 1)), scheduled_duration: 1.5, stage_id: [1, 'New'] });
+    o.orders.push({ id: 511, name: 'FSO511', person_id: 40, location_id: 72, scheduled_date_start: toOdooTime(at(13, 1)), scheduled_duration: 1, stage_id: [1, 'New'] });
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    const jobs = await c.jobsBetween(at(0, 1), at(23, 1));
+    expect(jobs.find((j) => j.id === 510)?.address).toBe('5 House Rd, Buda 78610');
+    expect(jobs.find((j) => j.id === 511)?.address).toBe('9 Birch Dr, Kyle 78640');
   });
 
   it('tells the order about later note edits, steps and Close job', async () => {

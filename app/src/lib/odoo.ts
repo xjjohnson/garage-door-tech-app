@@ -321,6 +321,30 @@ export class OdooClient {
     return this.readWhere([this.assignedTo(who), ...this.open()]);
   }
 
+  /**
+   * A job's place with no street of its own gets the house address of its
+   * owner: the owner's delivery address (what property managers keep their
+   * houses as), else the owner's own address. Fills street, city and zip in
+   * place. A failed lookup leaves the place as it was.
+   */
+  private async fillHouseAddresses(locs: Record<string, unknown>[]): Promise<void> {
+    const bare = locs.filter((l) => !str(l.street) && Array.isArray(l.owner_id));
+    if (bare.length === 0) return;
+    const ownerIds = [...new Set(bare.map((l) => (l.owner_id as number[])[0]))];
+    try {
+      const fields = ['street', 'city', 'zip', 'type', 'parent_id'];
+      const kids = (await this.call('res.partner', 'search_read', [[['parent_id', 'in', ownerIds], ['type', '=', 'delivery']]], { fields, limit: 200 })) as Record<string, unknown>[];
+      const owners = (await this.call('res.partner', 'read', [ownerIds], { fields: ['street', 'city', 'zip'] })) as Record<string, unknown>[];
+      for (const l of bare) {
+        const oid = (l.owner_id as number[])[0];
+        const house = kids.find((k) => Array.isArray(k.parent_id) && k.parent_id[0] === oid && str(k.street)) ?? owners.find((o) => o.id === oid && str(o.street));
+        if (house) Object.assign(l, { street: house.street, city: house.city, zip: house.zip });
+      }
+    } catch {
+      // Keep going without the fallback: the job still shows, just without an address.
+    }
+  }
+
   private async readWhere(domain: unknown[], opts: { newest?: boolean; limit?: number; offset?: number } = {}): Promise<OdooTask[]> {
     const s = this.session;
     if (s.kind === 'none') return [];
@@ -331,7 +355,8 @@ export class OdooClient {
       const order = this.has('scheduled_date_start') ? `scheduled_date_start ${dir}, id ${dir}` : `id ${dir}`;
       const rows = (await this.call('fsm.order', 'search_read', [domain], { fields, ...page, order })) as Record<string, unknown>[];
       const locIds = [...new Set(rows.map((r) => (Array.isArray(r.location_id) ? (r.location_id[0] as number) : 0)).filter(Boolean))];
-      const locs = locIds.length ? ((await this.call('fsm.location', 'read', [locIds], { fields: await this.contactFields() })) as Record<string, unknown>[]) : [];
+      const locs = locIds.length ? ((await this.call('fsm.location', 'read', [locIds], { fields: [...(await this.contactFields()), 'owner_id'] })) as Record<string, unknown>[]) : [];
+      await this.fillHouseAddresses(locs);
       return rows.map((r) => orderToTask(r, locs));
     }
     const fields = ['name', 'partner_id', 'stage_id', s.assignField, ...s.fields];
