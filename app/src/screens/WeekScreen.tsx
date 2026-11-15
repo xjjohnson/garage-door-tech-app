@@ -10,7 +10,7 @@ import { cleanNotes } from '../lib/odooJobs';
 import { formatMoney } from '../lib/prices';
 import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
-import { useSchedule } from '../lib/useSchedule';
+import { useVisits } from '../lib/useVisits';
 import { useGeocode } from '../lib/useGeocode';
 import { useStartJob } from '../lib/useStartJob';
 import { useWeather } from '../lib/useWeather';
@@ -23,7 +23,7 @@ import { colors } from '../theme';
  * Wrap up the day sit under the list.
  */
 export function WeekScreen({ now = Date.now }: { now?: () => number }) {
-  const { appointments } = useSchedule();
+  const appointments = useVisits();
   const { invoices } = useInvoices();
   const startJob = useStartJob();
   const t = now();

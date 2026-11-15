@@ -21,6 +21,7 @@ import { useCustomers } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { NewAppointment, useSchedule } from '../lib/useSchedule';
+import { useVisits } from '../lib/useVisits';
 import { colors, radius, shadow, touch, type } from '../theme';
 
 const WHAT_FALLBACK = ['Broken spring', 'Tune-up', 'Opener', 'Off track', 'Cables', 'Estimate', 'Other'];
@@ -49,7 +50,8 @@ export function NextVisits({ now = Date.now }: { now?: () => number }) {
  * day: directions, an "on my way" text, call, and mark done.
  */
 export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () => number; bookFor?: string; forJob?: string }) {
-  const { appointments, add, setStatus, update } = useSchedule();
+  const { add, setStatus, update } = useSchedule();
+  const appointments = useVisits();
   const { jobs, loaded: jobsLoaded } = useJobs();
   /** The visit being moved, when booking for a job that already has one. */
   const [editing, setEditing] = useState<string | null>(null);

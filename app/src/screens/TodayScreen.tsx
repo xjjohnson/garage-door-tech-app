@@ -19,7 +19,7 @@ import { useLog } from '../lib/useLog';
 import { useOdoo } from '../lib/useOdoo';
 import { useJobsSince } from '../lib/useJobsSince';
 import { usePending } from '../lib/usePending';
-import { useSchedule } from '../lib/useSchedule';
+import { useVisits } from '../lib/useVisits';
 import { useGeocode } from '../lib/useGeocode';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatMoney } from '../lib/prices';
@@ -40,7 +40,7 @@ const CRASH_SEEN_KEY = 'crash/seen';
  * error) show only when there is something to say. Sync now is in the header.
  */
 export function TodayScreen({ now = Date.now }: { now?: () => number }) {
-  const { appointments } = useSchedule();
+  const appointments = useVisits();
   const { jobs } = useJobs();
   const { invoices } = useInvoices();
   const startJob = useStartJob();
