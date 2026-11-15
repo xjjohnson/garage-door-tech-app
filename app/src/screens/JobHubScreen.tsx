@@ -1,9 +1,13 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
-import { Action, NavRow } from '../components/Buttons';
+import { Linking, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
+import { Action, NavRow, QuickAction } from '../components/Buttons';
+import { Dock } from '../components/Page';
+import { JobExtras } from '../components/JobExtras';
+import { Pressable } from 'react-native';
 import { SectionTitle } from '../components/controls';
-import { CustomerBadgeLine, HouseCard } from '../components/HouseHistory';
+import { CustomerBadgeLine, EquipmentChips, HouseCard } from '../components/HouseHistory';
 import { JobParts } from '../components/JobParts';
 import { OdooNotes } from '../components/OdooNotes';
 import { TuneUpOffer } from '../components/TuneUpOffer';
@@ -22,7 +26,22 @@ import { houseOf, NoteTarget } from '../lib/odooNotes';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { EtaPicker } from '../components/EtaPicker';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
+
+type Tab = 'overview' | 'work' | 'photos' | 'notes';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'work', label: 'Work' },
+  { id: 'photos', label: 'Photos' },
+  { id: 'notes', label: 'Notes' },
+];
+
+const STATUS_BUTTONS: [StepId, string][] = [
+  ['onMyWay', 'On my way'],
+  ['arrived', 'Arrived'],
+  ['work', 'Work done'],
+  ['paid', 'Paid'],
+];
 
 const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
 
@@ -38,6 +57,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const [, tick] = useState(0);
   // Which text the minutes picker is for: the On my way button, or an ETA update.
   const [etaPick, setEtaPick] = useState<false | 'omw' | 'eta'>(false);
+  const [tab, setTab] = useState<Tab>('overview');
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30000);
     return () => clearInterval(t);
@@ -87,22 +107,25 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
 
   return (
     <View style={styles.stack} testID="job-hub">
-      <View style={styles.head}>
+      <View style={styles.hero} testID="job-hero">
+        <View style={styles.chipRow}>
+          <Text style={styles.statusChip} testID="job-hub-status">
+            {job.status === 'done' && steps.every((x) => x.done) ? 'Finished' : site ? `On site ${site}` : job.steps?.onMyWayAt ? `On the way since ${formatTime(job.steps.onMyWayAt)}` : 'Not started'}
+          </Text>
+          <CustomerBadgeLine partnerId={customer?.odooId} testID="job-badge" onDark />
+        </View>
         <Text style={styles.title} accessibilityRole="header" testID="job-hub-title">
           {jobName(job)}
           {job.what ? ` · ${job.what}` : ''}
         </Text>
         {jobAddress(job, customer) ? <Text style={styles.sub}>{jobAddress(job, customer)}</Text> : null}
-        <CustomerBadgeLine partnerId={customer?.odooId} testID="job-badge" />
-        <Text style={styles.sub} testID="job-hub-status">
-          {job.status === 'done' && steps.every((x) => x.done) ? 'Finished' : site ? `On site ${site}` : job.steps?.onMyWayAt ? `On the way since ${formatTime(job.steps.onMyWayAt)}` : 'Not started'}
-        </Text>
+        {job.odooJob?.model === 'fsm.order' ? <EquipmentChips orderId={job.odooJob.id} now={now} onDark /> : null}
       </View>
       <View style={styles.row}>
-        {tel ? <Action label="Call" grow onPress={() => open(tel)} testID="job-call" /> : null}
-        {smsLink(job.phone, '') ? <Action label="Text" grow onPress={() => open(smsLink(job.phone, ''))} testID="job-text" /> : null}
-        {smsLink(job.phone, '') ? <Action label="ETA" grow onPress={() => setEtaPick((v) => (v === 'eta' ? false : 'eta'))} testID="job-eta" /> : null}
-        {maps ? <Action label="Directions" grow onPress={() => open(maps)} testID="job-directions" /> : null}
+        {tel ? <QuickAction icon="phone" label="Call" onPress={() => open(tel)} testID="job-call" /> : null}
+        {smsLink(job.phone, '') ? <QuickAction icon="chat" label="Text" onPress={() => open(smsLink(job.phone, ''))} testID="job-text" /> : null}
+        {smsLink(job.phone, '') ? <QuickAction icon="clock" label="ETA" onPress={() => setEtaPick((v) => (v === 'eta' ? false : 'eta'))} testID="job-eta" /> : null}
+        {maps ? <QuickAction icon="pin" label="Directions" onPress={() => open(maps)} testID="job-directions" /> : null}
       </View>
       {etaPick ? (
         <EtaPicker
@@ -115,38 +138,56 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         />
       ) : null}
 
-      <View style={styles.steps} accessibilityRole="list" testID="job-steps">
-        {steps.map((st) => {
-          const isNext = next?.id === st.id;
+      <View style={styles.statusRow} accessibilityRole="list" testID="job-steps">
+        {STATUS_BUTTONS.map(([id, label]) => {
+          const st = steps.find((x) => x.id === id)!;
+          const isNext = next?.id === id || (id === 'work' && (next?.id === 'inspect' || next?.id === 'quote'));
+          const at = id === 'onMyWay' ? job.steps?.onMyWayAt : id === 'arrived' ? job.steps?.arrivedAt : id === 'work' ? job.steps?.workDoneAt : undefined;
           return (
-            <View key={st.id} style={styles.step} accessibilityLabel={`${st.label}, ${st.done ? 'done' : isNext ? 'next' : 'not yet'}`} testID={`job-step-${st.id}`}>
-              <View style={[styles.bar, st.done && styles.barDone, isNext && styles.barNext]} />
-              <Text style={[styles.stepText, isNext && styles.stepNext, !st.done && !isNext && styles.stepLater]} numberOfLines={1} adjustsFontSizeToFit>
-                {st.label}
+            <Pressable
+              key={id}
+              onPress={() => go(id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${label}, ${st.done ? 'done' : isNext ? 'next' : 'not yet'}`}
+              testID={`job-step-${id}`}
+              style={({ pressed }) => [styles.statusBtn, st.done && styles.statusDone, isNext && styles.statusNext, pressed && styles.statusPressed]}
+            >
+              <Text style={[styles.statusText, isNext && styles.statusTextNext, st.done && styles.statusTextDone]} numberOfLines={1} adjustsFontSizeToFit>
+                {st.done ? '✓ ' : ''}
+                {label}
               </Text>
-            </View>
+              {st.done && at ? <Text style={styles.statusTime}>{formatTime(at)}</Text> : null}
+            </Pressable>
           );
         })}
       </View>
 
-      {next ? (
-        <Action label={nextLabel(next.id, job, !!inv)} primary onPress={() => go(next.id)} testID="job-next" />
-      ) : (
-        <Text style={styles.done} testID="job-finished">
-          Job finished and paid.
-        </Text>
-      )}
-      {next && next.id === 'onMyWay' ? <Action label="Skip, I'm already here" onPress={() => go('arrived')} testID="job-skip-arrived" /> : null}
+      <View style={styles.tabs} accessibilityRole="tablist" testID="job-tabs">
+        {TABS.map((t) => (
+          <Pressable key={t.id} onPress={() => setTab(t.id)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }} testID={`job-tab-${t.id}`} style={[styles.tab, tab === t.id && styles.tabOn]}>
+            <Text style={[styles.tabText, tab === t.id && styles.tabTextOn]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
 
+      {tab === 'overview' ? (
+        <>
       <TuneUpOffer partnerId={customer?.odooId} customer={job.customer} address={jobAddress(job, customer)} what={job.what} workDone={!!job.steps?.workDoneAt || !!inv} now={now} />
 
-      <SectionTitle>The job</SectionTitle>
       <NavRow
         label="Visit"
         detail={visit ? `${dayLabel(visit.start, now())} ${formatTime(visit.start)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''} · change` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
         href={{ pathname: '/schedule', params: { job: job.id } }}
         testID="job-visit"
       />
+      {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
+      {customer?.odooId ? <NavRow label="Address" detail={`${jobAddress(job, customer) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
+      {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} now={now} /> : null}
+        <JobExtras job={job} partnerId={customer?.odooId} />
+        </>
+      ) : null}
+      {tab === 'work' ? (
+        <>
       <NavRow
         label="Inspection"
         detail={job.inspection ? `${checkCounts(job.inspection).done} of ${checkCounts(job.inspection).total} checked · ${checkCounts(job.inspection).fix} flagged` : 'Checklist, photos and signature'}
@@ -159,7 +200,6 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         href={{ pathname: '/ticket/[id]', params: { id: job.id } }}
         testID="job-open-ticket"
       />
-      <NavRow label="Photos" detail="Before and after" href={{ pathname: '/photos/[id]', params: { id: job.id } }} testID="job-open-photos" />
       <JobParts jobId={job.id} />
       {inv ? (
         <NavRow
@@ -169,9 +209,19 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
           testID="job-open-invoice"
         />
       ) : null}
-      {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
-      {customer?.odooId ? <NavRow label="Address" detail={`${jobAddress(job, customer) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
-      {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} now={now} /> : null}
+      <View style={styles.row}>
+        {job.steps?.workDoneAt ? <Action label="Undo work done" grow onPress={() => setStep(job.id, 'workDoneAt', undefined)} testID="job-undo-work" /> : null}
+        <Action label={job.status === 'done' ? 'Reopen job' : 'Close job'} grow onPress={() => setStatus(job.id, job.status === 'done' ? 'open' : 'done')} testID="job-close" />
+      </View>
+        </>
+      ) : null}
+      {tab === 'photos' ? (
+        <>
+      <NavRow label="Photos" detail="Before and after" href={{ pathname: '/photos/[id]', params: { id: job.id } }} testID="job-open-photos" />
+        </>
+      ) : null}
+      {tab === 'notes' ? (
+        <>
       {job.notes ? (
         <View style={styles.card}>
           <Text style={styles.label}>Notes</Text>
@@ -181,10 +231,19 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
 
       {job.odooJob ? <JobNotes job={job.odooJob} now={now} /> : null}
 
-      <View style={styles.row}>
-        {job.steps?.workDoneAt ? <Action label="Undo work done" grow onPress={() => setStep(job.id, 'workDoneAt', undefined)} testID="job-undo-work" /> : null}
-        <Action label={job.status === 'done' ? 'Reopen job' : 'Close job'} grow onPress={() => setStatus(job.id, job.status === 'done' ? 'open' : 'done')} testID="job-close" />
-      </View>
+        </>
+      ) : null}
+      <Dock>
+      {next ? (
+        <Action label={nextLabel(next.id, job, !!inv)} primary onPress={() => go(next.id)} testID="job-next" />
+      ) : (
+        <Text style={styles.done} testID="job-finished">
+          Job finished and paid.
+        </Text>
+      )}
+      {next && next.id === 'onMyWay' ? <Action label="Skip, I'm already here" onPress={() => go('arrived')} testID="job-skip-arrived" /> : null}
+
+      </Dock>
     </View>
   );
 }
@@ -237,21 +296,36 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
+  tabs: { flexDirection: 'row', gap: 6 },
+  tab: { paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: radius.pill },
+  tabOn: { backgroundColor: colors.selected },
+  tabText: { fontSize: 15, fontWeight: '700', color: colors.muted },
+  tabTextOn: { color: colors.onSelected },
   row: { flexDirection: 'row', gap: 8 },
-  head: { gap: 2 },
-  title: { fontSize: 26, fontWeight: '900', color: colors.text },
-  sub: { fontSize: 17, fontWeight: '700', color: colors.muted },
-  steps: { flexDirection: 'row', gap: 6, paddingVertical: 4 },
+  hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: 16, gap: 6, ...shadow },
+  chipRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  statusChip: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: colors.onHead, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
+  title: { fontSize: 24, fontWeight: '800', color: colors.onHead },
+  sub: { fontSize: 16, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
+  statusRow: { flexDirection: 'row', gap: 6 },
+  statusBtn: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: radius.field, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.line },
+  statusDone: { backgroundColor: colors.info, borderColor: colors.info },
+  statusNext: { backgroundColor: colors.selected, borderColor: colors.selected },
+  statusPressed: { opacity: 0.8 },
+  statusText: { fontSize: 15, fontWeight: '800', color: colors.text },
+  statusTextNext: { color: colors.onSelected },
+  statusTextDone: { color: colors.selected },
+  statusTime: { fontSize: 12, fontWeight: '700', color: colors.muted },
   step: { flex: 1, gap: 6 },
   bar: { height: 8, borderRadius: 4, backgroundColor: colors.info },
-  barDone: { backgroundColor: colors.text },
-  barNext: { backgroundColor: colors.brand },
+  barDone: { backgroundColor: colors.selected, opacity: 0.55 },
+  barNext: { backgroundColor: colors.selected },
   stepText: { fontSize: 13, fontWeight: '800', color: colors.text },
-  stepNext: { color: colors.brand, fontWeight: '900' },
+  stepNext: { color: colors.selected, fontWeight: '800' },
   stepLater: { color: colors.muted, fontWeight: '700' },
-  done: { fontSize: type.body, fontWeight: '900', color: colors.ok, minHeight: touch.min, textAlignVertical: 'center' },
-  card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 4 },
-  label: { fontSize: 15, fontWeight: '900', color: colors.muted },
+  done: { fontSize: type.body, fontWeight: '800', color: colors.ok, minHeight: touch.min, textAlignVertical: 'center' },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: 14, gap: 4, borderWidth: 1, borderColor: colors.line },
+  label: { fontSize: 15, fontWeight: '800', color: colors.muted },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
   note: { fontSize: type.body, color: colors.muted },
 });

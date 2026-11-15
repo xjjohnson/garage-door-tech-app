@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
 import { isOwner, odooOwnerData, odooScoreData, OwnerData, ownerSummary, phoneOwnerData, phoneScoreData, SCORE_PERIOD_LABEL, ScoreData, ScorePeriod, scorecard, scorePeriod, TechScore } from '../lib/scorecard';
@@ -148,17 +149,17 @@ function Stat({ big, label, warn }: { big: string; label: string; warn?: boolean
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   sub: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  card: { borderWidth: 3, borderColor: colors.border, borderRadius: 16, padding: 14, gap: 10 },
-  name: { fontSize: 20, fontWeight: '900', color: colors.text },
+  card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, padding: 14, gap: 10 },
+  name: { fontSize: 20, fontWeight: '800', color: colors.text },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
   grid: { flexDirection: 'row', gap: 8 },
   stat: { flex: 1, gap: 2 },
-  big: { fontSize: 24, fontWeight: '900', color: colors.text },
+  big: { fontSize: 24, fontWeight: '800', color: colors.text },
   warn: { color: colors.stop },
   statLabel: { fontSize: 13, fontWeight: '800', color: colors.muted },
   meta: { fontSize: 15, fontWeight: '800', color: colors.muted },
   track: { height: 12, borderRadius: 6, backgroundColor: colors.info, overflow: 'hidden' },
-  fill: { height: '100%', backgroundColor: colors.brand },
+  fill: { height: '100%', backgroundColor: colors.selected },
   note: { fontSize: 15, fontWeight: '600', color: colors.muted },
   error: { fontSize: 16, fontWeight: '800', color: colors.stop },
 });

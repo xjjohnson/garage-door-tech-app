@@ -153,7 +153,10 @@ describe('Today › Map', () => {
     for (let k = 0; k < n; k++) await act(async () => undefined);
   };
 
+  let clock: jest.SpyInstance;
   beforeEach(async () => {
+    // The visits sit at 9 pm and 10 pm today, so pin "now" to 8 am: the test must not depend on when it runs.
+    clock = jest.spyOn(Date, 'now').mockReturnValue(at(8));
     await AsyncStorage.clear();
     injected.length = 0;
     nominatim = fakeNominatim();
@@ -162,6 +165,7 @@ describe('Today › Map', () => {
   });
   afterEach(() => {
     reset();
+    clock.mockRestore();
     openURL.mockRestore();
   });
 

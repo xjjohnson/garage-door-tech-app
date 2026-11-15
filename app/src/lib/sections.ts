@@ -2,14 +2,14 @@ import type { Href } from 'expo-router';
 
 /**
  * The bottom tabs. `name` is the route file in src/app/(tabs); `href` its
- * address. Today, Jobs, Sales, Customers and Tools.
+ * address. Today, Jobs, Customers, Sales and More (the tools page).
  */
 export const SECTIONS = [
   { id: 'today', name: 'index', href: '/', label: 'Today', title: 'Today', subtitle: '' },
   { id: 'jobs', name: 'jobs', href: '/jobs', label: 'Jobs', title: 'Jobs', subtitle: 'Jobs and visits' },
-  { id: 'sales', name: 'sales', href: '/sales', label: 'Sales', title: 'Sales', subtitle: 'Owed, quotes and follow-ups' },
   { id: 'customers', name: 'customers', href: '/customers', label: 'Customers', title: 'Customers', subtitle: 'Doors, history and contact' },
-  { id: 'tools', name: 'tools', href: '/tools', label: 'Tools', title: 'Tools', subtitle: 'Calculators, manuals and diagnose' },
+  { id: 'sales', name: 'sales', href: '/sales', label: 'Sales', title: 'Sales', subtitle: 'Owed, quotes and follow-ups' },
+  { id: 'tools', name: 'tools', href: '/tools', label: 'More', title: 'Tools', subtitle: 'Calculators, manuals and diagnose' },
 ] as const satisfies readonly { id: string; name: string; href: Href; label: string; title: string; subtitle: string }[];
 
 /**

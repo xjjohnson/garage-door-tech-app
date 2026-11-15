@@ -6,7 +6,8 @@
  * read is kept for no signal. Notes are internal only.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { log } from '../lib/log';
 import type { VoiceNote } from '../lib/inspection';
 import { cacheNotes, fetchNotes, NoteRow, NoteTarget, onOutboxChange, PendingNote, queueNote, readCachedNotes, readOutbox, dropFromOutbox } from '../lib/odooNotes';
@@ -184,12 +185,12 @@ const styles = StyleSheet.create({
   stack: { gap: 8 },
   section: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: 8 },
   form: { gap: 8 },
-  input: { minHeight: touch.min * 2, borderWidth: 2, borderColor: colors.border, borderRadius: 8, padding: 10, fontSize: type.body, color: colors.text, textAlignVertical: 'top' },
+  input: { minHeight: touch.min * 2, borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, padding: 10, fontSize: type.body, color: colors.text, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: 8 },
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   thumb: { width: 110, gap: 4 },
   img: { width: 110, height: 110, borderRadius: 8 },
-  item: { borderWidth: 2, borderColor: colors.border, borderRadius: 8, padding: 10, gap: 4 },
+  item: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 8, padding: 10, gap: 4 },
   waiting: { borderStyle: 'dashed' },
   who: { fontSize: type.body, fontWeight: '700', color: colors.text },
   body: { fontSize: type.body, color: colors.text },

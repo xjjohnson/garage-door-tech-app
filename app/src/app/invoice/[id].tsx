@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { Text } from 'react-native';
+import { Text } from '../../components/AppText';
 import { Page } from '../../components/Page';
 import { useInvoices } from '../../lib/useInvoices';
 import { InvoiceScreen } from '../../screens/InvoiceScreen';

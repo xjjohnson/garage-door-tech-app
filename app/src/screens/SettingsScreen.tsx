@@ -2,7 +2,8 @@ import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { SectionTitle } from '../components/controls';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
@@ -130,16 +131,16 @@ function Link({ label, detail, href, testID }: { label: string; detail: string; 
 
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
-  card: { borderWidth: 2, borderColor: colors.border, borderRadius: 12, padding: 12, backgroundColor: colors.card, gap: 4 },
+  card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: 12, backgroundColor: colors.card, gap: 4 },
   value: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   note: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  link: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 8, backgroundColor: colors.bg },
+  link: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 8, backgroundColor: colors.card },
   linkText: { flex: 1, gap: 2 },
-  chevron: { fontSize: type.big, fontWeight: '900', color: colors.text },
+  chevron: { fontSize: type.big, fontWeight: '800', color: colors.text },
 });

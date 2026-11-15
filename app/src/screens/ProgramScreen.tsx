@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { ChipOption, ChipRow } from '../components/controls';
 import { DIAG_BRANDS } from '../data/diagnostics';
 import { PROG_SAFETY, PROG_TASK_LABEL, PROG_TASK_ORDER, ProgTaskKind } from '../data/programming';
@@ -113,26 +114,26 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   hint: { fontSize: 16, color: colors.muted },
-  read: { padding: 12, borderRadius: 10, backgroundColor: colors.card, gap: 6 },
+  read: { padding: 12, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
   readBody: { fontSize: type.body, color: colors.text, lineHeight: 24 },
   models: { fontSize: 15, color: colors.muted },
-  card: { padding: 12, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg, gap: 10 },
-  cardTitle: { fontSize: type.value, fontWeight: '900', color: colors.text },
-  safety: { padding: 10, borderRadius: 8, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.safety, gap: 4 },
+  card: { padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, gap: 10 },
+  cardTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
+  safety: { padding: 10, borderRadius: 8, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.warnBg, gap: 4 },
   safetyLine: { fontSize: 16, fontWeight: '700', color: colors.text, lineHeight: 22 },
   before: { fontSize: type.body, fontWeight: '700', color: colors.text, lineHeight: 24 },
   steps: { gap: 10 },
   stepRow: { flexDirection: 'row', gap: 8 },
-  stepNum: { fontSize: type.body, fontWeight: '900', color: colors.text, minWidth: 28 },
+  stepNum: { fontSize: type.body, fontWeight: '800', color: colors.text, minWidth: 28 },
   stepText: { flex: 1, fontSize: type.body, color: colors.text, lineHeight: 24 },
   note: { fontSize: 16, fontWeight: '700', color: colors.muted, lineHeight: 22 },
   unchecked: { padding: 10, borderRadius: 8, backgroundColor: colors.info, gap: 4 },
-  uncheckedTitle: { fontSize: 16, fontWeight: '900', color: colors.text },
+  uncheckedTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   uncheckedLine: { fontSize: 15, color: colors.text, lineHeight: 21 },
-  subhead: { fontSize: type.body, fontWeight: '900', color: colors.text, marginTop: 4 },
+  subhead: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: 4 },
   sources: { gap: 8 },
-  source: { minHeight: touch.min, padding: 10, borderRadius: 10, borderWidth: 2, borderColor: colors.border, justifyContent: 'center', gap: 2 },
+  source: { minHeight: touch.min, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, justifyContent: 'center', gap: 2 },
   sourceTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   sourceHost: { fontSize: 14, fontWeight: '600', color: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

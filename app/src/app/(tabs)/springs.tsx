@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/AppText';
 import { useCalculatorLink } from '../../lib/useCalculatorLink';
 import { DoorScreen } from '../../screens/DoorScreen';
 import { DrumsScreen } from '../../screens/DrumsScreen';
@@ -66,12 +67,12 @@ export default function SpringsRoute() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   hidden: { display: 'none' },
-  segmentWrap: { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 3, borderBottomColor: colors.border },
-  segments: { flexDirection: 'row', borderWidth: 3, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
-  segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: colors.bg },
+  segmentWrap: { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  segments: { flexDirection: 'row', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
+  segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: colors.card },
   segmentDivider: { borderLeftWidth: 3, borderLeftColor: colors.border },
   tabOn: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   tabText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   tabTextOn: { color: colors.onSelected },
 });

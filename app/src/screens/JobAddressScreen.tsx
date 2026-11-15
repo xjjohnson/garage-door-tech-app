@@ -9,7 +9,8 @@
  */
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { AddressSheet } from '../components/AddressSheet';
 import { Action, NavRow } from '../components/Buttons';
 import { Customer } from '../lib/customers';
@@ -202,13 +203,13 @@ function CustomerSearch({ onPick }: { onPick: (c: FoundCustomer) => void }) {
 const styles = StyleSheet.create({
   stack: { gap: 10 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 8 },
-  now: { fontSize: type.value, fontWeight: '900', color: colors.text },
-  label: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  now: { fontSize: type.value, fontWeight: '800', color: colors.text },
+  label: { fontSize: type.value, fontWeight: '800', color: colors.text },
   note: { fontSize: type.body, fontWeight: '600', color: colors.muted },
-  input: { minHeight: touch.min, borderWidth: 2, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, fontSize: type.body, color: colors.text, backgroundColor: colors.bg },
-  option: { minHeight: touch.min, padding: 10, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg, gap: 2 },
+  input: { minHeight: touch.min, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingHorizontal: 12, fontSize: type.body, color: colors.text, backgroundColor: colors.card },
+  option: { minHeight: touch.min, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, gap: 2 },
   on: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   title: { fontSize: 16, fontWeight: '800', color: colors.muted },
   line: { fontSize: type.body, fontWeight: '800', color: colors.text },
   onText: { color: colors.onSelected },

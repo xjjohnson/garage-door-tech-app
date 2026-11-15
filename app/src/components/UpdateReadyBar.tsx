@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import * as Updates from 'expo-updates';
 import { checkAndFetchOta, isCheckDue, type OtaApi } from '../lib/otaUpdate';
 import { useAppForeground } from '../lib/useAppForeground';
@@ -90,11 +91,11 @@ export function UpdateReadyBar({ pending = false, api = defaultApi, restart = de
 
 const styles = StyleSheet.create({
   // Safety yellow so it's seen, sitting on the black bottom tabs.
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.safety, borderTopWidth: 3, borderTopColor: colors.border },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.warnBg, borderTopWidth: 1, borderTopColor: colors.border },
   textWrap: { flex: 1 },
-  title: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   body: { fontSize: 15, fontWeight: '600', color: colors.text },
-  button: { minHeight: touch.min, paddingHorizontal: 14, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  button: { minHeight: touch.min, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.muted },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },

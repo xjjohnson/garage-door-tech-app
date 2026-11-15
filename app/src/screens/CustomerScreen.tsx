@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { useEffect, useRef, useState } from 'react';
 import type { ScrollViewInstance } from 'react-native';
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Customer, CustomerFields, customerName, emailLink, summarize } from '../lib/customers';
 import { acceptedLabel, formatJobDate, MODE_LABEL, phoneLink } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
@@ -11,14 +12,23 @@ import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoi
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { AddressSheet } from '../components/AddressSheet';
-import { CustomerOdoo } from '../components/CustomerOdoo';
-import { CustomerBadgeLine } from '../components/HouseHistory';
+import { CustomerOdoo, CustomerTab } from '../components/CustomerOdoo';
+import { CustomerBadgeLine, CustomerEquipmentChips } from '../components/HouseHistory';
 import { OdooNotes } from '../components/OdooNotes';
 import { useOdoo } from '../lib/useOdoo';
 import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
 import { AddressSuggestions } from '../components/AddressSuggestions';
-import { colors, touch, type } from '../theme';
+import { QuickAction } from '../components/Buttons';
+import { mapsLink } from '../lib/schedule';
+import { colors, radius, shadow, touch, type } from '../theme';
+
+const CUSTOMER_TABS: { id: CustomerTab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'jobs', label: 'Jobs' },
+  { id: 'quotes', label: 'Quotes' },
+  { id: 'notes', label: 'Notes' },
+];
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -27,6 +37,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
   const { jobs } = useJobs();
   const { update } = useCustomers();
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<CustomerTab>('overview');
   const s = summarize(customer, jobs);
   const tel = phoneLink(customer.phone);
   const mail = emailLink(customer.email);
@@ -42,43 +53,61 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
 
   return (
     <View style={styles.stack} testID="customer">
-      <Text style={styles.name}>{customerName(customer)}</Text>
-      {customer.name && customer.address ? <Text style={styles.detail}>{customer.address}</Text> : null}
-      {customer.phone ? <Text style={styles.detail}>Phone: {customer.phone}</Text> : null}
-      {customer.email ? <Text style={styles.detail}>Email: {customer.email}</Text> : null}
-      {customer.notes ? <Text style={styles.detail}>{customer.notes}</Text> : null}
-      <Text style={styles.meta} testID="customer-totals">
-        {fromOdoo ? `Customer since ${formatJobDate(customer.createdAt)}.` : null}
-        {fromOdoo ? null : plural(s.jobs.length, 'job')}
-        {!fromOdoo && s.openJobs > 0 ? `, ${s.openJobs} open` : ''}
-        {!fromOdoo && s.acceptedTotal > 0 ? `. ${formatMoney(s.acceptedTotal)} in accepted quotes` : ''}
-        {fromOdoo ? null : `. Customer since ${formatJobDate(customer.createdAt)}.`}
-      </Text>
-      {fromOdoo ? <CustomerBadgeLine partnerId={customer.odooId} /> : null}
+      <View style={styles.hero} testID="customer-hero">
+        <Text style={styles.name}>{customerName(customer)}</Text>
+        {customer.name && customer.address ? <Text style={styles.heroText}>{customer.address}</Text> : null}
+        {customer.phone ? <Text style={styles.heroText}>Phone: {customer.phone}</Text> : null}
+        {customer.email ? <Text style={styles.heroText}>Email: {customer.email}</Text> : null}
+        {customer.notes ? <Text style={styles.heroText}>{customer.notes}</Text> : null}
+        <Text style={styles.heroMeta} testID="customer-totals">
+          {fromOdoo ? `Customer since ${formatJobDate(customer.createdAt)}.` : null}
+          {fromOdoo ? null : plural(s.jobs.length, 'job')}
+          {!fromOdoo && s.openJobs > 0 ? `, ${s.openJobs} open` : ''}
+          {!fromOdoo && s.acceptedTotal > 0 ? `. ${formatMoney(s.acceptedTotal)} in accepted quotes` : ''}
+          {fromOdoo ? null : `. Customer since ${formatJobDate(customer.createdAt)}.`}
+        </Text>
+        {fromOdoo ? <CustomerBadgeLine partnerId={customer.odooId} onDark /> : null}
+        {fromOdoo ? <CustomerEquipmentChips partnerId={customer.odooId} onDark /> : null}
+      </View>
       {owed > 0 ? (
         <Text style={styles.owed} testID="customer-owed">
           Owes {formatMoney(owed)}
         </Text>
       ) : null}
 
-      {tel ? <Action label={`Call ${customer.phone}`} primary onPress={() => Linking.openURL(tel).catch(() => undefined)} testID="customer-call" /> : null}
-      {tel ? <Action label="Text" onPress={() => Linking.openURL(tel.replace('tel:', 'sms:')).catch(() => undefined)} testID="customer-text" /> : null}
+      <View style={styles.quickRow}>
+        {tel ? <QuickAction icon="phone" label="Call" onPress={() => Linking.openURL(tel).catch(() => undefined)} testID="customer-call" /> : null}
+        {tel ? <QuickAction icon="chat" label="Text" onPress={() => Linking.openURL(tel.replace('tel:', 'sms:')).catch(() => undefined)} testID="customer-text" /> : null}
+        {customer.address ? <QuickAction icon="pin" label="Go" onPress={() => { const m = mapsLink(customer.address); if (m) Linking.openURL(m).catch(() => undefined); }} testID="customer-go" /> : null}
+      </View>
+      <View style={styles.tabs} accessibilityRole="tablist" testID="customer-tabs">
+        {CUSTOMER_TABS.map((t) => (
+          <Pressable key={t.id} onPress={() => setTab(t.id)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }} testID={`customer-tab-${t.id}`} style={[styles.tab, tab === t.id && styles.tabOn]}>
+            <Text style={[styles.tabText, tab === t.id && styles.tabTextOn]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {tab === 'overview' ? (
+        <>
       {mail ? <Action label="Email" onPress={() => Linking.openURL(mail).catch(() => undefined)} testID="customer-email" /> : null}
       <Action label="Book a visit" onPress={() => router.push({ pathname: '/schedule', params: { book: customer.id } })} testID="customer-book" />
       <Action label="Edit customer" onPress={() => setEditing(true)} testID="customer-edit" />
 
       {customer.odooId ? <Addresses partnerId={customer.odooId} /> : null}
+        </>
+      ) : null}
 
-      {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} name={customerName(customer)} address={customer.address} /> : null}
+      {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} name={customerName(customer)} address={customer.address} tab={tab} /> : null}
 
-      {fromOdoo && customer.odooId ? <OdooNotes target={{ model: 'res.partner', id: customer.odooId }} title="Customer notes" testID="customer-notes" /> : null}
+      {tab === 'notes' && fromOdoo && customer.odooId ? <OdooNotes target={{ model: 'res.partner', id: customer.odooId }} title="Customer notes" testID="customer-notes" /> : null}
 
-      {!fromOdoo || waitingJobs.length > 0 ? (
+      {tab === 'jobs' && (!fromOdoo || waitingJobs.length > 0) ? (
         <Text style={styles.section} accessibilityRole="header">
           {fromOdoo ? 'Waiting to go to Odoo' : 'Jobs'}
         </Text>
       ) : null}
-      {waitingJobs.map((j) => (
+      {(tab === 'jobs' ? waitingJobs : []).map((j) => (
         <Pressable
           key={j.id}
           onPress={() => router.push({ pathname: '/quote/[id]', params: { id: j.id } })}
@@ -101,12 +130,12 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
         </Pressable>
       ))}
 
-      {waitingInvoices.length > 0 ? (
+      {tab === 'quotes' && waitingInvoices.length > 0 ? (
         <Text style={styles.section} accessibilityRole="header">
           {fromOdoo ? 'Invoices waiting to go to Odoo' : 'Invoices'}
         </Text>
       ) : null}
-      {waitingInvoices.map((i) => (
+      {(tab === 'quotes' ? waitingInvoices : []).map((i) => (
         <Pressable
           key={i.id}
           onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: i.id } })}
@@ -263,24 +292,33 @@ function Action({ label, onPress, primary, testID }: { label: string; onPress: (
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  name: { fontSize: type.big, fontWeight: '900', color: colors.text },
+  hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: 16, gap: 4, ...shadow },
+  heroText: { fontSize: 16, fontWeight: '600', color: colors.onHead },
+  heroMeta: { fontSize: 15, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
+  tabs: { flexDirection: 'row', gap: 6 },
+  tab: { paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: radius.pill },
+  tabOn: { backgroundColor: colors.selected },
+  tabText: { fontSize: 15, fontWeight: '700', color: colors.muted },
+  tabTextOn: { color: colors.onSelected },
+  quickRow: { flexDirection: 'row', gap: 8 },
+  name: { fontSize: type.big, fontWeight: '800', color: colors.onHead },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  owed: { fontSize: type.value, fontWeight: '900', color: colors.stop },
-  section: { fontSize: type.value, fontWeight: '900', color: colors.text, marginTop: 8 },
-  job: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
+  owed: { fontSize: type.value, fontWeight: '800', color: colors.stop },
+  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
+  job: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   jobDone: { backgroundColor: colors.card },
-  jobTitle: { fontSize: type.body, fontWeight: '900', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.bg },
+  jobTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
-  sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sheetTitle: { flex: 1, fontSize: type.value, fontWeight: '900', color: colors.text },
+  sheetTitle: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
   cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
   fields: { gap: 12, paddingBottom: 4 },
@@ -289,7 +327,7 @@ const styles = StyleSheet.create({
   input: {
     minHeight: touch.min,
     borderRadius: 10,
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -301,6 +339,6 @@ const styles = StyleSheet.create({
   multiline: { minHeight: 110, textAlignVertical: 'top' },
   save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
-  saveText: { fontSize: type.value, fontWeight: '900', color: colors.onSelected },
+  saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
   pressedText: { color: colors.text },
 });

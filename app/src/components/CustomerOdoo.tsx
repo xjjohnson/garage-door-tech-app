@@ -7,7 +7,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
@@ -111,7 +112,11 @@ export function useCustomerRecords(partnerId: number, now: () => number = Date.n
   return { records, fresh, error, online: !!client, refresh };
 }
 
-export function CustomerOdoo({ partnerId, name = 'this customer', address = '', now = Date.now }: { partnerId: number; name?: string; address?: string; now?: () => number }) {
+export type CustomerTab = 'overview' | 'jobs' | 'quotes' | 'notes';
+
+/** `tab` picks which part of the customer page shows: Overview (to-dos, repeat visits, agreements), Jobs, or Quotes (with invoices). Without one, everything shows. */
+export function CustomerOdoo({ partnerId, name = 'this customer', address = '', now = Date.now, tab }: { partnerId: number; name?: string; address?: string; now?: () => number; tab?: CustomerTab }) {
+  const show = (t: CustomerTab) => !tab || tab === t;
   const { client } = useOdoo();
   const { records, fresh, error, refresh } = useCustomerRecords(partnerId, now);
   const [sheet, setSheet] = useState<'repeat' | 'followup' | 'agreement' | null>(null);
@@ -184,6 +189,8 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         </Text>
       ) : null}
 
+      {show('jobs') ? (
+        <>
       <Text style={styles.section} accessibilityRole="header">
         Jobs
       </Text>
@@ -203,6 +210,11 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         );
       })}
 
+        </>
+      ) : null}
+
+      {show('overview') ? (
+        <>
       <View style={styles.row}>
         <Action label="New follow-up" grow onPress={() => { setProblem(null); setSheet('followup'); }} testID="customer-new-followup" />
         {oca ? <Action label="Repeat visits" grow onPress={openRepeat} testID="customer-repeat" /> : null}
@@ -229,6 +241,8 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         </>
       ) : null}
       <Plans repeats={records?.repeats} agreements={records?.agreements} onChange={change} onEdit={openAgreement} onEnd={end} busy={busy} />
+        </>
+      ) : null}
       <AgreementSheet
         visible={sheet === 'agreement'}
         customer={name}
@@ -263,8 +277,12 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         onCancel={() => setSheet(null)}
         onSave={(f) => client && run(() => createManualFollowUp(client, partnerId, { title: f.title, note: f.note, due: dayAhead(f.days, Date.now()) }), 'Follow-up added to Odoo as a to-do.')}
       />
-      <Rows title="Quotes" kind="quotations" rows={records?.quotes} onOpen={openRecord} />
-      <Rows title="Invoices" kind="invoices" rows={records?.invoices} onOpen={openRecord} />
+      {show('quotes') ? (
+        <>
+          <Rows title="Quotes" kind="quotations" rows={records?.quotes} onOpen={openRecord} />
+          <Rows title="Invoices" kind="invoices" rows={records?.invoices} onOpen={openRecord} />
+        </>
+      ) : null}
     </View>
   );
 }
@@ -350,15 +368,15 @@ function Rows({ title, kind, rows, onOpen }: { title: string; kind: ListKind; ro
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
-  section: { fontSize: type.value, fontWeight: '900', color: colors.text, marginTop: 8 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
+  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
+  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  title: { flexShrink: 1, fontSize: type.body, fontWeight: '900', color: colors.text },
-  badge: { fontSize: 14, fontWeight: '900', color: colors.text, backgroundColor: colors.safety, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', letterSpacing: 1 },
+  title: { flexShrink: 1, fontSize: type.body, fontWeight: '800', color: colors.text },
+  badge: { fontSize: 14, fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', letterSpacing: 1 },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   warn: { color: colors.stop },
-  owed: { fontSize: type.value, fontWeight: '900', color: colors.stop },
+  owed: { fontSize: type.value, fontWeight: '800', color: colors.stop },
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

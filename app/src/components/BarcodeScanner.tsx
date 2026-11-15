@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { colors, touch, type } from '../theme';
 
 type CameraModule = typeof import('expo-camera');
@@ -110,9 +111,9 @@ function LiveCamera({ cam, onCode }: { cam: CameraModule; onCode: (code: string)
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10 },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  title: { flex: 1, fontSize: type.value, fontWeight: '900', color: colors.text },
+  title: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
   hint: { fontSize: 16, fontWeight: '600', color: colors.muted },
   cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
@@ -121,8 +122,8 @@ const styles = StyleSheet.create({
   note: { fontSize: 16, fontWeight: '700', color: colors.text, textAlign: 'center' },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   row: { flexDirection: 'row', gap: 8 },
-  input: { flex: 1, minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
-  use: { minHeight: touch.min, minWidth: 88, borderRadius: 10, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
-  useText: { fontSize: type.body, fontWeight: '900', color: colors.onSelected },
+  input: { flex: 1, minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  use: { minHeight: touch.min, minWidth: 88, borderRadius: 14, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
+  useText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
   pressed: { opacity: 0.8 },
 });

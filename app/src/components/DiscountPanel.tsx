@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { Discount, DiscountPreset, discountAmountText, discountText, parseDollars, parsePct } from '../lib/discounts';
 import { colors, touch, type } from '../theme';
 import { Action } from './Buttons';
@@ -72,5 +73,5 @@ const styles = StyleSheet.create({
   box: { gap: 6 },
   row: { flexDirection: 'row', gap: 8 },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
+  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import type { StockProduct } from '../lib/odooStock';
 import { colors, touch, type } from '../theme';
@@ -126,19 +127,19 @@ export function ProductPicker({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   close: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
   closeText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
-  input: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },
+  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },
   list: { gap: 8, paddingBottom: 8 },
-  group: { fontSize: 15, fontWeight: '900', color: colors.muted, marginTop: 4 },
-  pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
-  newPart: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, marginTop: 8 },
+  group: { fontSize: 15, fontWeight: '800', color: colors.muted, marginTop: 4 },
+  pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  newPart: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border, marginTop: 8 },
   grow: { flex: 1 },
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 15, fontWeight: '700', color: colors.muted },
   error: { fontSize: 16, fontWeight: '800', color: colors.stop },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { MeasureField, SectionTitle } from '../components/controls';
 import { TIER_LABEL, TIERS } from '../lib/prices';
 import { useFollowUps } from '../lib/useFollowUps';
@@ -132,7 +133,7 @@ const styles = StyleSheet.create({
   input: {
     minHeight: touch.min,
     borderRadius: 10,
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: 14,
     fontSize: type.body,
@@ -140,6 +141,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.bg,
   },
-  save: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  qr: { alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 2, borderColor: colors.border },
+  save: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  qr: { alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border },
 });

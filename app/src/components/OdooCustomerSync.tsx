@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { OdooError } from '../lib/odoo';
 import { CrampedAddress, crampedAddresses, splitAddresses } from '../lib/odooContacts';
 import { useCustomerSync } from '../lib/useCustomerSync';
@@ -119,15 +120,15 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
 }
 
 const styles = StyleSheet.create({
-  box: { gap: 8, padding: 12, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card },
+  box: { gap: 8, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   off: { opacity: 0.5 },
-  pick: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', minHeight: touch.min, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg },
+  pick: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', minHeight: touch.min, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   tick: { fontSize: 24, color: colors.text },
   grow: { flex: 1 },
   pickName: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

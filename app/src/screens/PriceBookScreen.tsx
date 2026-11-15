@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle, Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
@@ -146,14 +147,14 @@ const styles = StyleSheet.create({
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  input: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
+  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   up: { minHeight: touch.min, justifyContent: 'center' },
   upText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  item: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: colors.info },
+  item: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  price: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  price: { fontSize: type.body, fontWeight: '800', color: colors.text },
   star: { minWidth: touch.min, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   starText: { fontSize: 30, color: colors.text },
-  starOn: { color: colors.brand },
-  pressed: { backgroundColor: colors.safety },
+  starOn: { color: colors.selected },
+  pressed: { backgroundColor: colors.info },
 });

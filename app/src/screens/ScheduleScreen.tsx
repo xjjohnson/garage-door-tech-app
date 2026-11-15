@@ -4,7 +4,8 @@ import { AddressSuggestions } from '../components/AddressSuggestions';
 import { EtaPicker } from '../components/EtaPicker';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
 import { suggestCustomers } from '../lib/customers';
 import { textLink } from '../lib/followups';
@@ -319,27 +320,27 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  dayTitle: { fontSize: type.value, fontWeight: '900', color: colors.text },
-  item: { padding: 12, gap: 6, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
+  dayTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
+  item: { padding: 12, gap: 6, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   itemOff: { backgroundColor: colors.card },
   clash: { borderWidth: 4, borderColor: colors.caution },
-  time: { fontSize: type.body, fontWeight: '900', color: colors.text },
-  name: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  time: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  name: { fontSize: type.value, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   warn: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
   left: { alignItems: 'flex-start', paddingVertical: 8 },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '94%' },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '94%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sheetTitle: { flex: 1, fontSize: type.value, fontWeight: '900', color: colors.text },
+  sheetTitle: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
   cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
   fields: { gap: 10, paddingBottom: 4 },
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
   input: {
     minHeight: touch.min,
     borderRadius: 10,
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: 14,
     fontSize: type.body,
@@ -356,13 +357,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.bg,
   },
-  suggestion: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  suggestion: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   slots: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  slot: { minHeight: touch.min, minWidth: 96, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  slot: { minHeight: touch.min, minWidth: 96, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   slotOn: { backgroundColor: colors.selected },
   slotText: { fontSize: 17, fontWeight: '800', color: colors.text },
   slotTextOn: { color: colors.onSelected },
   save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
-  saveText: { fontSize: type.value, fontWeight: '900', color: colors.onSelected },
+  saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
 });

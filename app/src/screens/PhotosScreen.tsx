@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Segmented } from '../components/controls';
 import { JobPhoto, PHOTO_KINDS, PHOTO_LABEL, PhotoKind, photosFor } from '../lib/attachments';
 import { formatJobDate } from '../lib/jobs';
@@ -121,15 +122,15 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  section: { fontSize: type.value, fontWeight: '900', color: colors.text, marginTop: 8 },
+  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  item: { padding: 10, gap: 8, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
+  item: { padding: 10, gap: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
   image: { width: '100%', aspectRatio: 4 / 3, borderRadius: 8, backgroundColor: colors.card },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { opacity: 0.5 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { fillText, TEXT_DEFAULT, TEXT_FIELD, TEXT_LABEL, TEXT_WORDS, TextKind, wording } from '../lib/messageTexts';
 import { reviewLink } from '../lib/invoices';
 import { queueBusiness } from '../lib/settingsSync';
@@ -77,10 +78,10 @@ const styles = StyleSheet.create({
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   field: { gap: 6 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  input: { minHeight: 120, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, paddingTop: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg, textAlignVertical: 'top' },
+  input: { minHeight: 120, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, paddingTop: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card, textAlignVertical: 'top' },
   meta: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  back: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primary: { minHeight: touch.min, borderRadius: 10, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  back: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  primary: { minHeight: touch.min, borderRadius: 14, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { fetchRepeats, hasOpenTuneUp, isRepairJob, offerTuneUpPlan, recurringSupport } from '../lib/odooRecurring';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, type } from '../theme';
@@ -69,7 +70,7 @@ export function TuneUpOffer({ partnerId, customer, address, what, workDone, now 
 
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 8 },
-  title: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   body: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
   row: { flexDirection: 'row', gap: 8 },

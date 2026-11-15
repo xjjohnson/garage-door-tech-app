@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { customerName } from '../lib/customers';
 import { invoiceLabel } from '../lib/invoices';
 import { acceptedLabel, MODE_LABEL } from '../lib/jobs';
@@ -150,16 +151,16 @@ function Row({ title, detail, how, onPress, testID }: { title: string; detail?: 
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  section: { fontSize: type.value, fontWeight: '900', color: colors.text, marginTop: 8 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
-  title: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
+  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '600', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   ok: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   off: { opacity: 0.5 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { applyKey, EIGHTHS, KeypadKey, SIXTEENTHS } from '../lib/measure';
 import { colors, touch, type } from '../theme';
 
@@ -126,7 +127,7 @@ function Key({ label, onPress, small, word, testID, a11y }: { label: string; onP
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
-  sheet: { backgroundColor: colors.bg, padding: 12, paddingBottom: 28, borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: 8 },
+  sheet: { backgroundColor: colors.card, padding: 12, paddingBottom: 28, borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text, flex: 1 },
   cancel: { minHeight: touch.min, minWidth: 96, alignItems: 'center', justifyContent: 'center' },
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'flex-end',
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 16,
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
     minHeight: 60,
     borderRadius: 10,
     backgroundColor: colors.card,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   fractionKey: { flexBasis: '22%', flexGrow: 1, minHeight: touch.min },
   blank: { flex: 1 },
   fractionBlank: { flexBasis: '22%', flexGrow: 1 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   keyText: { fontSize: type.big, fontWeight: '800', color: colors.text },
   fractionText: { fontSize: type.value },
   done: { backgroundColor: colors.selected, flex: 2 },

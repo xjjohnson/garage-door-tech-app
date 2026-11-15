@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { OdooCustomerSync } from '../components/OdooCustomerSync';
 import { customerName, EMPTY_CUSTOMER, searchCustomers, sortCustomers, summarize } from '../lib/customers';
 import { CustomerSheet } from './CustomerScreen';
@@ -94,7 +95,7 @@ export function CustomersScreen() {
 }
 
 const styles = StyleSheet.create({
-  add: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.selected },
+  add: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.selected },
   addText: { color: colors.onSelected },
   stack: { gap: 12 },
   searchRow: { flexDirection: 'row', gap: 8 },
@@ -103,22 +104,22 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 64,
     borderRadius: 10,
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: 14,
     fontSize: type.value,
     fontWeight: '700',
     color: colors.text,
   },
-  clear: { minHeight: 64, minWidth: touch.min + 16, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  clear: { minHeight: 64, minWidth: touch.min + 16, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   count: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  empty: { padding: 12, borderRadius: 10, backgroundColor: colors.card, gap: 6 },
+  empty: { padding: 14, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
-  name: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  name: { fontSize: type.value, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

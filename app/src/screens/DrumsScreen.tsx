@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, MultiChipRow, SectionTitle } from '../components/controls';
 import { Card, ErrorCard, MissingCard, SafetyBanner, SpringDetails, UsesPerDay, Stat, Warnings } from '../components/results';
@@ -197,10 +198,10 @@ function DrumsResults({ result, springCount }: { result: DrumsResult; springCoun
 const styles = StyleSheet.create({
   stack: { gap: 14 },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
-  divider: { borderTopWidth: 2, borderTopColor: colors.border, paddingTop: 10 },
-  optionNumber: { fontSize: 16, fontWeight: '900', color: colors.muted, letterSpacing: 1 },
+  divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
+  optionNumber: { fontSize: 16, fontWeight: '800', color: colors.muted, letterSpacing: 1 },
   drum: { gap: 2 },
-  drumName: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  drumName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   drumDetail: { fontSize: 16, color: colors.text },
   off: { color: colors.muted },
 });

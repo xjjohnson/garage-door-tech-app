@@ -1,7 +1,9 @@
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, touch, type } from '../theme';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
+import { Icon, IconName } from './Icon';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 /** A big button. `primary` is the Johnsons green, for the one main action on a screen. */
 export function Action({ label, onPress, primary, grow, disabled, testID, hint }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; disabled?: boolean; testID?: string; hint?: string }) {
@@ -40,17 +42,29 @@ export function NavRow({ label, detail, href, onPress, testID, badge }: { label:
   );
 }
 
+/** A card tile with an icon and its name under it: Call, Text, ETA, Directions, Go. */
+export function QuickAction({ icon, label, onPress, testID }: { icon: IconName; label: string; onPress: () => void; testID?: string }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} testID={testID} style={({ pressed }) => [styles.quick, pressed && styles.pressed]}>
+      <Icon name={icon} color={colors.selected} />
+      <Text style={styles.quickText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  quick: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, ...shadow },
+  quickText: { fontSize: 14, fontWeight: '800', color: colors.text },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: 12, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
-  primary: { backgroundColor: colors.brand, borderColor: colors.brand },
+  button: { minHeight: touch.min, borderRadius: radius.field, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, backgroundColor: colors.card },
+  primary: { backgroundColor: colors.selected, borderColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { opacity: 0.5 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
-  row: { minHeight: touch.min, borderBottomWidth: 2, borderBottomColor: colors.info, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 8 },
+  row: { minHeight: touch.min, borderBottomWidth: 1, borderBottomColor: colors.line, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 8 },
   rowText: { flex: 1, gap: 2 },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  badge: { fontSize: 15, fontWeight: '900', color: colors.text, backgroundColor: colors.safety, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden' },
-  chevron: { fontSize: type.big, fontWeight: '900', color: colors.text },
+  badge: { fontSize: 14, fontWeight: '800', color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
+  chevron: { fontSize: type.big, fontWeight: '700', color: colors.muted },
 });

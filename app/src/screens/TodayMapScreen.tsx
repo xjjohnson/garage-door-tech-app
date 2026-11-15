@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { ComponentType, Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import RNWebView, { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { Action } from '../components/Buttons';
 import { formatMiles, googleNavLink, googleRouteLink, googleSearchLink, miles, Point, wazeNavLink } from '../lib/geocode';
@@ -175,7 +176,7 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
   const sel = all.find((p) => p.id === selected) ?? null;
   const prev = sel?.appointment ? stops[stops.findIndex((s) => s.id === sel.id) - 1] : undefined;
   const fromPrev = sel && prev && pointOf(sel) && pointOf(prev) ? miles(pointOf(prev)!, pointOf(sel)!) : undefined;
-  const html = useMemo(() => mapHtml(colors.brand), []);
+  const html = useMemo(() => mapHtml(colors.selected), []);
   const route = googleRouteLink(stops.filter((s) => s.kind !== 'done').map((s) => s.address));
   const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
 
@@ -293,37 +294,37 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  mapBox: { height: 420, borderRadius: 14, borderWidth: 3, borderColor: colors.border, overflow: 'hidden', backgroundColor: '#E9EDE6' },
+  mapBox: { height: 420, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, overflow: 'hidden', backgroundColor: '#E9EDE6' },
   map: { flex: 1, backgroundColor: '#E9EDE6' },
-  nearby: { position: 'absolute', right: 10, top: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg, justifyContent: 'center' },
+  nearby: { position: 'absolute', right: 10, top: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, justifyContent: 'center' },
   nearbyOn: { backgroundColor: colors.selected, borderColor: colors.selected },
-  nearbyText: { fontSize: 16, fontWeight: '900', color: colors.text },
+  nearbyText: { fontSize: 16, fontWeight: '800', color: colors.text },
   nearbyTextOn: { color: colors.onSelected },
   meta: { fontSize: 15, fontWeight: '700', color: colors.muted },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
-  card: { borderWidth: 3, borderColor: colors.border, borderRadius: 16, padding: 14, gap: 10 },
+  card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, padding: 14, gap: 10 },
   cardHead: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  cardTitle: { fontSize: 20, fontWeight: '900', color: colors.text },
+  cardTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
   cardSub: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 2, borderBottomColor: colors.info, paddingVertical: 6 },
+  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 6 },
   lineOn: { backgroundColor: colors.card },
   lineTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   lineSub: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  dot: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.border },
-  dotText: { fontSize: 16, fontWeight: '900', color: colors.text },
+  dot: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.border },
+  dotText: { fontSize: 16, fontWeight: '800', color: colors.text },
   dotTextLight: { color: colors.onSelected },
-  pressed: { backgroundColor: colors.safety },
-  problemBar: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.safety },
-  problemText: { fontSize: 16, fontWeight: '900', color: colors.text },
+  pressed: { backgroundColor: colors.info },
+  problemBar: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.warnBg },
+  problemText: { fontSize: 16, fontWeight: '800', color: colors.text },
   problems: { gap: 10 },
-  problem: { gap: 6, padding: 12, borderRadius: 12, borderWidth: 2, borderColor: colors.border },
+  problem: { gap: 6, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border },
   credit: { fontSize: 13, fontWeight: '600', color: colors.muted },
 });
 
 const dotStyle = StyleSheet.create({
-  next: { backgroundColor: colors.brand, borderColor: colors.brand },
+  next: { backgroundColor: colors.selected, borderColor: colors.selected },
   stop: { backgroundColor: colors.text },
   done: { backgroundColor: colors.info },
-  owed: { backgroundColor: colors.safety },
-  quote: { backgroundColor: colors.bg },
+  owed: { backgroundColor: colors.warnBg },
+  quote: { backgroundColor: colors.card },
 });

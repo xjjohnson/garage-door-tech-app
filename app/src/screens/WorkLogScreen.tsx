@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { MeasureField, SectionTitle, Segmented } from '../components/controls';
 import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
@@ -183,25 +184,25 @@ function Day({ s, now, onMiles, onRemove }: { s: Shift; now: number; onMiles: (m
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  clock: { padding: 12, gap: 8, borderRadius: 12, borderWidth: 2, borderColor: colors.border },
+  clock: { padding: 12, gap: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border },
   clockOn: { borderWidth: 4, borderColor: colors.selected },
-  clockTitle: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  clockTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
   totals: { flexDirection: 'row', gap: 8 },
-  total: { flex: 1, padding: 10, borderRadius: 10, backgroundColor: colors.card, alignItems: 'center' },
-  totalValue: { fontSize: type.value, fontWeight: '900', color: colors.text },
-  item: { padding: 12, gap: 6, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
-  name: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  total: { flex: 1, padding: 10, borderRadius: 14, backgroundColor: colors.card, alignItems: 'center' },
+  totalValue: { fontSize: type.value, fontWeight: '800', color: colors.text },
+  item: { padding: 12, gap: 6, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   onClock: { borderWidth: 4, borderColor: colors.selected },
-  onClockText: { fontWeight: '900' },
+  onClockText: { fontWeight: '800' },
   danger: { borderColor: colors.caution, borderWidth: 4 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

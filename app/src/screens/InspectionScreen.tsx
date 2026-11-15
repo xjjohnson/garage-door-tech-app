@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState, useSyncExternalStore } from 'react';
-import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { SignatureSheet } from '../components/SignaturePad';
@@ -457,35 +458,35 @@ function NavRow({ label, onPress }: { label: string; onPress: () => void }) {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
-  for: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  for: { fontSize: type.value, fontWeight: '800', color: colors.text },
   stats: { flexDirection: 'row', gap: 8 },
-  stat: { flex: 1, borderWidth: 3, borderColor: colors.border, borderRadius: 12, padding: 8, alignItems: 'center' },
+  stat: { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: 8, alignItems: 'center' },
   statWarn: { borderColor: colors.stop },
-  statBig: { fontSize: type.big, fontWeight: '900', color: colors.text },
+  statBig: { fontSize: type.big, fontWeight: '800', color: colors.text },
   statWarnText: { color: colors.stop },
   statLabel: { fontSize: 15, fontWeight: '800', color: colors.muted },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   done: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  subTitle: { fontSize: type.body, fontWeight: '900', color: colors.text, marginTop: 4 },
-  item: { padding: 12, gap: 8, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
+  subTitle: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: 4 },
+  item: { padding: 12, gap: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   itemFlag: { borderWidth: 4, borderColor: colors.stop },
-  itemTitle: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  itemTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  choice: { flexGrow: 1, minWidth: 64, minHeight: touch.min, paddingHorizontal: 8, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  choice: { flexGrow: 1, minWidth: 64, minHeight: touch.min, paddingHorizontal: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   choiceOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   choiceBad: { backgroundColor: colors.stop, borderColor: colors.stop },
   choiceText: { fontSize: 16, fontWeight: '800', color: colors.text, textAlign: 'center' },
   choiceTextOn: { color: colors.onSelected },
   moreLink: { minHeight: 44, justifyContent: 'center' },
   moreText: { fontSize: 16, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
-  repair: { padding: 12, gap: 8, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card },
+  repair: { padding: 12, gap: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   field: { flex: 1, gap: 4 },
   fieldLabel: { fontSize: 15, fontWeight: '800', color: colors.muted },
-  input: { minHeight: touch.min, borderRadius: 10, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
+  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: touch.min },
-  box: { width: 32, height: 32, borderRadius: 6, borderWidth: 3, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  box: { width: 32, height: 32, borderRadius: 6, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   boxOn: { backgroundColor: colors.selected, borderColor: colors.selected },
-  tick: { color: colors.onSelected, fontSize: 20, fontWeight: '900' },
+  tick: { color: colors.onSelected, fontSize: 20, fontWeight: '800' },
   toggleText: { flex: 1, fontSize: type.body, fontWeight: '800', color: colors.text },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
 });

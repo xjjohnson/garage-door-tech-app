@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, SectionTitle } from '../components/controls';
 import { Card, ErrorCard, lbRange, MissingCard, SafetyBanner, springName, SpringDetails, UsesPerDay, Stat, Warnings } from '../components/results';
@@ -251,6 +252,6 @@ const styles = StyleSheet.create({
   stack: { gap: 14 },
   note: { fontSize: 17, color: colors.text, lineHeight: 24 },
   stopNote: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  divider: { borderTopWidth: 2, borderTopColor: colors.border, paddingTop: 10 },
-  upgradeTarget: { fontSize: type.body, fontWeight: '900', color: colors.text },
+  divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
+  upgradeTarget: { fontSize: type.body, fontWeight: '800', color: colors.text },
 });

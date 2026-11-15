@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipOption, Segmented } from '../components/controls';
 import { useInvoiceOdoo } from '../components/OdooSales';
@@ -132,19 +133,19 @@ function PhoneInvoices() {
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  owed: { fontSize: type.value, fontWeight: '900', color: colors.text },
-  empty: { padding: 12, borderRadius: 10, backgroundColor: colors.card, gap: 6 },
+  owed: { fontSize: type.value, fontWeight: '800', color: colors.text },
+  empty: { padding: 12, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 10, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.bg },
+  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   itemPaid: { backgroundColor: colors.card },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  name: { flex: 1, fontSize: type.value, fontWeight: '900', color: colors.text },
-  badge: { fontSize: 14, fontWeight: '900', color: colors.text, backgroundColor: colors.safety, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', letterSpacing: 1 },
+  name: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
+  badge: { fontSize: 14, fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', letterSpacing: 1 },
   badgePaid: { color: colors.onSelected, backgroundColor: colors.selected },
   badgeVoid: { color: colors.onStop, backgroundColor: colors.stop },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
 });

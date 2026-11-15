@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { invoiceNo } from '../lib/invoices';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { NewFollowUpSheet, dayAhead } from '../components/PlanSheets';
 import { completeActivity, createManualFollowUp, fetchMyTodos, TodoRow } from '../lib/odooFollowUps';
 import { useOdoo } from '../lib/useOdoo';
@@ -144,19 +145,19 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  empty: { padding: 12, borderRadius: 10, backgroundColor: colors.card, gap: 6 },
+  empty: { padding: 12, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  item: { padding: 12, gap: 6, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
+  item: { padding: 12, gap: 6, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
   overdue: { borderWidth: 4, borderColor: colors.caution },
-  title: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.bg },
+  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
 });

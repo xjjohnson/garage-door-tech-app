@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
 import type { AddressSuggestion } from '../lib/addressSuggest';
@@ -132,11 +133,11 @@ export function NewJobScreen() {
 
 const styles = StyleSheet.create({
   stack: { gap: 10 },
-  label: { fontSize: 15, fontWeight: '900', letterSpacing: 0.5, color: colors.muted, marginTop: 6 },
-  input: { minHeight: touch.min, borderRadius: 12, borderWidth: 3, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.bg },
-  suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: colors.info, paddingVertical: 6 },
+  label: { fontSize: 15, fontWeight: '800', letterSpacing: 0.5, color: colors.muted, marginTop: 6 },
+  input: { minHeight: touch.min, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 6 },
   suggestName: { fontSize: 17, fontWeight: '800', color: colors.text },
   suggestSub: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
 });

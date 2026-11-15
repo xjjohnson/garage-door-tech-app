@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
@@ -138,16 +139,16 @@ export function OdooRecordScreen({ kind, id, now = Date.now }: { kind: ListKind;
 
 const styles = StyleSheet.create({
   stack: { gap: 10 },
-  title: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   customer: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   warnText: { color: colors.stop },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  card: { padding: 14, gap: 8, borderRadius: 12, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card, minHeight: touch.min },
-  heading: { fontSize: 15, fontWeight: '900', letterSpacing: 0.5, color: colors.muted, marginTop: 4 },
+  card: { padding: 14, gap: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, minHeight: touch.min },
+  heading: { fontSize: 15, fontWeight: '800', letterSpacing: 0.5, color: colors.muted, marginTop: 4 },
   line: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   lineLabel: { flex: 1, fontSize: type.body, color: colors.text },
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  total: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  total: { fontSize: type.value, fontWeight: '800', color: colors.text },
 });

@@ -1,6 +1,7 @@
 import * as Updates from 'expo-updates';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Switch, Text, View } from 'react-native';
+import { Platform, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { ChipRow, SectionTitle } from '../components/controls';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
@@ -129,7 +130,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       <SectionTitle>Beta updates</SectionTitle>
       <View style={styles.switchRow}>
         <Text style={[styles.label, styles.grow]}>Get new releases first</Text>
-        <Switch value={!!beta} onValueChange={toggleBeta} accessibilityLabel="Beta updates" testID="dev-beta" trackColor={{ true: colors.brand, false: colors.info }} thumbColor={colors.bg} style={styles.switch} />
+        <Switch value={!!beta} onValueChange={toggleBeta} accessibilityLabel="Beta updates" testID="dev-beta" trackColor={{ true: colors.selected, false: colors.info }} thumbColor={colors.bg} style={styles.switch} />
       </View>
       <Text style={styles.meta}>New releases reach this phone as soon as they're merged. Everyone else gets them once they're promoted.</Text>
       {needsRestart ? (

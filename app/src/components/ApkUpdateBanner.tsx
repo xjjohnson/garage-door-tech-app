@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './AppText';
 import { ApkCheck, checkForApk } from '../lib/apkUpdate';
 import { isCheckDue } from '../lib/otaUpdate';
 import { useAppForeground } from '../lib/useAppForeground';
@@ -77,13 +78,13 @@ export function ApkUpdateBanner({ manifestUrl, currentVersion, fetchImpl = fetch
 }
 
 const styles = StyleSheet.create({
-  banner: { marginHorizontal: 16, marginTop: 8, padding: 12, borderRadius: 10, borderWidth: 3, borderColor: colors.border, backgroundColor: colors.info, gap: 8 },
-  title: { fontSize: type.value, fontWeight: '900', color: colors.text },
+  banner: { marginHorizontal: 16, marginTop: 8, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.info, gap: 8 },
+  title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   body: { fontSize: type.body, color: colors.text, lineHeight: 24 },
   row: { flexDirection: 'row', gap: 8 },
-  button: { flex: 1, minHeight: touch.min, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  button: { flex: 1, minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected, flex: 2 },
-  pressed: { backgroundColor: colors.safety },
+  pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   primaryText: { color: colors.onSelected },
 });

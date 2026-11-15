@@ -136,6 +136,7 @@ describe('Customers in the app', () => {
 
     await fireEvent.press(screen.getByTestId(`customer-${ann.id}`));
     expect(app.getPathname()).toBe(`/customer/${ann.id}`);
+    await fireEvent.press(screen.getByTestId('customer-tab-jobs'));
     expect(screen.getByTestId('customer-job-j1')).toBeTruthy();
     expect(screen.getByTestId('customer-job-j2')).toHaveTextContent(/40 Elm Rd/);
     expect(screen.getByTestId('customer-call')).toBeTruthy();
