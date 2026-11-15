@@ -419,7 +419,10 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
       // Before and after photos from the job, when the phone has any.
       if (job && media?.pdfBase64) {
         const html = await beforeAfterReportHtml(job, attachments, media, business, { reference: o.name });
-        if (html) files.push({ name: pdfName('Before and after photos', invoice.billTo), base64: await media.pdfBase64(html) });
+        if (html) {
+          const file = { name: pdfName('Before and after photos', invoice.billTo), base64: await media.pdfBase64(html) };
+          files.push(file);
+        }
       }
       const r = await emailInvoice(client, o.id, pid, files);
       setEmailed(r);

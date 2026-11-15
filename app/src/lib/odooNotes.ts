@@ -70,6 +70,17 @@ export function plainText(html: unknown): string {
     .trim();
 }
 
+/** Plain text as simple HTML Odoo renders: one <p> per line, characters escaped. Empty text stays empty. */
+export function htmlFromText(text: string): string {
+  const esc = (l: string) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => `<p>${esc(l)}</p>`)
+    .join('');
+}
+
 /** Odoo's "2026-11-14 16:02:11" (UTC) as a time. */
 export function odooTime(v: unknown): number {
   const m = typeof v === 'string' ? v.match(/^(\d{4})-(\d\d)-(\d\d)[ T](\d\d):(\d\d):(\d\d)/) : null;

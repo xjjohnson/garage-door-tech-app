@@ -142,8 +142,23 @@ export async function sendInvoice(client: OdooClient, partnerId: number, lines: 
     if (orderLines.length === vals.length) vals.forEach((v, i) => (v.sale_line_ids = [[6, 0, [orderLines[i].id]]]));
   }
   const id = (await client.call('account.move', 'create', [{ move_type: 'out_invoice', partner_id: partnerId, ref: ref || false, ...(shipId ? { partner_shipping_id: shipId } : {}), ...(order ? { invoice_origin: order.name } : {}), invoice_line_ids: vals.map((v) => [0, 0, v]) }])) as number;
-  await client.call('account.move', 'action_post', [[id]]);
+  await postMove(client, id);
   return readInvoice(client, id, []);
+}
+
+/**
+ * Posts a move. A move Odoo set to auto-post on a date ("This move is
+ * configured to be auto-posted on ...") refuses a manual post, so the
+ * auto-post is switched off and it is posted now.
+ */
+export async function postMove(client: Pick<OdooClient, 'call'>, id: number): Promise<void> {
+  try {
+    await client.call('account.move', 'action_post', [[id]]);
+  } catch (e) {
+    if (!/auto-posted/i.test(e instanceof Error ? e.message : String(e))) throw e;
+    await client.call('account.move', 'write', [[id], { auto_post: 'no' }]);
+    await client.call('account.move', 'action_post', [[id]]);
+  }
 }
 
 /** What Odoo says is paid and owed now. */
@@ -196,7 +211,7 @@ export async function sendPayments(client: OdooClient, invoiceId: number, paymen
     const wizard = (await client.call(
       'account.payment.register',
       'create',
-      [{ amount: p.amount / 100, payment_date: new Date(p.at).toISOString().slice(0, 10), journal_id: journals.get(type), communication: memo }],
+      [{ amount: p.amount / 100, payment_date: localDay(p.at), journal_id: journals.get(type), communication: memo }],
       { context },
     )) as number;
     await client.call('account.payment.register', 'action_create_payments', [[wizard]], { context });
@@ -230,7 +245,7 @@ export async function voidInvoice(client: OdooClient, id: number, reason: string
     const context = { active_model: 'account.move', active_ids: [id] };
     // Odoo needs the journal named over RPC (its Reverse button fills it in): the invoice's own.
     const journal = Array.isArray(r.journal_id) && typeof r.journal_id[0] === 'number' ? r.journal_id[0] : undefined;
-    const wizard = (await client.call('account.move.reversal', 'create', [{ move_ids: [[6, 0, [id]]], reason, date: new Date().toISOString().slice(0, 10), ...(journal ? { journal_id: journal } : {}) }], { context })) as number;
+    const wizard = (await client.call('account.move.reversal', 'create', [{ move_ids: [[6, 0, [id]]], reason, date: localDay(Date.now()), ...(journal ? { journal_id: journal } : {}) }], { context })) as number;
     await client.call('account.move.reversal', 'reverse_moves', [[wizard]], { context });
     credit = ((await client.call('account.move', 'search_read', [[['reversed_entry_id', '=', id], ['state', '!=', 'cancel']]], { fields: ['id', 'name', 'state'], limit: 1 })) as { id: number; name?: string; state?: string }[])[0];
     if (!credit) throw new Error("Odoo didn't make the credit note.");
@@ -281,7 +296,7 @@ async function refundCredit(client: OdooClient, invoiceId: number, creditId: num
   const wizard = (await client.call(
     'account.payment.register',
     'create',
-    [{ amount: cents / 100, payment_date: new Date().toISOString().slice(0, 10), journal_id: journal, ...(methodLine ? { payment_method_line_id: methodLine } : {}), communication: 'Refund of a voided invoice' }],
+    [{ amount: cents / 100, payment_date: localDay(Date.now()), journal_id: journal, ...(methodLine ? { payment_method_line_id: methodLine } : {}), communication: 'Refund of a voided invoice' }],
     { context },
   )) as number;
   await client.call('account.payment.register', 'action_create_payments', [[wizard]], { context });
@@ -312,6 +327,12 @@ export async function sendOrderSignature(client: OdooClient, orderId: number, si
   await client.call('sale.order', 'write', [[orderId], { signature: sig.png, ...('signed_by' in fields ? { signed_by: sig.name || 'Customer' } : {}), ...('signed_on' in fields ? { signed_on: on } : {}) }]);
   return true;
 }
+
+/** A time as the phone's calendar day (YYYY-MM-DD), so an evening payment isn't dated tomorrow by UTC. */
+const localDay = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 /** Reads a stored OdooRef. */
 export function parseRef(v: unknown): OdooRef | undefined {

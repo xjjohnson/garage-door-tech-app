@@ -5,6 +5,7 @@
  * the way picking it in Odoo's own form does. Kept free of React; the client
  * is passed in, so tests use a fake.
  */
+import { plainText } from './odooNotes';
 import type { OdooClient } from './odoo';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
@@ -44,7 +45,7 @@ function toTemplate(r: Record<string, unknown>): FsmTemplate {
   return {
     id: r.id as number,
     name: str(r.name).trim(),
-    instructions: str(r.instructions).trim(),
+    instructions: plainText(r.instructions),
     ...(typeof r.duration === 'number' && r.duration > 0 ? { minutes: Math.round(r.duration * 60) } : {}),
     ...(Array.isArray(r.type_id) ? { typeId: r.type_id[0] as number } : {}),
     ...(Array.isArray(r.category_ids) && r.category_ids.length ? { categoryIds: (r.category_ids as unknown[]).filter((x): x is number => typeof x === 'number') } : {}),

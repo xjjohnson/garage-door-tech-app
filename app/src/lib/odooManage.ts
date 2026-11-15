@@ -6,6 +6,7 @@
  * this Odoo has are written. "Delete" archives, so old jobs keep their link.
  * Kept free of React; the client is passed in, so tests use a fake.
  */
+import { htmlFromText } from './odooNotes';
 import { fetchFsmTemplates, FsmTemplate } from './fsmTemplates';
 import type { OdooClient } from './odoo';
 
@@ -65,7 +66,7 @@ export async function saveJobType(c: Client, e: JobTypeEdit): Promise<number> {
   const fields = await fieldsOf(c, 'fsm.template');
   const vals = known(fields, {
     name,
-    instructions: e.instructions.trim(),
+    instructions: htmlFromText(e.instructions),
     duration: e.minutes > 0 ? e.minutes / 60 : 0,
     type_id: e.typeId ?? false,
   });
@@ -282,7 +283,9 @@ export async function listTruckEdits(c: Client, source: TruckSource): Promise<(T
   if (source === 'vehicle') {
     const fields = await fieldsOf(c, 'fsm.vehicle');
     const want = ['name', 'person_id', 'inventory_location_id'].filter((f) => f in fields);
-    const rows = (await c.call('fsm.vehicle', 'search_read', [[['active', '=', true]]], { fields: want, order: 'name asc', limit: 200 })) as Record<string, unknown>[];
+    // Some Odoo versions' fsm.vehicle has no active field; filtering on it errors, so only filter when it exists.
+    const domain = 'active' in fields ? [['active', '=', true]] : [];
+    const rows = (await c.call('fsm.vehicle', 'search_read', [domain], { fields: want, order: 'name asc', limit: 200 })) as Record<string, unknown>[];
     return rows.map((r) => ({ id: r.id as number, name: str(r.name), personId: many2one(r.person_id) || undefined, locationId: many2one(r.inventory_location_id) || undefined })).filter((r) => r.name);
   }
   if (source === 'location') {
@@ -322,5 +325,8 @@ export async function saveTruck(c: Client, source: TruckSource, e: TruckEdit): P
 /** Hides a truck: archived in Odoo, so its stock history stays. */
 export async function archiveTruck(c: Client, source: TruckSource, id: number): Promise<void> {
   const model = source === 'vehicle' ? 'fsm.vehicle' : 'stock.location';
+  if (source === 'vehicle' && !('active' in (await fieldsOf(c, model)))) {
+    throw new Error("This Odoo's vehicles can't be archived. Remove it in Odoo's Field Service Vehicles instead.");
+  }
   await c.call(model, 'write', [[id], { active: false }]);
 }
