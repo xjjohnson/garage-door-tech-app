@@ -1,21 +1,17 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { SectionTitle } from '../components/controls';
 import { invoiceNo, PAY_LABEL, PAY_METHODS } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
-import { monthLabel, percent, PeriodStats, snapshot } from '../lib/stats';
-import { useInvoices } from '../lib/useInvoices';
-import { useJobs } from '../lib/useJobs';
+import { monthLabel, percent, PeriodStats } from '../lib/stats';
+import { useStats } from '../lib/useStats';
 import { colors, touch, type } from '../theme';
 
 /** The short version, at the top of Jobs: open jobs, owed, and collected this week. Taps through to the full page. */
 export function StatsCard({ now = Date.now }: { now?: () => number }) {
-  const { jobs } = useJobs();
-  const { invoices } = useInvoices();
-  const s = useMemo(() => snapshot(jobs, invoices, now()), [jobs, invoices, now]);
+  const { stats: s } = useStats(now);
   return (
     <Pressable
       onPress={() => router.push('/stats')}
@@ -44,9 +40,7 @@ function Tile({ label, value, alert }: { label: string; value: string; alert?: b
 
 /** How the business is doing, from what's saved on this phone. */
 export function StatsScreen({ now = Date.now }: { now?: () => number }) {
-  const { jobs } = useJobs();
-  const { invoices } = useInvoices();
-  const s = useMemo(() => snapshot(jobs, invoices, now()), [jobs, invoices, now]);
+  const { stats: s, fromOdoo } = useStats(now);
   const top = Math.max(1, ...s.months.map((m) => m.collected));
 
   return (
@@ -66,6 +60,10 @@ export function StatsScreen({ now = Date.now }: { now?: () => number }) {
             Oldest unpaid: {invoiceNo(s.oldestOwed)}, {s.oldestOwed.billTo || 'customer'}, since {formatJobDate(s.oldestOwed.createdAt)}
           </Text>
         </Pressable>
+      ) : s.oldestText ? (
+        <Text style={styles.note} testID="stats-oldest">
+          Oldest unpaid: {s.oldestText}
+        </Text>
       ) : null}
 
       <Period title="This week" p={s.week} testID="stats-week" />
@@ -85,7 +83,9 @@ export function StatsScreen({ now = Date.now }: { now?: () => number }) {
           </View>
         ))}
       </View>
-      <Text style={styles.note}>Counted from the jobs, quotes and invoices on this phone.</Text>
+      <Text style={styles.note}>
+        {fromOdoo ? 'Counted from Odoo: payments, invoices, jobs and quotations.' : 'Counted from the jobs, quotes and invoices on this phone (Odoo not reached).'}
+      </Text>
     </View>
   );
 }

@@ -4,6 +4,7 @@ import { ChipOption, ChipRow } from './controls';
 import { FollowUpSettings, warrantyFor } from '../lib/followups';
 import { DAY } from '../lib/followups';
 import { Invoice, trackKey } from '../lib/invoices';
+import { isTrackable } from '../lib/odooEquipment';
 import { formatMoney } from '../lib/prices';
 import { colors, type } from '../theme';
 
@@ -38,7 +39,7 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
   const covered = parts > 0 || labor > 0;
   const tracked = invoice.warranty?.tracked ?? [];
   const toggle = (key: string) => onChange({ warranty: { tracked: tracked.includes(key) ? tracked.filter((k) => k !== key) : [...tracked, key] } });
-  const lines = invoice.lines.filter((l) => l.cents > 0);
+  const lines = invoice.lines.filter((l) => l.cents > 0 && isTrackable(l.label));
   return (
     <View style={styles.box} testID="invoice-coverage">
       <Text style={styles.title}>Warranty on this job</Text>

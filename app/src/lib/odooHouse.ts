@@ -9,7 +9,7 @@
  */
 import type { OdooClient } from './odoo';
 import { odooTime } from './odoo';
-import { orderLocation } from './odooEquipment';
+import { isTrackable, orderLocation } from './odooEquipment';
 
 type Caller = Pick<OdooClient, 'call' | 'session'>;
 
@@ -113,7 +113,7 @@ export async function fetchHouseHistory(c: Caller, locationId: number, exceptOrd
   let equipment: HouseEquipment[] = [];
   if (eqFields?.includes('location_id') && eqFields.includes('name')) {
     const rows = (await c.call('fsm.equipment', 'search_read', [[['location_id', '=', locationId]]], { fields: ['name', ...(eqFields.includes('notes') ? ['notes'] : [])], order: 'id asc', limit: 100 })) as Record<string, unknown>[];
-    equipment = rows.map((r) => ({ id: r.id as number, name: str(r.name) || `#${r.id}`, ...readEquipmentNotes(str(r.notes)) }));
+    equipment = rows.map((r) => ({ id: r.id as number, name: str(r.name) || `#${r.id}`, ...readEquipmentNotes(str(r.notes)) })).filter((e) => isTrackable(e.name));
   }
   let visits: HouseVisit[] = [];
   if (orderFields?.includes('location_id')) {
@@ -175,5 +175,5 @@ export async function fetchCustomerEquipment(c: Caller, partnerId: number): Prom
   const locs = (await c.call('fsm.location', 'search_read', [['|', ['partner_id', '=', partnerId], ['owner_id', '=', partnerId]]], { fields: ['name'], limit: 200 })) as { id: number }[];
   if (locs.length === 0) return [];
   const rows = (await c.call('fsm.equipment', 'search_read', [[['location_id', 'in', locs.map((l) => l.id)]]], { fields: ['name', ...(eqFields.includes('notes') ? ['notes'] : [])], order: 'id asc', limit: 100 })) as Record<string, unknown>[];
-  return rows.map((r) => ({ id: r.id as number, name: str(r.name) || `#${r.id}`, ...readEquipmentNotes(str(r.notes)) }));
+  return rows.map((r) => ({ id: r.id as number, name: str(r.name) || `#${r.id}`, ...readEquipmentNotes(str(r.notes)) })).filter((e) => isTrackable(e.name));
 }
