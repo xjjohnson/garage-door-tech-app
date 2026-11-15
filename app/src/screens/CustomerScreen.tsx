@@ -90,9 +90,12 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
 
       {tab === 'overview' ? (
         <>
-      {mail ? <Action label="Email" onPress={() => Linking.openURL(mail).catch(() => undefined)} testID="customer-email" /> : null}
-      <Action label="Book a visit" onPress={() => router.push({ pathname: '/schedule', params: { book: customer.id } })} testID="customer-book" />
-      <Action label="Edit customer" onPress={() => setEditing(true)} testID="customer-edit" />
+      <Action primary label={`New job for ${customerName(customer)}`} onPress={() => router.push({ pathname: '/new-job', params: { customer: customer.id } })} testID="customer-new-job" />
+      <View style={styles.quickRow}>
+        <Action grow label="Book a visit" onPress={() => router.push({ pathname: '/schedule', params: { book: customer.id } })} testID="customer-book" />
+        <Action grow label="Edit" onPress={() => setEditing(true)} testID="customer-edit" />
+        {mail ? <Action grow label="Email" onPress={() => Linking.openURL(mail).catch(() => undefined)} testID="customer-email" /> : null}
+      </View>
 
       {customer.odooId ? <Addresses partnerId={customer.odooId} /> : null}
         </>
@@ -282,9 +285,9 @@ export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { v
   );
 }
 
-function Action({ label, onPress, primary, testID }: { label: string; onPress: () => void; primary?: boolean; testID?: string }) {
+function Action({ label, onPress, primary, grow, testID }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; testID?: string }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, primary && styles.primary, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, grow && styles.grow, primary && styles.primary, pressed && styles.pressed]}>
       {({ pressed }) => <Text style={[styles.buttonText, primary && !pressed && styles.primaryText]}>{label}</Text>}
     </Pressable>
   );
@@ -301,15 +304,16 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 15, fontWeight: '700', color: colors.muted },
   tabTextOn: { color: colors.onSelected },
   quickRow: { flexDirection: 'row', gap: 8 },
+  grow: { flex: 1 },
   name: { fontSize: type.big, fontWeight: '800', color: colors.onHead },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   owed: { fontSize: type.value, fontWeight: '800', color: colors.stop },
   section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
-  job: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  job: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, ...shadow },
   jobDone: { backgroundColor: colors.card },
   jobTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: radius.field, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },

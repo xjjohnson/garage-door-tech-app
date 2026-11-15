@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import * as Updates from 'expo-updates';
 import { Icon } from '../../components/Icon';
 import { SyncPill } from '../../components/SyncNowButton';
+import { requestHeaderAdd } from '../../lib/headerAdd';
 import { useSchedule } from '../../lib/useSchedule';
 import { onDay } from '../../lib/schedule';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
@@ -35,7 +36,7 @@ export default function TabsLayout() {
   const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
   const subtitle = current.id === 'today' ? `${dateLine(Date.now())} · ${visits === 0 ? 'no visits' : `${visits} visit${visits === 1 ? '' : 's'}`}` : current.subtitle;
   // Today and Jobs carry their own action in the header, as in the approved screens; the version stays in sight and opens Settings.
-  const action = !tool && current.id === 'today' ? <SyncPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : null;
+  const action = !tool && current.id === 'today' ? <SyncPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : null;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
@@ -112,6 +113,15 @@ export default function TabsLayout() {
         })}
       </View>
     </SafeAreaView>
+  );
+}
+
+function AddPill() {
+  return (
+    <Pressable onPress={requestHeaderAdd} accessibilityRole="button" testID="customers-add" style={({ pressed }) => [styles.newJob, pressed && styles.headPressed]}>
+      <Icon name="plus" size={16} color={colors.onHead} />
+      <Text style={styles.settingsText}>Add</Text>
+    </Pressable>
   );
 }
 

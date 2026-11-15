@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
@@ -48,6 +48,13 @@ export function NewJobScreen() {
     setAddress(c.address);
     setPhone(c.phone);
   };
+  // Opened from a customer's page ("New job for ..."): start with them picked.
+  const { customer: fromCustomer } = useLocalSearchParams<{ customer?: string }>();
+  useEffect(() => {
+    const c = fromCustomer ? customers.find((x) => x.id === fromCustomer) : undefined;
+    if (c && !picked) pick(c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromCustomer, customers]);
 
   const pickPlace = (a: AddressSuggestion) => {
     const c = a.customerId ? customers.find((x) => x.id === a.customerId) : undefined;
