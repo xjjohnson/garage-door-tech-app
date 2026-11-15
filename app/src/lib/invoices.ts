@@ -57,7 +57,7 @@ export interface Invoice {
   odoo?: OdooInvoiceState;
   /** "ticket" when made from the job's ticket rather than a good/better/best option. */
   source?: 'ticket';
-  /** The customer reference for Odoo; "Invoice 1004" when not set. */
+  /** The customer reference for Odoo, if the tech typed one. */
   ref?: string;
   /** Sent to Odoo by the phone on its own once there's signal (invoices made since 0.5.17). */
   autoSend?: boolean;
@@ -70,8 +70,8 @@ export interface Invoice {
 /** Identifies an invoice line for equipment tracking: its Odoo product and name. */
 export const trackKey = (l: Pick<QuoteLine, 'label' | 'productId'>) => `${l.productId ?? ''}:${l.label}`;
 
-/** The customer reference the invoice goes to Odoo with. */
-export const invoiceRef = (inv: Pick<Invoice, 'ref' | 'number'>) => inv.ref?.trim() || `Invoice ${inv.number}`;
+/** The customer reference the invoice goes to Odoo with: only what the tech typed (the phone's own number isn't sent; Odoo numbers the invoice). */
+export const invoiceRef = (inv: Pick<Invoice, 'ref'>) => inv.ref?.trim() || '';
 
 /** The invoice with what Odoo said: once Odoo has priced it, its tax and totals are the ones shown. */
 export function withOdoo(inv: Invoice, odoo: OdooInvoiceState): Invoice {

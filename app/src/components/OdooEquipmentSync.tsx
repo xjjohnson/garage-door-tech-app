@@ -7,6 +7,7 @@
  * started doing this go up, so an update never sends old invoices in bulk.
  * Renders nothing.
  */
+import { invoiceNo } from '../lib/invoices';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { log } from '../lib/log';
@@ -86,10 +87,10 @@ export function OdooEquipmentSync() {
           const loc = await orderLocation(client, job!.odooJob!.id);
           if (!loc) continue;
           const n = await sendEquipment(client, loc, items, ready);
-          log.info('odoo', `${n} door/opener record(s) on location ${loc} (invoice ${inv.number})`);
+          log.info('odoo', `${n} door/opener record(s) on location ${loc} (invoice ${invoiceNo(inv)})`);
           done[inv.id] = equipmentKey(items);
         } catch (e) {
-          log.warn('odoo', `equipment for invoice ${inv.number}: ${message(e)}`);
+          log.warn('odoo', `equipment for invoice ${invoiceNo(inv)}: ${message(e)}`);
           break;
         }
       }
