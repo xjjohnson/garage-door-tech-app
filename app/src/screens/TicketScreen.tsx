@@ -112,8 +112,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-      const r = await syncTicket(client, pid, ticket, ticketRef(ticket), now());
-      if (n === run.current) setTicket(job.id, (t) => (t.id === estId ? { ...t, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : t));
+      const r = await syncTicket(client, pid, ticket, ticketRef(ticket), now(), `${job.id}:${ticket.id ?? ''}`);
+      if (n === run.current) setTicket(job.id, (t) => (t.id === estId || (!estId && !t.order) ? { ...t, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : t));
       return { ...ticket, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved };
     } catch (e) {
       if (n === run.current) setError(message(e));
@@ -134,7 +134,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       for (const t of staleOthers) {
         try {
           const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-          const r = await syncTicket(client, pid, t, ticketRef(t), now());
+          const r = await syncTicket(client, pid, t, ticketRef(t), now(), `${job.id}:${t.id ?? ''}`);
           if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines, o.discount) === linesKey(t.lines, t.discount) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : o)) }));
         } catch (e) {
           log.warn('ticket', `${job.id}: couldn't save estimate ${t.title ?? t.id}: ${message(e)}`);
