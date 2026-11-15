@@ -183,3 +183,21 @@ describe('Customers in the app', () => {
     expect(screen.getByTestId('new-job-name').props.value).toBe('Ann Smith');
   });
 });
+
+describe('Customers list layout', () => {
+  it('groups A to Z under letters, filters by open jobs and shows no "0 jobs"', async () => {
+    await AsyncStorage.clear();
+    const mk = (id: string, name: string) => ({ id, name, phone: '', email: '', address: '', notes: '', createdAt: 1, updatedAt: 1 });
+    await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([mk('c1', 'Zed Zane'), mk('c2', 'Amy Adams')]));
+    await renderApp('/customers');
+    for (let k = 0; k < 5; k++) await act(async () => undefined);
+    expect(screen.getByText('A')).toBeTruthy();
+    expect(screen.getByText('Z')).toBeTruthy();
+    expect(screen.getByTestId('customer-c2')).toHaveTextContent(/No jobs yet/);
+    expect(screen.queryByText(/0 jobs/)).toBeNull();
+    await fireEvent.press(screen.getByTestId('customers-filter-open'));
+    expect(screen.getByTestId('customers-count')).toHaveTextContent('No customers match.');
+    await fireEvent.press(screen.getByTestId('customers-filter-all'));
+    expect(screen.getByTestId('customers-count')).toHaveTextContent('2 customers');
+  });
+});
