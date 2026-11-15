@@ -84,6 +84,8 @@ export interface Snapshot {
   owedInvoices: number;
   /** The oldest unpaid invoice, for a nudge. */
   oldestOwed?: Invoice;
+  /** The same, as text, when the numbers come from Odoo. */
+  oldestText?: string;
   week: PeriodStats;
   month: PeriodStats;
   /** Collected per month, oldest first, ending with this month. */

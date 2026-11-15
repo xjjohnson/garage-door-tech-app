@@ -99,6 +99,10 @@ export async function sendEquipment(client: Caller, locationId: number, items: E
 
 const MAX_PER_LINE = 6;
 
+/** Visits and labor are never equipment: inspections, tune-ups, service calls and the like. */
+export const NOT_EQUIPMENT = /\b(inspection|tune-?\s?up|safety check|service call|trip charge|diagnostic|labor|labour|estimate|maintenance|visit)\b/i;
+export const isTrackable = (label: string) => !NOT_EQUIPMENT.test(label);
+
 /**
  * The equipment an invoice sells: each line the tech ticked under "Track as
  * equipment" on the job's warranty card (one record per unit), with the
@@ -110,7 +114,7 @@ export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'odoo' | 'lin
   const warranty = warrantyLines(warrantyFor(inv as Invoice, settings), invoiceNo(inv));
   const out: EquipmentItem[] = [];
   inv.lines.forEach((l, i) => {
-    if (!tracked.includes(trackKey(l))) return;
+    if (!tracked.includes(trackKey(l)) || !isTrackable(l.label)) return;
     const units = Math.min(MAX_PER_LINE, Math.max(1, Math.round(l.qty ?? 1)));
     for (let u = 0; u < units; u++) {
       out.push({

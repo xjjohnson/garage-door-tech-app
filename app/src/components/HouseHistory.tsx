@@ -6,6 +6,7 @@
  * no signal. Read-only.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon } from './Icon';
@@ -14,6 +15,9 @@ import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
 import { badgeText, CustomerBadge, fetchCustomerBadge, fetchCustomerEquipment, HouseEquipment, fetchHouseHistory, houseOfOrder, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';
 import { formatMoney } from '../lib/prices';
+import { Invoice, invoiceNo } from '../lib/invoices';
+import { useInvoices } from '../lib/useInvoices';
+import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, type } from '../theme';
 
@@ -191,8 +195,16 @@ export function CustomerEquipmentChips({ partnerId, now = Date.now, onDark }: { 
   return <ChipList equipment={equipment} now={now} onDark={onDark} testID="customer-equipment-chips" />;
 }
 
+/** The invoice a "Sold: date (invoice X)" line points to, when it is on this phone. */
+function soldInvoice(line: string, invoices: Invoice[]): Invoice | undefined {
+  const m = /^Sold: .*\(invoice (.+)\)$/.exec(line);
+  return m ? invoices.find((i) => invoiceNo(i) === m[1] || i.number === m[1]) : undefined;
+}
+
 function ChipList({ equipment, now, onDark, testID = 'equipment-chips' }: { equipment: HouseEquipment[]; now: () => number; onDark?: boolean; testID?: string }) {
   const [open, setOpen] = useState<number | null>(null);
+  const { invoices } = useInvoices();
+  const { jobs } = useJobs();
   if (equipment.length === 0) return null;
   const sel = equipment.find((e) => e.id === open);
   const w = sel ? warrantyStatus(sel, now()) : null;
@@ -219,11 +231,18 @@ function ChipList({ equipment, now, onDark, testID = 'equipment-chips' }: { equi
         <View style={chipStyles.detail} testID={`equipment-detail-${sel.id}`}>
           <Text style={chipStyles.detailTitle}>{sel.name}</Text>
           {w ? <Text style={[chipStyles.detailLine, w.active ? styles.ok : styles.ended]}>{w.text}</Text> : null}
-          {sel.lines.filter((l) => !/^Warranty on /.test(l)).map((l, i) => (
-            <Text key={i} style={chipStyles.detailLine}>
-              {l}
-            </Text>
-          ))}
+          {sel.lines.filter((l) => !/^Warranty on /.test(l)).map((l, i) => {
+            const inv = soldInvoice(l, invoices);
+            return inv ? (
+              <Pressable key={i} onPress={() => router.push(jobs.some((j) => j.id === inv.jobId) ? { pathname: '/job/[id]', params: { id: inv.jobId } } : { pathname: '/invoice/[id]', params: { id: inv.id } })} accessibilityRole="link" testID={`equipment-sold-${sel.id}`} style={chipStyles.soldLink}>
+                <Text style={[chipStyles.detailLine, chipStyles.linkText]}>{l} ›</Text>
+              </Pressable>
+            ) : (
+              <Text key={i} style={chipStyles.detailLine}>
+                {l}
+              </Text>
+            );
+          })}
         </View>
       ) : null}
     </View>
@@ -241,5 +260,7 @@ const chipStyles = StyleSheet.create({
   chipTextOn: { color: colors.onSelected },
   detail: { backgroundColor: colors.card, borderRadius: radius.field, padding: 12, gap: 2, borderWidth: 1, borderColor: colors.line },
   detailTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+  soldLink: { minHeight: 36, justifyContent: 'center' },
+  linkText: { color: colors.selected, textDecorationLine: 'underline' },
   detailLine: { fontSize: 15, fontWeight: '600', color: colors.muted },
 });

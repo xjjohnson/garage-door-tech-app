@@ -20,8 +20,17 @@ export function useCustomerSync(now: () => number = Date.now) {
   return useCallback(async (opts: { since?: number | null } = {}): Promise<string> => {
     if (!client) throw new Error('Sign in to Odoo first.');
     const before = latest.current;
-    const plan = planCustomerSync(before, await client.partners(), now(), opts.since);
-    if (opts.since != null && !plan.toCreate.length && !plan.toWrite.length && JSON.stringify(plan.customers) === JSON.stringify(before)) return 'Customers already match Odoo.';
+    const partners = await client.partners();
+    const plan = planCustomerSync(before, partners, now(), opts.since);
+    // Customers deleted or archived in Odoo leave the list (unless they have changes still waiting to go up).
+    const listed = new Set(partners.map((x) => x.id));
+    const gone = new Set<string>();
+    const linked = before.filter((c) => c.odooId && !listed.has(c.odooId) && (c.syncedAt ?? 0) >= c.updatedAt);
+    if (linked.length && listed.size > 0) {
+      const alive = new Set(((await client.call('res.partner', 'search', [[['id', 'in', linked.map((c) => c.odooId!)]]])) as number[]) ?? []);
+      for (const c of linked) if (!alive.has(c.odooId!)) gone.add(c.id);
+    }
+    if (opts.since != null && !gone.size && !plan.toCreate.length && !plan.toWrite.length && JSON.stringify(plan.customers) === JSON.stringify(before)) return 'Customers already match Odoo.';
     const created: Record<string, number> = {};
     const sent = new Set<string>();
     try {
@@ -32,12 +41,13 @@ export function useCustomerSync(now: () => number = Date.now) {
       }
     } finally {
       // Keep whatever made it across, even if Odoo stopped answering part way.
-      apply((current) => finishCustomerSync(current, before, plan, created, sent));
+      apply((current) => finishCustomerSync(current, before, plan, created, sent).filter((c) => !gone.has(c.id)));
     }
     const parts = [
       plan.added ? `brought in ${plural(plan.added, 'customer')} from Odoo` : '',
       plan.updated ? `updated ${plan.updated} with Odoo's changes` : '',
       plan.toCreate.length ? `added ${plan.toCreate.length} to Odoo` : '',
+      gone.size ? `removed ${plural(gone.size, 'customer')} deleted in Odoo` : '',
       plan.toWrite.length ? `sent ${plural(plan.toWrite.length, 'change')} to Odoo` : '',
     ].filter(Boolean);
     return parts.length ? `Done: ${parts.join(', ')}.` : 'Customers already match Odoo.';

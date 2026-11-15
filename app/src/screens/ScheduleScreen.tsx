@@ -14,13 +14,14 @@ import { nearDays } from '../lib/routeDays';
 import { useGeocode } from '../lib/useGeocode';
 import { phoneLink } from '../lib/jobs';
 import { addDays, Appointment, dayLabel, formatTime, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming } from '../lib/schedule';
+import { useFsmTemplates } from '../lib/useFsmTemplates';
 import { useCustomers } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { NewAppointment, useSchedule } from '../lib/useSchedule';
 import { colors, touch, type } from '../theme';
 
-const WHAT = ['Broken spring', 'Tune-up', 'Opener', 'Off track', 'Cables', 'Estimate', 'Other'];
+const WHAT_FALLBACK = ['Broken spring', 'Tune-up', 'Opener', 'Off track', 'Cables', 'Estimate', 'Other'];
 const LENGTHS: ChipOption<number>[] = [30, 60, 90, 120].map((m) => ({ label: m < 60 ? `${m} min` : `${m / 60} hr`.replace('1.5 hr', '1½ hr'), value: m }));
 
 /** The next booked visit or two, at the top of Jobs. */
@@ -186,6 +187,8 @@ function BookSheet({
   onCancel: () => void;
 }) {
   const [a, setA] = useState<NewAppointment | null>(value);
+  const templates = useFsmTemplates();
+  const what = templates.length ? templates.map((t) => t.name) : WHAT_FALLBACK;
   useEffect(() => setA(value), [value]);
   if (!a) return null;
   const set = (patch: Partial<NewAppointment>) => setA((p) => (p ? { ...p, ...patch } : p));
@@ -224,7 +227,7 @@ function BookSheet({
             <Field label="Address" value={a.address} onChange={(address) => set({ address })} placeholder="Street and town" autofill testID="book-address" />
             <Field label="Phone" value={a.phone} onChange={(phone) => set({ phone })} placeholder="For texts on the day" phone testID="book-phone" />
             <SectionTitle>What for</SectionTitle>
-            <ChipRow options={WHAT.map((w) => ({ label: w, value: w }))} value={a.what} onChange={(what) => set({ what })} scroll testID="book-what" />
+            <ChipRow options={what.map((w) => ({ label: w, value: w }))} value={a.what} onChange={(what) => set({ what })} scroll testID="book-what" />
             <NearDays address={a.address} appointments={appointments} today={today} days={days} day={day} skipJob={editing ? a.jobId : undefined} onPick={(d) => set({ start: d + minutesIntoDay })} />
             <SectionTitle>Day</SectionTitle>
             <ChipRow options={days.map((d) => ({ label: dayLabel(d, today), value: d }))} value={day} onChange={(d) => set({ start: d + minutesIntoDay })} scroll testID="book-day" />
