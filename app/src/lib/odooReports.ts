@@ -168,9 +168,12 @@ export async function emailRecord(client: Pick<OdooClient, 'call'>, model: Templ
   // Odoo 17+ keeps the invoice PDF on the invoice, made by its Send wizard; the template doesn't make it.
   const pdf = model === 'account.move' ? await invoicePdf(client, moveId) : undefined;
   const ids: number[] = pdf ? [pdf] : [];
+  // The extra PDFs (inspection report, before/after photos) also go on the record's note, so they show in its chatter.
+  const extraIds: number[] = [];
   for (const f of extra) {
-    ids.push((await client.call('ir.attachment', 'create', [{ name: f.name, type: 'binary', datas: f.base64, res_model: model, res_id: moveId, mimetype: 'application/pdf' }])) as number);
+    extraIds.push((await client.call('ir.attachment', 'create', [{ name: f.name, type: 'binary', datas: f.base64, res_model: model, res_id: moveId, mimetype: 'application/pdf' }])) as number);
   }
+  ids.push(...extraIds);
   const template = await templateFor(client, model);
   const mailId = await client.call('mail.template', 'send_mail', [[template], moveId], { force_send: true, ...(ids.length ? { email_values: { attachment_ids: ids } } : {}) });
   const result = { to, ...(await mailState(client, mailId)) };
@@ -179,7 +182,7 @@ export async function emailRecord(client: Pick<OdooClient, 'call'>, model: Templ
   else if (result.state !== 'failed') await client.call(model, 'action_quotation_sent', [[moveId]]).catch(() => undefined);
   const What = what[0].toUpperCase() + what.slice(1);
   const note = result.state === 'failed' ? `${What} email to ${to} failed: ${result.reason}` : `${What} emailed to ${to} from the app${extra.length ? `, with ${extra.map((f) => f.name).join(', ')}` : ''}.`;
-  await client.call(model, 'message_post', [[moveId]], { body: note, message_type: 'comment', subtype_xmlid: 'mail.mt_note' }).catch(() => undefined);
+  await client.call(model, 'message_post', [[moveId]], { body: note, ...(extraIds.length ? { attachment_ids: extraIds } : {}), message_type: 'comment', subtype_xmlid: 'mail.mt_note' }).catch(() => undefined);
   return result;
 }
 

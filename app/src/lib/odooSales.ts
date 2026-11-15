@@ -142,8 +142,23 @@ export async function sendInvoice(client: OdooClient, partnerId: number, lines: 
     if (orderLines.length === vals.length) vals.forEach((v, i) => (v.sale_line_ids = [[6, 0, [orderLines[i].id]]]));
   }
   const id = (await client.call('account.move', 'create', [{ move_type: 'out_invoice', partner_id: partnerId, ref: ref || false, ...(shipId ? { partner_shipping_id: shipId } : {}), ...(order ? { invoice_origin: order.name } : {}), invoice_line_ids: vals.map((v) => [0, 0, v]) }])) as number;
-  await client.call('account.move', 'action_post', [[id]]);
+  await postMove(client, id);
   return readInvoice(client, id, []);
+}
+
+/**
+ * Posts a move. A move Odoo set to auto-post on a date ("This move is
+ * configured to be auto-posted on ...") refuses a manual post, so the
+ * auto-post is switched off and it is posted now.
+ */
+export async function postMove(client: Pick<OdooClient, 'call'>, id: number): Promise<void> {
+  try {
+    await client.call('account.move', 'action_post', [[id]]);
+  } catch (e) {
+    if (!/auto-posted/i.test(e instanceof Error ? e.message : String(e))) throw e;
+    await client.call('account.move', 'write', [[id], { auto_post: 'no' }]);
+    await client.call('account.move', 'action_post', [[id]]);
+  }
 }
 
 /** What Odoo says is paid and owed now. */

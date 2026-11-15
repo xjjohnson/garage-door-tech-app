@@ -1,3 +1,4 @@
+import { postMove } from '../lib/odooSales';
 import { archiveTech, archiveTruck, listTruckEdits, listTechs, saveTech, saveTruck, truckSource, archivePart, listParts, loadQuoteTemplate, saveJobType, savePart, saveQuoteTemplate } from '../lib/odooManage';
 
 type Call = [string, string, unknown[], Record<string, unknown>?];
@@ -109,5 +110,25 @@ describe('techs and trucks save straight to Odoo', () => {
     await saveTruck(l, 'location', { id: 8, name: 'Truck - Sam' });
     expect(l.calls.at(-1)).toEqual(['stock.location', 'write', [[8], { name: 'Truck - Sam' }], undefined]);
     await expect(saveTruck(l, 'none', { name: 'x' })).rejects.toThrow('nowhere');
+  });
+});
+
+describe('posting a move Odoo set to auto-post', () => {
+  it('switches off the auto-post and posts it now', async () => {
+    const calls: unknown[][] = [];
+    let first = true;
+    const c = {
+      call: async (model: string, method: string, args: unknown[]) => {
+        calls.push([model, method, args]);
+        if (method === 'action_post' && first) {
+          first = false;
+          throw new Error('This move is configured to be auto-posted on 11/15/2026');
+        }
+        return true;
+      },
+    };
+    await postMove(c as never, 7);
+    expect(calls.map((x) => x[1])).toEqual(['action_post', 'write', 'action_post']);
+    expect(calls[1]![2]).toEqual([[7], { auto_post: 'no' }]);
   });
 });
