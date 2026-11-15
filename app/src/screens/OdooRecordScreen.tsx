@@ -36,8 +36,8 @@ export function OdooRecordScreen({ kind, id, now = Date.now }: { kind: ListKind;
   if (error && !rec) return <Text style={styles.error} testID="odoo-record-error">Couldn't read Odoo: {error}</Text>;
   if (!rec) return <Text style={styles.meta}>Reading Odoo...</Text>;
 
-  const what = kind === 'quotations' ? 'quotation' : 'invoice';
-  const canEmail = kind === 'quotations' ? rec.status !== 'Cancelled' : rec.status !== 'Draft' && rec.status !== 'Cancelled';
+  const what = kind === 'quotations' ? 'quotation' : rec.refund ? 'credit note' : 'invoice';
+  const canEmail = kind === 'quotations' ? rec.status !== 'Cancelled' : !/(^|· )(Draft|Cancelled)$/.test(rec.status);
   const ask = async () => {
     setBusy(true);
     setError(null);
@@ -102,9 +102,9 @@ export function OdooRecordScreen({ kind, id, now = Date.now }: { kind: ListKind;
             {formatMoney(rec.total)}
           </Text>
         </View>
-        {kind === 'invoices' && rec.residual && rec.residual > 0 && rec.status !== 'Draft' ? (
+        {kind === 'invoices' && rec.residual && rec.residual > 0 && !/(^|· )Draft$/.test(rec.status) ? (
           <View style={styles.line}>
-            <Text style={[styles.total, styles.warnText]}>Still owed</Text>
+            <Text style={[styles.total, styles.warnText]}>{rec.refund ? 'Refund owed' : 'Still owed'}</Text>
             <Text style={[styles.total, styles.warnText]} testID="odoo-record-owed">
               {formatMoney(rec.residual)}
             </Text>
