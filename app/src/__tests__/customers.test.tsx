@@ -121,7 +121,7 @@ describe('Customers in the app', () => {
         job('j3', { customer: 'Bob Jones', address: '9 Pine Ave' }, 300),
       ]),
     );
-    const app = await renderApp('/jobs');
+    const app = await renderApp('/customers');
     await settle();
     const saved = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
     const customers = parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY));
@@ -129,7 +129,6 @@ describe('Customers in the app', () => {
     const ann = customers.find((c) => c.name === 'Ann Smith')!;
     expect(saved.filter((j) => j.customerId === ann.id).map((j) => j.id).sort()).toEqual(['j1', 'j2']);
 
-    await fireEvent.press(screen.getByTestId('open-customers'));
     expect(app.getPathname()).toBe('/customers');
     expect(screen.getByTestId('customers-count')).toHaveTextContent('2 customers');
     expect(screen.getByTestId(`customer-${ann.id}`)).toHaveTextContent(/2 jobs/);
@@ -144,10 +143,9 @@ describe('Customers in the app', () => {
 
   it('copies an edited name and phone onto the customer’s jobs', async () => {
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job('j1', { customer: 'Ann', phone: '555-123-4567' }, 100)]));
-    await renderApp('/jobs');
+    await renderApp('/customers');
     await settle();
     const [ann] = parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY));
-    await fireEvent.press(screen.getByTestId('open-customers'));
     await fireEvent.press(screen.getByTestId(`customer-${ann.id}`));
     await fireEvent.press(screen.getByTestId('customer-edit'));
     await fireEvent.changeText(screen.getByTestId('customer-field-name'), 'Ann Smith ');

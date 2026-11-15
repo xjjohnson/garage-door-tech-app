@@ -361,9 +361,19 @@ export function orphanVisits(visits: Pick<Appointment, 'id' | 'jobId' | 'status'
   return visits.filter((v) => v.status === 'booked' && v.jobId && !have.has(v.jobId)).map((v) => v.id);
 }
 
-/** What a job in Odoo is for, from its notes: the first line that isn't the app's own marker, else its reference. */
+/** Notes without the app's own bookkeeping: the "--- Johnsons app ---" block (equipment markers) and "App job" lines. */
+export function cleanNotes(notes: string): string {
+  return notes
+    .replace(/--- Johnsons app ---[\s\S]*?(?:--- end ---|$)/g, '\n')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('App job ') && !/^--- (Johnsons app|end) ---$/.test(l) && !l.startsWith('johnsons-equipment:'))
+    .join('\n');
+}
+
+/** What a job in Odoo is for, from its notes: the first real line, else its reference. */
 export function whatOf(t: Pick<OdooTask, 'name' | 'notes'>): string {
-  return t.notes.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('App job ')) ?? t.name;
+  return cleanNotes(t.notes).split('\n')[0] || t.name;
 }
 
 /**
@@ -389,12 +399,12 @@ export function pullSchedule(visits: Appointment[], mine: OdooTask[], linked: Se
       name: t.customer || v?.name || t.name,
       address: t.address || v?.address || '',
       phone: t.phone || v?.phone || '',
-      what: v?.what || whatOf(t),
+      what: cleanNotes(v?.what ?? '').split('\n')[0] || whatOf(t),
       odooName: t.name,
       updatedAt: now,
       syncedAt: now,
     };
-    if (v && v.start === next.start && v.minutes === next.minutes && v.name === next.name && v.address === next.address && v.phone === next.phone && v.odooName === next.odooName) continue;
+    if (v && v.start === next.start && v.minutes === next.minutes && v.name === next.name && v.address === next.address && v.phone === next.phone && v.what === next.what && v.odooName === next.odooName) continue;
     add.push(next);
   }
   for (const v of visits) {

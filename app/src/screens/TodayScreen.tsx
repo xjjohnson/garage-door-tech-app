@@ -10,7 +10,7 @@ import { balance, invoiceStatus } from '../lib/invoices';
 import { jobName } from '../lib/jobs';
 import { jobSteps, nextStep, STEP_LABEL } from '../lib/jobSteps';
 import { log } from '../lib/log';
-import { canSendJobs, olderJobs } from '../lib/odooJobs';
+import { canSendJobs, cleanNotes, olderJobs } from '../lib/odooJobs';
 import { describePending } from '../lib/pending';
 import { formatMoney } from '../lib/prices';
 import { Appointment, formatTime, mapsLink, onDay } from '../lib/schedule';
@@ -48,6 +48,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   const left = today.filter((a) => a.start + a.minutes * 60000 > t);
   const next = left[0];
   const later = left.slice(1);
+  const earlier = today.filter((a) => !left.includes(a));
   const underway = jobs.filter((j) => j.status === 'open' && (j.steps?.onMyWayAt || j.steps?.arrivedAt) && !(next?.jobId === j.id));
   const owed = invoices.filter((i) => ['unpaid', 'partial'].includes(invoiceStatus(i)));
   const owedTotal = owed.reduce((n, i) => n + balance(i), 0);
@@ -70,7 +71,9 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
       <CrashNotice />
       <View style={styles.row}>
         <Text style={[styles.count, styles.grow]} testID="today-count">
-          {today.length === 0 ? 'Nothing booked today' : `${today.length} visit${today.length === 1 ? '' : 's'} today`}
+          {today.length === 0
+            ? 'Nothing booked today'
+            : `${today.length} visit${today.length === 1 ? '' : 's'} today${earlier.length > 0 ? (left.length === 0 ? ' · all past' : ` · ${left.length} left`) : ''}`}
         </Text>
         <Action label="+ New job" primary onPress={() => router.push('/new-job')} testID="today-new-job" />
       </View>
@@ -88,10 +91,13 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
           <Text style={styles.h2}>Under way</Text>
           {underway.map((j) => {
             const st = nextStep(jobSteps(j, invoices));
+            const visit = appointments.find((a) => a.jobId === j.id);
+            const where = [visit ? formatTime(visit.start) : '', j.address].filter(Boolean).join(' · ');
             return (
               <Pressable key={j.id} onPress={() => router.push({ pathname: '/job/[id]', params: { id: j.id } })} accessibilityRole="button" testID={`today-job-${j.id}`} style={({ pressed }) => [styles.line, pressed && styles.pressed]}>
                 <View style={styles.grow}>
-                  <Text style={styles.lineTitle}>{jobName(j)}{j.what ? ` · ${j.what}` : ''}</Text>
+                  <Text style={styles.lineTitle}>{jobName(j)}{j.what ? ` · ${cleanNotes(j.what).split('\n')[0]}` : ''}</Text>
+                  {where ? <Text style={styles.lineSub}>{where}</Text> : null}
                   <Text style={styles.lineSub}>{st ? `Next: ${STEP_LABEL[st.id]}` : 'Finished'}</Text>
                 </View>
                 <Text style={styles.chevron}>›</Text>
@@ -108,9 +114,24 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
             <Pressable key={a.id} onPress={() => startJob(a)} accessibilityRole="button" testID={`today-visit-${a.id}`} style={({ pressed }) => [styles.line, pressed && styles.pressed]}>
               <Text style={styles.time}>{formatTime(a.start)}</Text>
               <View style={styles.grow}>
-                <Text style={styles.lineTitle}>{a.name}{a.what ? ` · ${a.what}` : ''}</Text>
+                <Text style={styles.lineTitle}>{a.name}{a.what ? ` · ${cleanNotes(a.what).split('\n')[0]}` : ''}</Text>
                 {a.address ? <Text style={styles.lineSub}>{a.address}</Text> : null}
                 <WeatherLine w={weatherOf(a)} id={a.id} />
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      {earlier.length > 0 ? (
+        <View style={styles.list}>
+          <Text style={styles.h2}>Earlier today</Text>
+          {earlier.map((a) => (
+            <Pressable key={a.id} onPress={() => startJob(a)} accessibilityRole="button" testID={`today-past-${a.id}`} style={({ pressed }) => [styles.line, styles.past, pressed && styles.pressed]}>
+              <Text style={styles.time}>{formatTime(a.start)}</Text>
+              <View style={styles.grow}>
+                <Text style={styles.lineTitle}>{a.name}{a.what && cleanNotes(a.what) ? ` · ${cleanNotes(a.what).split('\n')[0]}` : ''}</Text>
+                {a.address ? <Text style={styles.lineSub}>{a.address}</Text> : null}
               </View>
             </Pressable>
           ))}
@@ -138,7 +159,7 @@ function NextCard({ a, weather, onStart, jobHasStarted }: { a: Appointment; weat
       <View style={styles.nextBody}>
         <Text style={styles.nextTitle}>
           {a.name}
-          {a.what ? ` · ${a.what}` : ''}
+          {a.what && cleanNotes(a.what) ? ` · ${cleanNotes(a.what).split('\n')[0]}` : ''}
         </Text>
         {a.address ? <Text style={styles.nextSub}>{a.address}</Text> : null}
         <WeatherLine w={weather} id={a.id} />
@@ -268,6 +289,7 @@ const styles = StyleSheet.create({
   lineSub: { fontSize: 15, fontWeight: '600', color: colors.muted },
   chevron: { fontSize: type.big, fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.info },
+  past: { opacity: 0.75 },
   next: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, ...shadow },
   nextBand: { alignSelf: 'flex-start', backgroundColor: colors.selected, color: colors.onSelected, marginTop: 14, marginLeft: 14, paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.pill, overflow: 'hidden', fontSize: 13, fontWeight: '800', letterSpacing: 0.6 },
   nextBody: { padding: 14, gap: 4 },

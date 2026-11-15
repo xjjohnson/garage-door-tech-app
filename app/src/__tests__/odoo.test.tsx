@@ -194,9 +194,9 @@ describe('Team screen', () => {
     await AsyncStorage.clear();
     const o = fakeOdoo();
     jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
-    const app = await renderApp('/jobs');
+    const app = await renderApp('/tools');
     await settle();
-    await fireEvent.press(screen.getByTestId('open-team'));
+    await fireEvent.press(screen.getByTestId('tools-team'));
     expect(app.getPathname()).toBe('/team');
     await settle();
     await fireEvent.changeText(screen.getByTestId('team-url'), 'acme.odoo.com');

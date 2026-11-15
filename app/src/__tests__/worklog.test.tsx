@@ -71,7 +71,7 @@ describe('time and miles screen', () => {
   it('clocks in and out with the odometer and totals the week', async () => {
     await AsyncStorage.clear();
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
-    const app = await renderApp('/jobs');
+    const app = await renderApp('/tools');
     jest.setSystemTime(WED);
     await settle();
     expect(screen.getByTestId('open-time-log')).toHaveTextContent('Time and miles');

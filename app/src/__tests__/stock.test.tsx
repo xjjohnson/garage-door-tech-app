@@ -69,7 +69,7 @@ describe('truck stock screen', () => {
     await AsyncStorage.clear();
     await AsyncStorage.setItem(BUSINESS_STORAGE_KEY, JSON.stringify({ name: 'Ace Doors' }));
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
-    const app = await renderApp('/jobs');
+    const app = await renderApp('/tools');
     await settle();
     await fireEvent.press(screen.getByTestId('open-stock'));
     expect(app.getPathname()).toBe('/stock');

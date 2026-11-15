@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { qrMatrix } from '../components/QrCode';
 import { makeBackup, parseBackup } from '../lib/backup';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
@@ -169,7 +170,7 @@ describe('invoices in the app', () => {
     await fireEvent.press(screen.getByTestId('invoice-page-close'));
     expect(screen.getByTestId('quote-open-invoice')).toHaveTextContent('Open invoice 1001');
     await fireEvent.press(screen.getByTestId('quote-sheet-close'));
-    await fireEvent.press(screen.getByTestId('open-invoices'));
+    await act(async () => router.push('/invoices'));
     expect(screen.getByTestId('invoices-owed')).toHaveTextContent('Owed to you: $368.90 on 1 invoice');
   });
 
