@@ -4,7 +4,7 @@ import { Linking } from 'react-native';
 import { makeBackup, parseBackup } from '../lib/backup';
 import { CUSTOMERS_STORAGE_KEY } from '../lib/customers';
 import { DEFAULT_PRICE_SHEET } from '../lib/prices';
-import { addDays, Appointment, dayLabel, formatTime, mapsLink, mergeSchedule, onDay, onMyWayText, overlaps, parseSchedule, reminderText, SCHEDULE_STORAGE_KEY, slotsFor, startOfDay, upcoming } from '../lib/schedule';
+import { addDays, Appointment, dayLabel, formatTime, freeGaps, mapsLink, mergeSchedule, onDay, onMyWayText, overlaps, parseSchedule, reminderText, SCHEDULE_STORAGE_KEY, slotsFor, startOfDay, upcoming } from '../lib/schedule';
 import { renderApp } from '../testing/renderApp';
 
 const DAY0 = new Date(2026, 10, 11).getTime(); // Wed, Nov 11
@@ -144,6 +144,22 @@ describe('schedule screen', () => {
     const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(saved).toHaveLength(1);
     expect(saved[0].start).toBe(at(addDays(tomorrow, 1), 14));
+  });
+
+  it('finds the open stretches between visits and books one with a tap', async () => {
+    const day = addDays(startOfDay(Date.now()), 1);
+    const list = [appt('a', at(day, 10)), { ...appt('b', at(day, 14)), status: 'done' as const }];
+    // The visit at 10 takes an hour; the done one at 2 pm takes no time.
+    expect(freeGaps(list, day).map((g) => [g.start, g.end])).toEqual([[at(day, 8), at(day, 10)], [at(day, 11), at(day, 17)]]);
+    expect(freeGaps(list, day, { minMinutes: 180 }).map((g) => g.start)).toEqual([at(day, 11)]);
+
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt('a', at(day, 10))]));
+    await renderApp('/schedule');
+    await settle();
+    await fireEvent.press(screen.getByTestId(`cal-${new Date(day).getDate()}`));
+    await fireEvent.press(screen.getByTestId(`schedule-gap-${at(day, 11)}`));
+    expect(screen.getByTestId('book-save')).toHaveTextContent(/11:00 am/);
   });
 
   it('opens the schedule from Tools and warns about a clash when booking', async () => {

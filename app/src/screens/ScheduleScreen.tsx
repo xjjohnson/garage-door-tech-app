@@ -8,13 +8,14 @@ import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-n
 import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
 import { MonthCalendar, visitCounts } from '../components/MonthCalendar';
+import { Dock } from '../components/Page';
 import { suggestCustomers } from '../lib/customers';
 import { textLink } from '../lib/followups';
 import { formatMiles } from '../lib/geocode';
 import { nearDays } from '../lib/routeDays';
 import { useGeocode } from '../lib/useGeocode';
 import { phoneLink } from '../lib/jobs';
-import { addDays, Appointment, dayLabel, formatTime, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming } from '../lib/schedule';
+import { addDays, Appointment, dayLabel, formatTime, freeGaps, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming } from '../lib/schedule';
 import { useFsmTemplates } from '../lib/useFsmTemplates';
 import { useCustomers } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
@@ -58,6 +59,9 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
   const [day, setDay] = useState(today);
   const [booking, setBooking] = useState<NewAppointment | null>(null);
   const list = onDay(appointments, day);
+  // Visits in time order with the open stretches between them, so a free time can be booked with a tap.
+  const gaps = freeGaps(appointments, day, { after: day === today ? now() : undefined });
+  const rows = [...list.map((a) => ({ kind: 'visit' as const, a, at: a.start })), ...gaps.map((g) => ({ kind: 'gap' as const, ...g, at: g.start }))].sort((x, y) => x.at - y.at);
   // The month on show follows the picked day; the arrows move it by themselves.
   const [shown, setShown] = useState(day);
   const counts = useMemo(() => visitCounts(appointments.filter((a) => a.status === 'booked').map((a) => a.start)), [appointments]);
@@ -105,10 +109,21 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
         {dayLabel(day, today)}: {list.filter((a) => a.status === 'booked').length} booked
       </Text>
       {list.length === 0 ? <Text style={styles.meta}>Nothing on this day.</Text> : null}
-      {list.map((a) => (
-        <Visit key={a.id} a={a} now={now()} business={business} onStatus={(s) => setStatus(a.id, s)} onReschedule={() => reschedule(a)} clash={a.status === 'booked' && overlaps(appointments, a).length > 0} />
-      ))}
-      <Action label="Book a visit" primary onPress={() => setBooking(blank(day))} testID="schedule-book" />
+      {rows.map((r) =>
+        r.kind === 'gap' ? (
+          <Pressable key={`gap-${r.start}`} onPress={() => setBooking(blank(day, { start: r.start }))} accessibilityRole="button" accessibilityLabel={`Free ${formatTime(r.start)} to ${formatTime(r.end)}, book a visit`} testID={`schedule-gap-${r.start}`} style={({ pressed }) => [styles.gap, pressed && styles.pressed]}>
+            <Text style={styles.gapText}>
+              Free {formatTime(r.start)} – {formatTime(r.end)}
+            </Text>
+            <Text style={styles.gapBook}>+ Book</Text>
+          </Pressable>
+        ) : (
+          <Visit key={r.a.id} a={r.a} now={now()} business={business} onStatus={(s) => setStatus(r.a.id, s)} onReschedule={() => reschedule(r.a)} clash={r.a.status === 'booked' && overlaps(appointments, r.a).length > 0} />
+        ),
+      )}
+      <Dock>
+        <Action label="Book a visit" primary onPress={() => setBooking(blank(day))} testID="schedule-book" />
+      </Dock>
 
       <BookSheet
         value={booking}
@@ -347,6 +362,9 @@ const styles = StyleSheet.create({
   dayTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
   item: { padding: 14, gap: 6, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, ...shadow },
   itemOff: { backgroundColor: colors.card },
+  gap: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, borderRadius: radius.card, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.line },
+  gapText: { fontSize: 15, fontWeight: '700', color: colors.muted },
+  gapBook: { fontSize: 15, fontWeight: '800', color: colors.selected },
   clash: { borderWidth: 4, borderColor: colors.caution },
   time: { fontSize: type.body, fontWeight: '800', color: colors.text },
   name: { fontSize: type.value, fontWeight: '800', color: colors.text },
