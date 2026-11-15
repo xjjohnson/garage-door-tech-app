@@ -20,9 +20,9 @@ export interface Choice {
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const many2one = (v: unknown): number => (Array.isArray(v) && typeof v[0] === 'number' ? v[0] : typeof v === 'number' ? v : 0);
 
-async function fieldsOf(c: Client, model: string): Promise<Record<string, unknown>> {
+async function fieldsOf(c: Client, model: string, attributes: string[] = ['type']): Promise<Record<string, unknown>> {
   try {
-    return (await c.call(model, 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
+    return (await c.call(model, 'fields_get', [], { attributes })) as Record<string, unknown>;
   } catch {
     return {};
   }
@@ -260,6 +260,46 @@ export interface TruckEdit {
   locationId?: number;
 }
 
+/**
+ * The field linking a Field Service vehicle to its Inventory location, if this
+ * Odoo has one: the usual `inventory_location_id`, else any many2one to
+ * stock.location. Undefined when vehicles here aren't linked to a location.
+ */
+export function vehicleLocationField(fields: Record<string, unknown>): string | undefined {
+  if ('inventory_location_id' in fields) return 'inventory_location_id';
+  const hit = Object.entries(fields).find(([, v]) => v && typeof v === 'object' && (v as { type?: string; relation?: string }).type === 'many2one' && (v as { relation?: string }).relation === 'stock.location');
+  return hit?.[0];
+}
+
+/** Whether this Odoo's vehicles can hold a stock location of their own. */
+export async function vehicleLinksLocation(c: Client): Promise<boolean> {
+  return !!vehicleLocationField(await fieldsOf(c, 'fsm.vehicle', ['type', 'relation']));
+}
+
+/**
+ * The Inventory location named for a truck (what Truck stock finds a tech's
+ * truck by), made under the warehouse's Stock location when it isn't there.
+ * Returns its id and full name.
+ */
+export async function ensureTruckLocation(c: Client, name: string): Promise<Choice> {
+  const n = name.trim();
+  if (!n) throw new Error('Give the truck a name first.');
+  const existing = (await c.call('stock.location', 'search_read', [[['usage', '=', 'internal'], ['name', '=ilike', n]]], { fields: ['complete_name'], limit: 1 })) as { id: number; complete_name?: string }[];
+  if (existing[0]) return { id: existing[0].id, label: str(existing[0].complete_name) || n };
+  const stocks = (await c.call('stock.location', 'search_read', [[['usage', '=', 'internal'], ['name', '=', 'Stock']]], { fields: ['complete_name'], order: 'complete_name asc', limit: 5 })) as { id: number; complete_name?: string }[];
+  const parent = stocks.sort((a, b) => str(a.complete_name).length - str(b.complete_name).length)[0];
+  const id = (await c.call('stock.location', 'create', [{ name: n, usage: 'internal', ...(parent ? { location_id: parent.id } : {}) }])) as number;
+  return { id, label: parent ? `${str(parent.complete_name)}/${n}` : n };
+}
+
+/** The Inventory location named like this truck, if there is one. */
+export async function truckLocationNamed(c: Client, name: string): Promise<Choice | undefined> {
+  const n = name.trim();
+  if (!n) return undefined;
+  const rows = (await c.call('stock.location', 'search_read', [[['usage', '=', 'internal'], ['name', '=ilike', n]]], { fields: ['complete_name'], limit: 1 })) as { id: number; complete_name?: string }[];
+  return rows[0] ? { id: rows[0].id, label: str(rows[0].complete_name) || n } : undefined;
+}
+
 /** Where trucks live: Field Service Vehicles when installed, else Inventory locations named like a truck. */
 export type TruckSource = 'vehicle' | 'location' | 'none';
 
@@ -281,12 +321,13 @@ export async function stockLocations(c: Client): Promise<Choice[]> {
 /** The trucks as Odoo has them now. */
 export async function listTruckEdits(c: Client, source: TruckSource): Promise<(TruckEdit & { id: number })[]> {
   if (source === 'vehicle') {
-    const fields = await fieldsOf(c, 'fsm.vehicle');
-    const want = ['name', 'person_id', 'inventory_location_id'].filter((f) => f in fields);
+    const fields = await fieldsOf(c, 'fsm.vehicle', ['type', 'relation']);
+    const link = vehicleLocationField(fields);
+    const want = ['name', 'person_id', ...(link ? [link] : [])].filter((f) => f in fields);
     // Some Odoo versions' fsm.vehicle has no active field; filtering on it errors, so only filter when it exists.
     const domain = 'active' in fields ? [['active', '=', true]] : [];
     const rows = (await c.call('fsm.vehicle', 'search_read', [domain], { fields: want, order: 'name asc', limit: 200 })) as Record<string, unknown>[];
-    return rows.map((r) => ({ id: r.id as number, name: str(r.name), personId: many2one(r.person_id) || undefined, locationId: many2one(r.inventory_location_id) || undefined })).filter((r) => r.name);
+    return rows.map((r) => ({ id: r.id as number, name: str(r.name), personId: many2one(r.person_id) || undefined, locationId: (link ? many2one(r[link]) : 0) || undefined })).filter((r) => r.name);
   }
   if (source === 'location') {
     const rows = (await c.call('stock.location', 'search_read', [[['usage', '=', 'internal'], ['active', '=', true], ['name', 'ilike', 'truck']]], { fields: ['name'], order: 'name asc', limit: 200 })) as { id: number; name?: string }[];
@@ -304,8 +345,9 @@ export async function saveTruck(c: Client, source: TruckSource, e: TruckEdit): P
   const name = e.name.trim();
   if (!name) throw new Error('Give the truck a name.');
   if (source === 'vehicle') {
-    const fields = await fieldsOf(c, 'fsm.vehicle');
-    const vals = known(fields, { name, person_id: e.personId ?? false, inventory_location_id: e.locationId ?? false });
+    const fields = await fieldsOf(c, 'fsm.vehicle', ['type', 'relation']);
+    const link = vehicleLocationField(fields);
+    const vals = known(fields, { name, person_id: e.personId ?? false, ...(link ? { [link]: e.locationId ?? false } : {}) });
     if (e.id) {
       await c.call('fsm.vehicle', 'write', [[e.id], vals]);
       return e.id;
