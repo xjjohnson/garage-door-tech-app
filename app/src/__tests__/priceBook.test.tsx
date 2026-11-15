@@ -143,12 +143,12 @@ describe('Price book screen', () => {
     await settle();
   }
 
-  it('opens from Sales, loads from Odoo, browses categories, searches and stars favorites', async () => {
+  it('opens from Tools, loads from Odoo, browses categories, searches and stars favorites', async () => {
     const o = fakeOdoo();
     await signIn(o);
-    await act(async () => router.navigate('/sales'));
+    await act(async () => router.navigate('/tools'));
     await settle();
-    await fireEvent.press(screen.getByTestId('sales-price-book'));
+    await fireEvent.press(screen.getByTestId('tools-price-book'));
     await settle();
 
     // Categories and Frequently used at the top.

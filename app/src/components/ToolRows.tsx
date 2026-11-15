@@ -85,16 +85,17 @@ export function ToolTile({ icon, label, detail, href, testID }: { icon: IconName
 }
 
 /** The one thing that needs a look, in warning colors, with a button. */
-export function AlertBanner({ title, detail, action, onPress, testID }: { title: string; detail?: string; action: string; onPress: () => void; testID?: string }) {
+export function AlertBanner({ title, detail, action, onPress, testID, tone = 'warn' }: { title: string; detail?: string; action: string; onPress: () => void; testID?: string; tone?: 'warn' | 'ok' }) {
+  const ok = tone === 'ok';
   return (
-    <View style={styles.alert} testID={testID}>
-      <Icon name="warn" size={24} color={colors.warn} />
+    <View style={[styles.alert, ok && styles.alertOk]} testID={testID}>
+      <Icon name={ok ? 'wrap' : 'warn'} size={24} color={ok ? colors.selected : colors.warn} />
       <View style={styles.text}>
-        <Text style={styles.alertTitle}>{title}</Text>
-        {detail ? <Text style={styles.alertDetail}>{detail}</Text> : null}
+        <Text style={[styles.alertTitle, ok && styles.alertTextOk]}>{title}</Text>
+        {detail ? <Text style={[styles.alertDetail, ok && styles.alertTextOk]}>{detail}</Text> : null}
       </View>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${action}: ${title}`} style={({ pressed }) => [styles.alertButton, pressed && styles.pressed]}>
-        <Text style={styles.alertButtonText}>{action}</Text>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${action}: ${title}`} style={({ pressed }) => [styles.alertButton, ok && styles.alertButtonOk, pressed && styles.pressed]}>
+        <Text style={[styles.alertButtonText, ok && styles.alertButtonTextOk]}>{action}</Text>
       </Pressable>
     </View>
   );
@@ -121,5 +122,9 @@ const styles = StyleSheet.create({
   alertTitle: { fontSize: type.body, fontWeight: '800', color: colors.warn },
   alertDetail: { fontSize: 15, fontWeight: '600', color: colors.warn },
   alertButton: { minHeight: 44, minWidth: 76, borderRadius: radius.field, backgroundColor: colors.warn, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  alertOk: { backgroundColor: colors.info },
+  alertTextOk: { color: colors.selected },
+  alertButtonOk: { backgroundColor: colors.selected },
+  alertButtonTextOk: { color: colors.onSelected },
   alertButtonText: { fontSize: 15, fontWeight: '800', color: colors.warnBg },
 });
