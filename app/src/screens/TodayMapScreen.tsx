@@ -4,19 +4,20 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import RNWebView, { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { Action } from '../components/Buttons';
+import { DayStrip } from '../components/DayStrip';
 import { formatMiles, googleNavLink, googleRouteLink, googleSearchLink, miles, Point, wazeNavLink } from '../lib/geocode';
 import { balance, invoiceLabel, invoiceStatus } from '../lib/invoices';
 import { phoneLink } from '../lib/jobs';
 import { MapData, mapHtml, MapPin, parseMapMessage, PinKind, setDataScript } from '../lib/mapHtml';
 import { OdooError, OdooPlace } from '../lib/odoo';
 import { formatMoney } from '../lib/prices';
-import { Appointment, formatTime, onDay } from '../lib/schedule';
+import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay } from '../lib/schedule';
 import { retryGeocode, useGeocode } from '../lib/useGeocode';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
 import { useStartJob } from '../lib/useStartJob';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 /** The WebView's class typing doesn't fit React 19's JSX checks; this is the part the map uses. */
 interface WebHandle {
@@ -41,8 +42,8 @@ export interface Place {
 }
 
 /** Today's stops in time order, numbered, and which one is next. */
-export function routeStops(appointments: Appointment[], now: number): Place[] {
-  const day = onDay(appointments, now).filter((a) => a.status !== 'cancelled');
+export function routeStops(appointments: Appointment[], now: number, onDate: number = now): Place[] {
+  const day = onDay(appointments, onDate).filter((a) => a.status !== 'cancelled');
   const next = day.find((a) => a.status === 'booked' && a.start + a.minutes * 60000 > now);
   return day.map((a, i) => ({
     id: `stop-${a.id}`,
@@ -74,7 +75,11 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
 
-  const stops = useMemo(() => routeStops(appointments, t), [appointments, t]);
+  // The week strip under the map picks the day shown: today first, then six more.
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(startOfDay(t), i)), [t]);
+  const [picked, setPicked] = useState(days[0]);
+  const counts = days.map((d) => onDay(appointments, d).filter((a) => a.status !== 'cancelled').length);
+  const stops = useMemo(() => routeStops(appointments, t, picked), [appointments, t, picked]);
 
   useEffect(() => {
     if (!nearby || !client) {
@@ -205,6 +210,11 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
         </Pressable>
       </View>
 
+      <DayStrip days={days} counts={counts} selected={picked} onSelect={(d) => { setPicked(d); setSelected(null); }} testID="map-days" />
+      <Text style={styles.dayTitle} testID="map-day">
+        {dayLabel(picked, t)} · {stops.length === 0 ? 'nothing booked' : `${stops.length} visit${stops.length === 1 ? '' : 's'}`}
+      </Text>
+
       <Text style={styles.meta} testID="map-status">
         {offline ? 'No map without internet. ' : ''}
         {waiting > 0 ? `Finding ${waiting} address${waiting === 1 ? '' : 'es'} on the map... ` : ''}
@@ -271,7 +281,7 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
 
       {route ? <Action label="Whole day in Google Maps" onPress={() => open(route)} testID="map-route" /> : null}
 
-      {stops.length === 0 ? <Text style={styles.note}>Nothing booked today. Turn on Show nearby to see who owes money or has an open quote.</Text> : null}
+      {stops.length === 0 ? <Text style={styles.note}>Nothing booked this day. Turn on Show nearby to see who owes money or has an open quote.</Text> : null}
       <View>
         {all.map((p) => (
           <Pressable key={p.id} onPress={() => setSelected(p.id)} accessibilityRole="button" accessibilityState={{ selected: p.id === selected }} testID={`map-row-${p.id}`} style={({ pressed }) => [styles.line, p.id === selected && styles.lineOn, pressed && styles.pressed]}>
@@ -294,20 +304,21 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  mapBox: { height: 420, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, overflow: 'hidden', backgroundColor: '#E9EDE6' },
+  mapBox: { height: 340, borderRadius: radius.sheet, borderWidth: 1, borderColor: colors.line, overflow: 'hidden', backgroundColor: '#E9EDE6' },
   map: { flex: 1, backgroundColor: '#E9EDE6' },
   nearby: { position: 'absolute', right: 10, top: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, justifyContent: 'center' },
   nearbyOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   nearbyText: { fontSize: 16, fontWeight: '800', color: colors.text },
   nearbyTextOn: { color: colors.onSelected },
+  dayTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
   meta: { fontSize: 15, fontWeight: '700', color: colors.muted },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
-  card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, padding: 14, gap: 10 },
+  card: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, padding: 14, gap: 10, ...shadow },
   cardHead: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   cardTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
   cardSub: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 6 },
-  lineOn: { backgroundColor: colors.card },
+  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 8, ...shadow },
+  lineOn: { borderColor: colors.selected, borderWidth: 1.5 },
   lineTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   lineSub: { fontSize: 15, fontWeight: '600', color: colors.muted },
   dot: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.border },

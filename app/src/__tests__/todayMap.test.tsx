@@ -212,6 +212,23 @@ describe('Today › Map', () => {
     expect(saved['9 oak ave'].p).toEqual({ lat: 40.05, lon: -75.02 });
   });
 
+  it('has the week strip under the map and shows the picked day\'s stops', async () => {
+    const list = visits();
+    const tomorrow = { ...list[0], id: 'v9', start: list[0].start + 86_400_000, name: 'Dana Cruz', address: '5 Pine Rd' };
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([...list, tomorrow]));
+    await renderApp();
+    await settle();
+    await fireEvent.press(within(screen.getByTestId('today-view')).getByText('Map'));
+    await settle();
+    expect(screen.getByTestId('map-day')).toHaveTextContent(/Today · 2 visits/);
+    expect(screen.getByTestId('day-1').props.accessibilityLabel).toMatch(/1 visit/);
+    await fireEvent.press(screen.getByTestId('day-1'));
+    await settle();
+    expect(screen.getByTestId('map-day')).toHaveTextContent(/Tomorrow · 1 visit/);
+    expect(screen.getByTestId('map-row-stop-v9')).toHaveTextContent(/1 · Dana Cruz/);
+    expect(screen.queryByTestId('map-row-stop-v1')).toBeNull();
+  });
+
   it('lists addresses it could not place, with Google Maps and Try again', async () => {
     await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([{ ...visits()[0], address: '400 Northern Flicker St, Austin 78640', name: 'Kim' }]));
     await renderApp();
