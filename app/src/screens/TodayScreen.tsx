@@ -3,9 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
+import { StepChips } from '../components/StepChips';
 import { ChipTone, VisitCard } from '../components/VisitCard';
 import { lastCrash } from '../lib/crash';
 import { jobName } from '../lib/jobs';
+import { startOfDay } from '../lib/schedule';
 import { jobSteps, nextStep, STEP_LABEL } from '../lib/jobSteps';
 import { log } from '../lib/log';
 import { canSendJobs, cleanNotes, olderJobs } from '../lib/odooJobs';
@@ -19,11 +21,14 @@ import { useJobsSince } from '../lib/useJobsSince';
 import { usePending } from '../lib/usePending';
 import { useSchedule } from '../lib/useSchedule';
 import { useGeocode } from '../lib/useGeocode';
+import { useWorkLog } from '../lib/useWorkLog';
+import { formatMoney } from '../lib/prices';
+import { shiftMs } from '../lib/worklog';
 import { useStartJob } from '../lib/useStartJob';
 import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors } from '../theme';
+import { colors, radius, shadow } from '../theme';
 
 const CRASH_SEEN_KEY = 'crash/seen';
 
@@ -54,7 +59,22 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
     const p = points[a.address.trim()];
     return p ? summarize(hoursFor(hours[weatherKey(p)] ?? [], a.start, a.minutes)) : null;
   };
+  // The day so far: visits finished, money taken, time on the clock.
+  const { shifts } = useWorkLog();
+  const day = startOfDay(t);
+  const isToday = (ms: number) => ms >= day && ms < day + 86_400_000;
+  const doneCount = today.filter((a) => a.status === 'done' || (a.jobId && jobs.find((j) => j.id === a.jobId)?.status === 'done')).length;
+  const collected = invoices.filter((i) => !i.voidedAt).reduce((n, i) => n + i.payments.filter((p) => isToday(p.at)).reduce((m, p) => m + p.amount, 0), 0);
+  const clockMs = shifts.filter((s) => isToday(s.start)).reduce((n, s) => n + shiftMs(s, t), 0);
   const worst = booked.map(weatherOf).filter((w): w is Summary => !!w && w.warn)[0];
+
+  // On my way, Arrived, Work done, Paid, from what is saved on the visit's job and its invoice.
+  const stepsDone = (a: Appointment): boolean[] => {
+    const job = a.jobId ? jobs.find((j) => j.id === a.jobId) : undefined;
+    if (!job) return [false, false, a.status === 'done', false];
+    const steps = jobSteps(job, invoices);
+    return [!!steps.find((x) => x.id === 'onMyWay')?.done, !!steps.find((x) => x.id === 'arrived')?.done, !!steps.find((x) => x.id === 'work')?.done, !!steps.find((x) => x.id === 'paid')?.done];
+  };
 
   const statusOf = (a: Appointment): { label: string; tone: ChipTone } => {
     const job = a.jobId ? jobs.find((j) => j.id === a.jobId) : undefined;
@@ -69,6 +89,13 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
       <SyncLine />
       <OlderJobsLine />
       <CrashNotice />
+      {today.length > 0 ? (
+        <View style={styles.kpis} testID="today-kpis">
+          <Kpi value={`${doneCount} / ${today.length}`} label="Visits done" testID="today-kpi-done" />
+          <Kpi value={formatMoney(collected)} label="Collected" testID="today-kpi-collected" />
+          <Kpi value={`${Math.floor(clockMs / 3_600_000)}.${Math.floor(((clockMs % 3_600_000) / 3_600_000) * 10)} h`} label="On the clock" testID="today-kpi-clock" />
+        </View>
+      ) : null}
       <Text style={styles.count} testID="today-count">
         {today.length === 0 ? 'Nothing booked today' : `${today.length} visit${today.length === 1 ? '' : 's'} today${today.length > booked.length ? ` · ${today.length - booked.length} done` : ''}`}
       </Text>
@@ -99,7 +126,9 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
             muted={st.label === 'Done'}
             onPress={() => startJob(a)}
             testID={isNext ? 'today-next' : `today-visit-${a.id}`}
-          />
+          >
+            {isNext || st.tone === 'on' ? <StepChips done={stepsDone(a)} testID={`today-steps-${a.id}`} /> : null}
+          </VisitCard>
         );
       })}
 
@@ -122,6 +151,15 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
 
       {today.length === 0 && loose.length === 0 ? <Action label="Open the schedule" onPress={() => router.push('/schedule')} testID="today-schedule" /> : null}
       <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" />
+    </View>
+  );
+}
+
+function Kpi({ value, label, testID }: { value: string; label: string; testID: string }) {
+  return (
+    <View style={styles.kpi} testID={testID}>
+      <Text style={styles.kpiValue}>{value}</Text>
+      <Text style={styles.kpiLabel}>{label}</Text>
     </View>
   );
 }
@@ -208,6 +246,10 @@ function CrashNotice() {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  kpis: { flexDirection: 'row', gap: 8 },
+  kpi: { flex: 1, backgroundColor: colors.card, borderRadius: radius.card - 2, borderWidth: 1, borderColor: colors.line, paddingVertical: 11, alignItems: 'center', ...shadow },
+  kpiValue: { fontSize: 19, fontWeight: '800', color: colors.text },
+  kpiLabel: { fontSize: 12.5, fontWeight: '600', color: colors.muted },
   count: { fontSize: 16, fontWeight: '700', color: colors.muted },
   weatherDay: { fontSize: 16, fontWeight: '800', color: colors.stop },
   pressed: { backgroundColor: colors.info },

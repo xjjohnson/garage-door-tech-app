@@ -18,7 +18,7 @@ describe('screens and routes', () => {
       ['sales', '/sales', 'Sales'],
       ['customers', '/customers', 'Customers'],
       ['tools', '/tools', 'Tools'],
-      ['today', '/', 'Today'],
+      ['today', '/', 'Home'],
     ] as const) {
       await fireEvent.press(screen.getByTestId(`section-${id}`));
       expect(app.getPathname()).toBe(path);

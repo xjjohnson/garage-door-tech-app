@@ -26,6 +26,7 @@ export function VisitCard({
   muted,
   onPress,
   testID,
+  children,
 }: {
   top: string;
   chip: string;
@@ -69,6 +70,7 @@ export function VisitCard({
           {note ? <Text style={styles.footText}>{note}</Text> : null}
         </View>
       ) : null}
+      {children}
     </Pressable>
   );
 }
