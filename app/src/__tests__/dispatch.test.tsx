@@ -87,7 +87,7 @@ function fakeOdoo({ groups = ['fieldservice.group_fsm_dispatcher'], legacyHasGro
     if (model === 'fsm.order' && method === 'write') {
       const [[id], vals] = args as [number[], Record<string, unknown>];
       const o = orders.find((x) => x.id === id)!;
-      if ('person_id' in vals) o.person_id = [vals.person_id as number, vals.person_id === 40 ? 'Justin' : 'Sam Ruiz'];
+      if ('person_id' in vals) o.person_id = vals.person_id === false ? false : [vals.person_id as number, vals.person_id === 40 ? 'Justin' : 'Sam Ruiz'];
       if ('scheduled_date_start' in vals) o.scheduled_date_start = vals.scheduled_date_start as string;
       return reply(true);
     }
@@ -110,6 +110,9 @@ describe('dispatch (Odoo logic)', () => {
     expect(o.calls.at(-1)).toEqual({ model: 'fsm.order', method: 'write', args: [[603], { person_id: 41, scheduled_date_start: toOdooTime(at(15)) }] });
     await c.scheduleJob(603, 40);
     expect(o.calls.at(-1)?.args).toEqual([[603], { person_id: 40 }]);
+    await c.unassign(603);
+    expect(o.calls.at(-1)?.args).toEqual([[603], { person_id: false }]);
+    expect((await c.unassignedTasks()).map((t) => t.id)).toEqual([603]);
   });
 
   it("reads job addresses on Odoo 19, where contacts have no mobile field", async () => {
@@ -205,6 +208,25 @@ describe('Jobs › Team', () => {
     await fireEvent.press(within(screen.getByTestId('jobs-whose')).getByText('Mine'));
     expect(screen.queryByTestId('dispatch')).toBeNull();
     expect(screen.getByTestId('jobs-search')).toBeTruthy();
+  });
+
+  it('takes a worker off a job so it goes back to Not assigned, and only offers that when it has a worker', async () => {
+    const o = fakeOdoo();
+    await signInAndOpenJobs(o);
+    await fireEvent.press(within(screen.getByTestId('jobs-whose')).getByText('Team'));
+    await settle();
+    await fireEvent.press(screen.getByTestId('dispatch-assign-603'));
+    expect(within(screen.getByTestId('dispatch-sheet')).queryByText('No one (unassign)')).toBeNull();
+    await fireEvent.press(screen.getByTestId('dispatch-cancel'));
+
+    await fireEvent.press(screen.getByTestId('dispatch-job-601'));
+    await fireEvent.press(within(screen.getByTestId('dispatch-sheet')).getByText('No one (unassign)'));
+    expect(screen.getByTestId('dispatch-save')).toHaveTextContent('Remove worker');
+    await fireEvent.press(screen.getByTestId('dispatch-save'));
+    await settle();
+    expect(o.calls.filter((c) => c.method === 'write').at(-1)).toEqual({ model: 'fsm.order', method: 'write', args: [[601], { person_id: false }] });
+    expect(screen.getByTestId('dispatch-unassigned')).toHaveTextContent(/Not assigned · 2.*Pat Smith/);
+    expect(screen.getByTestId('dispatch-lane-40')).not.toHaveTextContent(/Pat Smith/);
   });
 
   it("doesn't offer Team to a tech who isn't a dispatcher", async () => {

@@ -412,6 +412,14 @@ export class OdooClient {
     return this.call('project.task', 'write', [[taskId], { [s.assignField]: value }]);
   }
 
+  /** Takes the worker off a job, so it goes back to Not assigned. Its time stays. */
+  unassign(taskId: number): Promise<unknown> {
+    const s = this.session;
+    if (s.kind === 'oca') return this.call('fsm.order', 'write', [[taskId], { person_id: false }]);
+    const value = s.assignField === 'user_ids' ? [[6, 0, []]] : false;
+    return this.call('project.task', 'write', [[taskId], { [s.assignField]: value }]);
+  }
+
   /** The field that holds a job's planned start, if this Odoo has one. */
   private get startField(): string | undefined {
     const s = this.session;

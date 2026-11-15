@@ -109,9 +109,10 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
   const save = async (task: OdooTask, techId: number, start: number | undefined, text: boolean) => {
     setError(null);
     try {
-      await client.scheduleJob(task.id, techId, start);
+      if (techId === 0) await client.unassign(task.id);
+      else await client.scheduleJob(task.id, techId, start);
       setPicking(null);
-      if (text && start !== undefined) {
+      if (text && start !== undefined && techId !== 0) {
         const tech = techs.find((w) => w.id === techId)?.name ?? '';
         const link = smsLink(task.phone, bookedText(task, tech, start, t, business.name));
         if (link) Linking.openURL(link).catch(() => undefined);
@@ -225,12 +226,16 @@ function AssignSheet({
             {task.address ? <Text style={styles.cardSub}>{task.address}</Text> : null}
             <Text style={styles.label}>Worker</Text>
             <ChipRow
-              options={techs.map((w) => ({ label: `${w.id === me ? 'Me' : w.name}${free(w.id) ? ` · after ${formatTime(free(w.id)!)}` : ''}`, value: w.id }))}
+              options={[
+                ...techs.map((w) => ({ label: `${w.id === me ? 'Me' : w.name}${free(w.id) ? ` · after ${formatTime(free(w.id)!)}` : ''}`, value: w.id })),
+                // Only a job that has a worker can have the worker taken off.
+                ...(task.assignees.length > 0 ? [{ label: 'No one (unassign)', value: 0 }] : []),
+              ]}
               value={tech}
               onChange={setTech}
               testID="dispatch-sheet-techs"
             />
-            {canTime ? (
+            {canTime && tech !== 0 ? (
               <>
                 <Text style={styles.label}>Start, {dayLabel(day, now)}</Text>
                 <ChipRow
@@ -242,8 +247,8 @@ function AssignSheet({
                 />
               </>
             ) : null}
-            <Action label="Assign" primary disabled={!tech} onPress={() => onSave(task, tech, when, false)} testID="dispatch-save" />
-            {smsLink(task.phone, 'x') && when ? <Action label="Assign and text the customer" disabled={!tech} onPress={() => onSave(task, tech, when, true)} testID="dispatch-save-text" /> : null}
+            <Action label={tech === 0 ? 'Remove worker' : 'Assign'} primary disabled={tech === 0 && task.assignees.length === 0} onPress={() => onSave(task, tech, when, false)} testID="dispatch-save" />
+            {tech !== 0 && smsLink(task.phone, 'x') && when ? <Action label="Assign and text the customer" disabled={!tech} onPress={() => onSave(task, tech, when, true)} testID="dispatch-save-text" /> : null}
             <Action label="Cancel" onPress={onCancel} testID="dispatch-cancel" />
           </ScrollView>
         </View>
