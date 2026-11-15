@@ -8,7 +8,7 @@ const mockClient = {
     calls.push([model, method, args]);
     if (method === 'has_group') return true;
     if (method === 'fields_get') return { name: {}, instructions: {}, duration: {}, type_id: {}, active: {} };
-    if (model === 'fsm.template' && method === 'search_read') return [{ id: 7, name: 'Opener', instructions: 'Check eyes', duration: 1, type_id: [2, 'Repair'] }];
+    if (model === 'fsm.template' && method === 'search_read') return [{ id: 7, name: 'Opener', instructions: '<p>Check eyes</p>', duration: 1, type_id: [2, 'Repair'] }];
     if (model === 'fsm.person' && method === 'search_read') return [{ id: 4, name: 'Sam', phone: '555', email: '' }];
     if (model === 'fsm.person' && method === 'fields_get') return { name: {}, phone: {}, email: {} };
     if (model === 'fsm.vehicle' && method === 'fields_get') return { name: {}, person_id: {} };
@@ -29,7 +29,7 @@ describe('Management screen', () => {
     await fireEvent.press(screen.getByTestId('manage-save'));
     await waitFor(() => expect(calls.some((c) => c[1] === 'write' && c[0] === 'fsm.template')).toBe(true));
     const w = calls.find((c) => c[1] === 'write')!;
-    expect(w[2]).toEqual([[7], { name: 'Opener repair', instructions: 'Check eyes', duration: 1, type_id: 3 }]);
+    expect(w[2]).toEqual([[7], { name: 'Opener repair', instructions: '<p>Check eyes</p>', duration: 1, type_id: 3 }]);
   });
 
   it('edits a tech and a truck', async () => {

@@ -66,27 +66,42 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const [noSignField, setNoSignField] = useState(false);
 
   // The customer's signature goes on the estimate's quotation in Odoo, once per signature and quotation.
-  const signedId = ticket.signed?.id;
-  const signPending = !!client && signaturePending(ticket) && !noSignField;
-  const signKey = `${signedId ?? ''}:${ticket.order?.id ?? ''}`;
+  // Every estimate is checked (not just the one open), so a signature made on one that has since been
+  // switched away from, or whose quotation was only just created, still lands on its own quotation.
+  const [signError, setSignError] = useState<string | null>(null);
+  const pendingSigs = client && !noSignField ? [ticket, ...others].filter((t) => !t.declinedAt && signaturePending(t) && attachments.signatures.some((x) => x.id === t.signed!.id)) : [];
+  const signKey = pendingSigs.map((t) => `${t.id ?? ''}:${t.signed!.id}:${t.order!.id}`).join('#');
+  const [signRetry, setSignRetry] = useState(0);
   useEffect(() => {
-    const sig = attachments.signatures.find((x) => x.id === signedId);
-    if (!signPending || !client || !ticket.order || !sig) return;
-    const orderId = ticket.order.id;
-    const estId = ticket.id;
+    if (!client || pendingSigs.length === 0) return;
     let live = true;
-    sendOrderSignature(client, orderId, { name: sig.name, at: sig.at, png: signaturePng(sig) })
-      .then((ok) => {
-        if (!live) return;
-        if (ok) setTicket(job.id, (t) => (t.id === estId && t.order?.id === orderId ? markSignatureSent(t, sig.id, orderId) : t));
-        else setNoSignField(true);
-      })
-      .catch((e) => log.warn('ticket', `${job.id}: couldn't save the estimate signature in Odoo: ${message(e)}`));
+    (async () => {
+      for (const t of pendingSigs) {
+        const sig = attachments.signatures.find((x) => x.id === t.signed!.id)!;
+        const orderId = t.order!.id;
+        const estId = t.id;
+        try {
+          const ok = await sendOrderSignature(client, orderId, { name: sig.name, at: sig.at, png: signaturePng(sig) });
+          if (!live) return;
+          if (!ok) {
+            setNoSignField(true);
+            return;
+          }
+          setSignError(null);
+          const done = (x: Ticket) => (x.id === estId && x.order?.id === orderId ? markSignatureSent(x, sig.id, orderId) : x);
+          setEstimates(job.id, (set) => ({ ticket: done(set.ticket), others: set.others.map(done) }));
+        } catch (e) {
+          log.warn('ticket', `${job.id}: couldn't save the estimate signature in Odoo: ${message(e)}`);
+          if (live) setSignError(message(e));
+          return;
+        }
+      }
+    })();
     return () => {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signPending, signKey, client, attachments.signatures.length]);
+  }, [signKey, client, attachments.signatures.length, signRetry]);
 
   const sync = async (): Promise<Ticket | undefined> => {
     if (!client || (ticket.lines.length === 0 && !ticket.deposits?.length && !ticket.order)) return;
@@ -276,6 +291,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         <NavRow label={`${invoiceLabel(invoice)} made`} detail="Changes to the ticket now don't change the invoice" href={{ pathname: '/invoice/[id]', params: { id: invoice.id } }} testID="ticket-invoice" />
       ) : null}
 
+      {signError ? <Action label="Signature not saved in Odoo yet. Tap to retry" onPress={() => setSignRetry((n) => n + 1)} testID="sign-retry" /> : null}
       <EstimatesPanel set={estimateSet} taxPercent={sheet.taxPercent} locked={!!invoice} onChange={(fn) => setEstimates(job.id, fn)} now={now} customer={job.customer} onSign={(id, s) => {
         const saved = attachments.sign({ for: 'quote', refId: `${job.id}#${id ?? 'estimate'}`, ...s });
         setEstimates(job.id, (set) => signEstimate(set, id, { id: saved.id, by: saved.name, at: saved.at }));

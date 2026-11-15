@@ -1,6 +1,7 @@
 import type { Business } from '../lib/invoices';
 import { router } from 'expo-router';
 import { AddressSuggestions } from '../components/AddressSuggestions';
+import { EtaPicker } from '../components/EtaPicker';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -21,7 +22,6 @@ import { colors, touch, type } from '../theme';
 
 const WHAT = ['Broken spring', 'Tune-up', 'Opener', 'Off track', 'Cables', 'Estimate', 'Other'];
 const LENGTHS: ChipOption<number>[] = [30, 60, 90, 120].map((m) => ({ label: m < 60 ? `${m} min` : `${m / 60} hr`.replace('1.5 hr', '1½ hr'), value: m }));
-const ETAS = [15, 30, 45, 60];
 
 /** The next booked visit or two, at the top of Jobs. */
 export function NextVisits({ now = Date.now }: { now?: () => number }) {
@@ -140,20 +140,13 @@ function Visit({ a, now, business, onStatus, onMove, clash }: { a: Appointment; 
           </View>
           {textLink(a.phone, '') ? (
             eta ? (
-              <View style={styles.row}>
-                {ETAS.map((m) => (
-                  <Action
-                    key={m}
-                    label={`${m} min`}
-                    grow
-                    onPress={() => {
-                      setEta(false);
-                      Linking.openURL(textLink(a.phone, onMyWayText(a, business, m))!).catch(() => undefined);
-                    }}
-                    testID={`visit-eta-${m}-${a.id}`}
-                  />
-                ))}
-              </View>
+              <EtaPicker
+                testID={`visit-eta-${a.id}`}
+                onPick={(m) => {
+                  setEta(false);
+                  Linking.openURL(textLink(a.phone, onMyWayText(a, business, m))!).catch(() => undefined);
+                }}
+              />
             ) : (
               <View style={styles.row}>
                 <Action label="On my way" grow primary onPress={() => setEta(true)} testID={`visit-omw-${a.id}`} />

@@ -25,6 +25,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { houseOf, NoteTarget } from '../lib/odooNotes';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
+import { EtaPicker } from '../components/EtaPicker';
 import { colors, radius, shadow, touch, type } from '../theme';
 
 type Tab = 'overview' | 'work' | 'photos' | 'notes';
@@ -54,7 +55,8 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const { invoices, business } = useInvoices();
   const { appointments } = useSchedule();
   const [, tick] = useState(0);
-  const [etaPick, setEtaPick] = useState(false);
+  // Which text the minutes picker is for: the On my way button, or an ETA update.
+  const [etaPick, setEtaPick] = useState<false | 'omw' | 'eta'>(false);
   const [tab, setTab] = useState<Tab>('overview');
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30000);
@@ -77,8 +79,9 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
     log.info('job', `${job.id} step ${step}`);
     switch (step) {
       case 'onMyWay': {
-        setStep(job.id, 'onMyWayAt', now());
-        open(smsLink(job.phone, onMyWayText({ name: job.customer }, business, 15)));
+        // With a phone number, ask how many minutes away first; the step is marked when they pick.
+        if (smsLink(job.phone, '')) setEtaPick('omw');
+        else setStep(job.id, 'onMyWayAt', now());
         return;
       }
       case 'arrived':
@@ -121,24 +124,18 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       <View style={styles.row}>
         {tel ? <QuickAction icon="phone" label="Call" onPress={() => open(tel)} testID="job-call" /> : null}
         {smsLink(job.phone, '') ? <QuickAction icon="chat" label="Text" onPress={() => open(smsLink(job.phone, ''))} testID="job-text" /> : null}
-        {smsLink(job.phone, '') ? <QuickAction icon="clock" label="ETA" onPress={() => setEtaPick((v) => !v)} testID="job-eta" /> : null}
+        {smsLink(job.phone, '') ? <QuickAction icon="clock" label="ETA" onPress={() => setEtaPick((v) => (v === 'eta' ? false : 'eta'))} testID="job-eta" /> : null}
         {maps ? <QuickAction icon="pin" label="Directions" onPress={() => open(maps)} testID="job-directions" /> : null}
       </View>
       {etaPick ? (
-        <View style={styles.row}>
-          {[10, 15, 30, 45].map((m) => (
-            <Action
-              key={m}
-              label={`${m} min`}
-              grow
-              onPress={() => {
-                setEtaPick(false);
-                open(smsLink(job.phone, onMyWayText({ name: job.customer }, business, m, 'eta')));
-              }}
-              testID={`job-eta-${m}`}
-            />
-          ))}
-        </View>
+        <EtaPicker
+          testID={etaPick === 'omw' ? 'job-omw' : 'job-eta-pick'}
+          onPick={(m) => {
+            if (etaPick === 'omw') setStep(job.id, 'onMyWayAt', now());
+            setEtaPick(false);
+            open(smsLink(job.phone, onMyWayText({ name: job.customer }, business, m, etaPick === 'eta' ? 'eta' : undefined)));
+          }}
+        />
       ) : null}
 
       <View style={styles.statusRow} accessibilityRole="list" testID="job-steps">
