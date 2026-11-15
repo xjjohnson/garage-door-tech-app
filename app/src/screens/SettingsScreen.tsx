@@ -2,6 +2,7 @@ import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { useEffect, useRef, useState } from 'react';
+import { repaintRestart } from '../lib/useColorSchemeReload';
 import { Appearance, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Segmented, SectionTitle } from '../components/controls';
@@ -58,7 +59,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
     await saveThemePref(pref);
     // Screens draw their colors once, so restart the app's JS to repaint.
     const now = Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
-    if (now !== scheme) restart().catch(() => undefined);
+    if (now !== scheme) repaintRestart(now, restart).catch(() => undefined);
   };
 
   const check = async () => {
