@@ -128,8 +128,20 @@ describe('posting a move Odoo set to auto-post', () => {
       },
     };
     await postMove(c as never, 7);
-    expect(calls.map((x) => x[1])).toEqual(['action_post', 'write', 'action_post']);
-    expect(calls[1]![2]).toEqual([[7], { auto_post: 'no' }]);
+    expect(calls.map((x) => x[1])).toEqual(['read', 'action_post', 'read', 'write', 'action_post']);
+    expect(calls[3]![2]).toEqual([[7], { auto_post: 'no' }]);
+  });
+
+  it('switches it off before posting when the move is set to auto-post', async () => {
+    const calls: unknown[][] = [];
+    const c = {
+      call: async (model: string, method: string, args: unknown[]) => {
+        calls.push([model, method, args]);
+        return method === 'read' ? [{ auto_post: 'at_date' }] : true;
+      },
+    };
+    await postMove(c as never, 7);
+    expect(calls.map((x) => x[1])).toEqual(['read', 'write', 'action_post']);
   });
 });
 
