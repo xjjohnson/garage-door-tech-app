@@ -10,6 +10,7 @@ import { CustomerSheet } from './CustomerScreen';
 import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
+import { useCustomerCounts } from '../lib/useCustomerCounts';
 import { useJobs } from '../lib/useJobs';
 import { colors, radius, shadow, touch, type } from '../theme';
 
@@ -22,6 +23,7 @@ export function CustomersScreen() {
   const { customers, loaded, add } = useCustomers();
   const [adding, setAdding] = useState(false);
   const { jobs } = useJobs();
+  const odooCounts = useCustomerCounts();
   const [query, setQuery] = useState('');
   // The Add pill in the header opens the sheet.
   useEffect(() => onHeaderAdd(() => setAdding(true)), []);
@@ -73,31 +75,39 @@ export function CustomersScreen() {
         </Text>
       ) : null}
 
-      {shown.map(({ customer: c, jobs: theirs, openJobs, acceptedTotal, lastJobAt }) => (
-        <Pressable
-          key={c.id}
-          onPress={() => router.push({ pathname: '/customer/[id]', params: { id: c.id } })}
-          accessibilityRole="button"
-          testID={`customer-${c.id}`}
-          style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-        >
-          <Text style={styles.avatar}>{initials(customerName(c))}</Text>
-          <View style={styles.itemText}>
-            <Text style={styles.name} numberOfLines={1}>
-              {customerName(c)}
-            </Text>
-            {c.name && c.address ? <Text style={styles.detail} numberOfLines={1}>{c.address}</Text> : null}
-            {c.phone ? <Text style={styles.detail}>{c.phone}</Text> : null}
-            <Text style={styles.meta}>
-              {plural(theirs.length, 'job')}
-              {openJobs > 0 ? ` · ${openJobs} open` : ''}
-              {acceptedTotal > 0 ? ` · ${formatMoney(acceptedTotal)} accepted` : ''}
-              {lastJobAt ? ` · last ${formatJobDate(lastJobAt)}` : ''}
-            </Text>
-          </View>
-          {theirs.length >= 2 ? <Text style={styles.badge}>{theirs.length} VISITS</Text> : null}
-        </Pressable>
-      ))}
+      {shown.map(({ customer: c, jobs: theirs, openJobs, acceptedTotal, lastJobAt }) => {
+        // Linked to Odoo, the counts are Odoo's (plus any job still waiting to go there); otherwise the phone's own.
+        const odoo = c.odooId ? odooCounts[c.odooId] : undefined;
+        const waiting = odoo ? theirs.filter((j) => !j.odooJob && !j.odooOrder) : theirs;
+        const jobsN = odoo ? odoo.jobs + waiting.length : theirs.length;
+        const openN = odoo ? odoo.open + waiting.filter((j) => j.status === 'open').length : openJobs;
+        return (
+          <Pressable
+            key={c.id}
+            onPress={() => router.push({ pathname: '/customer/[id]', params: { id: c.id } })}
+            accessibilityRole="button"
+            testID={`customer-${c.id}`}
+            style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+          >
+            <Text style={styles.avatar}>{initials(customerName(c))}</Text>
+            <View style={styles.itemText}>
+              <Text style={styles.name} numberOfLines={1}>
+                {customerName(c)}
+              </Text>
+              {c.name && c.address ? <Text style={styles.detail} numberOfLines={1}>{c.address}</Text> : null}
+              {c.phone ? <Text style={styles.detail}>{c.phone}</Text> : null}
+              <Text style={styles.meta}>
+                {plural(jobsN, 'job')}
+                {openN > 0 ? ` · ${openN} open` : ''}
+                {odoo && odoo.quotes > 0 ? ` · ${plural(odoo.quotes, 'quote')}` : ''}
+                {!odoo && acceptedTotal > 0 ? ` · ${formatMoney(acceptedTotal)} accepted` : ''}
+                {!odoo && lastJobAt ? ` · last ${formatJobDate(lastJobAt)}` : ''}
+              </Text>
+            </View>
+            {jobsN >= 2 ? <Text style={styles.badge}>{jobsN} VISITS</Text> : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
