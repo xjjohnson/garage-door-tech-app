@@ -145,7 +145,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       return order;
     } catch (e) {
       // The invoice still goes; it just isn't tied to an order.
-      log.warn('odoo', `invoice ${invoice.number}: no sales order: ${message(e)}`);
+      log.warn('odoo', `invoice ${invoiceNo(invoice)}: no sales order: ${message(e)}`);
       return undefined;
     }
   };
@@ -164,7 +164,7 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
     if (invoice.voidedAt) {
       // Voided on the phone: undone in Odoo too (draft cancelled, or a credit note); nothing more is sent for it.
       if (state.voided) return state;
-      const { voided, refund, refundPaid } = await voidInvoice(c, state.id, `Voided in the app (invoice ${invoiceRef(invoice)})`);
+      const { voided, refund, refundPaid } = await voidInvoice(c, state.id, `Voided in the app (invoice ${invoiceNo(invoice)})`);
       const fresh = await readInvoice(c, state.id, state.sentPayments, now()).catch(() => state!);
       state = { ...fresh, ...(state.signatureSent ? { signatureSent: state.signatureSent } : {}), voided, ...(refund > 0 ? { refund } : {}), ...(refundPaid ? { refundPaid } : {}) };
       posted.set(invoice.id, state);
@@ -294,10 +294,10 @@ export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
         const fresh = latest.current.invoices.find((i) => i.id === inv.id) ?? inv;
         try {
           await latest.current.send(fresh);
-          log.info('odoo', `invoice ${fresh.number} synced`);
+          log.info('odoo', `invoice ${invoiceNo(fresh)} synced`);
         } catch (e) {
           failed.current.set(inv.id, now());
-          log.warn('odoo', `invoice ${fresh.number} not sent: ${message(e)}`);
+          log.warn('odoo', `invoice ${invoiceNo(fresh)} not sent: ${message(e)}`);
         }
       }
       // What Odoo says now about invoices already there: paid in Odoo, changed lines.

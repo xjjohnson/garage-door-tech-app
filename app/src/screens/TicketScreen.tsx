@@ -6,7 +6,7 @@ import { Action, NavRow } from '../components/Buttons';
 import { EstimatesPanel } from '../components/EstimatesPanel';
 import { ChipOption, ChipRow, MeasureField, SectionTitle, Segmented } from '../components/controls';
 import { useInvoiceOdoo, usePartner, useSalesOdoo } from '../components/OdooSales';
-import { Business, invoiceLabel, invoiceStatus, newId, PAY_LABEL, PAY_METHODS, payLinks, PayMethod } from '../lib/invoices';
+import { Business, invoiceLabel, invoiceNo, invoiceStatus, newId, PAY_LABEL, PAY_METHODS, payLinks, PayMethod } from '../lib/invoices';
 import { QrCode } from '../components/QrCode';
 import { awaitingPick, cancelDeclined, EstimateSet, markSignatureSent, openEstimates, pickEstimate, signEstimate } from '../lib/estimates';
 import { sendOrderSignature } from '../lib/odooSales';
@@ -208,7 +208,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         try {
           await invoiceOdoo.send(inv, { order: tied ? order : undefined });
         } catch (e) {
-          log.warn('ticket', `${job.id}: invoice ${inv.number} not sent to Odoo yet: ${message(e)}`);
+          log.warn('ticket', `${job.id}: invoice ${invoiceNo(inv)} not sent to Odoo yet: ${message(e)}`);
         }
       }
       router.push({ pathname: '/invoice/[id]', params: { id: inv.id } });

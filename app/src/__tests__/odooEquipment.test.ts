@@ -12,6 +12,11 @@ describe('soldEquipment', () => {
     expect(items[0].lines.some((l) => l.startsWith('Warranty on parts until Nov 14, 2027'))).toBe(true);
     expect(items[0].lines.some((l) => l.startsWith('Warranty on labor until Feb 12, 2027'))).toBe(true);
   });
+  it("uses Odoo's invoice number once the invoice is in Odoo", () => {
+    const items = soldEquipment(inv([line('Genie 2028 Opener')], { odoo: { id: 5, name: '26-11-06' } }), DEFAULT_FOLLOW_UP);
+    expect(items[0].lines[0]).toBe('Sold: Nov 14, 2026 (invoice 26-11-06)');
+    expect(items[0].lines.some((l) => l.includes('(invoice 26-11-06)'))).toBe(true);
+  });
   it('makes one per unit', () => {
     expect(soldEquipment(inv([line('Genie 2028 Opener', undefined, 2)]), DEFAULT_FOLLOW_UP).map((i) => i.name)).toEqual(['Genie 2028 Opener 1', 'Genie 2028 Opener 2']);
   });

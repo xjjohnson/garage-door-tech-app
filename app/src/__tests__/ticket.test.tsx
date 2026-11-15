@@ -546,7 +546,7 @@ describe('Ticket screen', () => {
     expect(calls.find((c) => c.model === 'account.move' && c.method === 'action_post')?.args).toEqual([[80]]);
     // No customer reference typed: none on the order, the invoice keeps "Invoice 1001".
     expect((calls.find((c) => c.model === 'sale.order' && c.method === 'create')!.args[0] as Row).client_order_ref).toBe(false);
-    expect((calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as Row).ref).toBe(`Invoice ${inv!.number}`);
+    expect((calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as Row).ref).toBe(false);
     expect(inv!.odoo).toMatchObject({ id: 80, name: 'INV/2026/00080' });
     expect(screen.queryByTestId('signature-sheet')).toBeNull();
     await fireEvent.press(screen.getByTestId('invoice-sign'));

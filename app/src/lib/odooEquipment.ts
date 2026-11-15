@@ -13,7 +13,7 @@
  * the equipment app is skipped quietly.
  */
 import { FollowUpSettings, warrantyFor, Warranty } from './followups';
-import { Invoice, trackKey } from './invoices';
+import { Invoice, invoiceNo, trackKey } from './invoices';
 import type { OdooClient } from './odoo';
 
 type Caller = Pick<OdooClient, 'call'>;
@@ -104,10 +104,10 @@ const MAX_PER_LINE = 6;
  * equipment" on the job's warranty card (one record per unit), with the
  * warranty picked for the job. Nothing is guessed from categories.
  */
-export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'lines' | 'createdAt' | 'warranty' | 'source' | 'tier'>, settings: FollowUpSettings): EquipmentItem[] {
+export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'odoo' | 'lines' | 'createdAt' | 'warranty' | 'source' | 'tier'>, settings: FollowUpSettings): EquipmentItem[] {
   const tracked = inv.warranty?.tracked ?? [];
   if (!tracked.length) return [];
-  const warranty = warrantyLines(warrantyFor(inv as Invoice, settings), inv.number);
+  const warranty = warrantyLines(warrantyFor(inv as Invoice, settings), invoiceNo(inv));
   const out: EquipmentItem[] = [];
   inv.lines.forEach((l, i) => {
     if (!tracked.includes(trackKey(l))) return;
@@ -117,7 +117,7 @@ export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'lines' | 'cr
         key: `${inv.id}:${i}:${u}`,
         name: units > 1 ? `${l.label} ${u + 1}` : l.label,
         ...(l.productId ? { productId: l.productId } : {}),
-        lines: [`Sold: ${dateOf(inv.createdAt)} (invoice ${inv.number})`, ...warranty],
+        lines: [`Sold: ${dateOf(inv.createdAt)} (invoice ${invoiceNo(inv)})`, ...warranty],
       });
     }
   });
