@@ -74,7 +74,7 @@ describe('time and miles screen', () => {
     const app = await renderApp('/tools');
     jest.setSystemTime(WED);
     await settle();
-    expect(screen.getByTestId('open-time-log')).toHaveTextContent('Time and miles');
+    expect(screen.getByTestId('open-time-log')).toHaveTextContent(/Time and miles/);
     await fireEvent.press(screen.getByTestId('open-time-log'));
     expect(app.getPathname()).toBe('/time-log');
     expect(screen.getByTestId('clock-status')).toHaveTextContent('Off the clock');

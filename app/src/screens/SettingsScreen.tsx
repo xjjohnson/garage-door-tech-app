@@ -1,10 +1,10 @@
-import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { useEffect, useRef, useState } from 'react';
 import { Appearance, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
-import { Segmented, SectionTitle } from '../components/controls';
+import { Segmented } from '../components/controls';
+import { Caption, IconRow, RowGroup } from '../components/ToolRows';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
 import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
@@ -76,9 +76,48 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         ? `Signed out. Last used ${odoo.saved.url}`
         : 'Not set up';
 
+  const who = signedIn ? odoo.client!.session.name || odoo.client!.session.login : '';
   return (
     <View style={styles.wrap}>
-      <SectionTitle first>App version</SectionTitle>
+      <RowGroup>
+        <IconRow
+          icon="users"
+          label={signedIn ? business.name || who : 'Sign in to Odoo'}
+          detail={signedIn ? `Signed in as ${who}. Tap for your profile` : odooLine}
+          href={signedIn ? '/profile' : '/team'}
+          testID="settings-odoo"
+          last
+        />
+      </RowGroup>
+
+      <Caption>Setup (owner)</Caption>
+      <RowGroup>
+        <IconRow icon="gear" label="Management" detail="Owner: job types, quote templates, parts, prices and checklists, saved to Odoo" href="/management" testID="settings-management" />
+        <IconRow icon="wrap" label="Inspection checklists" detail="The garage door and gate checklists, kept in Odoo as Surveys" href="/checklists" testID="settings-checklists" />
+        <IconRow
+          icon="users"
+          label="Your business"
+          detail={business.name ? `${business.name}: name, payment handles and review link` : 'Name, payment handles and review link for invoices'}
+          href="/business"
+          testID="settings-business"
+          last
+        />
+      </RowGroup>
+
+      <Caption>Appearance</Caption>
+      <Segmented<ThemePref>
+        testID="settings-theme"
+        options={[{ value: 'match', label: 'Match phone' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
+        value={themePref}
+        onChange={chooseTheme}
+      />
+
+      <Caption>This phone</Caption>
+      <RowGroup>
+        <IconRow icon="book" label="Back up or restore" detail="Save everything to a file, or read one back" href="/backup" testID="settings-backup" last />
+      </RowGroup>
+
+      <Caption>About</Caption>
       <Pressable onPress={tapVersion} accessibilityRole="text" style={styles.card} testID="settings-version">
         <Text style={styles.value} testID="build-info">
           {buildInfo}
@@ -94,31 +133,6 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
       {result === 'ready' ? (
         <Action label="Restart now" primary onPress={() => restart().catch(() => setRestartFailed(true))} testID="settings-restart" />
       ) : null}
-
-      <SectionTitle>Appearance</SectionTitle>
-      <Segmented<ThemePref>
-        testID="settings-theme"
-        options={[{ value: 'match', label: 'Match phone' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
-        value={themePref}
-        onChange={chooseTheme}
-      />
-
-      <SectionTitle>Business</SectionTitle>
-      <Link
-        label="Your business"
-        detail={business.name ? `${business.name}: name, payment handles and review link` : 'Name, payment handles and review link for invoices'}
-        href="/business"
-        testID="settings-business"
-      />
-      <Link label="Management" detail="Owner: job types, quote templates, parts and checklists, saved to Odoo" href="/management" testID="settings-management" />
-      <Link label="Inspection checklists" detail="The garage door and gate checklists, kept in Odoo as Surveys" href="/checklists" testID="settings-checklists" />
-      <Link label="Price book" detail="Odoo's prices, and your good / better / best estimate prices" href="/price-book" testID="settings-price-book" />
-
-      <SectionTitle>Odoo (team jobs)</SectionTitle>
-      <Link label={signedIn ? 'Odoo account' : 'Sign in to Odoo'} detail={odooLine} href="/team" testID="settings-odoo" />
-
-      <SectionTitle>Data on this phone</SectionTitle>
-      <Link label="Back up or restore" detail="Save everything to a file, or read one back" href="/backup" testID="settings-backup" />
     </View>
   );
 }
@@ -138,18 +152,6 @@ function Action({ label, onPress, primary, disabled, testID }: { label: string; 
   );
 }
 
-function Link({ label, detail, href, testID }: { label: string; detail: string; href: Href; testID: string }) {
-  return (
-    <Pressable onPress={() => router.push(href)} accessibilityRole="button" accessibilityHint={detail} testID={testID} style={({ pressed }) => [styles.link, pressed && styles.pressed]}>
-      <View style={styles.linkText}>
-        <Text style={styles.buttonText}>{label}</Text>
-        <Text style={styles.meta}>{detail}</Text>
-      </View>
-      <Text style={styles.chevron}>›</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
   card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: 12, backgroundColor: colors.card, gap: 4 },
@@ -161,7 +163,4 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.onSelected },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  link: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 8, backgroundColor: colors.card },
-  linkText: { flex: 1, gap: 2 },
-  chevron: { fontSize: type.big, fontWeight: '800', color: colors.text },
 });

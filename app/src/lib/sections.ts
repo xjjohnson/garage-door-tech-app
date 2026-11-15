@@ -9,7 +9,7 @@ export const SECTIONS = [
   { id: 'jobs', name: 'jobs', href: '/jobs', label: 'Jobs', title: 'Jobs', subtitle: 'Jobs and visits' },
   { id: 'customers', name: 'customers', href: '/customers', label: 'Customers', title: 'Customers', subtitle: 'Doors, history and contact' },
   { id: 'sales', name: 'sales', href: '/sales', label: 'Sales', title: 'Sales', subtitle: 'Owed, quotes and follow-ups' },
-  { id: 'tools', name: 'tools', href: '/tools', label: 'More', title: 'Tools', subtitle: 'Calculators, manuals and diagnose' },
+  { id: 'tools', name: 'tools', href: '/tools', label: 'More', title: 'Tools', subtitle: 'Calculators, manuals, day tools' },
 ] as const satisfies readonly { id: string; name: string; href: Href; label: string; title: string; subtitle: string }[];
 
 /**

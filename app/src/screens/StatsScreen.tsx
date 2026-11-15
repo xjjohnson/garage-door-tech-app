@@ -7,7 +7,7 @@ import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
 import { monthLabel, percent, PeriodStats } from '../lib/stats';
 import { useStats } from '../lib/useStats';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
 
 /** The short version, at the top of Jobs: open jobs, owed, and collected this week. Taps through to the full page. */
 export function StatsCard({ now = Date.now }: { now?: () => number }) {
@@ -118,7 +118,7 @@ function Line({ label, value, bold }: { label: string; value: string; bold?: boo
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  card: { flexDirection: 'row', gap: 8, padding: 10, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, minHeight: touch.bar },
+  card: { flexDirection: 'row', gap: 8, padding: 10, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, minHeight: touch.bar, ...shadow },
   row: { flexDirection: 'row', gap: 8 },
   tile: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, padding: 6 },
   tileValue: { fontSize: type.value, fontWeight: '800', color: colors.text },
