@@ -19,6 +19,7 @@ describe('Tools page layout', () => {
     expect(screen.getByTestId('tools-end-of-day')).toHaveTextContent('Wrap up the day');
     for (const id of ['tools-springs', 'tools-door-weight', 'tools-diagnose', 'tools-manuals']) expect(screen.getByTestId(id)).toBeTruthy();
     expect(screen.queryByTestId('tools-settings')).toBeNull();
+    expect(screen.queryByTestId('tools-team')).toBeNull();
     expect(screen.queryByTestId('stock-alert')).toBeNull();
     await fireEvent.press(screen.getByTestId('open-settings'));
     expect(app.getPathname()).toBe('/settings');

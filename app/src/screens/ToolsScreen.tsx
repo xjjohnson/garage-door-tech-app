@@ -50,8 +50,7 @@ export function ToolsScreen() {
       <RowGroup>
         <IconRow icon="tag" label="Price book" detail="Parts and labor prices" href="/price-book" testID="tools-price-book" />
         <IconRow icon="chart" label="Business numbers" detail="Sales, close rate, average ticket" href="/stats" testID="tools-stats" />
-        <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" />
-        <IconRow icon="users" label="Team (Odoo)" detail="Jobs from Odoo, dispatch" href="/team" testID="tools-team" last />
+        <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last />
       </RowGroup>
 
       <Text style={styles.version}>Version {SHORT_VERSION} · tap the gear for Settings</Text>
