@@ -228,6 +228,8 @@ describe('jobs in Odoo (logic)', () => {
     // FO4 is no longer mine and open; the started one stays for the job sync.
     expect(drop).toEqual(['odoo-4']);
     expect(whatOf(t(9, { notes: 'App job x' }))).toBe('FO9');
+    expect(whatOf(t(9, { notes: '--- Johnsons app ---\njohnsons-equipment:door-1\nWarranty on parts until Jan 1\n--- end ---' }))).toBe('FO9');
+    expect(whatOf(t(9, { notes: 'Opener noisy\n--- Johnsons app ---\njohnsons-equipment:x\n--- end ---' }))).toBe('Opener noisy');
   });
 
   it('counts open jobs not in Odoo yet', () => {

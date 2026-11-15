@@ -1,5 +1,5 @@
 import { requestSyncNow } from '../lib/syncNow';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
@@ -39,6 +39,7 @@ export function bookedText(t: Pick<OdooTask, 'customer' | 'name'>, tech: string,
   return `${hi}, it's ${business || 'Johnsons'}. ${first(tech) || 'Our tech'} is booked to come ${when} at ${formatTime(start)} for ${t.name}. Reply here if that time doesn't work.`;
 }
 
+const SHOWN = 5;
 const endOf = (t: OdooTask) => (t.start ?? 0) + (t.minutes ?? 60) * 60000;
 
 /**
@@ -56,22 +57,27 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<OdooTask | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  // Only the newest load may fill the board, so a slow earlier read can't put old data back.
+  const asked = useRef(0);
 
   const fail = (e: unknown) => setError(e instanceof OdooError ? e.message : "Couldn't talk to Odoo. Try again.");
 
   const load = useCallback(async () => {
     if (!client) return;
+    const n = ++asked.current;
     setBusy(true);
     setError(null);
     try {
       const [u, d, w] = await Promise.all([client.unassignedTasks(), client.jobsBetween(day, addDays(day, 1)), client.techs()]);
+      if (n !== asked.current) return;
       setOpen(u);
       setDayJobs(d);
       setTechs(w);
     } catch (e) {
-      fail(e);
+      if (n === asked.current) fail(e);
     } finally {
-      setBusy(false);
+      if (n === asked.current) setBusy(false);
     }
   }, [client, day]);
 
@@ -87,6 +93,14 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
       }),
     [techs, dayJobs],
   );
+
+  // Jobs for the chosen day first (by time), then the ones with no date or another day.
+  const unassigned = useMemo(() => {
+    const from = day;
+    const to = addDays(day, 1);
+    const rank = (x: OdooTask) => (x.start !== undefined && x.start >= from && x.start < to ? 0 : 1);
+    return [...(open ?? [])].sort((a, b) => rank(a) - rank(b) || (a.start ?? Infinity) - (b.start ?? Infinity) || a.id - b.id);
+  }, [open, day]);
 
   if (!client) return null;
   const me = client.session.me;
@@ -128,18 +142,19 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
       <View style={styles.unassigned} testID="dispatch-unassigned">
         <Text style={styles.h2}>Not assigned · {open?.length ?? '…'}</Text>
         {open && open.length === 0 ? <Text style={styles.cardSub}>Every open job has a worker.</Text> : null}
-        {(open ?? []).map((task) => (
+        {(showAll ? unassigned : unassigned.slice(0, SHOWN)).map((task) => (
           <View key={task.id} style={styles.card} testID={`dispatch-open-${task.id}`}>
             <View style={styles.grow}>
               <Text style={styles.cardTitle}>
                 {task.customer || task.name}
                 {task.customer ? ` · ${task.name}` : ''}
               </Text>
-              <Text style={styles.cardSub}>{[task.address, task.start ? `${dayLabel(task.start, t)} ${formatTime(task.start)}` : '', task.stage].filter(Boolean).join(' · ')}</Text>
+              <Text style={styles.cardSub}>{[task.address, task.start ? `${dayLabel(task.start, t)} ${formatTime(task.start)}` : 'No date', task.stage].filter(Boolean).join(' · ')}</Text>
             </View>
             <Action label="Assign" primary onPress={() => setPicking(task)} testID={`dispatch-assign-${task.id}`} />
           </View>
         ))}
+        {unassigned.length > SHOWN ? <Action label={showAll ? 'Show fewer' : `Show all ${unassigned.length}`} onPress={() => setShowAll((v) => !v)} testID="dispatch-show-all" /> : null}
       </View>
 
       {lanes.map(({ w, jobs, freeAt }) => (

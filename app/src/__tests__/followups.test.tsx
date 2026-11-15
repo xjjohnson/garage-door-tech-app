@@ -94,17 +94,17 @@ describe('follow-ups (plain logic)', () => {
 });
 
 describe('follow-ups in the app', () => {
-  it('shows what is due on Jobs, texts the customer, and marks it done', async () => {
+  it('shows what is due on Tools, texts the customer, and marks it done', async () => {
     const now = Date.now();
     const i = inv('1001', addMonths(now, -12) + 20 * DAY);
     await AsyncStorage.clear();
     await AsyncStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([i]));
     await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([{ id: 'c-1001', name: 'Pat Smith', phone: '555-123-4567', email: '', address: '', notes: '', createdAt: 1, updatedAt: 1 }]));
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
-    const app = await renderApp('/jobs');
+    const app = await renderApp('/tools');
     for (let k = 0; k < 5; k++) await act(async () => undefined);
-    expect(screen.getByTestId('open-followups')).toHaveTextContent('Follow-ups: 1 due');
-    await fireEvent.press(screen.getByTestId('open-followups'));
+    expect(screen.getByTestId('tools-followups')).toHaveTextContent(/1 due/);
+    await fireEvent.press(screen.getByTestId('tools-followups'));
     expect(app.getPathname()).toBe('/follow-ups');
     const id = followUpId('warranty', i);
     await fireEvent.press(screen.getByTestId(`followup-text-${id}`));

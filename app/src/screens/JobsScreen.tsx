@@ -1,4 +1,3 @@
-import { SyncNowButton } from '../components/SyncNowButton';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -12,12 +11,6 @@ import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoi
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { StatsCard } from './StatsScreen';
-import { NextVisits } from './ScheduleScreen';
-import { ClockButton } from './WorkLogScreen';
-import { StockButton } from './StockScreen';
-import { TeamButton } from './TeamScreen';
-import { followUps } from '../lib/followups';
-import { useFollowUps } from '../lib/useFollowUps';
 import { OdooJobsList } from '../components/OdooJobsList';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
@@ -58,13 +51,6 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   return (
     <View style={styles.stack}>
       <StatsCard />
-      <NextVisits />
-      <View style={styles.row}>
-        <ClockButton />
-        <StockButton />
-      </View>
-      <FollowUpsButton />
-      <SyncNowButton testID="jobs-sync-now" />
       <View style={styles.searchRow}>
         <TextInput
           value={query}
@@ -82,20 +68,6 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
             <Text style={styles.buttonText}>Clear</Text>
           </Pressable>
         ) : null}
-      </View>
-      <View style={styles.row}>
-        <Pressable onPress={() => router.navigate('/customers')} accessibilityRole="button" testID="open-customers" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
-          <Text style={styles.buttonText}>Customers</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/invoices')} accessibilityRole="button" testID="open-invoices" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
-          <Text style={styles.buttonText}>Invoices</Text>
-        </Pressable>
-      </View>
-      <View style={styles.row}>
-        <Pressable onPress={() => router.push('/price-book')} accessibilityRole="button" testID="open-price-book" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
-          <Text style={styles.buttonText}>Price book</Text>
-        </Pressable>
-        <TeamButton />
       </View>
       <Segmented options={FILTERS} value={filter} onChange={setFilter} testID="jobs-filter" />
 
@@ -147,18 +119,6 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         }}
       />
     </View>
-  );
-}
-
-/** Follow-ups due, with a count, above the list. */
-function FollowUpsButton() {
-  const { invoices, business } = useInvoices();
-  const { settings, dismissed } = useFollowUps();
-  const due = useMemo(() => followUps(invoices, settings, business, Date.now(), dismissed).filter((f) => f.due <= Date.now() + 7 * 24 * 3600 * 1000).length, [invoices, settings, business, dismissed]);
-  return (
-    <Pressable onPress={() => router.push('/follow-ups')} accessibilityRole="button" testID="open-followups" style={({ pressed }) => [styles.button, due > 0 && styles.due, pressed && styles.pressed]}>
-      <Text style={styles.buttonText}>{due > 0 ? `Follow-ups: ${due} due` : 'Follow-ups'}</Text>
-    </Pressable>
   );
 }
 

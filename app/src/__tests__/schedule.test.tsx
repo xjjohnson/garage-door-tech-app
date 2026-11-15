@@ -124,14 +124,13 @@ describe('schedule screen', () => {
     expect(screen.getByTestId('schedule-day')).toHaveTextContent('Tomorrow: 0 booked');
   });
 
-  it('shows the next visit on Jobs and warns about a clash when booking', async () => {
+  it('opens the schedule from Tools and warns about a clash when booking', async () => {
     await AsyncStorage.clear();
     const tomorrow = addDays(startOfDay(Date.now()), 1);
     await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt('a', at(tomorrow, 9))]));
-    const app = await renderApp('/jobs');
+    const app = await renderApp('/tools');
     await settle();
-    expect(screen.getByTestId('open-schedule')).toHaveTextContent(/Tomorrow 9:00 am · Pat Smith/);
-    await fireEvent.press(screen.getByTestId('open-schedule'));
+    await fireEvent.press(screen.getByTestId('tools-schedule'));
     expect(app.getPathname()).toBe('/schedule');
     await fireEvent.press(screen.getByTestId('schedule-book'));
     await fireEvent.changeText(screen.getByTestId('book-name'), 'Lee');

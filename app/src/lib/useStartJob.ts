@@ -4,7 +4,7 @@ import { DEFAULT_MATCH_FORM } from './forms';
 import { Job } from './jobs';
 import { log } from './log';
 import type { OdooTask } from './odoo';
-import type { OdooJobRef } from './odooJobs';
+import { cleanNotes, type OdooJobRef } from './odooJobs';
 import { Appointment } from './schedule';
 import { useJobs } from './useJobs';
 import { useOdoo } from './useOdoo';
@@ -54,7 +54,7 @@ export function useOpenOdooJob() {
   );
 }
 
-const firstLine = (t: string) => t.split('\n').map((l) => l.trim()).find((l) => l && !/^App job /.test(l)) ?? '';
+const firstLine = (t: string) => cleanNotes(t).split('\n')[0] ?? '';
 
 /**
  * Opens the job hub for a visit on the schedule, making the job the first

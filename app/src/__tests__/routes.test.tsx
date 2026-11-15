@@ -56,10 +56,10 @@ describe('screens and routes', () => {
   });
 
   it('opens the price book as its own page and goes back with Close', async () => {
-    const app = await renderApp('/jobs');
-    await fireEvent.press(screen.getByTestId('open-price-book'));
+    const app = await renderApp('/tools');
+    await fireEvent.press(screen.getByTestId('tools-price-book'));
     expect(app.getPathname()).toBe('/price-book');
     await fireEvent.press(screen.getByTestId('price-book-page-close'));
-    expect(app.getPathname()).toBe('/jobs');
+    expect(app.getPathname()).toBe('/tools');
   });
 });
