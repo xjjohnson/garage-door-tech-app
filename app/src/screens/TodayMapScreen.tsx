@@ -15,7 +15,7 @@ import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay } from '.
 import { retryGeocode, useGeocode } from '../lib/useGeocode';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
-import { useSchedule } from '../lib/useSchedule';
+import { useVisits } from '../lib/useVisits';
 import { useStartJob } from '../lib/useStartJob';
 import { colors, radius, shadow, touch, type } from '../theme';
 
@@ -64,7 +64,7 @@ export function routeStops(appointments: Appointment[], now: number, onDate: num
  * near the route. Tap a pin for Navigate (Google Maps or Waze) and the job.
  */
 export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
-  const { appointments } = useSchedule();
+  const appointments = useVisits();
   const { invoices } = useInvoices();
   const { client } = useOdoo();
   const startJob = useStartJob();

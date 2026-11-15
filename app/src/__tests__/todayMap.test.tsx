@@ -3,7 +3,9 @@ import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 import WebView from 'react-native-webview';
 import { addressKey, addressParts, cached, geocodeAddress, geoQueries, GEOCODE_STORAGE_KEY, GeoFetch, googleNavLink, googleSearchLink, googleRouteLink, lookUp, miles, MISS_RETRY_MS, nominatimUrl, parseCache, wazeNavLink } from '../lib/geocode';
+import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { INVOICES_STORAGE_KEY } from '../lib/invoices';
+import { createJob, JOBS_STORAGE_KEY } from '../lib/jobs';
 import { mapHtml, parseMapMessage, setDataScript } from '../lib/mapHtml';
 import { SCHEDULE_STORAGE_KEY } from '../lib/schedule';
 import { setGeocodeDeps } from '../lib/useGeocode';
@@ -227,6 +229,22 @@ describe('Today › Map', () => {
     expect(screen.getByTestId('map-day')).toHaveTextContent(/Tomorrow · 1 visit/);
     expect(screen.getByTestId('map-row-stop-v9')).toHaveTextContent(/1 · Dana Cruz/);
     expect(screen.queryByTestId('map-row-stop-v1')).toBeNull();
+  });
+
+  it('uses the address on the visit\'s job when the visit itself has none', async () => {
+    const [v1] = visits();
+    const job = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat Lee', address: '1 Elm St', phone: '', notes: '' }, { title: '' }, 1, 'j1');
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([{ ...v1, address: '', jobId: 'j1' }]));
+    await renderApp();
+    await settle();
+    await fireEvent.press(within(screen.getByTestId('today-view')).getByText('Map'));
+    await settle();
+    await act(async () => screen.getByTestId('map-webview').props.webProps.onMessage({ nativeEvent: { data: '{"type":"ready"}' } }));
+    await settle();
+    expect(screen.getByTestId('map-status')).not.toHaveTextContent(/no address/);
+    expect(nominatim.asked).toEqual(['1 Elm St']);
+    expect(injected.at(-1)!).toContain('"id":"stop-v1"');
   });
 
   it('lists addresses it could not place, with Google Maps and Try again', async () => {
