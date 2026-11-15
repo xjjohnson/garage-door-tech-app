@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Dock } from '../components/Page';
 import type { OdooClient } from '../lib/odoo';
@@ -81,13 +81,13 @@ export function ManagementScreen() {
   if (!signedIn || !client) return <Text style={styles.note} testID="manage-signin">Sign in to Odoo to manage these lists. They are kept in Odoo, not on this phone.</Text>;
   return (
     <View style={styles.stack} testID="manage">
-      <View style={styles.tabs} accessibilityRole="tablist">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} accessibilityRole="tablist" style={styles.tabScroll}>
         {TABS.map((t) => (
           <Pressable key={t.id} onPress={() => setTab(t.id)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }} testID={`manage-tab-${t.id}`} style={[styles.tab, tab === t.id && styles.tabOn]}>
             <Text style={[styles.tabText, tab === t.id && styles.tabTextOn]}>{t.label}</Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
       <Text style={styles.note} testID="manage-who">
         {owner === true ? 'Changes save straight to Odoo and every phone picks them up.' : owner === false ? 'Only the owner can change these. Ask the owner to make a change.' : 'Checking with Odoo...'}
       </Text>
@@ -172,7 +172,7 @@ function Row({ label, detail, onPress, testID }: { label: string; detail?: strin
 
 function AddButton({ label, onPress, testID, show }: { label: string; onPress: () => void; testID: string; show: boolean }) {
   return show ? (
-    <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={styles.primary}>
+    <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={styles.addPill}>
       <Text style={styles.primaryText}>{label}</Text>
     </Pressable>
   ) : null;
@@ -535,7 +535,8 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   warn: { fontSize: type.body, fontWeight: '700', color: colors.stop },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tabScroll: { flexGrow: 0, marginHorizontal: -16 },
+  tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
   tab: { minHeight: 44, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
   tabOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   tabText: { fontSize: 16, fontWeight: '800', color: colors.text },
@@ -543,7 +544,7 @@ const styles = StyleSheet.create({
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   field: { gap: 4 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: radius.field, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   multiline: { minHeight: 120, paddingTop: 12, textAlignVertical: 'top' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: touch.min, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 12, ...shadow },
   rowText: { flex: 1, gap: 2 },
@@ -553,7 +554,8 @@ const styles = StyleSheet.create({
   meta: { fontSize: 16, color: colors.muted },
   card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 10 },
   pick: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 14, backgroundColor: colors.card },
-  back: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  back: { alignSelf: 'flex-start', minHeight: 44, borderRadius: radius.pill, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  addPill: { alignSelf: 'flex-end', minHeight: 44, borderRadius: radius.pill, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   primary: { minHeight: touch.min, borderRadius: radius.card, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
   danger: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.stop, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },

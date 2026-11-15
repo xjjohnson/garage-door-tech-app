@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
+import { Icon } from '../components/Icon';
+import { onHeaderAdd } from '../lib/headerAdd';
 import { OdooCustomerSync } from '../components/OdooCustomerSync';
 import { customerName, EMPTY_CUSTOMER, searchCustomers, sortCustomers, summarize } from '../lib/customers';
 import { CustomerSheet } from './CustomerScreen';
@@ -9,7 +11,9 @@ import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
 import { useCustomers } from '../lib/useCustomers';
 import { useJobs } from '../lib/useJobs';
-import { colors, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type } from '../theme';
+
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -19,14 +23,13 @@ export function CustomersScreen() {
   const [adding, setAdding] = useState(false);
   const { jobs } = useJobs();
   const [query, setQuery] = useState('');
+  // The Add pill in the header opens the sheet.
+  useEffect(() => onHeaderAdd(() => setAdding(true)), []);
   const shown = useMemo(() => searchCustomers(sortCustomers(customers.map((c) => summarize(c, jobs))), query), [customers, jobs, query]);
 
   return (
     <View style={styles.stack} testID="customers">
       <OdooCustomerSync />
-      <Pressable onPress={() => setAdding(true)} accessibilityRole="button" testID="customers-add" style={({ pressed }) => [styles.add, pressed && styles.pressed]}>
-        {({ pressed }) => <Text style={[styles.buttonText, !pressed && styles.addText]}>+ Add customer</Text>}
-      </Pressable>
       <CustomerSheet
         visible={adding}
         title="Add customer"
@@ -39,6 +42,7 @@ export function CustomersScreen() {
         }}
       />
       <View style={styles.searchRow}>
+        <Icon name="search" size={20} color={colors.muted} />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -77,17 +81,21 @@ export function CustomersScreen() {
           testID={`customer-${c.id}`}
           style={({ pressed }) => [styles.item, pressed && styles.pressed]}
         >
-          <Text style={styles.name} numberOfLines={1}>
-            {customerName(c)}
-          </Text>
-          {c.name && c.address ? <Text style={styles.detail}>{c.address}</Text> : null}
-          {c.phone ? <Text style={styles.detail}>{c.phone}</Text> : null}
-          <Text style={styles.meta}>
-            {plural(theirs.length, 'job')}
-            {openJobs > 0 ? ` · ${openJobs} open` : ''}
-            {acceptedTotal > 0 ? ` · ${formatMoney(acceptedTotal)} accepted` : ''}
-            {lastJobAt ? ` · last ${formatJobDate(lastJobAt)}` : ''}
-          </Text>
+          <Text style={styles.avatar}>{initials(customerName(c))}</Text>
+          <View style={styles.itemText}>
+            <Text style={styles.name} numberOfLines={1}>
+              {customerName(c)}
+            </Text>
+            {c.name && c.address ? <Text style={styles.detail} numberOfLines={1}>{c.address}</Text> : null}
+            {c.phone ? <Text style={styles.detail}>{c.phone}</Text> : null}
+            <Text style={styles.meta}>
+              {plural(theirs.length, 'job')}
+              {openJobs > 0 ? ` · ${openJobs} open` : ''}
+              {acceptedTotal > 0 ? ` · ${formatMoney(acceptedTotal)} accepted` : ''}
+              {lastJobAt ? ` · last ${formatJobDate(lastJobAt)}` : ''}
+            </Text>
+          </View>
+          {theirs.length >= 2 ? <Text style={styles.badge}>{theirs.length} VISITS</Text> : null}
         </Pressable>
       ))}
     </View>
@@ -95,31 +103,21 @@ export function CustomersScreen() {
 }
 
 const styles = StyleSheet.create({
-  add: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.selected },
-  addText: { color: colors.onSelected },
   stack: { gap: 12 },
-  searchRow: { flexDirection: 'row', gap: 8 },
-  search: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 64,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingHorizontal: 14,
-    fontSize: type.value,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  clear: { minHeight: 64, minWidth: touch.min + 16, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, paddingLeft: 14, paddingRight: 6 },
+  search: { flex: 1, minWidth: 0, minHeight: 56, fontSize: type.body, fontWeight: '700', color: colors.text },
+  clear: { minHeight: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.info },
   count: { fontSize: 16, fontWeight: '700', color: colors.muted },
   empty: { padding: 14, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
-  name: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  item: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, ...shadow },
+  avatar: { width: 42, height: 42, borderRadius: 21, textAlign: 'center', textAlignVertical: 'center', lineHeight: 42, overflow: 'hidden', fontSize: 15, fontWeight: '800', color: colors.selected, backgroundColor: colors.info },
+  itemText: { flex: 1, gap: 1 },
+  name: { fontSize: 18, fontWeight: '800', color: colors.text },
+  detail: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  meta: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  badge: { fontSize: 12, fontWeight: '800', letterSpacing: 0.4, color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
   pressed: { backgroundColor: colors.info },
-  buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
+  buttonText: { fontSize: 15, fontWeight: '800', color: colors.selected, textAlign: 'center' },
 });

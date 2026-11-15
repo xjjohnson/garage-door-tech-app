@@ -166,4 +166,20 @@ describe('Customers in the app', () => {
     await fireEvent.press(screen.getByTestId('job-customer-j1'));
     expect(app.getPathname()).toMatch(/^\/customer\//);
   });
+
+  it('shows a repeat badge in the list and starts a job from the customer page with them filled in', async () => {
+    await AsyncStorage.setItem(
+      JOBS_STORAGE_KEY,
+      JSON.stringify([job('j1', { customer: 'Ann Smith', address: '12 Oak St', phone: '555-123-4567' }, 100), job('j2', { customer: 'Ann Smith', address: '40 Elm Rd', phone: '555-123-4567' }, 200)]),
+    );
+    const app = await renderApp('/customers');
+    await settle();
+    const [ann] = parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY));
+    expect(screen.getByTestId(`customer-${ann.id}`)).toHaveTextContent(/AS.*2 VISITS/);
+    await fireEvent.press(screen.getByTestId(`customer-${ann.id}`));
+    await fireEvent.press(screen.getByTestId('customer-new-job'));
+    expect(app.getPathname()).toBe('/new-job');
+    await settle();
+    expect(screen.getByTestId('new-job-name').props.value).toBe('Ann Smith');
+  });
 });
