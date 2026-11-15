@@ -114,7 +114,7 @@ describe('schedule screen', () => {
     expect(screen.getByTestId('schedule-day')).toHaveTextContent('Tomorrow: 1 booked');
 
     await fireEvent.press(screen.getByTestId(`visit-omw-${a.id}`));
-    await fireEvent.press(screen.getByTestId(`visit-eta-30-${a.id}`));
+    await fireEvent.press(screen.getByTestId(`visit-eta-${a.id}-30`));
     expect(open).toHaveBeenLastCalledWith(expect.stringMatching(/^sms:5551234567\?body=Hi%20Pat.*30%20minutes/));
     await fireEvent.press(screen.getByTestId(`visit-maps-${a.id}`));
     expect(open).toHaveBeenLastCalledWith(expect.stringContaining('query=1%20Oak%20St'));

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Invoice, invoiceNo, invoiceRef, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
 import { onSyncNow } from '../lib/syncNow';
-import { EmailResult, emailedText, emailInvoice, partnerEmail, PdfFile } from '../lib/odooReports';
+import { EmailResult, emailedText, emailInvoice, jobTarget, partnerEmail, PdfFile, sendReport } from '../lib/odooReports';
 import { pdfName, signedPageHtml } from '../lib/pdf';
 import { Signature, signatureFor } from '../lib/attachments';
 import { formatJobDate } from '../lib/jobs';
@@ -419,7 +419,14 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
       // Before and after photos from the job, when the phone has any.
       if (job && media?.pdfBase64) {
         const html = await beforeAfterReportHtml(job, attachments, media, business, { reference: o.name });
-        if (html) files.push({ name: pdfName('Before and after photos', invoice.billTo), base64: await media.pdfBase64(html) });
+        if (html) {
+          const file = { name: pdfName('Before and after photos', invoice.billTo), base64: await media.pdfBase64(html) };
+          files.push(file);
+          // Also keep it in the job's notes in Odoo (best effort), so it's there even if the email isn't.
+          if (job.odooJob) {
+            await sendReport(client, jobTarget(job.odooJob), file.name, file.base64, `Before and after photos for invoice ${o.name}.`).catch((e) => log.warn('odoo', `photo report to the job's notes: ${message(e)}`));
+          }
+        }
       }
       const r = await emailInvoice(client, o.id, pid, files);
       setEmailed(r);

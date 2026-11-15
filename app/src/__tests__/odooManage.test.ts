@@ -1,4 +1,4 @@
-import { archiveTech, listTechs, saveTech, saveTruck, truckSource, archivePart, listParts, loadQuoteTemplate, saveJobType, savePart, saveQuoteTemplate } from '../lib/odooManage';
+import { archiveTech, archiveTruck, listTruckEdits, listTechs, saveTech, saveTruck, truckSource, archivePart, listParts, loadQuoteTemplate, saveJobType, savePart, saveQuoteTemplate } from '../lib/odooManage';
 
 type Call = [string, string, unknown[], Record<string, unknown>?];
 function fake(answers: Record<string, unknown> = {}) {
@@ -22,7 +22,7 @@ describe('management editing saves straight to Odoo', () => {
   it('creates and updates a job type with its Odoo job type', async () => {
     const c = fake();
     expect(await saveJobType(c, { name: ' Opener ', instructions: 'Check the safety eyes', minutes: 90, typeId: 4 })).toBe(55);
-    expect(c.calls.find((x) => x[1] === 'create')![2][0]).toEqual({ name: 'Opener', instructions: 'Check the safety eyes', duration: 1.5, type_id: 4 });
+    expect(c.calls.find((x) => x[1] === 'create')![2][0]).toEqual({ name: 'Opener', instructions: '<p>Check the safety eyes</p>', duration: 1.5, type_id: 4 });
     const c2 = fake();
     await saveJobType(c2, { id: 9, name: 'Opener', instructions: '', minutes: 0 });
     expect(c2.calls.at(-1)).toEqual(['fsm.template', 'write', [[9], { name: 'Opener', instructions: '', duration: 0, type_id: false }], undefined]);
@@ -84,6 +84,19 @@ describe('techs and trucks save straight to Odoo', () => {
     await archiveTech(c, 3);
     expect(c.calls.at(-1)).toEqual(['fsm.person', 'write', [[3], { active: false }], undefined]);
     await expect(saveTech(c, { name: ' ', phone: '', email: '' })).rejects.toThrow('name');
+  });
+
+  it('lists vehicles without filtering on an active field this Odoo does not have', async () => {
+    const v = fake({ 'fsm.vehicle.fields_get': { name: {}, person_id: {} }, 'fsm.vehicle.search_read': [{ id: 1, name: 'Truck 1' }] });
+    expect(await listTruckEdits(v, 'vehicle')).toEqual([{ id: 1, name: 'Truck 1', personId: undefined, locationId: undefined }]);
+    expect(v.calls.find((x) => x[0] === 'fsm.vehicle' && x[1] === 'search_read')![2][0]).toEqual([]);
+    await expect(archiveTruck(v, 'vehicle', 1)).rejects.toThrow(/can't be archived/);
+  });
+
+  it('saves job type instructions as simple HTML and reads them back as plain text', async () => {
+    const c = fake({ 'fsm.template.fields_get': { name: {}, instructions: {} } });
+    await saveJobType(c, { name: 'Door estimate', instructions: 'Check springs\nQuote <b>it</b>', minutes: 0 });
+    expect(c.calls.find((x) => x[1] === 'create')![2][0]).toMatchObject({ instructions: '<p>Check springs</p><p>Quote &lt;b&gt;it&lt;/b&gt;</p>' });
   });
 
   it('saves a truck as a Field Service vehicle, or as an Inventory location without them', async () => {

@@ -32,14 +32,17 @@ export function methodOf(p: { memo?: unknown; payment_method_line_id?: unknown; 
   return undefined;
 }
 
-const iso = (ms: number) => {
+export const iso = (ms: number) => {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 /** Customer payments dated the day of `dayStart` (ms), totalled by method. */
 export async function odooPaymentsFor(client: Client, dayStart: number): Promise<OdooPayTotals> {
-  const domain = [['payment_type', '=', 'inbound'], ['partner_type', '=', 'customer'], ['state', 'in', ['in_process', 'paid']], ['date', '=', iso(dayStart)]];
+  // Dated today, or made in the app today: older app builds dated a payment by its UTC day, which an evening payment
+  // (local time) lands a day late, so the time it was made is checked too.
+  const utc = (ms: number) => new Date(ms).toISOString().replace('T', ' ').slice(0, 19);
+  const domain = [['payment_type', '=', 'inbound'], ['partner_type', '=', 'customer'], ['state', 'in', ['in_process', 'paid']], '|', ['date', '=', iso(dayStart)], '&', ['create_date', '>=', utc(dayStart)], ['create_date', '<', utc(dayStart + 24 * 3600 * 1000)]];
   const fields = ['amount', 'memo', 'journal_id', 'payment_method_line_id'];
   let rows: Record<string, unknown>[];
   try {

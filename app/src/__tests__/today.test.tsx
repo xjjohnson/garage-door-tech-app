@@ -60,7 +60,11 @@ describe('new job and the job hub', () => {
 
     expect(screen.getByTestId('job-step-onMyWay').props.accessibilityLabel).toBe('On my way, next');
     await fireEvent.press(screen.getByTestId('job-next'));
-    expect(openURL).toHaveBeenCalledWith(expect.stringMatching(/^sms:5552223333\?body=Hi%20Sam/));
+    // It asks how many minutes away first: pick from the list, or Custom and type any number.
+    await fireEvent.press(screen.getByTestId('job-omw-custom'));
+    await fireEvent.changeText(screen.getByTestId('job-omw-custom-input'), '25');
+    await fireEvent.press(screen.getByTestId('job-omw-custom-send'));
+    expect(openURL).toHaveBeenCalledWith(expect.stringMatching(/^sms:5552223333\?body=Hi%20Sam.*25%20minutes/));
     expect(screen.getByTestId('job-step-onMyWay').props.accessibilityLabel).toBe('On my way, done');
 
     await fireEvent.press(screen.getByTestId('job-next'));
