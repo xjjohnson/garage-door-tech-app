@@ -2,6 +2,9 @@ import { router, usePathname } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import * as Updates from 'expo-updates';
 import { Icon } from '../../components/Icon';
+import { SyncPill } from '../../components/SyncNowButton';
+import { useSchedule } from '../../lib/useSchedule';
+import { onDay } from '../../lib/schedule';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +31,11 @@ export default function TabsLayout() {
   const tool = TOOL_PAGES.find((t) => t.href === pathname);
   const current = tool ?? SECTIONS.find((s) => s.href === pathname) ?? SECTIONS[0];
   const lit = tool ? 'tools' : current.id;
-  const subtitle = current.id === 'today' ? dateLine(Date.now()) : current.subtitle;
+  const { appointments } = useSchedule();
+  const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
+  const subtitle = current.id === 'today' ? `${dateLine(Date.now())} · ${visits === 0 ? 'no visits' : `${visits} visit${visits === 1 ? '' : 's'}`}` : current.subtitle;
+  // Today and Jobs carry their own action in the header, as in the approved screens; the version stays in sight and opens Settings.
+  const action = !tool && current.id === 'today' ? <SyncPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : null;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
@@ -47,18 +54,29 @@ export default function TabsLayout() {
           </Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
-        <Pressable
-          onPress={() => router.push('/settings')}
-          accessibilityRole="button"
-          accessibilityLabel={`Settings, app ${SHORT_VERSION}`}
-          testID="open-settings"
-          style={({ pressed }) => [styles.settings, pressed && styles.headPressed]}
-        >
-          <Text style={styles.settingsText}>Settings</Text>
-          <Text style={styles.version} testID="header-version">
-            {SHORT_VERSION}
-          </Text>
-        </Pressable>
+        {action ? (
+          <View style={styles.actionCol}>
+            {action}
+            <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel={`Settings, app ${SHORT_VERSION}`} testID="open-settings" hitSlop={10}>
+              <Text style={styles.versionLink} testID="header-version">
+                {SHORT_VERSION} · Settings
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => router.push('/settings')}
+            accessibilityRole="button"
+            accessibilityLabel={`Settings, app ${SHORT_VERSION}`}
+            testID="open-settings"
+            style={({ pressed }) => [styles.settings, pressed && styles.headPressed]}
+          >
+            <Text style={styles.settingsText}>Settings</Text>
+            <Text style={styles.version} testID="header-version">
+              {SHORT_VERSION}
+            </Text>
+          </Pressable>
+        )}
       </View>
       {/* The runtime version is the installed APK's app.json version (appVersion policy). */}
       <ApkUpdateBanner manifestUrl={APK_MANIFEST_URL} currentVersion={Updates.runtimeVersion} />
@@ -97,6 +115,15 @@ export default function TabsLayout() {
   );
 }
 
+function NewJobPill() {
+  return (
+    <Pressable onPress={() => router.push('/new-job')} accessibilityRole="button" testID="jobs-new-job" style={({ pressed }) => [styles.newJob, pressed && styles.headPressed]}>
+      <Icon name="plus" size={16} color={colors.onHead} />
+      <Text style={styles.settingsText}>New job</Text>
+    </Pressable>
+  );
+}
+
 const ICONS = { today: 'clock', jobs: 'wrench', customers: 'users', sales: 'dollar', tools: 'gear' } as const;
 
 const MARK = require('../../../assets/brand/mark.png');
@@ -113,6 +140,9 @@ const styles = StyleSheet.create({
   settings: { minHeight: touch.min - 8, minWidth: touch.min + 16, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   settingsText: { fontSize: 15, fontWeight: '800', color: colors.onHead },
   version: { fontSize: 12, fontWeight: '700', color: colors.onHead, opacity: 0.85 },
+  actionCol: { alignItems: 'flex-end', gap: 4 },
+  newJob: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: touch.min - 12, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)' },
+  versionLink: { fontSize: 12, fontWeight: '700', color: colors.onHead, opacity: 0.85 },
   headPressed: { backgroundColor: 'rgba(255,255,255,0.35)' },
   sheet: { flex: 1, marginTop: -18, backgroundColor: colors.bg, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
   nav: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6, paddingBottom: 4 },

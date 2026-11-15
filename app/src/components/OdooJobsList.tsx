@@ -8,6 +8,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { VisitCard } from './VisitCard';
 import { Text } from './AppText';
 import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
@@ -34,7 +35,7 @@ export function parseSavedJobs(raw: string | null): { rows: OdooTask[]; at: numb
   }
 }
 
-export function OdooJobsList({ filter, search, now = Date.now }: { filter: 'open' | 'done' | 'all'; search: string; now?: () => number }) {
+export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { filter: 'open' | 'done' | 'all'; search: string; /** When given, only jobs the phone has an unpaid invoice for. */ owedJobIds?: Set<string>; now?: () => number }) {
   const { client } = useOdoo();
   const { jobs } = useJobs();
   const openJob = useOpenOdooJob();
@@ -108,21 +109,23 @@ export function OdooJobsList({ filter, search, now = Date.now }: { filter: 'open
       ) : null}
       {(rows ?? []).map((t) => {
         const phoneJob = jobs.find((j) => j.odooJob?.id === t.id);
+        if (owedJobIds && !(phoneJob && owedJobIds.has(phoneJob.id))) return null;
         const when = t.start ?? t.deadline;
+        const started = !!phoneJob?.steps?.arrivedAt;
+        const stage = t.stage || 'New';
         return (
-          <Pressable key={t.id} onPress={() => openJob(t)} accessibilityRole="button" testID={`odoo-job-${t.id}`} style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
-            <View style={styles.headTop}>
-              <Text style={styles.name} numberOfLines={1}>
-                {t.customer || t.name}
-              </Text>
-              {t.stage ? <Text style={styles.badge}>{t.stage.toUpperCase()}</Text> : null}
-            </View>
-            {t.address ? <Text style={styles.address}>{t.address}</Text> : null}
-            <Text style={styles.answer}>{whatOf(t)}</Text>
-            <Text style={styles.meta}>
-              {[t.name, when !== undefined ? `${dayLabel(when, t0)} ${formatTime(when)}` : 'No date', phoneJob?.steps?.arrivedAt ? 'Started on this phone' : ''].filter(Boolean).join(' · ')}
-            </Text>
-          </Pressable>
+          <VisitCard
+            key={t.id}
+            top={t.name}
+            chip={started ? 'In progress' : stage}
+            tone={started ? 'on' : 'plain'}
+            name={t.customer || t.name}
+            address={t.address}
+            what={whatOf(t)}
+            note={when !== undefined ? `${dayLabel(when, t0)} ${formatTime(when)}` : 'No date'}
+            onPress={() => openJob(t)}
+            testID={`odoo-job-${t.id}`}
+          />
         );
       })}
       {more ? (

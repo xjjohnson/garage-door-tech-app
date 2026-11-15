@@ -573,7 +573,7 @@ describe('the Jobs tab, signed in to Odoo', () => {
     await act(async () => router.navigate('/jobs'));
     await settle();
 
-    expect(screen.getByTestId('odoo-job-600')).toHaveTextContent(/Atx.*9 Elm St, Austin 78701.*Help door trapped.*FO0001/);
+    expect(screen.getByTestId('odoo-job-600')).toHaveTextContent(/FO0001.*Atx.*9 Elm St, Austin 78701.*Help door trapped/);
     // Open is the default filter: the done one isn't listed.
     expect(screen.queryByTestId('odoo-job-601')).toBeNull();
     expect(screen.queryByTestId('jobs-empty')).toBeNull();

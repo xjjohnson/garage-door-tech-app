@@ -1,20 +1,16 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
-import { SyncNowButton } from '../components/SyncNowButton';
+import { ChipTone, VisitCard } from '../components/VisitCard';
 import { lastCrash } from '../lib/crash';
-import { followUps } from '../lib/followups';
-import { balance, invoiceStatus } from '../lib/invoices';
 import { jobName } from '../lib/jobs';
 import { jobSteps, nextStep, STEP_LABEL } from '../lib/jobSteps';
 import { log } from '../lib/log';
 import { canSendJobs, cleanNotes, olderJobs } from '../lib/odooJobs';
 import { describePending } from '../lib/pending';
-import { formatMoney } from '../lib/prices';
-import { Appointment, formatTime, mapsLink, onDay } from '../lib/schedule';
-import { useFollowUps } from '../lib/useFollowUps';
+import { Appointment, formatTime, onDay } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useLog } from '../lib/useLog';
@@ -27,32 +23,29 @@ import { useStartJob } from '../lib/useStartJob';
 import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, radius, shadow, touch, type } from '../theme';
+import { colors } from '../theme';
 
 const CRASH_SEEN_KEY = 'crash/seen';
 
 /**
- * Today: the next visit with what to do about it, the rest of the day, jobs
- * under way, and what needs the tech (money owed, follow-ups). The line at
- * the top says whether everything is in Odoo.
+ * Today (the approved 0.9 screen): one card per visit of the day, in time
+ * order, each with its status (Done, On the way, Working, Scheduled), the
+ * customer, the address, what the work is and the weather there. The next
+ * visit has an accent outline. Notices (not in Odoo yet, older jobs, an app
+ * error) show only when there is something to say. Sync now is in the header.
  */
 export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   const { appointments } = useSchedule();
   const { jobs } = useJobs();
-  const { invoices, business } = useInvoices();
-  const { settings, dismissed } = useFollowUps();
+  const { invoices } = useInvoices();
   const startJob = useStartJob();
   const t = now();
 
-  const today = useMemo(() => onDay(appointments, t).filter((a) => a.status === 'booked'), [appointments, t]);
-  const left = today.filter((a) => a.start + a.minutes * 60000 > t);
-  const next = left[0];
-  const later = left.slice(1);
-  const earlier = today.filter((a) => !left.includes(a));
-  const underway = jobs.filter((j) => j.status === 'open' && (j.steps?.onMyWayAt || j.steps?.arrivedAt) && !(next?.jobId === j.id));
-  const owed = invoices.filter((i) => ['unpaid', 'partial'].includes(invoiceStatus(i)));
-  const owedTotal = owed.reduce((n, i) => n + balance(i), 0);
-  const due = followUps(invoices, settings, business, t, dismissed).filter((f) => f.due <= t).length;
+  const today = useMemo(() => onDay(appointments, t).filter((a) => a.status !== 'cancelled'), [appointments, t]);
+  const next = today.find((a) => a.status === 'booked' && a.start + a.minutes * 60000 > t);
+  // Jobs started on the phone with no visit today still belong on the list.
+  const loose = jobs.filter((j) => j.status === 'open' && (j.steps?.onMyWayAt || j.steps?.arrivedAt) && !today.some((a) => a.jobId === j.id));
+  const booked = today.filter((a) => a.status === 'booked');
 
   // Weather for each stop, when there's signal and the address is on the map. Nothing shows otherwise.
   const { points } = useGeocode(useMemo(() => today.map((a) => a.address), [today]));
@@ -61,22 +54,24 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
     const p = points[a.address.trim()];
     return p ? summarize(hoursFor(hours[weatherKey(p)] ?? [], a.start, a.minutes)) : null;
   };
-  const worst = left.map(weatherOf).filter((w): w is Summary => !!w && w.warn)[0];
+  const worst = booked.map(weatherOf).filter((w): w is Summary => !!w && w.warn)[0];
+
+  const statusOf = (a: Appointment): { label: string; tone: ChipTone } => {
+    const job = a.jobId ? jobs.find((j) => j.id === a.jobId) : undefined;
+    if (a.status === 'done' || job?.status === 'done') return { label: 'Done', tone: 'plain' };
+    if (job?.steps?.arrivedAt) return { label: 'Working', tone: 'on' };
+    if (job?.steps?.onMyWayAt) return { label: 'On the way', tone: 'on' };
+    return { label: 'Scheduled', tone: 'plain' };
+  };
 
   return (
     <View style={styles.stack} testID="today">
       <SyncLine />
-      <SyncNowButton />
       <OlderJobsLine />
       <CrashNotice />
-      <View style={styles.row}>
-        <Text style={[styles.count, styles.grow]} testID="today-count">
-          {today.length === 0
-            ? 'Nothing booked today'
-            : `${today.length} visit${today.length === 1 ? '' : 's'} today${earlier.length > 0 ? (left.length === 0 ? ' · all past' : ` · ${left.length} left`) : ''}`}
-        </Text>
-        <Action label="+ New job" primary onPress={() => router.push('/new-job')} testID="today-new-job" />
-      </View>
+      <Text style={styles.count} testID="today-count">
+        {today.length === 0 ? 'Nothing booked today' : `${today.length} visit${today.length === 1 ? '' : 's'} today${today.length > booked.length ? ` · ${today.length - booked.length} done` : ''}`}
+      </Text>
 
       {worst ? (
         <Text style={styles.weatherDay} testID="today-weather-day">
@@ -84,110 +79,50 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
         </Text>
       ) : null}
 
-      {next ? <NextCard a={next} weather={weatherOf(next)} onStart={() => startJob(next)} jobHasStarted={!!jobs.find((j) => j.id === next.jobId)?.steps?.arrivedAt} /> : null}
+      {today.map((a) => {
+        const st = statusOf(a);
+        const w = weatherOf(a);
+        const isNext = a === next;
+        return (
+          <VisitCard
+            key={a.id}
+            top={formatTime(a.start).toUpperCase()}
+            chip={st.label}
+            tone={st.tone}
+            name={a.name}
+            address={a.address}
+            what={a.what ? cleanNotes(a.what).split('\n')[0] : ''}
+            weather={w ? weatherText(w) : undefined}
+            weatherTestID={`weather-${a.id}`}
+            warn={!!w?.warn}
+            next={isNext}
+            muted={st.label === 'Done'}
+            onPress={() => startJob(a)}
+            testID={isNext ? 'today-next' : `today-visit-${a.id}`}
+          />
+        );
+      })}
 
-      {underway.length > 0 ? (
-        <View style={styles.list}>
-          <Text style={styles.h2}>Under way</Text>
-          {underway.map((j) => {
-            const st = nextStep(jobSteps(j, invoices));
-            const visit = appointments.find((a) => a.jobId === j.id);
-            const where = [visit ? formatTime(visit.start) : '', j.address].filter(Boolean).join(' · ');
-            return (
-              <Pressable key={j.id} onPress={() => router.push({ pathname: '/job/[id]', params: { id: j.id } })} accessibilityRole="button" testID={`today-job-${j.id}`} style={({ pressed }) => [styles.line, pressed && styles.pressed]}>
-                <View style={styles.grow}>
-                  <Text style={styles.lineTitle}>{jobName(j)}{j.what ? ` · ${cleanNotes(j.what).split('\n')[0]}` : ''}</Text>
-                  {where ? <Text style={styles.lineSub}>{where}</Text> : null}
-                  <Text style={styles.lineSub}>{st ? `Next: ${STEP_LABEL[st.id]}` : 'Finished'}</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
+      {loose.map((j) => {
+        const st = nextStep(jobSteps(j, invoices));
+        return (
+          <VisitCard
+            key={j.id}
+            top="Started"
+            chip={j.steps?.arrivedAt ? 'Working' : 'On the way'}
+            tone="on"
+            name={jobName(j)}
+            address={j.customer ? j.address : ''}
+            what={[j.what ? cleanNotes(j.what).split('\n')[0] : '', st ? `Next: ${STEP_LABEL[st.id]}` : 'Finished'].filter(Boolean).join(' · ')}
+            onPress={() => router.push({ pathname: '/job/[id]', params: { id: j.id } })}
+            testID={`today-job-${j.id}`}
+          />
+        );
+      })}
 
-      {later.length > 0 ? (
-        <View style={styles.list}>
-          <Text style={styles.h2}>Later today</Text>
-          {later.map((a) => (
-            <Pressable key={a.id} onPress={() => startJob(a)} accessibilityRole="button" testID={`today-visit-${a.id}`} style={({ pressed }) => [styles.line, pressed && styles.pressed]}>
-              <Text style={styles.time}>{formatTime(a.start)}</Text>
-              <View style={styles.grow}>
-                <Text style={styles.lineTitle}>{a.name}{a.what ? ` · ${cleanNotes(a.what).split('\n')[0]}` : ''}</Text>
-                {a.address ? <Text style={styles.lineSub}>{a.address}</Text> : null}
-                <WeatherLine w={weatherOf(a)} id={a.id} />
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {earlier.length > 0 ? (
-        <View style={styles.list}>
-          <Text style={styles.h2}>Earlier today</Text>
-          {earlier.map((a) => (
-            <Pressable key={a.id} onPress={() => startJob(a)} accessibilityRole="button" testID={`today-past-${a.id}`} style={({ pressed }) => [styles.line, styles.past, pressed && styles.pressed]}>
-              <Text style={styles.time}>{formatTime(a.start)}</Text>
-              <View style={styles.grow}>
-                <Text style={styles.lineTitle}>{a.name}{a.what && cleanNotes(a.what) ? ` · ${cleanNotes(a.what).split('\n')[0]}` : ''}</Text>
-                {a.address ? <Text style={styles.lineSub}>{a.address}</Text> : null}
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {today.length === 0 ? (
-        <Action label="Open the schedule" onPress={() => router.push('/schedule')} testID="today-schedule" />
-      ) : null}
-
-      <View style={styles.tiles}>
-        <Tile big={formatMoney(owedTotal)} label={owed.length ? `Owed · ${owed.length} invoice${owed.length === 1 ? '' : 's'}` : 'Nothing owed'} warn={owed.length > 0} onPress={() => router.navigate('/sales')} testID="today-owed" />
-        <Tile big={String(due)} label={due === 1 ? 'Follow-up due' : 'Follow-ups due'} onPress={() => router.push('/follow-ups')} testID="today-followups" />
-      </View>
+      {today.length === 0 && loose.length === 0 ? <Action label="Open the schedule" onPress={() => router.push('/schedule')} testID="today-schedule" /> : null}
       <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" />
     </View>
-  );
-}
-
-function NextCard({ a, weather, onStart, jobHasStarted }: { a: Appointment; weather: Summary | null; onStart: () => void; jobHasStarted: boolean }) {
-  const maps = mapsLink(a.address);
-  return (
-    <View style={styles.next} testID="today-next">
-      <Text style={styles.nextBand}>NEXT · {formatTime(a.start).toUpperCase()}</Text>
-      <View style={styles.nextBody}>
-        <Text style={styles.nextTitle}>
-          {a.name}
-          {a.what && cleanNotes(a.what) ? ` · ${cleanNotes(a.what).split('\n')[0]}` : ''}
-        </Text>
-        {a.address ? <Text style={styles.nextSub}>{a.address}</Text> : null}
-        <WeatherLine w={weather} id={a.id} />
-      </View>
-      <View style={[styles.row, styles.nextButtons]}>
-        {maps ? <Action label="Navigate" grow onPress={() => Linking.openURL(maps).catch(() => undefined)} testID="today-navigate" /> : null}
-        <Action label={jobHasStarted || a.jobId ? 'Open job' : 'Start job'} primary grow onPress={onStart} testID="today-start" />
-      </View>
-    </View>
-  );
-}
-
-/** One line of weather for a visit: warns in a stronger color for rain, snow, storms and extreme temperatures. */
-function WeatherLine({ w, id }: { w: Summary | null; id: string }) {
-  if (!w) return null;
-  return (
-    <Text style={[styles.weather, w.warn && styles.weatherWarn]} testID={`weather-${id}`}>
-      {weatherText(w)}
-    </Text>
-  );
-}
-
-function Tile({ big, label, onPress, warn, testID }: { big: string; label: string; onPress: () => void; warn?: boolean; testID: string }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.tile, warn && styles.tileWarn, pressed && styles.pressed]}>
-      <Text style={styles.tileBig}>{big}</Text>
-      <Text style={styles.tileLabel}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -203,13 +138,7 @@ export function SyncLine() {
       </Pressable>
     );
   }
-  if (pending.total === 0) {
-    return (
-      <Text style={[styles.sync, styles.syncOk]} testID="today-sync">
-        ✓ Odoo up to date: jobs, visits, customers, quotes and invoices
-      </Text>
-    );
-  }
+  if (pending.total === 0) return null;
   return (
     <Pressable onPress={() => router.push('/odoo-waiting')} accessibilityRole="button" accessibilityHint="Shows what's waiting, with Sync now" testID="today-sync" style={({ pressed }) => [styles.syncPill, styles.syncWarn, pressed && styles.pressed]}>
       <Text style={styles.sync}>Not in Odoo yet: {describePending(pending)} · See and sync ›</Text>
@@ -277,35 +206,12 @@ function CrashNotice() {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 14 },
+  stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  grow: { flex: 1 },
-  count: { fontSize: 17, fontWeight: '800', color: colors.muted },
-  h2: { fontSize: 19, fontWeight: '800', color: colors.text, marginBottom: 2 },
-  list: { gap: 10 },
-  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 10, ...shadow },
-  time: { width: 76, fontSize: 17, fontWeight: '800', color: colors.text },
-  lineTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  lineSub: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  chevron: { fontSize: type.big, fontWeight: '800', color: colors.text },
-  pressed: { backgroundColor: colors.info },
-  past: { opacity: 0.75 },
-  next: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, ...shadow },
-  nextBand: { alignSelf: 'flex-start', backgroundColor: colors.selected, color: colors.onSelected, marginTop: 14, marginLeft: 14, paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.pill, overflow: 'hidden', fontSize: 13, fontWeight: '800', letterSpacing: 0.6 },
-  nextBody: { padding: 14, gap: 4 },
-  nextTitle: { fontSize: 23, fontWeight: '800', color: colors.text },
-  nextSub: { fontSize: 17, fontWeight: '600', color: colors.muted },
-  nextButtons: { paddingHorizontal: 14, paddingBottom: 14 },
-  weather: { fontSize: 15, fontWeight: '700', color: colors.muted },
-  weatherWarn: { color: colors.stop, fontWeight: '800' },
+  count: { fontSize: 16, fontWeight: '700', color: colors.muted },
   weatherDay: { fontSize: 16, fontWeight: '800', color: colors.stop },
-  tiles: { flexDirection: 'row', gap: 10 },
-  tile: { flex: 1, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 2, minHeight: touch.min, ...shadow },
-  tileWarn: { backgroundColor: colors.warnBg },
-  tileBig: { fontSize: 26, fontWeight: '800', color: colors.text },
-  tileLabel: { fontSize: 15, fontWeight: '800', color: colors.text },
+  pressed: { backgroundColor: colors.info },
   sync: { fontSize: 15, fontWeight: '800', color: colors.muted },
-  syncOk: { color: colors.ok },
   syncPill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.card },
   syncWarn: { backgroundColor: colors.warnBg },
   crash: { borderWidth: 1.5, borderColor: colors.stop, borderRadius: 12, padding: 12, gap: 10 },
