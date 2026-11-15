@@ -266,7 +266,8 @@ export async function voidInvoice(client: OdooClient, id: number, reason: string
     credit = ((await client.call('account.move', 'search_read', [[['reversed_entry_id', '=', id], ['state', '!=', 'cancel']]], { fields: ['id', 'name', 'state'], limit: 1 })) as { id: number; name?: string; state?: string }[])[0];
     if (!credit) throw new Error("Odoo didn't make the credit note.");
   }
-  if (credit.state === 'draft') await client.call('account.move', 'action_post', [[credit.id]]);
+  // A credit note dated ahead is set to auto-post in Odoo, which refuses a manual post: postMove switches that off.
+  if (credit.state === 'draft') await postMove(client, credit.id);
   if ((r.amount_residual ?? 0) > 0) {
     // Set the credit note against the invoice, like Odoo's "Add" on its outstanding credits.
     const lines = (await client.call('account.move.line', 'search', [[['move_id', '=', credit.id], ['account_type', '=', 'asset_receivable'], ['reconciled', '=', false]]], { limit: 1 })) as number[];
