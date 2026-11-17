@@ -76,7 +76,7 @@ export function matchItem(line: QuoteLine, items: StockItem[], sheet: PriceSheet
 /** The picked option's lines for a job, with its inspection repairs. */
 export function pickedLines(job: Job, sheet: PriceSheet, tier: Tier): QuoteLine[] {
   const q = withRepairs(buildQuote(job, sheet), job.inspection, sheet, job.quoteLines);
-  return q.options.find((o) => o.tier === tier && o.available)?.lines ?? [];
+  return (q.options.find((o) => o.tier === tier && o.available)?.lines ?? []).filter((l) => !l.display);
 }
 
 export function pickList(appointments: Appointment[], jobs: Job[], items: StockItem[], sheet: PriceSheet, now: number): PickList {

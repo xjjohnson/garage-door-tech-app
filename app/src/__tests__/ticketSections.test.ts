@@ -1,6 +1,7 @@
+import { fetchTemplates, parseTemplates, templateQuote } from '../lib/odooTemplates';
 import { sendInvoice } from '../lib/odooSales';
 import { withOdoo } from '../lib/invoices';
-import { addItem, addText, addTyped, EMPTY_TICKET, setPlan, signedNow, syncTicket, Ticket, TicketPlan, toInvoiceLines } from '../lib/ticket';
+import { addItem, addText, addTyped, EMPTY_TICKET, setPlan, signedNow, syncTicket, Ticket, TicketPlan, toInvoiceLines, addOption } from '../lib/ticket';
 import { canMove, groupIntoLaborAndParts, moveLine, moveToSection, orderLines, renameLine, sectionOf, sectionTotals, signKey } from '../lib/ticketSections';
 
 const SPRING = { id: 1, name: 'Spring', code: '', cents: 10000, kind: 'material' as const, category: [], description: '' };
@@ -199,5 +200,32 @@ describe('sections on the invoice', () => {
     expect(state.lines!.map((l) => l.display ?? 'line')).toEqual(['section', 'line', 'note']);
     const inv = withOdoo({ lines: [], subtotal: 0, tax: 0, total: 0 } as never, state);
     expect(inv.lines.map((l) => l.display ?? 'line')).toEqual(['section', 'line', 'note']);
+  });
+});
+
+describe('template sections', () => {
+  it('come in from Odoo templates as headings and notes, and onto the ticket in place', async () => {
+    const client = {
+      call: jest.fn(async (model: string) => {
+        if (model === 'sale.order.template') return [{ id: 1, name: 'Opener · Good' }];
+        if (model === 'sale.order.template.line')
+          return [
+            { sale_order_template_id: [1, 'x'], display_type: 'line_section', name: 'Opener', sequence: 1 },
+            { sale_order_template_id: [1, 'x'], product_id: [11, 'Chain'], name: 'Chain drive opener', product_uom_qty: 1, display_type: false, sequence: 2 },
+            { sale_order_template_id: [1, 'x'], display_type: 'line_note', name: 'Includes two remotes', sequence: 3 },
+            { sale_order_template_id: [1, 'x'], display_type: 'line_section', name: '  ', sequence: 4 },
+          ];
+        if (model === 'product.product') return [{ id: 11, lst_price: 300, taxes_id: [], display_name: 'Chain' }];
+        throw new Error(model);
+      }),
+    };
+    const sets = await fetchTemplates(client);
+    expect(sets.opener.tiers.good!.map((l) => l.display ?? 'line')).toEqual(['section', 'line', 'note']);
+    expect(parseTemplates(JSON.stringify(sets))).toEqual(sets);
+    const option = templateQuote(sets.opener, { taxPercent: '0' } as never).options[0];
+    expect(option.subtotal).toBe(30000);
+    let n = 0;
+    const t = addOption(EMPTY_TICKET, option, {}, () => `x${n++}`);
+    expect(t.lines.map((l) => `${l.kind}:${l.name}`)).toEqual(['section:Opener', 'service:Chain drive opener', 'note:Includes two remotes']);
   });
 });

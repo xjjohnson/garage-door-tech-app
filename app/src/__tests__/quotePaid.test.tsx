@@ -49,7 +49,8 @@ describe('quotation templates', () => {
       }),
     };
     const sets = await fetchTemplates(client);
-    const good = [{ productId: 11, label: 'Chain drive opener', qty: 1, unitCents: 30000, taxable: false }, { productId: 12, label: 'Labor', qty: 2, unitCents: 7500, taxable: true }];
+    // The template's section heading now comes through, in place (0.5.151).
+    const good = [{ productId: 11, label: 'Chain drive opener', qty: 1, unitCents: 30000, taxable: false }, { productId: 0, label: 'Section', qty: 1, unitCents: 0, taxable: false, display: 'section' }, { productId: 12, label: 'Labor', qty: 2, unitCents: 7500, taxable: true }];
     expect(sets).toEqual({
       opener: { type: 'Opener', tiers: { good } },
       'template: opener · good': { type: 'Opener · Good', tiers: { good }, plain: true },

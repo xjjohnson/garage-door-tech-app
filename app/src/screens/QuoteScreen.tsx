@@ -375,8 +375,8 @@ function OptionCard({ option, accepted, onAccept }: { option: QuoteOption; accep
       )}
       {option.lines.map((l, i) => (
         <View key={i} style={styles.line}>
-          <Text style={styles.lineLabel}>{l.label}</Text>
-          <Text style={styles.lineValue}>{l.cents > 0 ? formatMoney(l.cents) : '—'}</Text>
+          <Text style={[styles.lineLabel, l.display === 'section' && { fontWeight: '800' }]}>{l.label}</Text>
+          {l.display ? null : <Text style={styles.lineValue}>{l.cents > 0 ? formatMoney(l.cents) : '—'}</Text>}
         </View>
       ))}
       {option.tax > 0 ? (
