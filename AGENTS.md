@@ -36,4 +36,5 @@ Garage door tech app ("Johnsons", brand green #002D04). Expo / React Native phon
 Flag only real bugs: Odoo sync or queue conflicts, data loss, calculation regressions, and rule breaks above. Skip style and formatting.
 
 ## PRs
-Branch from main, one PR per task, tests in the same PR. The "Tests" check on the PR is the gate; Justin tests and merges himself.
+Branch from main. **Ship one bigger PR per feature, not many small ones**: Justin tests after large batches merge. Tests go in the same PR.
+The "Tests" check is the gate. `.github/workflows/auto-merge.yml` turns on squash auto-merge for non-draft PRs, so a PR merges itself once Tests pass. Merges to main reach the beta channel only; never send an update to production (that is a manual run of the APK workflow by Justin). Use a draft PR for work that isn't ready to merge.
