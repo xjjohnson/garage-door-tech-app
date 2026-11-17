@@ -8,7 +8,7 @@ import { DayStrip } from '../components/DayStrip';
 import { formatMiles, googleNavLink, googleRouteLink, googleSearchLink, miles, Point, wazeNavLink } from '../lib/geocode';
 import { balance, invoiceLabel, invoiceStatus } from '../lib/invoices';
 import { phoneLink } from '../lib/jobs';
-import { MapData, mapHtml, MapPin, parseMapMessage, PinKind, setDataScript } from '../lib/mapHtml';
+import { DAY_COLORS, MapData, mapHtml, MapPin, parseMapMessage, PinKind, setDataScript } from '../lib/mapHtml';
 import { OdooError, OdooPlace } from '../lib/odoo';
 import { formatMoney } from '../lib/prices';
 import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay } from '../lib/schedule';
@@ -39,6 +39,11 @@ export interface Place {
   phone: string;
   appointment?: Appointment;
   customerId?: string;
+  /** What the pin says: the weekday, when the map shows the whole week. */
+  pinLabel?: string;
+  color?: string;
+  /** On a day other than the one picked. */
+  dim?: boolean;
 }
 
 /** Today's stops in time order, numbered, and which one is next. */
@@ -59,7 +64,8 @@ export function routeStops(appointments: Appointment[], now: number, onDate: num
 }
 
 /**
- * Today on a map: the day's stops as numbered pins joined in order, and,
+ * The week on a map: every day's stops as pins that say their weekday, in
+ * that day's colour (the picked day bold, joined in order), and,
  * with Show nearby, customers who owe money ($) or have an open quote (Q)
  * near the route. Tap a pin for Navigate (Google Maps or Waze) and the job.
  */
@@ -80,6 +86,20 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
   const [picked, setPicked] = useState(days[0]);
   const counts = days.map((d) => onDay(appointments, d).filter((a) => a.status !== 'cancelled').length);
   const stops = useMemo(() => routeStops(appointments, t, picked), [appointments, t, picked]);
+  // The whole week on the map: every day's stops, each pin saying its weekday in that day's colour.
+  const weekStops = useMemo(
+    () =>
+      days.flatMap((d, i) =>
+        routeStops(appointments, t, d).map<Place>((p) => ({
+          ...p,
+          pinLabel: new Date(d).toLocaleDateString('en-US', { weekday: 'short' }),
+          color: DAY_COLORS[i % DAY_COLORS.length],
+          dim: d !== picked,
+        })),
+      ),
+    [appointments, t, days, picked],
+  );
+  const stopDay = (id: string) => days.find((d) => routeStops(appointments, t, d).some((s) => s.id === id));
 
   useEffect(() => {
     if (!nearby || !client) {
@@ -130,7 +150,7 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
     return [...fromPhone, ...fromOdoo].slice(0, 60);
   }, [nearby, invoices, odooPlaces]);
 
-  const addresses = useMemo(() => [...stops.map((s) => s.address), ...extras.filter((e) => !e.at).map((e) => e.address)], [stops, extras]);
+  const addresses = useMemo(() => [...weekStops.map((s) => s.address), ...extras.filter((e) => !e.at).map((e) => e.address)], [stops, extras]);
   const { points, waiting } = useGeocode(addresses);
   const pointOf = useCallback((p: Place & { at?: Point }) => p.at ?? points[p.address.trim()] ?? undefined, [points]);
 
@@ -140,7 +160,8 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
     if (!p) return false;
     return stopPoints.length === 0 || stopPoints.some((s) => miles(s, p) <= NEARBY_MILES);
   });
-  const all: Place[] = [...stops, ...shownExtras];
+  const listed: Place[] = [...stops, ...shownExtras];
+  const all: Place[] = [...weekStops, ...shownExtras];
   // Addresses the map couldn't place exactly: not found at all, or only by ZIP.
   const problems = [...stops, ...extras.filter((e) => !e.at)].flatMap((p) => {
     const v = p.address.trim() ? points[p.address.trim()] : undefined;
@@ -156,7 +177,9 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
   const [ready, setReady] = useState(false);
   const pins: MapPin[] = all.flatMap((p) => {
     const at = pointOf(p);
-    return at ? [{ id: p.id, lat: at.lat, lon: at.lon, label: p.label, kind: p.kind, ...(at.approx ? { approx: true } : {}) }] : [];
+    return at
+      ? [{ id: p.id, lat: at.lat, lon: at.lon, label: p.pinLabel ?? p.label, kind: p.kind, ...(p.color ? { color: p.color } : {}), ...(p.dim ? { dim: true } : {}), ...(at.approx ? { approx: true } : {}) }]
+      : [];
   });
   const pinKey = pins.map((p) => p.id).join(',');
   const lastFit = useRef('');
@@ -175,7 +198,12 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
       lastFit.current = '';
       setReady(true);
     } else if (m.type === 'offline') setOffline(true);
-    else setSelected(m.id);
+    else {
+      setSelected(m.id);
+      // A pin from another day switches the strip and the list to that day.
+      const day = stopDay(m.id);
+      if (day !== undefined) setPicked(day);
+    }
   };
 
   const sel = all.find((p) => p.id === selected) ?? null;
@@ -283,9 +311,9 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
 
       {stops.length === 0 ? <Text style={styles.note}>Nothing booked this day. Turn on Show nearby to see who owes money or has an open quote.</Text> : null}
       <View>
-        {all.map((p) => (
+        {listed.map((p) => (
           <Pressable key={p.id} onPress={() => setSelected(p.id)} accessibilityRole="button" accessibilityState={{ selected: p.id === selected }} testID={`map-row-${p.id}`} style={({ pressed }) => [styles.line, p.id === selected && styles.lineOn, pressed && styles.pressed]}>
-            <View style={[styles.dot, dotStyle[p.kind]]}>
+            <View style={[styles.dot, dotStyle[p.kind], p.color && p.kind !== 'done' ? { backgroundColor: p.color, borderColor: p.color } : null]}>
               <Text style={[styles.dotText, (p.kind === 'next' || p.kind === 'stop') && styles.dotTextLight]}>{p.label}</Text>
             </View>
             <View style={styles.grow}>
