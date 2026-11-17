@@ -124,6 +124,25 @@ export async function houseAtAddress(c: Caller, partnerId: number, address: stri
   return theirs.find((l) => [l.street, l.name].some((v) => typeof v === 'string' && squashStreet(v.split(',')[0]) === key))?.id;
 }
 
+/**
+ * The house a job is at. With an address on the job, only a location at that
+ * street counts: the customer's location there, or the job's own order
+ * location when it is at that street. Never the customer's other houses
+ * (a property manager's job at one house must not show another house's visits).
+ * Without an address, the location its Odoo order is at.
+ */
+export async function houseForJob(c: Caller, partnerId: number | undefined, address: string | undefined, orderId: number): Promise<number | undefined> {
+  const key = squashStreet(addressParts((address ?? '').trim()).street);
+  if (!key) return houseOfOrder(c, orderId);
+  const at = partnerId ? await houseAtAddress(c, partnerId, address!) : undefined;
+  if (at) return at;
+  const own = await houseOfOrder(c, orderId);
+  if (!own) return undefined;
+  const [l] = (await c.call('fsm.location', 'read', [[own]], { fields: ['name', 'street'] })) as { name?: unknown; street?: unknown }[];
+  const here = [l?.street, l?.name].some((v) => typeof v === 'string' && squashStreet(v.split(',')[0]) === key);
+  return here ? own : undefined;
+}
+
 /** Equipment on file and past visits at one house (the job being opened is left out). */
 export async function fetchHouseHistory(c: Caller, locationId: number, exceptOrderId?: number, now: number = Date.now(), limit = 12): Promise<HouseHistory> {
   const [eqFields, orderFields] = await Promise.all([fieldsOf(c, 'fsm.equipment'), fieldsOf(c, 'fsm.order')]);

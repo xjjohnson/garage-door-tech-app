@@ -1,4 +1,4 @@
-import { badgeText, fetchCustomerBadge, fetchHouseHistory, houseAtAddress, isRepeat, readEquipmentNotes, warrantyStatus } from '../lib/odooHouse';
+import { badgeText, fetchCustomerBadge, fetchHouseHistory, houseAtAddress, houseForJob, isRepeat, readEquipmentNotes, warrantyStatus } from '../lib/odooHouse';
 
 const NOW = Date.UTC(2026, 10, 14, 12);
 
@@ -112,5 +112,22 @@ describe('badge text', () => {
   it('is a repeat customer from two visits', () => {
     expect(isRepeat({ visits: 1 })).toBe(false);
     expect(isRepeat({ visits: 2 })).toBe(true);
+  });
+});
+
+describe('houseForJob', () => {
+  const mk = (locs: Record<number, { name: string; street: string }>, orderLoc: number) =>
+    ({
+      session: { kind: 'oca' },
+      call: async (model: string, method: string, args: unknown[]) => {
+        if (model === 'fsm.location' && method === 'search_read') return Object.entries(locs).map(([id, l]) => ({ id: Number(id), ...l }));
+        if (model === 'fsm.location' && method === 'read') return [locs[(args[0] as number[])[0]]];
+        if (model === 'fsm.order' && method === 'read') return [{ location_id: [orderLoc, 'x'] }];
+        return [];
+      },
+    }) as never;
+  it('does not fall back to the order\'s location when it is at a different house', async () => {
+    const c = mk({ 2: { name: '912 Rockmoor Dr', street: '912 Rockmoor Dr' } }, 2);
+    expect(await houseForJob(c, 5, '11011 Bluff Bend Drive, Austin, TX 78753', 40)).toBeUndefined();
   });
 });
