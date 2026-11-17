@@ -358,8 +358,10 @@ export function removeLine(t: Ticket, id: string): Ticket {
  */
 export function addOption(t: Ticket, option: QuoteOption, links: Record<string, OdooLink>, ids: () => string): Ticket {
   const add = option.lines
-    .filter((l) => l.cents > 0)
+    .filter((l) => l.cents > 0 || l.display)
     .map((l): TicketLine => {
+      // A template's own section headings and notes come in as headings and notes, in place.
+      if (l.display) return { id: ids(), name: l.label, qty: 1, unitCents: 0, kind: l.display };
       const qty = l.qty && l.qty > 0 ? l.qty : 1;
       const productId = (l.key ? links[l.key]?.id : undefined) ?? l.productId;
       return { id: ids(), name: l.label, qty, unitCents: Math.round(l.cents / qty), kind: l.taxable ? 'material' : 'service', ...(productId ? { productId } : {}) };

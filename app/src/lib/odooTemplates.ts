@@ -19,7 +19,12 @@ export interface TemplateLine {
   /** Price each, cents. */
   unitCents: number;
   taxable: boolean;
+  /** A section heading or note in the template (label is its text; no product, no price). */
+  display?: 'section' | 'note';
 }
+
+/** A template line as a quote line: headings and notes carry no price and keep their place. */
+const toQuoteLine = (l: TemplateLine): QuoteLine => (l.display ? { label: l.label, cents: 0, taxable: false, display: l.display } : { label: l.qty !== 1 ? `${l.label} × ${l.qty}` : l.label, cents: Math.round(l.unitCents * l.qty), taxable: l.taxable, productId: l.productId, ...(l.qty !== 1 ? { qty: l.qty } : {}) });
 
 /** Templates by job type (lower case), then tier. */
 export type TemplateSets = Record<string, { type: string; tiers: Partial<Record<Tier, TemplateLine[]>>; plain?: boolean }>;
@@ -48,15 +53,17 @@ export async function fetchTemplates(client: Pick<OdooClient, 'call'>): Promise<
     fields: ['sale_order_template_id', 'product_id', 'name', 'product_uom_qty', 'display_type', 'sequence'],
     order: 'sequence asc, id asc',
   })) as Record<string, unknown>[];
-  const real = lines.filter((l) => !l.display_type && many2one(l.product_id));
-  const productIds = [...new Set(real.map((l) => many2one(l.product_id)))];
+  const text = (l: Record<string, unknown>) => l.display_type === 'line_section' || l.display_type === 'line_note';
+  const real = lines.filter((l) => (!l.display_type && many2one(l.product_id)) || (text(l) && typeof l.name === 'string' && l.name.trim()));
+  const productIds = [...new Set(real.filter((l) => !text(l)).map((l) => many2one(l.product_id)))];
   const products = productIds.length ? ((await client.call('product.product', 'read', [productIds], { fields: ['lst_price', 'taxes_id', 'display_name'] })) as Record<string, unknown>[]) : [];
   const byId = new Map(products.map((p) => [p.id as number, p]));
 
   const toLines = (id: number): TemplateLine[] =>
     real
       .filter((l) => many2one(l.sale_order_template_id) === id)
-      .map((l) => {
+      .map((l): TemplateLine => {
+        if (text(l)) return { productId: 0, label: String(l.name).trim(), qty: 1, unitCents: 0, taxable: false, display: l.display_type === 'line_note' ? 'note' : 'section' };
         const pid = many2one(l.product_id);
         const p = byId.get(pid);
         const qty = typeof l.product_uom_qty === 'number' && l.product_uom_qty > 0 ? l.product_uom_qty : 1;
@@ -92,7 +99,7 @@ export function templateQuote(set: TemplateSets[string], sheet: Pick<PriceSheet,
     const t = set.tiers[tier];
     if (!t || t.length === 0) return { tier, available: false, reason: `No "${set.type} · ${TIER_LABEL[tier]}" template in Odoo`, springCount: 0, lines: [], subtotal: 0, tax: 0, total: 0 };
     const lines: QuoteLine[] = [
-      ...t.map((l) => ({ label: l.qty !== 1 ? `${l.label} × ${l.qty}` : l.label, cents: Math.round(l.unitCents * l.qty), taxable: l.taxable, productId: l.productId, ...(l.qty !== 1 ? { qty: l.qty } : {}) })),
+      ...t.map(toQuoteLine),
       ...extra,
     ];
     const subtotal = lines.reduce((n, l) => n + l.cents, 0);
@@ -118,7 +125,7 @@ export function parseTemplates(raw: string | null): TemplateSets {
         tiers[tier] = lines.flatMap((l): TemplateLine[] => {
           const y = l as Record<string, unknown>;
           return typeof y.productId === 'number' && typeof y.label === 'string'
-            ? [{ productId: y.productId, label: y.label, qty: typeof y.qty === 'number' ? y.qty : 1, unitCents: typeof y.unitCents === 'number' ? y.unitCents : 0, taxable: y.taxable === true }]
+            ? [{ productId: y.productId, label: y.label, qty: typeof y.qty === 'number' ? y.qty : 1, unitCents: typeof y.unitCents === 'number' ? y.unitCents : 0, taxable: y.taxable === true, ...(y.display === 'section' || y.display === 'note' ? { display: y.display } : {}) }]
             : [];
         });
       }
@@ -160,11 +167,11 @@ export function springTemplateQuote(springs: Quote, set: TemplateSets[string], s
       let springDone = false;
       const lines: QuoteLine[] = [
         ...t.map((l): QuoteLine => {
-          if (!springDone && isSpringLine(l.label)) {
+          if (!l.display && !springDone && isSpringLine(l.label)) {
             springDone = true;
             return { label: springLabel, cents: l.unitCents * count, taxable: l.taxable, productId: l.productId, qty: count };
           }
-          return { label: l.qty !== 1 ? `${l.label} × ${l.qty}` : l.label, cents: Math.round(l.unitCents * l.qty), taxable: l.taxable, productId: l.productId, ...(l.qty !== 1 ? { qty: l.qty } : {}) };
+          return toQuoteLine(l);
         }),
         ...extra,
       ];
