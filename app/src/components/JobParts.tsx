@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
+import { ChipRow } from './controls';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import { createProduct, searchProducts, StockProduct } from '../lib/odooStock';
 import { findByCode, openPurchases, StockItem } from '../lib/stock';
@@ -20,7 +21,7 @@ import { BarcodeScanner } from './BarcodeScanner';
  * job when it's in.
  */
 export function JobParts({ jobId }: { jobId: string }) {
-  const { items, used, purchases, takeParts, undoUse, orderForJob, receiveOrder } = useStock();
+  const { items, used, purchases, suppliers, takeParts, undoUse, orderForJob, receiveOrder } = useStock();
   const { client } = useOdoo();
   const { jobs, setTicket } = useJobs();
   const [scanning, setScanning] = useState(false);
@@ -155,6 +156,7 @@ export function JobParts({ jobId }: { jobId: string }) {
       {ordering !== false && client ? (
         <OrderSheet
           initial={ordering}
+          vendors={suppliers.filter((x) => x.odooId).map((x) => x.name).sort((a, b) => a.localeCompare(b))}
           search={(q) => searchProducts(client, q)}
           make={async (name) => ({ id: await createProduct(client, { name }), name, code: '', barcode: '', costCents: 0 })}
           onClose={() => setOrdering(false)}
@@ -179,7 +181,7 @@ interface PartOrder {
 }
 
 /** Finds the part in Odoo (or makes it), then how many, who from, and pickup or delivery. Sending is the last tap. */
-function OrderSheet({ initial = '', search, make, onSend, onClose }: { initial?: string; search: (q: string) => Promise<StockProduct[]>; make: (name: string) => Promise<StockProduct>; onSend: (o: PartOrder) => void; onClose: () => void }) {
+function OrderSheet({ initial = '', vendors = [], search, make, onSend, onClose }: { initial?: string; vendors?: string[]; search: (q: string) => Promise<StockProduct[]>; make: (name: string) => Promise<StockProduct>; onSend: (o: PartOrder) => void; onClose: () => void }) {
   const [q, setQ] = useState(initial);
   const [found, setFound] = useState<StockProduct[] | null>(null);
   const [looking, setLooking] = useState(false);
@@ -253,7 +255,8 @@ function OrderSheet({ initial = '', search, make, onSend, onClose }: { initial?:
                   </Text>
                   <Button label="+" onPress={() => setQty((n) => n + 1)} testID="job-order-plus" />
                 </View>
-                <TextInput value={supplier} onChangeText={setSupplier} placeholder="Supplier" placeholderTextColor={colors.muted} accessibilityLabel="Supplier" testID="job-order-supplier" style={styles.input} />
+                {vendors.length > 0 ? <ChipRow options={vendors.map((v) => ({ label: v, value: v }))} value={supplier} onChange={setSupplier} scroll testID="job-order-vendors" /> : null}
+                <TextInput value={supplier} onChangeText={setSupplier} placeholder="Vendor (pick one above or type)" placeholderTextColor={colors.muted} accessibilityLabel="Supplier" testID="job-order-supplier" style={styles.input} />
                 <View style={styles.row}>
                   <Choice label="I'll pick it up" on={pickup} onPress={() => setPickup(true)} testID="job-order-pickup" />
                   <Choice label="Have it delivered" on={!pickup} onPress={() => setPickup(false)} testID="job-order-delivery" />
