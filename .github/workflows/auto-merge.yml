@@ -1,0 +1,36 @@
+# Turns on squash auto-merge for ready (non-draft) pull requests to main.
+# GitHub then merges the PR by itself once the required "Tests" check passes
+# (set that under Settings > Branches, see CLAUDE.md). Nothing is merged here
+# directly, so a PR with failing tests never merges.
+#
+# A merge to main publishes the update to the beta channel only. Production
+# is sent by hand from the Android APK workflow ("Send the update to").
+#
+# Optional repo secret AUTOMERGE_TOKEN (a personal access token that can
+# write pull requests and contents): merges made with the built-in token
+# don't start the Android APK workflow, so without it the APK and beta
+# update would not build after an auto-merge.
+name: Auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable:
+    name: Enable auto-merge
+    # Same-repo PRs only (fork PRs get no write access), and never drafts.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Enable squash auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
