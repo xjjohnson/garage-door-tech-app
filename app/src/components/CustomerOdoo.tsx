@@ -17,7 +17,12 @@ import { fetchForCustomer, ListKind, OdooListRow } from '../lib/odooLists';
 import { completeActivity, createManualFollowUp, fetchTodos, TodoRow } from '../lib/odooFollowUps';
 import { AgreementRow, createAgreement, createRepeat, editAgreement, endAgreement, fetchAgreements, fetchFrequencySets, fetchRepeats, FrequencySet, RepeatAction, RepeatRow, setRepeatState } from '../lib/odooRecurring';
 import { Action } from './Buttons';
-import { AgreementSheet, dayAhead, NewFollowUpSheet, RepeatSheet } from './PlanSheets';
+import { AgreementSheet, dayAhead, NewFollowUpSheet, PlanPickSheet, RepeatSheet } from './PlanSheets';
+import { MaintenancePlan, planPriceText } from '../lib/maintenancePlans';
+import { endText, planRecords, PlanRecord, planVisits, PlanVisits } from '../lib/planRecords';
+import { setUpPlan } from '../lib/planSetup';
+import { toTicketPlan } from './PlanRow';
+import { useMaintenancePlans } from '../lib/useMaintenancePlans';
 import { formatMoney } from '../lib/prices';
 import { dayLabel, formatTime } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
@@ -115,11 +120,15 @@ export function useCustomerRecords(partnerId: number, now: () => number = Date.n
 export type CustomerTab = 'overview' | 'jobs' | 'quotes' | 'notes';
 
 /** `tab` picks which part of the customer page shows: Overview (to-dos, repeat visits, agreements), Jobs, or Quotes (with invoices). Without one, everything shows. */
-export function CustomerOdoo({ partnerId, name = 'this customer', address = '', now = Date.now, tab }: { partnerId: number; name?: string; address?: string; now?: () => number; tab?: CustomerTab }) {
+export function CustomerOdoo({ partnerId, customerId, name = 'this customer', address = '', now = Date.now, tab }: { partnerId: number; customerId?: string; name?: string; address?: string; now?: () => number; tab?: CustomerTab }) {
   const show = (t: CustomerTab) => !tab || tab === t;
   const { client } = useOdoo();
   const { records, fresh, error, refresh } = useCustomerRecords(partnerId, now);
-  const [sheet, setSheet] = useState<'repeat' | 'followup' | 'agreement' | null>(null);
+  const [sheet, setSheet] = useState<'repeat' | 'followup' | 'agreement' | 'plan' | null>(null);
+  // Which plan sheet is open: adding a plan, or changing this one.
+  const [planFor, setPlanFor] = useState<PlanRecord | 'add' | null>(null);
+  const plans = useMaintenancePlans();
+  const [visits, setVisits] = useState<Record<number, PlanVisits>>({});
   const [editing, setEditing] = useState<AgreementRow | undefined>();
   const [sets, setSets] = useState<FrequencySet[]>([]);
   const [busy, setBusy] = useState(false);
@@ -162,6 +171,35 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         (records?.repeats ?? []).filter((r) => r.agreementId === a.id && (r.status === 'Active' || r.status === 'Paused')).map((r) => r.id),
       ),
     );
+  const today = new Date(now()).toISOString().slice(0, 10);
+  const mine = planRecords(records?.agreements ?? [], records?.repeats ?? [], plans, today);
+  const mineKey = mine.map((p) => `${p.agreementId}:${p.repeats.map((r) => r.id).join(',')}`).join('|');
+  useEffect(() => {
+    if (!client || mine.length === 0) return;
+    let live = true;
+    Promise.all(mine.map((p) => planVisits(client, p.repeats, today).then((v) => [p.agreementId, v] as const))).then((all) => live && setVisits(Object.fromEntries(all)));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, mineKey]);
+  const stopRepeats = (p: PlanRecord) => p.repeats.filter((r) => r.status === 'Active' || r.status === 'Paused').map((r) => r.id);
+  // A plan with a fee is paid for on a ticket, so adding, changing to or renewing one opens a new ticket with it.
+  const newTicketWith = (p: MaintenancePlan) => {
+    setPlanFor(null);
+    setSheet(null);
+    router.push({ pathname: '/new-job', params: { ...(customerId ? { customer: customerId } : {}), plan: String(p.id) } });
+  };
+  const pausePlan = (p: PlanRecord, action: 'pause' | 'start') => client && run(async () => { for (const r of p.repeats.filter((x) => (action === 'pause' ? x.status === 'Active' : x.status === 'Paused'))) await setRepeatState(client, r.id, action); });
+  const pickPlan = (p: MaintenancePlan) => {
+    if (!client) return;
+    if (p.priceCents > 0) return newTicketWith(p);
+    const old = planFor && planFor !== 'add' ? planFor : undefined;
+    run(async () => {
+      await setUpPlan(client, partnerId, { customer: name, address }, toTicketPlan(p), Date.now());
+      if (old) await endAgreement(client, old.agreementId, Date.now(), stopRepeats(old));
+    }, old ? `Changed to ${p.name} in Odoo.` : `${p.name} added in Odoo.`);
+  };
   const doneTodo = (id: number) => client && run(() => completeActivity(client, id), 'To-do marked done in Odoo.');
   const change = (id: number, action: RepeatAction) => client && run(() => setRepeatState(client, id, action));
   const openJob = useOpenOdooJob();
@@ -240,9 +278,21 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
           ))}
         </>
       ) : null}
+      {oca ? <Action label="Add a maintenance plan" onPress={() => { setProblem(null); setPlanFor('add'); setSheet('plan'); }} testID="customer-add-plan" /> : null}
+      <MaintenancePlans records={mine} visits={visits} plans={plans} busy={busy} onPause={(p) => pausePlan(p, 'pause')} onResume={(p) => pausePlan(p, 'start')} onCancel={(p) => client && run(() => endAgreement(client, p.agreementId, Date.now(), stopRepeats(p)), `${p.name} cancelled in Odoo.`)} onChange={(p) => { setProblem(null); setPlanFor(p); setSheet('plan'); }} onRenew={newTicketWith} />
       <Plans repeats={records?.repeats} agreements={records?.agreements} onChange={change} onEdit={openAgreement} onEnd={end} busy={busy} />
         </>
       ) : null}
+      <PlanPickSheet
+        visible={sheet === 'plan'}
+        title={planFor && planFor !== 'add' ? `Change ${planFor.name} to` : `Add a plan for ${name}`}
+        plans={plans.filter((p) => !(planFor && planFor !== 'add' && p.id === planFor.planId))}
+        note="A plan with a fee opens a new ticket so the fee is billed. Cancel the old plan once the customer has paid. Plans with no charge are set up in Odoo right away."
+        busy={busy}
+        error={problem}
+        onPick={pickPlan}
+        onCancel={() => { setSheet(null); setPlanFor(null); }}
+      />
       <AgreementSheet
         visible={sheet === 'agreement'}
         customer={name}
@@ -284,6 +334,51 @@ export function CustomerOdoo({ partnerId, name = 'this customer', address = '', 
         </>
       ) : null}
     </View>
+  );
+}
+
+const BADGE: Record<string, string> = { Active: 'ACTIVE', Paused: 'PAUSED', 'Ending soon': 'ENDING SOON', Ended: 'ENDED' };
+
+/** The customer's maintenance plans: where each stands, its next visit, and change / pause / cancel / renew. */
+export function MaintenancePlans({ records, visits, plans, busy, onPause, onResume, onCancel, onChange, onRenew }: { records: PlanRecord[]; visits: Record<number, PlanVisits>; plans: MaintenancePlan[]; busy: boolean; onPause: (p: PlanRecord) => void; onResume: (p: PlanRecord) => void; onCancel: (p: PlanRecord) => void; onChange: (p: PlanRecord) => void; onRenew: (p: MaintenancePlan) => void }) {
+  if (records.length === 0) return null;
+  return (
+    <>
+      <Text style={styles.section} accessibilityRole="header">
+        Maintenance plans
+      </Text>
+      {records.map((p) => {
+        const v = visits[p.agreementId];
+        const plan = plans.find((x) => x.id === p.planId);
+        const ending = p.status === 'Ending soon' || p.status === 'Ended';
+        return (
+          <View key={p.agreementId} style={styles.item} testID={`customer-plan-${p.agreementId}`}>
+            <View style={styles.top}>
+              <Text style={styles.title}>{p.name}</Text>
+              <Text style={styles.badge}>{BADGE[p.status]}</Text>
+            </View>
+            <Text style={styles.meta}>{span(p.start, p.end) || 'No dates'}</Text>
+            {v?.next ? <Text style={styles.meta}>Next visit {v.next}</Text> : null}
+            {v ? <Text style={styles.meta}>{v.done} visit{v.done === 1 ? '' : 's'} done</Text> : null}
+            {ending ? (
+              <Text style={styles.detail} testID={`customer-plan-notice-${p.agreementId}`}>
+                {endText(p.daysLeft)}. {plan ? `Renew it${plan.priceCents > 0 ? ` for ${planPriceText(plan)}` : ''}.` : 'This plan is no longer offered, so it can not be renewed.'}
+              </Text>
+            ) : null}
+            <View style={styles.row}>
+              {ending && plan ? <Action label="Renew" primary grow disabled={busy} onPress={() => onRenew(plan)} testID={`customer-plan-renew-${p.agreementId}`} /> : null}
+              {p.status === 'Paused' ? <Action label="Resume" grow disabled={busy} onPress={() => onResume(p)} testID={`customer-plan-resume-${p.agreementId}`} /> : p.status !== 'Ended' ? <Action label="Pause" grow disabled={busy} onPress={() => onPause(p)} testID={`customer-plan-pause-${p.agreementId}`} /> : null}
+            </View>
+            {p.status !== 'Ended' ? (
+              <View style={styles.row}>
+                <Action label="Change plan" grow disabled={busy} onPress={() => onChange(p)} testID={`customer-plan-change-${p.agreementId}`} />
+                <Action label="Cancel plan" grow disabled={busy} onPress={() => onCancel(p)} testID={`customer-plan-cancel-${p.agreementId}`} />
+              </View>
+            ) : null}
+          </View>
+        );
+      })}
+    </>
   );
 }
 

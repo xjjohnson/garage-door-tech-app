@@ -14,6 +14,9 @@ import { useAddressSuggestions } from '../lib/useAddressSuggestions';
 import { useCustomers } from '../lib/useCustomers';
 import { rememberPoint } from '../lib/useGeocode';
 import { useJobs } from '../lib/useJobs';
+import { useMaintenancePlans } from '../lib/useMaintenancePlans';
+import { toTicketPlan } from '../components/PlanRow';
+import { setPlan } from '../lib/ticket';
 import { useOdoo } from '../lib/useOdoo';
 import { fetchOpenOrders, OpenOrder, ticketFromOrder } from '../lib/odooOpenOrders';
 import { formatMoney } from '../lib/prices';
@@ -71,7 +74,10 @@ export function NewJobScreen() {
     setPhone(c.phone);
   };
   // Opened from a customer's page ("New job for ..."): start with them picked.
-  const { customer: fromCustomer } = useLocalSearchParams<{ customer?: string }>();
+  const { customer: fromCustomer, plan: planParam } = useLocalSearchParams<{ customer?: string; plan?: string }>();
+  // Opened to renew or add a maintenance plan: the new ticket starts with that plan on it.
+  const plans = useMaintenancePlans();
+  const startPlan = planParam ? plans.find((p) => String(p.id) === planParam) : undefined;
   useEffect(() => {
     const c = fromCustomer ? customers.find((x) => x.id === fromCustomer) : undefined;
     if (c && !picked) pick(c);
@@ -109,8 +115,10 @@ export function NewJobScreen() {
       setOdooOrder(job.id, t.order!);
       setTicket(job.id, () => t);
     }
+    if (startPlan) setTicket(job.id, (t) => setPlan(t, toTicketPlan(startPlan)));
     log.info('job', `new job ${job.id} (${what}, ${when}${linked ? `, order ${linked.order?.name}` : ''})`);
-    if (when === 'now') router.replace({ pathname: '/job/[id]', params: { id: job.id } });
+    if (startPlan) router.replace({ pathname: '/ticket/[id]', params: { id: job.id } });
+    else if (when === 'now') router.replace({ pathname: '/job/[id]', params: { id: job.id } });
     else router.replace({ pathname: '/schedule', params: { job: job.id } });
   };
 
