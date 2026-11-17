@@ -13,7 +13,7 @@ import { Icon } from './Icon';
 import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
-import { badgeText, CustomerBadge, fetchCustomerBadge, fetchCustomerEquipment, HouseEquipment, fetchHouseHistory, houseAtAddress, houseOfOrder, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';
+import { badgeText, CustomerBadge, fetchCustomerBadge, fetchCustomerEquipment, HouseEquipment, fetchHouseHistory, houseForJob, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';
 import { formatMoney } from '../lib/prices';
 import { Invoice, invoiceNo } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
@@ -21,7 +21,7 @@ import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, type } from '../theme';
 
-export const HOUSE_STORAGE_KEY = 'odoo-house/v1';
+export const HOUSE_STORAGE_KEY = 'odoo-house/v2';
 export const BADGE_STORAGE_KEY = 'odoo-badge/v1';
 
 async function readSaved<T>(key: string, id: string): Promise<T | undefined> {
@@ -93,9 +93,13 @@ export function useHouseHistory(orderId: number | undefined, where?: { partnerId
     readSaved<House>(HOUSE_STORAGE_KEY, savedKey).then((s) => live && s && setHouse((h) => h ?? s));
     if (client) {
       (async () => {
-        // The job's delivery address first (its house), else the location its Odoo order is at.
-        const loc = (partnerId && address ? await houseAtAddress(client, partnerId, address) : undefined) ?? (await houseOfOrder(client, orderId));
-        if (!loc) return;
+        // Only this job's own house: no match shows nothing, never the customer's other houses.
+        const loc = await houseForJob(client, partnerId, address, orderId);
+        if (!loc) {
+          if (!live) return;
+          setHouse(address ? { locationId: 0, equipment: [], visits: [], at: Date.now() } : null);
+          return;
+        }
         const h = await fetchHouseHistory(client, loc, orderId);
         if (!live) return;
         setHouse(h);

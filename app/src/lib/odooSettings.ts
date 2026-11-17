@@ -63,3 +63,30 @@ export async function companyDetails(client: Caller): Promise<{ name: string; ph
 
 /** Whether two sets of details are the same. */
 export const sameBusiness = (a: Business, b: Business) => ([...Object.keys(EMPTY_BUSINESS), 'discounts'] as (keyof Business)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
+
+/**
+ * The terms-and-conditions line for a new quotation: the company's terms
+ * text, or the link to its terms page. Terms belong on quotations only, so
+ * the owner turns Odoo's Default Terms & Conditions off (it would put them
+ * on every invoice too) and the app adds them here. Empty when the company
+ * has none or Odoo won't say.
+ */
+export async function termsNote(client: Caller): Promise<string> {
+  try {
+    const [c] = (await client.call('res.company', 'read', [[await myCompany(client)]], { fields: ['terms_type', 'invoice_terms'] })) as { terms_type?: unknown; invoice_terms?: unknown }[];
+    if (c?.terms_type === 'html') {
+      let base = client.session.url;
+      try {
+        const set = await client.call('ir.config_parameter', 'get_param', ['web.base.url']);
+        if (typeof set === 'string' && set.trim()) base = set.trim();
+      } catch {
+        // Not allowed to read it: the address the app signs in to is the next best.
+      }
+      return `Terms & Conditions: ${base.replace(/\/+$/, '')}/terms`;
+    }
+    const text = typeof c?.invoice_terms === 'string' ? c.invoice_terms.trim() : '';
+    return text;
+  } catch {
+    return '';
+  }
+}

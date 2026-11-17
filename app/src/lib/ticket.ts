@@ -9,6 +9,7 @@
 import { Discount, discountKey, discountLineName, parseDiscount } from './discounts';
 import type { OdooClient } from './odoo';
 import { lineValues, OdooRef, parseRef, serviceProduct } from './odooSales';
+import { termsNote } from './odooSettings';
 import type { PriceBookItem } from './priceBook';
 import { cents as priceCents, formatMoney, OdooLink } from './prices';
 import type { QuoteLine, QuoteOption } from './quote';
@@ -434,7 +435,9 @@ async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, r
   } else if (order) {
     await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false, ...ship, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
   } else {
-    const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, partner_shipping_id: partnerId, ...ship, order_line: vals.map((v) => [0, 0, v]) }])) as number;
+    // The terms go on the quotation only; invoices are made without them (see termsNote).
+    const terms = await termsNote(client);
+    const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, partner_shipping_id: partnerId, ...ship, ...(terms ? { note: terms } : {}), order_line: vals.map((v) => [0, 0, v]) }])) as number;
     order = { id, name: `#${id}` };
   }
   const [r] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total'] })) as Record<string, unknown>[];
