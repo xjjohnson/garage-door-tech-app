@@ -436,6 +436,28 @@ describe('Ticket screen', () => {
     expect((calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as Row).partner_shipping_id).toBe(12);
   });
 
+  it('locks the items of an approved linked order until it is put back to draft', async () => {
+    const { calls, setState } = await signedIn({}, { down: false }, undefined, async () => {
+      const [job] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY));
+      const line = { id: 'a', name: OPENER.name, qty: 1, unitCents: 22900, kind: 'material', productId: 1 };
+      const totals = { untaxed: 22900, tax: 0, total: 22900, key: linesKey([line as never]), at: 1 };
+      await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, ticket: { lines: [line], order: { id: 70, name: 'S00070' }, linked: true, totals } }]));
+    });
+    setState('sale');
+    await act(async () => router.navigate('/ticket/j1'));
+    await settle();
+    expect(screen.getByTestId('ticket-approved')).toHaveTextContent(/S00070 is approved/);
+    expect(screen.queryByTestId('ticket-add-material')).toBeNull();
+    expect(screen.queryByTestId('ticket-add-service')).toBeNull();
+    expect(screen.queryByTestId('ticket-typed-open')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('ticket-back-to-draft'));
+    await settle();
+    expect(calls.filter((c) => c.model === 'sale.order' && ['action_cancel', 'action_draft'].includes(c.method)).map((c) => c.method)).toEqual(['action_cancel', 'action_draft']);
+    expect(screen.queryByTestId('ticket-approved')).toBeNull();
+    expect(screen.getByTestId('ticket-add-material')).toBeTruthy();
+  });
+
   it('starts on the job customer\'s main address and can change to another customer\'s house', async () => {
     const { calls } = await signedIn({}, { down: false }, undefined, async () => {
       await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([{ id: 'c1', name: 'Josh', phone: '', email: '', address: '', notes: '', createdAt: 1, updatedAt: 1, odooId: 33, syncedAt: 1 }]));
