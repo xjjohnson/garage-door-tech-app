@@ -63,6 +63,8 @@ export interface OdooInvoiceLine {
   qty: number;
   /** The line's amount before tax, cents. */
   cents: number;
+  /** A section heading or note, not a charge. */
+  display?: 'section' | 'note';
 }
 
 /** The product a line without a linked Odoo product goes in as. */
@@ -77,8 +79,9 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
 /** Order or invoice line values for the phone's lines. Lines with nothing to charge are left out. */
 export function lineValues(lines: QuoteLine[], links: Record<string, OdooLink>, serviceProduct: () => number, qtyField: 'product_uom_qty' | 'quantity'): Record<string, unknown>[] {
   return lines
-    .filter((l) => l.cents !== 0)
+    .filter((l) => l.display || l.cents !== 0)
     .map((l) => {
+      if (l.display) return { display_type: l.display === 'note' ? 'line_note' : 'line_section', name: l.label };
       const linked = l.key ? links[l.key]?.id : undefined;
       const qty = l.qty && l.qty > 0 ? l.qty : 1;
       return { product_id: linked ?? l.productId ?? serviceProduct(), name: l.label, [qtyField]: qty, price_unit: l.cents / qty / 100, ...(l.discountPct ? { discount: l.discountPct } : {}) };
@@ -138,8 +141,9 @@ export async function sendInvoice(client: OdooClient, partnerId: number, lines: 
   const vals = await prepare(client, lines, links, 'quantity');
   if (order) {
     const orderLines = (await client.call('sale.order.line', 'search_read', [[['order_id', '=', order.id], ['display_type', '=', false]]], { fields: ['id'], order: 'sequence asc, id asc' })) as { id: number }[];
-    // Same lines in the same order as the quote, unless prices changed the list since.
-    if (orderLines.length === vals.length) vals.forEach((v, i) => (v.sale_line_ids = [[6, 0, [orderLines[i].id]]]));
+    // Same lines in the same order as the quote, unless prices changed the list since. Headings and notes carry no link.
+    const priced = vals.filter((v) => !v.display_type);
+    if (orderLines.length === priced.length) priced.forEach((v, i) => (v.sale_line_ids = [[6, 0, [orderLines[i].id]]]));
   }
   const id = (await client.call('account.move', 'create', [{ move_type: 'out_invoice', partner_id: partnerId, ref: ref || false, ...(shipId ? { partner_shipping_id: shipId } : {}), ...(order ? { invoice_origin: order.name } : {}), invoice_line_ids: vals.map((v) => [0, 0, v]) }])) as number;
   await postMove(client, id);
@@ -195,15 +199,19 @@ export async function readInvoice(client: OdooClient, id: number, sentPayments: 
   };
 }
 
-/** The invoice's product lines as Odoo has them (sections and notes left out). */
+/** The invoice's lines as Odoo has them, in order: product lines plus section headings and notes. */
 async function readLines(client: OdooClient, ids: unknown): Promise<OdooInvoiceLine[] | undefined> {
   if (!Array.isArray(ids) || ids.length === 0) return undefined;
   const rows = await client.call('account.move.line', 'read', [ids], { fields: ['name', 'quantity', 'price_subtotal', 'display_type', 'sequence'] });
   if (!Array.isArray(rows)) return undefined;
   return (rows as Record<string, unknown>[])
-    .filter((l) => !l.display_type || l.display_type === 'product')
+    .filter((l) => !l.display_type || l.display_type === 'product' || l.display_type === 'line_section' || l.display_type === 'line_note')
     .sort((a, b) => (Number(a.sequence) || 0) - (Number(b.sequence) || 0))
-    .map((l) => ({ label: (typeof l.name === 'string' ? l.name : '').split('\n')[0], qty: typeof l.quantity === 'number' ? l.quantity : 1, cents: toCents(l.price_subtotal) }));
+    .map((l): OdooInvoiceLine => {
+      const label = typeof l.name === 'string' ? l.name : '';
+      if (l.display_type === 'line_section' || l.display_type === 'line_note') return { label, qty: 1, cents: 0, display: l.display_type === 'line_note' ? 'note' : 'section' };
+      return { label: label.split('\n')[0], qty: typeof l.quantity === 'number' ? l.quantity : 1, cents: toCents(l.price_subtotal) };
+    });
 }
 
 /** Cash goes to a cash journal; checks and the payment apps to the bank. */
@@ -394,7 +402,7 @@ export function parseInvoiceState(v: unknown): OdooInvoiceState | undefined {
           lines: r.lines.flatMap((l): OdooInvoiceLine[] => {
             if (!l || typeof l !== 'object') return [];
             const y = l as Record<string, unknown>;
-            return [{ label: typeof y.label === 'string' ? y.label : '', qty: n(y.qty) || 1, cents: n(y.cents) }];
+            return [{ label: typeof y.label === 'string' ? y.label : '', qty: n(y.qty) || 1, cents: n(y.cents), ...(y.display === 'section' || y.display === 'note' ? { display: y.display } : {}) }];
           }),
         }
       : {}),

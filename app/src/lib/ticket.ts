@@ -375,10 +375,32 @@ export function toQuoteLines(t: Ticket): QuoteLine[] {
   return t.discount?.cents && lines.length > 0 ? [...lines, { label: discountLineName(t.discount), cents: -t.discount.cents, taxable: false }] : lines;
 }
 
+/**
+ * The ticket's lines for the invoice: the same order as the estimate, with its section headings and notes in
+ * place (and the automatic plan heading on a ticket with sections), so the invoice reads like the estimate.
+ * Deposit and plan notes are left off: deposits become the invoice's payments.
+ */
+export function toInvoiceLines(t: Ticket, auto?: AutoHeadings): QuoteLine[] {
+  const priced = toQuoteLines(t);
+  if (!t.lines.some(isText)) return priced;
+  const sectioned = hasSections(t.lines);
+  let at = 0;
+  const out: QuoteLine[] = [];
+  for (const l of orderLines(t.lines)) {
+    if (isText(l)) out.push({ label: l.name, cents: 0, taxable: false, display: l.kind === 'note' ? 'note' : 'section' });
+    else {
+      if (l.planFee && sectioned) out.push({ label: planHeading(auto), cents: 0, taxable: false, display: 'section' });
+      const q = priced[at++];
+      if (q) out.push(q);
+    }
+  }
+  return [...out, ...priced.slice(at)];
+}
+
 /** The ticket as one quote option, for making the invoice. Totals are Odoo's when current, else the phone's estimate. */
-export function ticketOption(t: Ticket, taxPercent: string): QuoteOption {
+export function ticketOption(t: Ticket, taxPercent: string, auto?: AutoHeadings): QuoteOption {
   const totals = currentTotals(t) ?? estimateTotals(t, taxPercent);
-  const lines = toQuoteLines(t);
+  const lines = toInvoiceLines(t, auto);
   return { tier: 'good', title: 'Job ticket', available: true, springCount: 0, lines, subtotal: totals.untaxed, tax: totals.tax, total: totals.total };
 }
 

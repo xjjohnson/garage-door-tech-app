@@ -1,4 +1,6 @@
-import { addItem, addText, addTyped, EMPTY_TICKET, setPlan, signedNow, syncTicket, Ticket, TicketLine, TicketPlan } from '../lib/ticket';
+import { sendInvoice } from '../lib/odooSales';
+import { withOdoo } from '../lib/invoices';
+import { addItem, addText, addTyped, EMPTY_TICKET, setPlan, signedNow, syncTicket, Ticket, TicketPlan, toInvoiceLines } from '../lib/ticket';
 import { canMove, groupIntoLaborAndParts, moveLine, moveToSection, orderLines, renameLine, sectionOf, sectionTotals, signKey } from '../lib/ticketSections';
 
 const SPRING = { id: 1, name: 'Spring', code: '', cents: 10000, kind: 'material' as const, category: [], description: '' };
@@ -155,5 +157,47 @@ describe('quotation layout', () => {
   it('adds no automatic headings to a ticket without sections', async () => {
     const t: Ticket = { ...setPlan(addItem(EMPTY_TICKET, SPRING, 'a1'), PLAN), deposits: [{ id: 'd', method: 'cash', amount: 5000, at: 0, reference: '' }] };
     expect((await run(t)).filter((l) => l.display_type === 'line_section')).toHaveLength(0);
+  });
+});
+
+describe('sections on the invoice', () => {
+  it('builds the invoice lines in estimate order, with headings and notes, and the plan heading', () => {
+    let t = setPlan(addText(sectioned(), 'note', 'Both come with a lifetime handle', 'n1', 'sA'), PLAN);
+    t = { ...t, deposits: [{ id: 'd', method: 'cash', amount: 5000, at: 0, reference: '' }] };
+    const out = toInvoiceLines(t, { plan: 'Club' });
+    expect(out.map((l) => `${l.display ?? 'line'}:${l.label}`)).toEqual([
+      'section:Option A', 'line:Spring', 'line:Labor', 'note:Both come with a lifetime handle', 'section:Option B', 'line:Spring', 'section:Club', 'line:Gold plan (1 year)',
+    ]);
+  });
+
+  it('leaves a flat ticket as it was', () => {
+    const t = addItem(EMPTY_TICKET, SPRING, 'a');
+    expect(toInvoiceLines(t).map((l) => l.display)).toEqual([undefined]);
+  });
+
+  it('writes headings to the Odoo invoice and ties only the priced lines to the order', async () => {
+    const calls: { model: string; method: string; args: unknown[] }[] = [];
+    const client = {
+      call: jest.fn(async (model: string, method: string, args: unknown[]) => {
+        calls.push({ model, method, args });
+        if (model === 'sale.order.line') return [{ id: 801 }, { id: 802 }, { id: 803 }];
+        if (model === 'account.move' && method === 'create') return 900;
+        if (model === 'account.move' && method === 'read') return [{ name: 'INV/1', amount_total: 1, amount_residual: 1, payment_state: 'not_paid', invoice_line_ids: [1, 2, 3] }];
+        if (model === 'account.move.line') return [
+          { id: 1, name: 'Option A', display_type: 'line_section', sequence: 1 },
+          { id: 2, name: 'Spring', quantity: 1, price_subtotal: 100, display_type: 'product', sequence: 2 },
+          { id: 3, name: 'Both are new', display_type: 'line_note', sequence: 3 },
+        ];
+        return true;
+      }),
+    };
+    const lines = toInvoiceLines(sectioned());
+    const state = await sendInvoice(client as never, 5, lines, {}, '', { id: 71, name: 'S71' });
+    const move = (calls.find((c) => c.model === 'account.move' && c.method === 'create')!.args[0] as { invoice_line_ids: [number, number, Record<string, unknown>][] }).invoice_line_ids.map((l) => l[2]);
+    expect(move.map((v) => v.display_type ?? 'line')).toEqual(['line_section', 'line', 'line', 'line_section', 'line']);
+    expect(move.filter((v) => v.sale_line_ids).map((v) => v.sale_line_ids)).toEqual([[[6, 0, [801]]], [[6, 0, [802]]], [[6, 0, [803]]]]);
+    expect(state.lines!.map((l) => l.display ?? 'line')).toEqual(['section', 'line', 'note']);
+    const inv = withOdoo({ lines: [], subtotal: 0, tax: 0, total: 0 } as never, state);
+    expect(inv.lines.map((l) => l.display ?? 'line')).toEqual(['section', 'line', 'note']);
   });
 });

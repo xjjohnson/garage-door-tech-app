@@ -80,7 +80,7 @@ export function withOdoo(inv: Invoice, odoo: OdooInvoiceState): Invoice {
     odoo,
     ...(odoo.untaxed !== undefined ? { subtotal: odoo.untaxed, tax: odoo.tax ?? 0, total: odoo.total } : {}),
     // Odoo's lines once it has them, so the phone and Odoo show the same invoice.
-    ...(odoo.lines?.length ? { lines: odoo.lines.map((l): QuoteLine => ({ label: l.label, cents: l.cents, taxable: false, ...(l.qty !== 1 ? { qty: l.qty } : {}) })) } : {}),
+    ...(odoo.lines?.length ? { lines: odoo.lines.map((l): QuoteLine => ({ label: l.label, cents: l.cents, taxable: false, ...(l.display ? { display: l.display } : {}), ...(l.qty !== 1 ? { qty: l.qty } : {}) })) } : {}),
   };
 }
 
@@ -165,7 +165,7 @@ export function createInvoice(
     billTo: job.customer,
     address: extra.shipTo?.address || job.address,
     tier: option.tier,
-    lines: option.lines.filter((l) => l.cents !== 0).map((l) => ({ ...l })),
+    lines: option.lines.filter((l) => l.display || l.cents !== 0).map((l) => ({ ...l })),
     subtotal: option.subtotal,
     tax: option.tax,
     total: option.total,
@@ -185,7 +185,7 @@ export function invoiceText(inv: Invoice, business: Business): string {
   out.push(`${business.name || 'Garage door service'}: invoice ${invoiceNo(inv)}`);
   out.push(`${inv.billTo || 'Customer'}${inv.address ? `, ${inv.address}` : ''} · ${formatJobDate(inv.createdAt)}`);
   out.push('');
-  for (const l of inv.lines) out.push(`- ${l.label}: ${formatMoney(l.cents)}`);
+  for (const l of inv.lines) out.push(l.display === 'section' ? `${l.label}:` : l.display === 'note' ? `  ${l.label}` : `- ${l.label}: ${formatMoney(l.cents)}`);
   if (inv.tax > 0) out.push(`- Tax: ${formatMoney(inv.tax)}`);
   out.push(`Total: ${formatMoney(inv.total)}`);
   const p = paid(inv);
@@ -258,7 +258,7 @@ export function parseInvoices(raw: string | null | unknown[]): Invoice[] {
       ? x.lines.flatMap((l): QuoteLine[] => {
           if (!l || typeof l !== 'object') return [];
           const y = l as Record<string, unknown>;
-          return [{ label: str(y.label), cents: num(y.cents), taxable: y.taxable === true, ...(str(y.key) ? { key: str(y.key) } : {}), ...(num(y.qty) > 0 ? { qty: num(y.qty) } : {}), ...(num(y.productId) > 0 ? { productId: num(y.productId) } : {}) }];
+          return [{ label: str(y.label), cents: num(y.cents), taxable: y.taxable === true, ...(str(y.key) ? { key: str(y.key) } : {}), ...(num(y.qty) > 0 ? { qty: num(y.qty) } : {}), ...(num(y.productId) > 0 ? { productId: num(y.productId) } : {}), ...(y.display === 'section' || y.display === 'note' ? { display: y.display } : {}) }];
         })
       : [];
     const payments = Array.isArray(x.payments)
