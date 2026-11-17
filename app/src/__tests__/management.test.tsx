@@ -9,6 +9,10 @@ const mockClient = {
     calls.push([model, method, args]);
     if (method === 'has_group') return true;
     if (model === 'fsm.vehicle' && method === 'fields_get') return vehicleFields;
+    if (model === 'agreement' && method === 'fields_get') return { name: {}, description: {}, active: {}, is_template: {}, code: {} };
+    if (model === 'agreement' && method === 'search_read') return [];
+    if (model === 'agreement' && method === 'create') return 31;
+    if (model === 'ir.sequence') return 'AGR1';
     if (method === 'fields_get') return { name: {}, instructions: {}, duration: {}, type_id: {}, active: {} };
     if (model === 'fsm.template' && method === 'search_read') return [{ id: 7, name: 'Opener', instructions: '<p>Check eyes</p>', duration: 1, type_id: [2, 'Repair'] }];
     if (model === 'fsm.person' && method === 'search_read') return [{ id: 4, name: 'Sam', phone: '555', email: '' }];
@@ -76,5 +80,33 @@ describe('Management screen', () => {
     await waitFor(() => expect(calls.some((c) => c[0] === 'stock.location' && c[1] === 'create')).toBe(true));
     expect(calls.find((c) => c[0] === 'stock.location' && c[1] === 'create')![2]).toEqual([{ name: 'Truck - Sam', usage: 'internal', location_id: 20 }]);
     expect(await screen.findByTestId('manage-truck-place-msg')).toHaveTextContent(/Made JHS\/Stock\/Truck - Sam/);
+  });
+});
+
+describe('Management > Maintenance plans', () => {
+  it('adds the starter plans from an empty list', async () => {
+    calls.length = 0;
+    await render(<ManagementScreen />);
+    await fireEvent.press(await screen.findByTestId('manage-tab-plans'));
+    expect(await screen.findByTestId('manage-plans-empty')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('manage-plans-starter'));
+    await waitFor(() => expect(calls.filter((c) => c[0] === 'agreement' && c[1] === 'create')).toHaveLength(3));
+  });
+
+  it('adds a plan with a price and saves it as an agreement', async () => {
+    calls.length = 0;
+    await render(<ManagementScreen />);
+    await fireEvent.press(await screen.findByTestId('manage-tab-plans'));
+    await fireEvent.press(await screen.findByTestId('manage-plan-new'));
+    await fireEvent.changeText(await screen.findByTestId('manage-plan-name'), 'Gold plan');
+    await fireEvent.press(screen.getByTestId('manage-plan-every-6'));
+    await fireEvent.changeText(screen.getByTestId('manage-plan-price'), '149.50');
+    await fireEvent.press(screen.getByTestId('manage-save'));
+    await waitFor(() => expect(calls.some((c) => c[0] === 'agreement' && c[1] === 'create')).toBe(true));
+    const vals = calls.find((c) => c[0] === 'agreement' && c[1] === 'create')![2][0] as { name: string; description: string };
+    expect(vals.name).toBe('Gold plan');
+    expect(vals.description).toContain('"priceCents":14950');
+    expect(vals.description).toContain('"everyMonths":6');
+    expect(vals.description).toContain('"visitsPerYear":2');
   });
 });
