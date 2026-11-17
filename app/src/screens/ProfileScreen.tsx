@@ -74,7 +74,6 @@ export function ProfileScreen() {
     return (
       <View style={styles.stack} testID="profile">
         <Text style={styles.note}>Odoo has no employee record for {client.session.name || client.session.login}. Add one in the Employees app.</Text>
-        <IconRow icon="users" label="Odoo account" detail={`Signed in at ${client.session.url}`} href="/team" testID="profile-odoo" last />
       </View>
     );
   }
@@ -144,10 +143,6 @@ export function ProfileScreen() {
       ) : null}
       {tab === 'payroll' ? <Payroll owner={owner} /> : null}
 
-      <Caption>Odoo</Caption>
-      <RowGroup>
-        <IconRow icon="users" label="Odoo account" detail={`Signed in at ${client.session.url}`} href="/team" testID="profile-odoo" last />
-      </RowGroup>
     </View>
   );
 }
