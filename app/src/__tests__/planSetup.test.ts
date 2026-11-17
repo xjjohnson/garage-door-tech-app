@@ -1,7 +1,7 @@
 import { addMonths, activePlanFor, PlanSetupError, planEnd, planFrequencySet, setUpPlan } from '../lib/planSetup';
 import { blankPlan } from '../lib/maintenancePlans';
 import { toTicketPlan } from '../components/PlanRow';
-import { EMPTY_TICKET, parseTicket, planDone, planKey, planLineNotes, setPlan, signedNow, signKeyOf } from '../lib/ticket';
+import { EMPTY_TICKET, estimateTotals, hasPriced, parseTicket, planDone, planFeeLine, subtotal, termText, toQuoteLines, planKey, planLineNotes, setPlan, signedNow, signKeyOf } from '../lib/ticket';
 import { signEstimate } from '../lib/estimates';
 
 type Call = { model: string; method: string; args: unknown[]; kwargs?: Record<string, unknown> };
@@ -108,5 +108,35 @@ describe('the plan on a ticket', () => {
     expect(signedNow(set.ticket)).toBeTruthy();
     expect(signedNow(setPlan(set.ticket, undefined))).toBeUndefined();
     expect(signKeyOf(base)).not.toBe(signKeyOf(setPlan(base, plan)));
+  });
+});
+
+describe('the plan fee on a ticket', () => {
+  const paid = { ...plan, priceCents: 14900, name: 'Yearly tune-up', termMonths: 12 };
+  it('adds the fee as one service line valid for the term, and takes it off with the plan', () => {
+    const t = setPlan(EMPTY_TICKET, paid);
+    expect(t.lines).toEqual([planFeeLine(paid)]);
+    expect(t.lines[0]).toMatchObject({ name: 'Yearly tune-up plan (1 year)', unitCents: 14900, kind: 'service', planFee: true });
+    expect(hasPriced(t)).toBe(true);
+    expect(subtotal(t)).toBe(14900);
+    expect(estimateTotals(t, '8').tax).toBe(0);
+    expect(toQuoteLines(t)).toEqual([{ label: 'Yearly tune-up plan (1 year)', cents: 14900, taxable: false }]);
+    expect(planLineNotes(t)[0]).toMatchObject({ name: expect.stringContaining('valid for 1 year') });
+    expect(setPlan(t, undefined).lines).toEqual([]);
+  });
+
+  it('swaps the fee when the plan changes, never doubles it, and keeps other lines', () => {
+    const base = { ...EMPTY_TICKET, lines: [{ id: 'a', name: 'Opener', qty: 1, unitCents: 100, kind: 'material' as const }] };
+    let t = setPlan(setPlan(base, paid), { ...paid, id: 9, name: 'Gold', priceCents: 20000, termMonths: 24 });
+    expect(t.lines.map((l) => [l.name, l.unitCents])).toEqual([['Opener', 100], ['Gold plan (2 years)', 20000]]);
+    t = setPlan(t, { ...paid, priceCents: 0 });
+    expect(t.lines.map((l) => l.id)).toEqual(['a']);
+  });
+
+  it('survives saving, and a free plan adds no line', () => {
+    const t = setPlan(EMPTY_TICKET, paid);
+    expect(parseTicket(JSON.parse(JSON.stringify(t)))?.lines[0].planFee).toBe(true);
+    expect(setPlan(EMPTY_TICKET, plan).lines).toEqual([]);
+    expect([termText(0), termText(6), termText(24)]).toEqual(['ongoing', '6 months', '2 years']);
   });
 });

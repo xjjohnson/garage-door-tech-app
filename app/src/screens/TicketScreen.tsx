@@ -359,7 +359,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       <>
         <SectionTitle>{kind === 'service' ? 'Services' : 'Materials'}</SectionTitle>
         {lines.map((l) => (
-          <LineRow key={l.id} line={l} locked={frozen} onQty={(q) => setTicket(job.id, (t) => setQty(t, l.id, q))} onPrice={(c) => setTicket(job.id, (t) => setPrice(t, l.id, c))} onRemove={() => setTicket(job.id, (t) => removeLine(t, l.id))} />
+          <LineRow key={l.id} line={l} locked={frozen || !!l.planFee} onQty={(q) => setTicket(job.id, (t) => setQty(t, l.id, q))} onPrice={(c) => setTicket(job.id, (t) => setPrice(t, l.id, c))} onRemove={() => setTicket(job.id, (t) => removeLine(t, l.id))} />
         ))}
         {!frozen ? (
           <Action
