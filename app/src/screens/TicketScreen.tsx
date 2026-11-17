@@ -54,6 +54,10 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
+  // A linked order that has been approved (confirmed) in Odoo: items can't be added, changed or removed
+  // until it is put back to draft. Unknown (offline) counts as open, since nothing says it is approved.
+  const [orderState, setOrderState] = useState<string | null>(null);
+  const [reopening, setReopening] = useState(false);
   const stock = useStock();
   // Every ticket part has to be accounted for in Parts used before the invoice (Justin, 0.5.33).
   const missingParts = unaccountedParts(ticket, stock.items, job.id, stock.purchases);
@@ -262,15 +266,48 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     }
   };
 
+  const linkedId = ticket.linked ? ticket.order?.id : undefined;
+  useEffect(() => {
+    setOrderState(null);
+    if (!client || !linkedId) return;
+    let live = true;
+    client
+      .call('sale.order', 'read', [[linkedId]], { fields: ['state'] })
+      .then((r) => live && setOrderState(((r as { state?: string }[])[0]?.state as string) ?? null))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [client, linkedId]);
+  const approved = !invoice && !!linkedId && (orderState === 'sale' || orderState === 'done');
+  /** Items can't change: the invoice is made, or the linked order is approved. */
+  const frozen = !!invoice || approved;
+
+  const backToDraft = async () => {
+    if (!client || !linkedId) return;
+    setReopening(true);
+    setError(null);
+    try {
+      // Odoo: a confirmed order is cancelled, then set back to a quotation.
+      await client.call('sale.order', 'action_cancel', [[linkedId]]);
+      await client.call('sale.order', 'action_draft', [[linkedId]]);
+      setOrderState('draft');
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setReopening(false);
+    }
+  };
+
   const section = (kind: LineKind) => {
     const lines = ticket.lines.filter((l) => l.kind === kind);
     return (
       <>
         <SectionTitle>{kind === 'service' ? 'Services' : 'Materials'}</SectionTitle>
         {lines.map((l) => (
-          <LineRow key={l.id} line={l} locked={!!invoice} onQty={(q) => setTicket(job.id, (t) => setQty(t, l.id, q))} onPrice={(c) => setTicket(job.id, (t) => setPrice(t, l.id, c))} onRemove={() => setTicket(job.id, (t) => removeLine(t, l.id))} />
+          <LineRow key={l.id} line={l} locked={frozen} onQty={(q) => setTicket(job.id, (t) => setQty(t, l.id, q))} onPrice={(c) => setTicket(job.id, (t) => setPrice(t, l.id, c))} onRemove={() => setTicket(job.id, (t) => removeLine(t, l.id))} />
         ))}
-        {!invoice ? (
+        {!frozen ? (
           <Action
             label={kind === 'service' ? '+ Add a service' : '+ Add a material'}
             onPress={() => router.push({ pathname: '/ticket-add', params: { id: job.id, kind } })}
@@ -297,12 +334,19 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         setEstimates(job.id, (set) => signEstimate(set, id, { id: saved.id, by: saved.name, at: saved.at }));
       }} />
 
+      {approved ? (
+        <View style={styles.refBox} testID="ticket-approved">
+          <Text style={styles.label}>Order {ticket.order?.name} is approved in Odoo, so its items are locked.</Text>
+          <Text style={styles.meta}>To add or change items, put it back to a quotation. It is confirmed again when you create the invoice.</Text>
+          <Action label={reopening ? 'Working...' : 'Put back to draft'} disabled={reopening} onPress={backToDraft} testID="ticket-back-to-draft" />
+        </View>
+      ) : null}
       {section('service')}
       {section('material')}
-      <NotesSection lines={ticket.lines.filter(isText)} locked={!!invoice} onAdd={(kind, text) => setTicket(job.id, (t) => addText(t, kind, text, newLineId(now())))} onRemove={(id) => setTicket(job.id, (t) => removeLine(t, id))} />
-      {!invoice ? <TypedLine onAdd={(l) => setTicket(job.id, (t) => addTyped(t, l, newLineId(now())))} /> : null}
+      <NotesSection lines={ticket.lines.filter(isText)} locked={frozen} onAdd={(kind, text) => setTicket(job.id, (t) => addText(t, kind, text, newLineId(now())))} onRemove={(id) => setTicket(job.id, (t) => removeLine(t, id))} />
+      {!frozen ? <TypedLine onAdd={(l) => setTicket(job.id, (t) => addTyped(t, l, newLineId(now())))} /> : null}
 
-      {!invoice && ticket.lines.length > 0 ? <DiscountPanel discount={ticket.discount} presets={presetsFor(business.discounts)} onChange={(d) => setTicket(job.id, (t) => setDiscount(t, d))} /> : null}
+      {!frozen && ticket.lines.length > 0 ? <DiscountPanel discount={ticket.discount} presets={presetsFor(business.discounts)} onChange={(d) => setTicket(job.id, (t) => setDiscount(t, d))} /> : null}
 
       <View style={styles.card} testID="ticket-totals">
         <Row label={ticket.discount ? 'Subtotal (after discount)' : 'Subtotal'} value={formatMoney(shown.untaxed)} />

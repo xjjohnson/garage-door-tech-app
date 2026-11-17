@@ -105,6 +105,14 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
     }
   };
 
+  // The Work done button always works: the job is done and closed (it leaves Home) even when there is no
+  // invoice yet or the customer hasn't paid or approved. The invoice is made later from the Ticket; Paid is its own step.
+  const workDone = () => {
+    log.info('job', `${job.id} work done`);
+    if (!job.steps?.workDoneAt) setStep(job.id, 'workDoneAt', now());
+    if (job.status !== 'done') setStatus(job.id, 'done');
+  };
+
   return (
     <View style={styles.stack} testID="job-hub">
       <View style={styles.hero} testID="job-hero">
@@ -141,12 +149,12 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       <View style={styles.statusRow} accessibilityRole="list" testID="job-steps">
         {STATUS_BUTTONS.map(([id, label]) => {
           const st = steps.find((x) => x.id === id)!;
-          const isNext = next?.id === id || (id === 'work' && (next?.id === 'inspect' || next?.id === 'quote'));
+          const isNext = !st.done && (next?.id === id || (id === 'work' && (next?.id === 'inspect' || next?.id === 'quote')));
           const at = id === 'onMyWay' ? job.steps?.onMyWayAt : id === 'arrived' ? job.steps?.arrivedAt : id === 'work' ? job.steps?.workDoneAt : undefined;
           return (
             <Pressable
               key={id}
-              onPress={() => go(id)}
+              onPress={() => (id === 'work' ? workDone() : go(id))}
               accessibilityRole="button"
               accessibilityLabel={`${label}, ${st.done ? 'done' : isNext ? 'next' : 'not yet'}`}
               testID={`job-step-${id}`}
@@ -210,7 +218,10 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         />
       ) : null}
       <View style={styles.row}>
-        {job.steps?.workDoneAt ? <Action label="Undo work done" grow onPress={() => setStep(job.id, 'workDoneAt', undefined)} testID="job-undo-work" /> : null}
+        {job.steps?.workDoneAt ? <Action label="Undo work done" grow onPress={() => {
+          setStep(job.id, 'workDoneAt', undefined);
+          if (job.status === 'done') setStatus(job.id, 'open');
+        }} testID="job-undo-work" /> : null}
         <Action label={job.status === 'done' ? 'Reopen job' : 'Close job'} grow onPress={() => setStatus(job.id, job.status === 'done' ? 'open' : 'done')} testID="job-close" />
       </View>
         </>
