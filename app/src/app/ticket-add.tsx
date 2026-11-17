@@ -17,7 +17,7 @@ export default function TicketAddRoute() {
   };
   return (
     <Page title={kind === 'service' ? 'Add a service' : kind === 'material' ? 'Add a material' : 'Add to the ticket'} testID="ticket-add-page">
-      <PriceBookScreen onPick={pick} />
+      <PriceBookScreen onPick={pick} kind={kind === 'service' || kind === 'material' ? kind : undefined} />
     </Page>
   );
 }
