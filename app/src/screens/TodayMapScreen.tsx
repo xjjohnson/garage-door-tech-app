@@ -150,7 +150,7 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
     return [...fromPhone, ...fromOdoo].slice(0, 60);
   }, [nearby, invoices, odooPlaces]);
 
-  const addresses = useMemo(() => [...weekStops.map((s) => s.address), ...extras.filter((e) => !e.at).map((e) => e.address)], [stops, extras]);
+  const addresses = useMemo(() => [...weekStops.map((s) => s.address), ...extras.filter((e) => !e.at).map((e) => e.address)], [weekStops, extras]);
   const { points, waiting } = useGeocode(addresses);
   const pointOf = useCallback((p: Place & { at?: Point }) => p.at ?? points[p.address.trim()] ?? undefined, [points]);
 
