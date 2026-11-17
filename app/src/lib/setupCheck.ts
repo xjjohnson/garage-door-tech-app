@@ -156,6 +156,20 @@ export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[
         : { id: 'truck', label: 'Truck stock', state: 'warn', detail: 'No location named "Truck".', fix: 'Inventory > Configuration > Locations > New, named like "Truck 1" (turn on Storage Locations first).' },
   );
 
+  // The warehouse and purchasing areas: the Odoo pieces they use. Only reads; nothing is turned on for you.
+  const [purchase, barcode, pricelists, pricelistGroup] = await Promise.all([hasModel(c, 'purchase.order'), hasModel(c, 'stock.move.line'), hasModel(c, 'product.pricelist.item'), hasGroup(c, s.uid, 'product.group_product_pricelist')]);
+  out.push(
+    purchase
+      ? { id: 'purchase', label: 'Purchasing (purchase orders)', state: 'ok', detail: 'Purchase app found.' }
+      : { id: 'purchase', label: 'Purchasing (purchase orders)', state: 'warn', detail: 'Purchase app not found.', fix: 'In Odoo, Apps > install Purchase for the Purchasing area.' },
+    barcode
+      ? { id: 'warehouse', label: 'Warehouse (counts and transfers)', state: 'ok', detail: 'Inventory stock history found.' }
+      : { id: 'warehouse', label: 'Warehouse (counts and transfers)', state: 'warn', detail: 'Inventory not readable.', fix: 'In Odoo, Apps > install Inventory, and give the warehouse manager the Inventory Administrator access (Settings > Users).' },
+    pricelists && pricelistGroup !== false
+      ? { id: 'pricelists', label: 'Pricelists', state: 'ok', detail: 'Pricelists are on.' }
+      : { id: 'pricelists', label: 'Pricelists', state: 'warn', detail: 'Pricelists are off in Odoo Sales.', fix: 'Sales > Configuration > Settings > Pricing > turn on Pricelists. The app does not change this. Management > Pricelists needs it.' },
+  );
+
   const mail = await count(c, 'ir.mail_server');
   out.push(
     mail === null

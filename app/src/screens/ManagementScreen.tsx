@@ -42,10 +42,11 @@ import { useOdoo } from '../lib/useOdoo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, radius, shadow, touch, type } from '../theme';
 import { ChecklistsScreen } from './ChecklistsScreen';
+import { PricelistEditor } from '../components/PricelistEditor';
 import { DiscountsTab } from './DiscountsTab';
 import { TextsTab } from './TextsTab';
 
-type Tab = 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'plans' | 'discounts' | 'texts' | 'checklists';
+type Tab = 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'jobTypes', label: 'Job types' },
   { id: 'templates', label: 'Templates' },
@@ -54,6 +55,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'trucks', label: 'Trucks' },
   { id: 'plans', label: 'Maintenance plans' },
   { id: 'discounts', label: 'Discounts' },
+  { id: 'pricelists', label: 'Pricelists' },
   { id: 'texts', label: 'Texts' },
   { id: 'checklists', label: 'Checklists' },
 ];
@@ -100,6 +102,7 @@ export function ManagementScreen() {
       {tab === 'trucks' ? <Trucks client={client} canEdit={owner === true} /> : null}
       {tab === 'plans' ? <Plans client={client} canEdit={owner === true} /> : null}
       {tab === 'discounts' ? <DiscountsTab canEdit={owner === true} /> : null}
+      {tab === 'pricelists' ? <PricelistEditor client={client} canEdit={owner === true} /> : null}
       {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
       {tab === 'checklists' ? <ChecklistsScreen /> : null}
     </View>
