@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
 import { EMPTY_INSPECTION, Inspection, parseInspection, repairFromFlag, repairLines } from '../lib/inspection';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
@@ -207,28 +207,44 @@ describe('quote screen', () => {
     await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(SETS));
   });
 
-  it('quotes an opener job from the Odoo templates', async () => {
+  it('lists every Odoo template with no Good, Better or Best slots', async () => {
+    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ ...SETS, 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true } }));
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...base, what: 'Opener' }]));
     await renderApp('/quote/j1');
     await settle();
-    expect(screen.getByTestId('quote-from-templates')).toHaveTextContent('From your Odoo quotation templates for Opener.');
-    expect(screen.queryByTestId('quote-blocked')).toBeNull();
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$465');
-    expect(screen.getByTestId('quote-better')).toHaveTextContent(/No "Opener · Better" template/);
+    expect(screen.getByTestId('quote-template-template: opener · good')).toHaveTextContent(/Opener · Good.*\$465/);
+    expect(screen.queryByText(/No ".*" template in Odoo/)).toBeNull();
+    expect(screen.queryByTestId('quote-better')).toBeNull();
+    expect(screen.queryByTestId('quote-inspection')).toBeNull();
   });
 
-  it('lets the customer take an inspection add-on off', async () => {
-    const insp: Inspection = { ...EMPTY_INSPECTION(1000), repairs: [{ id: 'r1', label: 'New rollers', price: '40', taxable: false, item: 'd:x:rollers' }] };
-    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...base, what: 'Opener', inspection: insp }]));
+  it('shows the lines of a picked template and puts several on one estimate', async () => {
+    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ ...SETS, 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true }, 'template: opener · best': { type: 'Opener · Best', tiers: { good: SETS.opener.tiers.best }, plain: true } }));
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...base, what: 'Opener' }]));
     await renderApp('/quote/j1');
     await settle();
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$505');
-    await fireEvent.press(screen.getByTestId('quote-addon-r1'));
-    expect(screen.getByTestId('quote-addon-r1')).toHaveTextContent(/Customer said no/);
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$465');
-    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].inspection!.repairs[0].declined).toBe(true);
-    await fireEvent.press(screen.getByTestId('quote-addon-r1'));
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$505');
+    await fireEvent.press(screen.getByTestId('quote-template-template: opener · good'));
+    await fireEvent.press(screen.getByTestId('quote-template-template: opener · best'));
+    expect(screen.getByTestId('quote-template-mode')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('quote-template-add'));
+    await settle();
+    const t = JSON.parse((await AsyncStorage.getItem(JOBS_STORAGE_KEY))!)[0].ticket;
+    expect(t.lines.filter((l: { kind: string }) => l.kind === 'section').map((l: { name: string }) => l.name)).toEqual(['Opener · Good', 'Opener · Best']);
+  });
+
+  it('can add several templates as separate estimates', async () => {
+    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ ...SETS, 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true }, 'template: opener · best': { type: 'Opener · Best', tiers: { good: SETS.opener.tiers.best }, plain: true } }));
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...base, what: 'Opener' }]));
+    await renderApp('/quote/j1');
+    await settle();
+    await fireEvent.press(screen.getByTestId('quote-template-template: opener · good'));
+    await fireEvent.press(screen.getByTestId('quote-template-template: opener · best'));
+    await fireEvent.press(within(screen.getByTestId('quote-template-mode')).getByText('Separate estimates'));
+    await fireEvent.press(screen.getByTestId('quote-template-add'));
+    await settle();
+    const j = JSON.parse((await AsyncStorage.getItem(JOBS_STORAGE_KEY))!)[0];
+    expect(JSON.stringify(j.estimates)).toContain('Opener · Good');
+    expect(j.ticket.title).toBe('Opener · Best');
   });
 });
 
@@ -248,7 +264,6 @@ describe('repair-only quote', () => {
     await renderApp('/quote/j1');
     await settle();
     expect(screen.queryByTestId('quote-blocked')).toBeNull();
-    expect(screen.getByTestId('quote-no-templates')).toHaveTextContent(/"Tune-up · Good", "Tune-up · Better" and "Tune-up · Best"/);
     expect(screen.getByTestId('quote-good')).toHaveTextContent(/Repairs/);
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$149');
     expect(screen.queryByTestId('quote-better')).toBeNull();
@@ -286,35 +301,12 @@ describe('repair-only quote', () => {
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
   });
 
-  it('offers every Odoo quotation template, not only the job type\'s', async () => {
-    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ ...SETS, 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true }, 'template: opener · best': { type: 'Opener · Best', tiers: { good: SETS.opener.tiers.best }, plain: true } }));
-    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Tune-up' }]));
-    await renderApp('/quote/j1');
-    await settle();
-    expect(screen.getByTestId('quote-no-templates')).toBeTruthy();
-    await fireEvent.press(screen.getByText('Opener · Good'));
-    await settle();
-    expect(screen.getByTestId('quote-from-templates')).toHaveTextContent('From your Odoo quotation templates for Opener · Good.');
-    const key = 'quote-template: opener · good';
-    expect(screen.getByTestId(key)).toHaveTextContent(/Opener · Good/);
-    expect(screen.queryByTestId('quote-better')).toBeNull();
-    expect(screen.getByTestId('quote-total-template: opener · good')).toHaveTextContent('$465');
-    // Several at once, each its own option; the customer picks one.
-    await fireEvent.press(screen.getByText('Opener · Best'));
-    await settle();
-    expect(screen.getByTestId('quote-template: opener · best')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('quote-accept-template: opener · best'));
-    expect(screen.getByTestId('quote-accepted-note')).toHaveTextContent(/Customer picked Opener · Best/);
-    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].accepted).toMatchObject({ key: 'template: opener · best', title: 'Opener · Best' });
-  });
-
   it('never lists spring measurements for an opener with no templates', async () => {
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Opener', quoteLines: [{ id: 'q1', label: 'Opener install', price: '150', taxable: false }] }]));
     await renderApp('/quote/j1');
     await settle();
     expect(screen.queryByTestId('quote-blocked')).toBeNull();
     expect(screen.queryByText(/coils|Spring length/)).toBeNull();
-    expect(screen.getByTestId('quote-no-templates')).toHaveTextContent(/No Opener templates in Odoo/);
     expect(screen.getByTestId('quote-good')).toHaveTextContent(/Opener install/);
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$239');
     await fireEvent.press(screen.getByTestId('quote-line-remove-q1'));

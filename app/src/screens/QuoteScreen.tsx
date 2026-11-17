@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image, Pressable, Share, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
-import { ChipRow, MeasureField, MultiChipRow } from '../components/controls';
+import { ChipRow, MeasureField } from '../components/controls';
 import { PriceBookPicker } from '../components/PriceBookPicker';
 import { usePriceBook } from '../lib/usePriceBook';
 import { SignatureSheet } from '../components/SignaturePad';
@@ -15,12 +15,14 @@ import { formatNumber } from '../lib/measure';
 import { cents, formatMoney, TIER_CYCLES, TIER_LABEL } from '../lib/prices';
 import { buildQuote, QuoteOption, quoteText, repairQuote } from '../lib/quote';
 import { addEstimate } from '../lib/estimates';
-import { addOption, newLineId } from '../lib/ticket';
+import { addOption, newLineId, Ticket } from '../lib/ticket';
 import { formatLife } from '../lib/springNames';
 import { Repair, repairLines, withRepairs } from '../lib/inspection';
 import { usesSprings } from '../lib/jobTypes';
-import { springTemplateQuote, springTemplatesFor, templateQuote, templatesFor } from '../lib/odooTemplates';
+import { springTemplateQuote, springTemplatesFor, templateQuote } from '../lib/odooTemplates';
 import { useQuoteTemplates } from '../lib/useQuoteTemplates';
+import type { TemplateSets } from '../lib/odooTemplates';
+import type { PriceSheet } from '../lib/prices';
 import { invoiceNo, invoiceStatus } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -37,34 +39,48 @@ export function QuoteScreen({ job }: { job: Job }) {
   const { sheet } = usePriceSheet();
   const { setAccepted, setInspection, setQuoteLines, setTicket, setEstimates } = useJobs();
   const templates = useQuoteTemplates();
-  // Quotation templates picked by name, any number at once; each is its own option. A pick already accepted stays shown.
-  const [pickedTemplates, setPickedTemplates] = useState<string[]>(() => (job.accepted?.key ? [job.accepted.key] : []));
-  const chosen = pickedTemplates.flatMap((k) => (templates[k] ? [{ key: k, set: templates[k] }] : []));
-  const override = chosen.length > 0;
-  const set = templatesFor(templates, job.what);
   const typed = useMemo(() => job.quoteLines ?? [], [job.quoteLines]);
   const springJob = usesSprings(job.what);
   const springQuote = useMemo(() => buildQuote(job, sheet), [job, sheet]);
-  // Jobs the spring calculator can't price (openers, tune-ups) use the job type's Odoo templates.
-  const fromTemplates = override || (!!set && !!springQuote.blocked);
   // Spring jobs with springs picked: Odoo's spring templates price them.
-  const springSet = springJob && !springQuote.blocked && !override ? springTemplatesFor(templates, job.what) : undefined;
+  const springSet = springJob && !springQuote.blocked ? springTemplatesFor(templates, job.what) : undefined;
   // No spring answer and no templates: the service call plus the inspection's repairs and lines typed here.
   // Always so for a job that isn't about springs; for a spring job, once there is something to quote.
-  const repairOnly = !fromTemplates && !!springQuote.blocked && (!springJob || [...(job.inspection?.repairs ?? []), ...typed].some((r) => r.label.trim()));
+  const repairOnly = !!springQuote.blocked && (!springJob || [...(job.inspection?.repairs ?? []), ...typed].some((r) => r.label.trim()));
   const quote = useMemo(
     () =>
-      override
-        ? { options: chosen.flatMap((c) => templateQuote(c.set, sheet, repairLines(job.inspection, typed)).options.map((o) => ({ ...o, key: c.key }))) }
-        : fromTemplates && set
-        ? templateQuote(set, sheet, repairLines(job.inspection, typed))
-        : springSet
-          ? springTemplateQuote(springQuote, springSet, sheet, repairLines(job.inspection, typed))
-          : repairOnly
+      springSet
+        ? springTemplateQuote(springQuote, springSet, sheet, repairLines(job.inspection, typed))
+        : repairOnly
           ? repairQuote(repairLines(job.inspection, typed), sheet)
           : withRepairs(springQuote, job.inspection, sheet, typed),
-    [override, chosen, fromTemplates, springSet, repairOnly, set, springQuote, job.inspection, typed, sheet],
+    [springSet, repairOnly, springQuote, job.inspection, typed, sheet],
   );
+  /** Puts the picked templates on the estimate: together as sections of this one, or each as its own estimate. */
+  const addTemplates = (picked: { name: string; option: QuoteOption }[], separate: boolean) => {
+    const t = Date.now();
+    if (separate) {
+      setEstimates(job.id, (s) =>
+        picked.reduce((acc, p, i) => {
+          let n = 0;
+          const lines = addOption({ lines: [] }, p.option, sheet.odoo, () => newLineId(t + i * 1000 + n++)).lines;
+          return addEstimate(acc, { lines, title: p.name }, () => newLineId(t + 500 + i));
+        }, s),
+      );
+    } else {
+      let n = 0;
+      const id = () => newLineId(t + n++);
+      setTicket(job.id, (prev) =>
+        picked.reduce((acc, p) => {
+          // With several templates each gets its name as a heading, so they stay apart.
+          const named: Ticket = picked.length > 1 ? { ...acc, lines: [...acc.lines, { id: id(), name: p.name, qty: 1, unitCents: 0, kind: 'section' }] } : acc;
+          return addOption(named, p.option, sheet.odoo, id);
+        }, prev),
+      );
+    }
+    router.push({ pathname: '/ticket/[id]', params: { id: job.id } });
+  };
+
   const addOns = job.inspection?.repairs.filter((r) => r.label.trim()) ?? [];
   const toggleAddOn = (r: Repair) => {
     if (!job.inspection) return;
@@ -98,22 +114,9 @@ export function QuoteScreen({ job }: { job: Job }) {
         </View>
       ) : null}
 
-      {override || (fromTemplates && set) || springSet ? (
-        <Text style={styles.meta} testID="quote-from-templates">
-          From your Odoo quotation templates for {override ? chosen.map((c) => c.set.type).join(', ') : (springSet ?? set)!.type}.
-        </Text>
-      ) : null}
+      <TemplateList templates={templates} sheet={sheet} onAdd={addTemplates} />
 
-      <TemplatePicker templates={templates} picked={pickedTemplates} onChange={setPickedTemplates} />
-
-      {repairOnly && !springJob ? (
-        <View style={styles.notice} testID="quote-no-templates">
-          <Text style={styles.noticeTitle}>No {job.what} templates in Odoo</Text>
-          <Text style={styles.noticeBody}>
-            To quote good, better and best for {job.what}, make quotation templates in Odoo named "{job.what} · Good", "{job.what} · Better" and "{job.what} · Best". Until then this quote is the service call, the repairs from the inspection, and any lines you add below.
-          </Text>
-        </View>
-      ) : repairOnly ? (
+      {repairOnly && springJob ? (
         <Text style={styles.meta} testID="quote-repairs-only">
           No spring measurements, so this quote is the service call, the repairs from the inspection, and any lines you add below.
         </Text>
@@ -125,13 +128,6 @@ export function QuoteScreen({ job }: { job: Job }) {
           <Text style={[styles.noticeBody, styles.onStop]}>{quote.blocked}. Open the job in the calculator to fix it, or quote it by hand: add a line below.</Text>
         </View>
       ) : null}
-
-      <Action
-        label={job.inspection ? 'Inspection' + (repairs.length > 0 ? ` (${repairs.length} repair${repairs.length === 1 ? '' : 's'} added)` : '') : 'Do an inspection'}
-        onPress={() => router.push({ pathname: '/inspection/[id]', params: { id: job.id } })}
-        testID="quote-inspection"
-      />
-      <Action label={photoCount > 0 ? `Photos (${photoCount})` : 'Take photos'} onPress={() => router.push({ pathname: '/photos/[id]', params: { id: job.id } })} testID="quote-photos" />
 
       {addOns.length > 0 ? (
         <View style={styles.stack} testID="quote-addons">
@@ -286,17 +282,87 @@ export function QuoteScreen({ job }: { job: Job }) {
   );
 }
 
-/** Every Odoo quotation template, to quote this job from any of them (the job type's is the one picked to start). */
-function TemplatePicker({ templates, picked, onChange }: { templates: Record<string, { type: string; plain?: boolean }>; picked: string[]; onChange: (keys: string[]) => void }) {
-  const all = Object.entries(templates)
-    .filter(([, t]) => t.plain)
-    .sort((a, b) => a[1].type.localeCompare(b[1].type));
+/** Every Odoo quotation template as a card: tick one or several, see each one's lines and prices, add them to the estimate. */
+function TemplateList({ templates, sheet, onAdd }: { templates: TemplateSets; sheet: Pick<PriceSheet, 'taxPercent'>; onAdd: (picked: { name: string; option: QuoteOption }[], separate: boolean) => void }) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [find, setFind] = useState('');
+  const [separate, setSeparate] = useState(false);
+  const all = useMemo(
+    () =>
+      Object.entries(templates)
+        .filter(([, t]) => t.plain)
+        .sort((a, b) => a[1].type.localeCompare(b[1].type))
+        .map(([key, t]) => ({ key, name: t.type, option: templateQuote(t, sheet).options[0] })),
+    [templates, sheet],
+  );
   if (all.length === 0) return null;
+  const shown = all.filter((t) => t.name.toLowerCase().includes(find.trim().toLowerCase()));
+  // In the order they were ticked.
+  const chosen = picked.flatMap((k) => all.filter((t) => t.key === k));
+  const total = chosen.reduce((n, t) => n + t.option.total, 0);
+  const toggle = (key: string) => setPicked((p) => (p.includes(key) ? p.filter((k) => k !== key) : [...p, key]));
   return (
     <View style={styles.stack} testID="quote-template-picker">
       <Text style={styles.tier}>Quotation templates</Text>
-      <Text style={styles.meta}>Every quotation template in Odoo. Tap as many as you want to show together; the customer picks one.</Text>
-      <MultiChipRow options={all.map(([k, t]) => ({ label: t.type, value: k }))} values={picked} onChange={onChange} testID="quote-template-chips" />
+      <Text style={styles.meta}>Tap one or more to see what is in them, then add them to the estimate.</Text>
+      {all.length > 6 ? <TextInput value={find} onChangeText={setFind} placeholder="Search templates" placeholderTextColor={colors.muted} accessibilityLabel="Search templates" testID="quote-template-search" style={styles.input} /> : null}
+      {shown.map((t) => {
+        const on = picked.includes(t.key);
+        const real = t.option.lines.filter((l) => !l.display);
+        return (
+          <Pressable key={t.key} onPress={() => toggle(t.key)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} testID={`quote-template-${t.key}`} style={({ pressed }) => [styles.card, on && styles.cardOn, pressed && styles.pressed]}>
+            <View style={styles.top}>
+              <Text style={styles.lineLabel}>
+                {on ? '☑' : '☐'} {t.name}
+              </Text>
+              <Text style={styles.total}>{formatMoney(t.option.total)}</Text>
+            </View>
+            <Text style={styles.meta}>
+              {real.length} {real.length === 1 ? 'line' : 'lines'}
+            </Text>
+            {on
+              ? t.option.lines.map((l, i) =>
+                  l.display === 'section' ? (
+                    <Text key={i} style={styles.heading}>
+                      {l.label}
+                    </Text>
+                  ) : l.display === 'note' ? (
+                    <Text key={i} style={styles.meta}>
+                      {l.label}
+                    </Text>
+                  ) : (
+                    <View key={i} style={styles.line}>
+                      <Text style={styles.lineLabel}>
+                        {l.label}
+                        {l.taxable ? ' · taxed' : ''}
+                      </Text>
+                      <Text style={styles.lineValue}>{formatMoney(l.cents)}</Text>
+                    </View>
+                  ),
+                )
+              : null}
+            {on && t.option.tax > 0 ? (
+              <View style={styles.line}>
+                <Text style={styles.meta}>Tax on parts</Text>
+                <Text style={styles.meta}>{formatMoney(t.option.tax)}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+      {shown.length === 0 ? <Text style={styles.meta}>No template matches "{find}".</Text> : null}
+      {chosen.length > 1 ? <ChipRow options={[{ label: 'One estimate', value: 'one' as const }, { label: 'Separate estimates', value: 'sep' as const }]} value={separate ? 'sep' : 'one'} onChange={(v) => setSeparate(v === 'sep')} testID="quote-template-mode" /> : null}
+      {chosen.length > 0 ? (
+        <Action
+          label={`Add ${chosen.length === 1 ? chosen[0].name : `${chosen.length} templates`} to the estimate · ${formatMoney(total)}`}
+          primary
+          onPress={() => {
+            onAdd(chosen.map((t) => ({ name: t.name, option: t.option })), separate && chosen.length > 1);
+            setPicked([]);
+          }}
+          testID="quote-template-add"
+        />
+      ) : null}
     </View>
   );
 }
@@ -419,6 +485,7 @@ const styles = StyleSheet.create({
   tier: { fontSize: type.value, fontWeight: '800', color: colors.text },
   total: { fontSize: type.big, fontWeight: '800', color: colors.text },
   line: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  heading: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: 6 },
   customLink: { minHeight: touch.min, justifyContent: 'center', alignItems: 'center' },
   customText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
   lineLabel: { flex: 1, fontSize: type.body, color: colors.text },
