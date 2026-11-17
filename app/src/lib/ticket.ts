@@ -10,6 +10,7 @@ import { Discount, discountKey, discountLineName, parseDiscount } from './discou
 import type { OdooClient } from './odoo';
 import { lineValues, OdooRef, parseRef, serviceProduct } from './odooSales';
 import { termsNote } from './odooSettings';
+import { At, AutoHeadings, findSame, hasSections, insertLine, orderLines, paymentsHeading, planHeading, signKey } from './ticketSections';
 import type { PriceBookItem } from './priceBook';
 import { cents as priceCents, formatMoney, OdooLink } from './prices';
 import type { QuoteLine, QuoteOption } from './quote';
@@ -144,8 +145,10 @@ export interface EstimateSigned {
 
 /** The estimate's signature, if the customer signed it as it is now. */
 /** What a signature covers: the lines and the plan, so adding or changing a plan asks the customer again. */
-export const signKeyOf = (t: Pick<Ticket, 'lines' | 'plan'>) => linesKey(t.lines) + (t.plan ? `+plan:${t.plan.id}` : '');
-export const signedNow = (t: Ticket): EstimateSigned | undefined => (t.signed && t.signed.key === signKeyOf(t) ? t.signed : undefined);
+export const signKeyOf = signKey;
+/** Signatures made before 0.5.144 covered the lines in order; they still count while nothing has changed. */
+const legacySignKey = (t: Pick<Ticket, 'lines' | 'plan'>) => linesKey(t.lines) + (t.plan ? `+plan:${t.plan.id}` : '');
+export const signedNow = (t: Ticket): EstimateSigned | undefined => (t.signed && (t.signed.key === signKeyOf(t) || t.signed.key === legacySignKey(t)) ? t.signed : undefined);
 
 /** Whether this signature still has to be saved on the estimate's quotation in Odoo. */
 export const signaturePending = (t: Ticket): boolean => !!t.order && !!signedNow(t) && t.signed!.sent !== `${t.signed!.id}:${t.order.id}`;
@@ -309,15 +312,18 @@ export function estimateTotals(t: Ticket, taxPercent: string): { untaxed: number
   return { untaxed, tax, total: untaxed + tax };
 }
 
-/** Adds a price-book item; the same product again just adds one to its count. */
-export function addItem(t: Ticket, item: PriceBookItem, id: string): Ticket {
-  const same = t.lines.find((l) => l.productId === item.id && l.unitCents === item.cents);
+/**
+ * Adds a price-book item at the end of a section (`at`, see ticketSections.ts; default the last one). The same
+ * product again in the same section just adds one to its count; in another section it is its own line.
+ */
+export function addItem(t: Ticket, item: PriceBookItem, id: string, at?: At): Ticket {
+  const same = findSame(t, item.id, item.cents, at);
   if (same) return setQty(t, same.id, same.qty + 1);
-  return { ...t, lines: [...t.lines, { id, name: item.name, qty: 1, unitCents: item.cents, kind: item.kind, productId: item.id }] };
+  return insertLine(t, { id, name: item.name, qty: 1, unitCents: item.cents, kind: item.kind, productId: item.id }, at);
 }
 
-export function addTyped(t: Ticket, line: { name: string; unitCents: number; kind: LineKind }, id: string): Ticket {
-  return { ...t, lines: [...t.lines, { id, name: line.name.trim() || (line.kind === 'service' ? 'Service' : 'Material'), qty: 1, unitCents: Math.max(0, line.unitCents), kind: line.kind }] };
+export function addTyped(t: Ticket, line: { name: string; unitCents: number; kind: LineKind }, id: string, at?: At): Ticket {
+  return insertLine(t, { id, name: line.name.trim() || (line.kind === 'service' ? 'Service' : 'Material'), qty: 1, unitCents: Math.max(0, line.unitCents), kind: line.kind }, at);
 }
 
 /** A count of 0 or less takes the line off. */
@@ -337,9 +343,9 @@ export function setDiscount(t: Ticket, discount: Discount | undefined): Ticket {
 }
 
 /** Adds a note or a section heading (text only, no price) after what's there. */
-export function addText(t: Ticket, kind: 'note' | 'section', text: string, id: string): Ticket {
+export function addText(t: Ticket, kind: 'note' | 'section', text: string, id: string, at?: At): Ticket {
   const name = text.trim();
-  return name ? { ...t, lines: [...t.lines, { id, name, qty: 1, unitCents: 0, kind }] } : t;
+  return name ? insertLine(t, { id, name, qty: 1, unitCents: 0, kind }, at) : t;
 }
 
 export function removeLine(t: Ticket, id: string): Ticket {
@@ -364,7 +370,7 @@ export function addOption(t: Ticket, option: QuoteOption, links: Record<string, 
 /** The ticket's lines as quote lines, for the invoice and for Odoo. */
 export function toQuoteLines(t: Ticket): QuoteLine[] {
   const pct = t.discount?.pct;
-  const lines = t.lines.filter((l) => !isText(l)).map((l) => ({ label: l.name, cents: lineTotal(l), taxable: l.kind === 'material', ...(l.qty !== 1 ? { qty: l.qty } : {}), ...(l.productId ? { productId: l.productId } : {}), ...(pct ? { discountPct: pct } : {}) }));
+  const lines = orderLines(t.lines).filter((l) => !isText(l)).map((l) => ({ label: l.name, cents: lineTotal(l), taxable: l.kind === 'material', ...(l.qty !== 1 ? { qty: l.qty } : {}), ...(l.productId ? { productId: l.productId } : {}), ...(pct ? { discountPct: pct } : {}) }));
   // A dollar discount is one negative service line (untaxed), after the others.
   return t.discount?.cents && lines.length > 0 ? [...lines, { label: discountLineName(t.discount), cents: -t.discount.cents, taxable: false }] : lines;
 }
@@ -387,13 +393,13 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
 /** Saves of the same estimate wait for each other, and a quotation made is remembered, so a slow save can't make a second one. */
 const saving = new Map<string, Promise<unknown>>();
 
-export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number, key?: string): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string; planSaved: string }> {
-  if (!key) return syncTicketNow(client, partnerId, t, ref, now);
+export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number, key?: string, auto?: AutoHeadings): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string; planSaved: string }> {
+  if (!key) return syncTicketNow(client, partnerId, t, ref, now, auto);
   const prev = saving.get(key);
   const run = (async () => {
     const before = prev ? ((await prev.catch(() => undefined)) as { order?: OdooRef } | undefined) : undefined;
     // An earlier save of this estimate just made its quotation (the phone hadn't noted it yet): update that one.
-    return syncTicketNow(client, partnerId, !t.order && before?.order ? { ...t, order: before.order } : t, ref, now);
+    return syncTicketNow(client, partnerId, !t.order && before?.order ? { ...t, order: before.order } : t, ref, now, auto);
   })();
   saving.set(key, run);
   const done = () => void (saving.get(key) === run && saving.delete(key));
@@ -401,7 +407,7 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
   return run;
 }
 
-async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string; planSaved: string }> {
+async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number, auto?: AutoHeadings): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string; planSaved: string }> {
   const lines = toQuoteLines(t);
   const needService = lines.some((l) => l.cents !== 0 && !l.productId);
   const service = needService ? await serviceProduct(client) : 0;
@@ -409,7 +415,10 @@ async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, r
   const priced = lines;
   let at = 0;
   const body: Record<string, unknown>[] = [];
-  for (const l of t.lines) {
+  // The plan fee sorts last. On a ticket with sections it gets its own heading, so it doesn't read as part of the last repair section.
+  const sectioned = hasSections(t.lines);
+  for (const l of orderLines(t.lines)) {
+    if (l.planFee && sectioned) body.push({ display_type: 'line_section', name: planHeading(auto) });
     if (isText(l)) body.push({ display_type: l.kind === 'note' ? 'line_note' : 'line_section', name: l.name });
     else {
       const q = priced[at++];
@@ -418,7 +427,9 @@ async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, r
   }
   // A dollar discount is the last quote line, after the others.
   for (; at < priced.length; at++) body.push(...lineValues([priced[at]], {}, () => service, 'product_uom_qty'));
-  const vals = [...body, ...planLineNotes(t), ...depositNotes(t)];
+  // The plan note and the deposit notes go last; on a ticket with sections a closing heading keeps them apart from the repairs.
+  const tail = [...planLineNotes(t), ...depositNotes(t)];
+  const vals = [...body, ...(sectioned && tail.length ? [{ display_type: 'line_section', name: paymentsHeading(auto) }] : []), ...tail];
   let order = t.order;
   // The picked delivery address. Nothing picked: a new order gets the customer's own,
   // and an existing one keeps whatever Odoo has (it may have been set there by hand).

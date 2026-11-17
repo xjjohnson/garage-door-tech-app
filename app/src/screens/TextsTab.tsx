@@ -3,11 +3,17 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { fillText, TEXT_DEFAULT, TEXT_FIELD, TEXT_LABEL, TEXT_WORDS, TextKind, wording } from '../lib/messageTexts';
 import { reviewLink } from '../lib/invoices';
+import { DEFAULT_PAYMENTS_HEADING, DEFAULT_PLAN_HEADING } from '../lib/ticketSections';
 import { queueBusiness } from '../lib/settingsSync';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type } from '../theme';
 
 const KINDS: TextKind[] = ['onMyWay', 'eta', 'review'];
+
+const HEADINGS = [
+  { field: 'planHeading', label: 'Heading above the plan fee', fallback: DEFAULT_PLAN_HEADING },
+  { field: 'paymentsHeading', label: 'Heading above deposits and the plan note', fallback: DEFAULT_PAYMENTS_HEADING },
+] as const;
 
 /**
  * Management > Texts: the wording of the pre-written texts. They only fill in
@@ -49,6 +55,26 @@ export function TextsTab({ canEdit }: { canEdit: boolean }) {
           ) : null}
         </View>
       ))}
+      <Text style={styles.label}>Ticket headings</Text>
+      <Text style={styles.note}>On a ticket with sections, these two headings are added on their own: one above the maintenance plan fee, one above the deposit and plan notes at the bottom. Leave one blank to use the standard wording.</Text>
+      {HEADINGS.map((h) => (
+        <View key={h.field} style={styles.field}>
+          <Text style={styles.label}>{h.label}</Text>
+          <TextInput
+            value={business[h.field] ?? ''}
+            onChangeText={(v) => {
+              setBusiness(() => ({ ...business, [h.field]: v }));
+              setSaved(false);
+            }}
+            editable={canEdit}
+            placeholder={h.fallback}
+            placeholderTextColor={colors.muted}
+            accessibilityLabel={h.label}
+            testID={`manage-heading-${h.field}`}
+            style={styles.line}
+          />
+        </View>
+      ))}
       {canEdit ? (
         <Pressable
           onPress={() => {
@@ -79,6 +105,7 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   input: { minHeight: 120, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, paddingTop: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card, textAlignVertical: 'top' },
+  line: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   meta: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   back: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },

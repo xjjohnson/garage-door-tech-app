@@ -228,6 +228,43 @@ describe('Ticket screen', () => {
   }
   const saved = async () => parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0]!;
 
+  it('groups into Labor and Parts, adds a line under a heading, and moves lines with buttons', async () => {
+    await seed();
+    const job = (await saved());
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, ticket: addItem(addItem(EMPTY_TICKET, OPENER, 'a'), INSTALL, 'b') }]));
+    await renderApp('/job/j1');
+    await settle();
+    await fireEvent.press(screen.getByTestId('job-tab-work'));
+    await fireEvent.press(screen.getByTestId('job-open-ticket'));
+    await settle();
+
+    await fireEvent.press(screen.getByTestId('ticket-group'));
+    await settle();
+    let t = (await saved()).ticket!;
+    expect(t.lines.map((l) => l.name)).toEqual(['Labor', 'Residential Motor Install', 'Parts', 'Chamberlain belt drive']);
+    expect(screen.queryByTestId('ticket-group')).toBeNull();
+    const [labor, parts] = [t.lines[0]!.id, t.lines[2]!.id];
+    expect(screen.getByTestId(`ticket-section-total-${labor}`)).toHaveTextContent('$200');
+
+    // A note added under the Parts heading sits at the end of that section.
+    await fireEvent.press(screen.getByTestId(`ticket-add-here-${parts}`));
+    await fireEvent.press(screen.getByTestId(`ticket-here-note-${parts}`));
+    await fireEvent.changeText(screen.getByTestId('ticket-text-input'), 'Belt, 8ft');
+    await fireEvent.press(screen.getByTestId('ticket-text-add'));
+    await settle();
+    t = (await saved()).ticket!;
+    expect(t.lines.map((l) => l.name)).toEqual(['Labor', 'Residential Motor Install', 'Parts', 'Chamberlain belt drive', 'Belt, 8ft']);
+
+    // Move the opener up under Labor with Move to section.
+    const opener = t.lines[3]!.id;
+    await fireEvent.press(screen.getByTestId(`ticket-more-menu-${opener}`));
+    await fireEvent.press(screen.getByTestId(`ticket-to-${opener}`));
+    await fireEvent.press(screen.getByTestId(`ticket-to-${opener}-${labor}`));
+    await settle();
+    t = (await saved()).ticket!;
+    expect(t.lines.map((l) => l.name)).toEqual(['Labor', 'Residential Motor Install', 'Chamberlain belt drive', 'Parts', 'Belt, 8ft']);
+  });
+
   it('builds the ticket from the price book and by hand, then makes the invoice', async () => {
     await seed();
     await AsyncStorage.setItem(BUSINESS_STORAGE_KEY, JSON.stringify({ name: 'Johnsons', phone: '', cashtag: 'johnsons', venmo: '', zelle: 'pay@johnsons.test', reviewUrl: '' }));
