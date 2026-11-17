@@ -259,7 +259,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       }
       if (t.order && !tied) setError(`Made the invoice from the phone's lines and estimate. Quotation ${t.order.name} in Odoo was left as it is.`);
       // Deposits taken on the ticket become the invoice's first payments.
-      const inv = create(job, ticketOption(t, sheet.taxPercent), 'ticket', ticketRef(t), t.shipTo, t.deposits);
+      const inv = create(job, ticketOption(t, sheet.taxPercent, autoHeadings), 'ticket', ticketRef(t), t.shipTo, t.deposits);
       if (!job.steps?.workDoneAt) setStep(job.id, 'workDoneAt', now());
       // Parts used filter down from the ticket: what's on it from the truck comes off the truck now.
       for (const p of ticketParts(t, stock.items, stock.used ?? [], job.id, stock.purchases)) stock.takeParts(p.itemId, p.qty, job.id);

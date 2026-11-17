@@ -58,7 +58,9 @@ export function signatureBlock(sig: Signature | undefined, what: string): string
 export function invoiceHtml(inv: Invoice, business: Business, sig?: Signature, extra: { warranty?: string } = {}): string {
   const status = invoiceStatus(inv);
   const due = balance(inv);
-  const rows = inv.lines.map((l) => `<tr><td>${escapeHtml(l.label)}</td><td class="amt">${formatMoney(l.cents)}</td></tr>`).join('');
+  const rows = inv.lines
+    .map((l) => (l.display === 'section' ? `<tr><td colspan="2"><b>${escapeHtml(l.label)}</b></td></tr>` : l.display === 'note' ? `<tr><td colspan="2" class="muted">${escapeHtml(l.label)}</td></tr>` : `<tr><td>${escapeHtml(l.label)}</td><td class="amt">${formatMoney(l.cents)}</td></tr>`))
+    .join('');
   const payments = inv.payments
     .map((p) => `<tr><td>${escapeHtml(`${PAY_LABEL[p.method]}${p.reference ? ` #${p.reference}` : ''}, ${formatJobDate(p.at)}`)}</td><td class="amt">-${formatMoney(p.amount)}</td></tr>`)
     .join('');

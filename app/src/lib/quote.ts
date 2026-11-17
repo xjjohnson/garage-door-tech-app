@@ -24,7 +24,12 @@ export interface QuoteLine {
   productId?: number;
   /** Percent off this line (Odoo's line discount), from a quick discount on the ticket. */
   discountPct?: number;
+  /** A section heading or note (label is its text, no price): written to Odoo as a line_section or line_note, in place. */
+  display?: 'section' | 'note';
 }
+
+/** A heading or note line rather than something charged for. */
+export const isTextLine = (l: Pick<QuoteLine, 'display'>) => !!l.display;
 
 export interface QuoteOption {
   tier: Tier;

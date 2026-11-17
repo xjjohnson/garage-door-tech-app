@@ -137,9 +137,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
       ) : null}
 
       <View style={styles.card}>
-        {invoice.lines.map((l, i) => (
-          <Line key={i} label={l.label} value={formatMoney(l.cents)} />
-        ))}
+        {invoice.lines.map((l, i) => (l.display ? <Line key={i} label={l.label} value="" bold={l.display === 'section'} testID={`invoice-text-${i}`} /> : <Line key={i} label={l.label} value={formatMoney(l.cents)} />))}
         {invoice.tax > 0 ? <Line label="Tax on parts" value={formatMoney(invoice.tax)} /> : null}
         <Line label="Total" value={formatMoney(invoice.total)} bold />
         {paid(invoice) > 0 ? <Line label="Paid" value={formatMoney(paid(invoice))} /> : null}
