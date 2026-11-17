@@ -15,6 +15,8 @@ interface OdooApi {
   error: string | null;
   signIn: (login: OdooLogin, secret: string) => Promise<boolean>;
   signOut: () => void;
+  /** Signs in again with the saved key, to re-read what this account can do. False if there's no saved key or Odoo said no. */
+  refresh: () => Promise<boolean>;
 }
 
 const Ctx = createContext<OdooApi | null>(null);
@@ -94,7 +96,13 @@ export function OdooProvider({ children, fetchFn, secrets: givenSecrets }: { chi
     secrets.remove(SECRET_KEY);
   }, [secrets]);
 
-  const api = useMemo(() => ({ status, client, saved, error, signIn, signOut }), [status, client, saved, error, signIn, signOut]);
+  const refresh = useCallback(async () => {
+    const secret = saved ? await secrets.get(SECRET_KEY) : null;
+    if (!saved || !secret) return false;
+    return signIn(saved, secret);
+  }, [saved, secrets, signIn]);
+
+  const api = useMemo(() => ({ status, client, saved, error, signIn, signOut, refresh }), [status, client, saved, error, signIn, signOut, refresh]);
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 

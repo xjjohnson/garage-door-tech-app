@@ -1,11 +1,12 @@
+import { OdooSignInForm } from '../components/OdooSignInForm';
 import { requestSyncNow } from '../lib/syncNow';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
-import { Text, TextInput } from '../components/AppText';
+import { Text } from '../components/AppText';
 import { ChipRow, SectionTitle } from '../components/controls';
 import { phoneLink } from '../lib/jobs';
-import { appsFound, cleanUrl, guessDb, OdooError, OdooTask, OdooUser } from '../lib/odoo';
+import { appsFound, OdooError, OdooTask, OdooUser } from '../lib/odoo';
 import { dayLabel, formatTime, mapsLink } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
@@ -30,44 +31,7 @@ export function TeamButton() {
 export function TeamScreen({ now = Date.now }: { now?: () => number }) {
   const odoo = useOdoo();
   if (odoo.status === 'loading') return <Text style={styles.note}>Checking your Odoo sign-in...</Text>;
-  return odoo.status === 'signedIn' && odoo.client ? <SignedIn now={now} /> : <SignInForm />;
-}
-
-function SignInForm() {
-  const { saved, signIn, status, error } = useOdoo();
-  const [url, setUrl] = useState(saved?.url ?? '');
-  const [db, setDb] = useState(saved?.db ?? '');
-  const [login, setLogin] = useState(saved?.login ?? '');
-  const [secret, setSecret] = useState('');
-  const busy = status === 'signingIn';
-  return (
-    <View style={styles.stack} testID="team-signin">
-      <Text style={styles.note}>
-        Sign in with your Odoo account to get the jobs assigned to you, and to give jobs to your techs. Each tech signs in with their own Odoo user.
-      </Text>
-      <Field label="Odoo address" value={url} onChange={(v) => {
-        setUrl(v);
-        if (!db) setDb(guessDb(v));
-      }} placeholder="yourcompany.odoo.com" keyboard="url" testID="team-url" />
-      <Field label="Database" hint="For yourcompany.odoo.com it's usually yourcompany. To test against a copy, put the copy's database name here." value={db} onChange={setDb} placeholder="yourcompany" testID="team-db" />
-      <Field label="Email" value={login} onChange={setLogin} placeholder="you@yourcompany.com" keyboard="email-address" testID="team-login" />
-      <Field
-        label="API key (or password)"
-        hint="Use an API key: in Odoo, your name > My Preferences > Account Security > New API Key. It's kept in the phone's keystore."
-        value={secret}
-        onChange={setSecret}
-        placeholder="API key"
-        secure
-        testID="team-secret"
-      />
-      {error ? (
-        <Text style={styles.error} testID="team-error">
-          {error}
-        </Text>
-      ) : null}
-      <Action label={busy ? 'Signing in...' : 'Sign in to Odoo'} primary disabled={busy} onPress={() => signIn({ url: cleanUrl(url), db, login }, secret)} testID="team-signin-go" />
-    </View>
-  );
+  return odoo.status === 'signedIn' && odoo.client ? <SignedIn now={now} /> : <OdooSignInForm />;
 }
 
 function SignedIn({ now }: { now: () => number }) {
@@ -151,7 +115,7 @@ function SignedIn({ now }: { now: () => number }) {
         </Text>
         <AppsFound />
         <Text style={styles.note} testID="team-no-tasks">
-          Your Odoo doesn’t have a jobs app yet. In Odoo, open Apps and install Field Service (or Project if your plan doesn’t include Field Service). Then sign out here and sign in again.
+          Your Odoo doesn’t have a jobs app yet. In Odoo, open Apps and install Field Service (or Project if your plan doesn’t include Field Service). Then sign out (Developer screen, tap the version in Settings 7 times) and sign in again.
         </Text>
         <Action label="Sign out" onPress={signOut} testID="team-signout" />
       </View>
@@ -167,7 +131,6 @@ function SignedIn({ now }: { now: () => number }) {
       <Text style={styles.meta}>{s.kind === 'oca' ? (s.me ? 'Jobs are Field Service orders.' : 'Jobs are Field Service orders. You aren’t a Field Service worker in Odoo, so nothing is assigned to you; add yourself under Field Service > Workers.') : s.fsm ? 'Jobs are Odoo Field Service tasks.' : 'Field Service isn’t installed, so jobs are Odoo Project tasks.'}</Text>
       <View style={styles.row}>
         <Action label={busy ? 'Loading...' : 'Refresh'} grow disabled={busy} onPress={() => { requestSyncNow().catch(() => undefined); load(); }} testID="team-refresh" />
-        <Action label="Sign out" grow onPress={signOut} testID="team-signout" />
       </View>
       {error ? (
         <Text style={styles.error} testID="team-error">
@@ -227,28 +190,6 @@ function Task({ t, now, children }: { t: OdooTask; now: number; children?: React
         </View>
       ) : null}
       {children}
-    </View>
-  );
-}
-
-function Field({ label, hint, value, onChange, placeholder, keyboard, secure, testID }: { label: string; hint?: string; value: string; onChange: (v: string) => void; placeholder: string; keyboard?: 'url' | 'email-address'; secure?: boolean; testID: string }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      {hint ? <Text style={styles.meta}>{hint}</Text> : null}
-      <TextInput
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={colors.muted}
-        keyboardType={keyboard ?? 'default'}
-        autoCapitalize="none"
-        autoCorrect={false}
-        secureTextEntry={secure}
-        accessibilityLabel={label}
-        testID={testID}
-        style={styles.input}
-      />
     </View>
   );
 }
