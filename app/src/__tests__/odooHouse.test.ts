@@ -16,7 +16,7 @@ describe('readEquipmentNotes', () => {
 
 describe('warrantyStatus', () => {
   it('says in warranty until the later date, or that it ended', () => {
-    expect(warrantyStatus({ partsUntil: Date.UTC(2027, 10, 14, 12), laborUntil: Date.UTC(2027, 1, 12, 12) }, NOW)).toEqual({ text: 'In warranty until Nov 14, 2027', active: true });
+    expect(warrantyStatus({ partsUntil: Date.UTC(2027, 10, 14, 12), laborUntil: Date.UTC(2027, 1, 12, 12) }, NOW)).toEqual({ text: expect.stringMatching(/^In warranty until Nov 14, 2027 \(\d+ (months|weeks|days|yr)/), active: true });
     expect(warrantyStatus({ laborUntil: Date.UTC(2026, 0, 5, 12) }, NOW)).toEqual({ text: 'Warranty ended Jan 5, 2026', active: false });
     expect(warrantyStatus({}, NOW)).toBeNull();
   });

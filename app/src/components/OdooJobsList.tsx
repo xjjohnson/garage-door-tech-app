@@ -14,6 +14,8 @@ import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
 import { whatOf } from '../lib/odooJobs';
 import { dayLabel, formatTime } from '../lib/schedule';
+import { invoiceStatus } from '../lib/invoices';
+import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useOpenOdooJob } from '../lib/useStartJob';
@@ -45,6 +47,7 @@ export function startOfTomorrow(now: number): number {
 export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { filter: 'open' | 'done' | 'all' | 'upcoming'; search: string; /** When given, only jobs the phone has an unpaid invoice for. */ owedJobIds?: Set<string>; now?: () => number }) {
   const { client } = useOdoo();
   const { jobs } = useJobs();
+  const { invoices } = useInvoices();
   const openJob = useOpenOdooJob();
   const [rows, setRows] = useState<OdooTask[] | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -119,13 +122,16 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
         if (owedJobIds && !(phoneJob && owedJobIds.has(phoneJob.id))) return null;
         const when = t.start ?? t.deadline;
         const started = !!phoneJob?.steps?.arrivedAt;
+        // Work finished but not paid: say so instead of "In progress".
+        const mine = phoneJob ? invoices.filter((i) => i.jobId === phoneJob.id && invoiceStatus(i) !== 'void') : [];
+        const waiting = !!phoneJob?.steps?.workDoneAt && !(mine.length > 0 && mine.every((i) => invoiceStatus(i) === 'paid'));
         const stage = t.stage || 'New';
         return (
           <VisitCard
             key={t.id}
             top={t.name}
-            chip={started ? 'In progress' : stage}
-            tone={started ? 'on' : 'plain'}
+            chip={waiting ? 'Waiting for payment' : started ? 'In progress' : stage}
+            tone={started || waiting ? 'on' : 'plain'}
             name={t.customer || t.name}
             address={t.address}
             what={whatOf(t)}

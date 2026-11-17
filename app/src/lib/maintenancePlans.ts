@@ -146,19 +146,60 @@ export function toPlan(r: Record<string, unknown>): MaintenancePlan | undefined 
 /** Plans in the order management set, then by name. */
 export const sortPlans = (list: MaintenancePlan[]) => [...list].sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
 
-async function agreementFields(c: Client): Promise<string[] | null> {
+interface AgreementInfo {
+  have: string[];
+  /** The field the plan's notes are kept in: description where there is one, else the first notes-like text field. */
+  textField?: string;
+  /** Whether that field is HTML (else plain text). */
+  html: boolean;
+}
+
+const TEXT_FIELDS = ['description', 'notes', 'special_terms'];
+
+async function agreementInfo(c: Client): Promise<AgreementInfo | null> {
+  let f: Record<string, unknown>;
   try {
-    const f = (await c.call('agreement', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
-    return f && typeof f === 'object' ? Object.keys(f) : null;
+    f = (await c.call('agreement', 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>;
   } catch {
     return null;
   }
+  if (!f || typeof f !== 'object') return null;
+  const have = Object.keys(f);
+  const kind = (n: string) => (f[n] && typeof f[n] === 'object' ? str((f[n] as { type?: unknown }).type) : '');
+  const isText = (n: string) => ['text', 'html', ''].includes(kind(n));
+  const textField = TEXT_FIELDS.find((n) => have.includes(n) && isText(n)) ?? have.find((n) => /desc|note|term/i.test(n) && ['text', 'html'].includes(kind(n)));
+  return { have, textField, html: !!textField && kind(textField) !== 'text' };
 }
 
-/** Whether this Odoo has the Agreement app, so plans can be kept in it. */
+async function agreementFields(c: Client): Promise<string[] | null> {
+  return (await agreementInfo(c))?.have ?? null;
+}
+
+/** Why plans can't be kept in this Odoo's agreements, in words that name what is missing; null when they can. */
+export async function plansProblem(c: Client): Promise<string | null> {
+  const info = await agreementInfo(c);
+  if (!info) return "Couldn't read the Agreement model in Odoo: the Agreement app isn't installed, or this user can't see it.";
+  if (!info.have.includes('name')) return "The Agreement app isn't installed in Odoo (its Agreement model has no name field).";
+  if (!info.textField) return `The Agreement app is installed, but its agreements have no notes or description field to keep plans in (fields found: ${info.have.slice(0, 40).join(', ')}).`;
+  return null;
+}
+
+/** Whether this Odoo has an Agreement model plans can be kept in. */
 export async function plansSupported(c: Client): Promise<boolean> {
-  const have = await agreementFields(c);
-  return !!have && have.includes('name') && have.includes('description');
+  return (await plansProblem(c)) === null;
+}
+
+/** A plan's notes as the agreement field wants them: HTML, or plain text for a text field. */
+function notesFor(p: MaintenancePlan, html: boolean): string {
+  const h = planNotes(p);
+  if (html) return h;
+  return h
+    .replace(/<\/p><p>/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
 }
 
 /**
@@ -166,14 +207,15 @@ export async function plansSupported(c: Client): Promise<boolean> {
  * A plan is an agreement with no customer whose notes carry the marker.
  */
 export async function fetchPlans(c: Client, opts: { includeArchived?: boolean } = {}): Promise<MaintenancePlan[]> {
-  const have = await agreementFields(c);
-  if (!have || !have.includes('description')) return [];
-  const domain: unknown[] = [['description', 'ilike', PLAN_MARKER]];
+  const info = await agreementInfo(c);
+  if (!info?.textField) return [];
+  const { have, textField } = info;
+  const domain: unknown[] = [[textField, 'ilike', PLAN_MARKER]];
   if (have.includes('is_template')) domain.push(['is_template', '=', true]);
   if (have.includes('active') && opts.includeArchived) domain.push(['active', 'in', [true, false]]);
-  const fields = ['name', 'description', ...(have.includes('active') ? ['active'] : [])];
+  const fields = ['name', textField, ...(have.includes('active') ? ['active'] : [])];
   const rows = (await c.call('agreement', 'search_read', [domain], { fields, order: 'name asc', limit: 200 })) as Record<string, unknown>[];
-  return sortPlans(rows.flatMap((r) => toPlan(r) ?? []));
+  return sortPlans(rows.flatMap((r) => toPlan({ ...r, description: r[textField] }) ?? []));
 }
 
 /** Creates or updates a plan in Odoo; returns its agreement id. */
@@ -182,11 +224,12 @@ export async function savePlan(c: Client, p: MaintenancePlan, now = Date.now()):
   if (!name) throw new Error('Give the plan a name.');
   if (p.everyMonths < 1) throw new Error('Set how many months between visits.');
   if (p.visitsPerYear < 1) throw new Error('Set at least one visit a year.');
-  const have = await agreementFields(c);
-  if (!have || !have.includes('description')) throw new Error('Maintenance plans need the Agreement app in Odoo.');
+  const info = await agreementInfo(c);
+  if (!info?.textField) throw new Error((await plansProblem(c)) ?? 'Maintenance plans need the Agreement app in Odoo.');
+  const { have } = info;
   const vals: Record<string, unknown> = {
     name,
-    description: planNotes({ ...p, name }),
+    [info.textField]: notesFor({ ...p, name }, info.html),
     ...(have.includes('is_template') ? { is_template: true } : {}),
     ...(have.includes('active') ? { active: p.active } : {}),
   };

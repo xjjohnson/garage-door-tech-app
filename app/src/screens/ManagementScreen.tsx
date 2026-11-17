@@ -35,7 +35,7 @@ import {
   truckSource,
 } from '../lib/odooManage';
 import { FSM_TEMPLATES_STORAGE_KEY } from '../lib/fsmTemplates';
-import { addStarterPlans, archivePlan, blankPlan, fetchPlans, MaintenancePlan, PLANS_STORAGE_KEY, planSummary, plansSupported, PlanAudience, savePlan } from '../lib/maintenancePlans';
+import { addStarterPlans, archivePlan, blankPlan, fetchPlans, MaintenancePlan, PLANS_STORAGE_KEY, planSummary, plansProblem, PlanAudience, savePlan } from '../lib/maintenancePlans';
 import { resetQuoteTemplates } from '../lib/useQuoteTemplates';
 import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
@@ -566,9 +566,9 @@ function Chips<T>({ options, value, onPick, canEdit, testID }: { options: { id: 
 const intOf = (v: string) => Number.parseInt(v.replace(/\D/g, ''), 10) || 0;
 
 function Plans({ client, canEdit }: TabProps) {
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const [problem, setProblem] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    plansSupported(client).then(setSupported);
+    plansProblem(client).then(setProblem);
   }, [client]);
   const load = useCallback(() => fetchPlans(client, { includeArchived: true }), [client]);
   const { rows, err, reload } = useList(load);
@@ -591,7 +591,7 @@ function Plans({ client, canEdit }: TabProps) {
     setPerks(p.perks.join('\n'));
     setMsg('');
   };
-  if (supported === false) return <Text style={styles.note} testID="manage-plans-unsupported">Maintenance plans are kept as agreements in Odoo. Install the Agreement app there first.</Text>;
+  if (problem) return <Text style={styles.note} testID="manage-plans-unsupported">Maintenance plans are kept as agreements in Odoo. {problem}</Text>;
   if (edit) {
     const dollars = Number(price.replace('$', '').trim());
     const full: MaintenancePlan = { ...edit, priceCents: Number.isFinite(dollars) && dollars > 0 ? Math.round(dollars * 100) : 0, perks: perks.split('\n').map((x) => x.trim()).filter(Boolean) };
