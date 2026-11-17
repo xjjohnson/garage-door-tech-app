@@ -11,7 +11,7 @@ export default function QuoteRoute() {
   const { jobs, loaded } = useJobs();
   const job = jobs.find((j) => j.id === id);
   return (
-    <Page title="Estimate" testID="quote-sheet">
+    <Page title="Templates" testID="quote-sheet">
       {job ? (
         <QuoteScreen job={job} />
       ) : loaded ? (
