@@ -256,7 +256,7 @@ describe('a customer\'s page shows Odoo\'s jobs, quotes and invoices', () => {
     expect(screen.getByTestId('customer-job-notyet')).toBeTruthy();
     expect(screen.getByText('Waiting to go to Odoo')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('customer-tab-quotes'));
-    expect(screen.getByTestId('customer-odoo-quotations-40')).toHaveTextContent(/S00040.*\$420.*Quotation sent/);
+    expect(screen.getByTestId('customer-odoo-quotations-40')).toHaveTextContent(/S00040.*\$420.*Quote sent/);
     expect(screen.getByTestId('customer-odoo-invoices-60')).toHaveTextContent(/INV\/2026\/00060.*Not paid|Overdue/);
     expect(screen.getByTestId('customer-odoo-owed')).toHaveTextContent('Owes $300 in Odoo');
 

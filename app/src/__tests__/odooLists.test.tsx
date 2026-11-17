@@ -77,8 +77,8 @@ describe('Odoo lists (logic)', () => {
     const o = fakeOdoo();
     const rows = await fetchList(o.client, 'quotations', 'all', '', 0, NOW);
     expect(rows.map((r) => [r.name, r.customer, r.status, r.total, r.ref])).toEqual([
-      ['S00055', 'Pat Smith', 'Quotation', 46500, 'Good · 12 Oak St'],
-      ['S00054', 'Lee Park', 'Sales order', 19900, undefined],
+      ['S00055', 'Pat Smith', 'Quote', 46500, 'Good · 12 Oak St'],
+      ['S00054', 'Lee Park', 'Approved', 19900, undefined],
     ]);
     expect(o.calls[0].kw).toMatchObject({ order: 'date_order desc, id desc', limit: 40, offset: 0 });
   });

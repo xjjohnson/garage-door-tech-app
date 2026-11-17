@@ -75,7 +75,7 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
           <Text style={[styles.tabText, view === 'invoices' && styles.tabTextOn]}>Invoices</Text>
         </Pressable>
         <Pressable onPress={() => setView('quotes')} accessibilityRole="tab" accessibilityState={{ selected: view === 'quotes' }} testID="sales-odoo-quotations" style={[styles.tab, view === 'quotes' && styles.tabOn]}>
-          <Text style={[styles.tabText, view === 'quotes' && styles.tabTextOn]}>Quotes</Text>
+          <Text style={[styles.tabText, view === 'quotes' && styles.tabTextOn]}>Work orders</Text>
         </Pressable>
       </View>
 

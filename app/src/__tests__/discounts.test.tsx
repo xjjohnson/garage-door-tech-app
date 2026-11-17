@@ -5,7 +5,7 @@ import { EMPTY_BUSINESS, parseBusiness } from '../lib/invoices';
 import { lineValues } from '../lib/odooSales';
 import { sameBusiness } from '../lib/odooSettings';
 import * as settingsSync from '../lib/settingsSync';
-import { addItem, currentTotals, EMPTY_TICKET, estimateTotals, linesKey, parseTicket, setDiscount, syncTicket, toQuoteLines } from '../lib/ticket';
+import { addItem, addText, hasPriced, currentTotals, EMPTY_TICKET, estimateTotals, linesKey, parseTicket, setDiscount, syncTicket, toQuoteLines } from '../lib/ticket';
 import { DiscountsTab } from '../screens/DiscountsTab';
 
 let mockBiz = { ...EMPTY_BUSINESS, name: 'Johnsons' } as typeof EMPTY_BUSINESS;
@@ -110,6 +110,34 @@ describe('discount on the ticket', () => {
     await syncTicket(client as never, 5, setDiscount(base, { label: '$25 off', cents: 2500 }), '', 2);
     const dollars = (calls.find((c) => c.method === 'create')!.args[0] as { order_line: [number, number, Record<string, unknown>][] }).order_line;
     expect(dollars[2][2]).toEqual({ product_id: 9, name: 'Discount: $25 off', product_uom_qty: 1, price_unit: -25 });
+  });
+});
+
+describe('notes and sections', () => {
+  it('go to the quotation in Odoo as note and section lines, in place, and stay off the priced lines', async () => {
+    const calls: { method: string; args: unknown[] }[] = [];
+    const client = {
+      call: jest.fn(async (model: string, method: string, args: unknown[]) => {
+        calls.push({ method, args });
+        if (model === 'product.product' && method === 'search') return [9];
+        if (model === 'sale.order' && method === 'create') return 71;
+        if (model === 'sale.order' && method === 'read') return [{ name: 'S00071', state: 'draft', amount_untaxed: 100, amount_tax: 0, amount_total: 100 }];
+        return true;
+      }),
+    };
+    let t = addText({ lines: [] }, 'section', 'Springs', 's1');
+    t = { ...t, lines: [...t.lines, { id: 'a', name: 'Spring', qty: 1, unitCents: 10000, kind: 'material' }] };
+    t = addText(t, 'note', '16x12 door, 24ft to spring line', 'n1');
+    t = addText(t, 'note', '   ', 'n2');
+    expect(t.lines.map((l) => l.id)).toEqual(['s1', 'a', 'n1']);
+    expect(toQuoteLines(t)).toHaveLength(1);
+    expect(hasPriced({ lines: t.lines.filter((l) => l.kind !== 'material') })).toBe(false);
+    await syncTicket(client as never, 5, t, '', 1);
+    const lines = (calls.find((c) => c.method === 'create')!.args[0] as { order_line: [number, number, Record<string, unknown>][] }).order_line.map((l) => l[2]);
+    expect(lines[0]).toEqual({ display_type: 'line_section', name: 'Springs' });
+    expect(lines[1].price_unit).toBe(100);
+    expect(lines[2]).toEqual({ display_type: 'line_note', name: '16x12 door, 24ft to spring line' });
+    expect(parseTicket(JSON.parse(JSON.stringify(t)))?.lines.map((l) => l.kind)).toEqual(['section', 'material', 'note']);
   });
 });
 

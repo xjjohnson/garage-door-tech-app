@@ -9,6 +9,8 @@
  */
 import type { OdooClient } from './odoo';
 import { odooTime } from './odoo';
+import { addressParts } from './geocode';
+import { squashStreet } from './odooJobs';
 import { isTrackable, orderLocation } from './odooEquipment';
 
 type Caller = Pick<OdooClient, 'call' | 'session'>;
@@ -105,6 +107,21 @@ export function warrantyStatus(e: Pick<HouseEquipment, 'partsUntil' | 'laborUnti
 export async function houseOfOrder(c: Caller, orderId: number): Promise<number | undefined> {
   if (c.session.kind !== 'oca') return undefined;
   return orderLocation(c, orderId);
+}
+
+/**
+ * The house at an address: the customer's Field Service location with the same
+ * street (the delivery address on the job), without making one. A property
+ * manager has many houses, so history follows the address on the job rather
+ * than the location its Odoo order happened to be made under. Undefined when
+ * no address is given or none of their locations matches.
+ */
+export async function houseAtAddress(c: Caller, partnerId: number, address: string): Promise<number | undefined> {
+  if (c.session.kind !== 'oca') return undefined;
+  const key = squashStreet(addressParts(address.trim()).street);
+  if (!key) return undefined;
+  const theirs = (await c.call('fsm.location', 'search_read', [['|', ['partner_id', '=', partnerId], ['owner_id', '=', partnerId]]], { fields: ['name', 'street'], limit: 200 })) as { id: number; name?: unknown; street?: unknown }[];
+  return theirs.find((l) => [l.street, l.name].some((v) => typeof v === 'string' && squashStreet(v.split(',')[0]) === key))?.id;
 }
 
 /** Equipment on file and past visits at one house (the job being opened is left out). */
