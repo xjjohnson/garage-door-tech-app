@@ -35,6 +35,7 @@ import {
   truckSource,
 } from '../lib/odooManage';
 import { FSM_TEMPLATES_STORAGE_KEY } from '../lib/fsmTemplates';
+import { addStarterPlans, archivePlan, blankPlan, fetchPlans, MaintenancePlan, PLANS_STORAGE_KEY, planSummary, plansSupported, PlanAudience, savePlan } from '../lib/maintenancePlans';
 import { resetQuoteTemplates } from '../lib/useQuoteTemplates';
 import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
@@ -44,13 +45,14 @@ import { ChecklistsScreen } from './ChecklistsScreen';
 import { DiscountsTab } from './DiscountsTab';
 import { TextsTab } from './TextsTab';
 
-type Tab = 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'discounts' | 'texts' | 'checklists';
+type Tab = 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'plans' | 'discounts' | 'texts' | 'checklists';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'jobTypes', label: 'Job types' },
   { id: 'templates', label: 'Templates' },
   { id: 'parts', label: 'Parts' },
   { id: 'techs', label: 'Techs' },
   { id: 'trucks', label: 'Trucks' },
+  { id: 'plans', label: 'Maintenance plans' },
   { id: 'discounts', label: 'Discounts' },
   { id: 'texts', label: 'Texts' },
   { id: 'checklists', label: 'Checklists' },
@@ -96,6 +98,7 @@ export function ManagementScreen() {
       {tab === 'parts' ? <Parts client={client} canEdit={owner === true} /> : null}
       {tab === 'techs' ? <Techs client={client} canEdit={owner === true} /> : null}
       {tab === 'trucks' ? <Trucks client={client} canEdit={owner === true} /> : null}
+      {tab === 'plans' ? <Plans client={client} canEdit={owner === true} /> : null}
       {tab === 'discounts' ? <DiscountsTab canEdit={owner === true} /> : null}
       {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
       {tab === 'checklists' ? <ChecklistsScreen /> : null}
@@ -527,6 +530,156 @@ function Trucks({ client, canEdit }: TabProps) {
       {rows?.map((t) => <Row key={t.id} label={t.name} detail={[techs.find((x) => x.id === t.personId)?.label, places.find((x) => x.id === t.locationId)?.label].filter(Boolean).join(' · ') || undefined} testID={`manage-truck-${t.id}`} onPress={() => setEdit({ ...t })} />)}
       {rows?.length === 0 ? <Text style={styles.note}>No trucks in Odoo yet.</Text> : null}
       <AddButton show={canEdit && !!source} label="Add a truck" testID="manage-truck-new" onPress={() => setEdit({ name: '' })} />
+    </View>
+  );
+}
+
+/* -------------------------------------------------------- Maintenance plans */
+
+const AUDIENCES: { id: PlanAudience; label: string }[] = [
+  { id: 'all', label: 'Everyone' },
+  { id: 'homes', label: 'Homes only' },
+  { id: 'commercial', label: 'Commercial / property managers' },
+];
+const EVERY = [3, 6, 12];
+const TERMS: { months: number; label: string }[] = [
+  { months: 12, label: '1 year' },
+  { months: 24, label: '2 years' },
+  { months: 0, label: 'Ongoing' },
+];
+
+function Chips<T>({ options, value, onPick, canEdit, testID }: { options: { id: T; label: string }[]; value: T; onPick: (v: T) => void; canEdit: boolean; testID: string }) {
+  return (
+    <View style={styles.chips}>
+      {options.map((o) => {
+        const on = o.id === value;
+        return (
+          <Pressable key={String(o.id)} disabled={!canEdit} onPress={() => onPick(o.id)} accessibilityRole="radio" accessibilityState={{ selected: on }} testID={`${testID}-${String(o.id)}`} style={[styles.chip, on && styles.tabOn]}>
+            <Text style={[styles.tabText, on && styles.tabTextOn]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const intOf = (v: string) => Number.parseInt(v.replace(/\D/g, ''), 10) || 0;
+
+function Plans({ client, canEdit }: TabProps) {
+  const [supported, setSupported] = useState<boolean | null>(null);
+  useEffect(() => {
+    plansSupported(client).then(setSupported);
+  }, [client]);
+  const load = useCallback(() => fetchPlans(client, { includeArchived: true }), [client]);
+  const { rows, err, reload } = useList(load);
+  const [edit, setEdit] = useState<MaintenancePlan | null>(null);
+  const [jobTypes, setJobTypes] = useState<Choice[]>([]);
+  const [price, setPrice] = useState('');
+  const [perks, setPerks] = useState('');
+  const [starterMsg, setStarterMsg] = useState('');
+  useEffect(() => {
+    listJobTypes(client).then((l) => setJobTypes(l.map((t) => ({ id: t.id, label: t.name })))).catch(() => undefined);
+  }, [client]);
+  const { busy, msg, run, setMsg } = useAction(() => {
+    setEdit(null);
+    AsyncStorage.removeItem(PLANS_STORAGE_KEY).catch(() => undefined);
+    reload();
+  });
+  const open = (p: MaintenancePlan) => {
+    setEdit(p);
+    setPrice(p.priceCents ? String(p.priceCents / 100) : '');
+    setPerks(p.perks.join('\n'));
+    setMsg('');
+  };
+  if (supported === false) return <Text style={styles.note} testID="manage-plans-unsupported">Maintenance plans are kept as agreements in Odoo. Install the Agreement app there first.</Text>;
+  if (edit) {
+    const dollars = Number(price.replace('$', '').trim());
+    const full: MaintenancePlan = { ...edit, priceCents: Number.isFinite(dollars) && dollars > 0 ? Math.round(dollars * 100) : 0, perks: perks.split('\n').map((x) => x.trim()).filter(Boolean) };
+    const set = (patch: Partial<MaintenancePlan>) => setEdit({ ...edit, ...patch });
+    const customEvery = !EVERY.includes(edit.everyMonths);
+    return (
+      <EditShell
+        title={edit.id ? edit.name || 'Plan' : 'New plan'}
+        canEdit={canEdit}
+        busy={busy}
+        msg={msg}
+        onSave={() => run(() => savePlan(client, full))}
+        onArchive={edit.id && edit.active ? () => run(() => archivePlan(client, edit.id!)) : undefined}
+        onBack={() => { setEdit(null); setMsg(''); }}
+        archiveLabel="Archive this plan"
+      >
+        <TextField label="Name" value={edit.name} onChange={(name) => set({ name })} editable={canEdit} testID="manage-plan-name" hint="What the tech picks on a ticket and the customer reads on the estimate." />
+        <TextField label="What is included" value={edit.description} onChange={(description) => set({ description })} editable={canEdit} multiline testID="manage-plan-description" hint="Short, in words the customer understands." />
+        <View style={styles.field}>
+          <Text style={styles.label}>Visit every</Text>
+          <Chips options={[...EVERY.map((m) => ({ id: String(m), label: `${m} months` })), { id: 'custom', label: 'Custom' }]} value={customEvery ? 'custom' : String(edit.everyMonths)} onPick={(v) => set({ everyMonths: v === 'custom' ? 4 : Number(v), visitsPerYear: v === 'custom' ? edit.visitsPerYear : Math.max(1, Math.round(12 / Number(v))) })} canEdit={canEdit} testID="manage-plan-every" />
+          {customEvery ? <TextField label="Months between visits" value={String(edit.everyMonths || '')} onChange={(v) => set({ everyMonths: intOf(v) })} editable={canEdit} keyboard="numeric" testID="manage-plan-every-custom" /> : null}
+        </View>
+        <TextField label="Visits per year" value={String(edit.visitsPerYear || '')} onChange={(v) => set({ visitsPerYear: intOf(v) })} editable={canEdit} keyboard="numeric" testID="manage-plan-visits" />
+        <TextField label="Make each visit this many days ahead" value={String(edit.daysAhead)} onChange={(v) => set({ daysAhead: intOf(v) })} editable={canEdit} keyboard="numeric" testID="manage-plan-ahead" hint="Odoo creates the job this long before it is due. 30 is the usual." />
+        {jobTypes.length ? (
+          <View style={styles.field}>
+            <Text style={styles.label}>Visit type</Text>
+            <Chips options={[{ id: 0, label: 'Default' }, ...jobTypes]} value={edit.jobTypeId ?? 0} onPick={(id) => set({ jobTypeId: id || undefined, jobTypeName: jobTypes.find((t) => t.id === id)?.label })} canEdit={canEdit} testID="manage-plan-type" />
+          </View>
+        ) : null}
+        <View style={styles.field}>
+          <Text style={styles.label}>Term</Text>
+          <Chips options={TERMS.map((t) => ({ id: t.months, label: t.label }))} value={edit.termMonths} onPick={(termMonths) => set({ termMonths })} canEdit={canEdit} testID="manage-plan-term" />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>At the end of the term</Text>
+          <Chips options={[{ id: 'no', label: 'Ends' }, { id: 'yes', label: 'Renews' }]} value={edit.renews ? 'yes' : 'no'} onPick={(v) => set({ renews: v === 'yes' })} canEdit={canEdit} testID="manage-plan-renews" />
+        </View>
+        <TextField label="Price (dollars)" value={price} onChange={setPrice} editable={canEdit} keyboard="numeric" testID="manage-plan-price" hint="Leave empty for no charge. A fee is added to the ticket as one line and covers the term. Nothing bills again by itself." />
+        <TextField label="Renewal notice (days before the end)" value={String(edit.noticeDays)} onChange={(v) => set({ noticeDays: intOf(v) })} editable={canEdit} keyboard="numeric" testID="manage-plan-notice" />
+        <TextField label="Perks" value={perks} onChange={setPerks} editable={canEdit} multiline testID="manage-plan-perks" hint="One per line, like Priority scheduling. Text only; nothing is figured from it." />
+        <View style={styles.field}>
+          <Text style={styles.label}>Who it is for</Text>
+          <Chips options={AUDIENCES} value={edit.audience} onPick={(audience) => set({ audience })} canEdit={canEdit} testID="manage-plan-audience" />
+        </View>
+        <TextField label="Order in the list" value={String(edit.sort)} onChange={(v) => set({ sort: intOf(v) })} editable={canEdit} keyboard="numeric" testID="manage-plan-sort" hint="Smaller numbers come first." />
+        <View style={styles.field}>
+          <Text style={styles.label}>Active</Text>
+          <Chips options={[{ id: 'on', label: 'On' }, { id: 'off', label: 'Off' }]} value={edit.active ? 'on' : 'off'} onPick={(v) => set({ active: v === 'on' })} canEdit={canEdit} testID="manage-plan-active" />
+        </View>
+      </EditShell>
+    );
+  }
+  return (
+    <View style={styles.stack} testID="manage-plans">
+      <Text style={styles.note}>Plans the tech can add to a ticket. Each one is an agreement template in Odoo.</Text>
+      {err ? <Text style={styles.warn}>{err}</Text> : null}
+      {rows === null && !err ? <Text style={styles.note}>Reading Odoo...</Text> : null}
+      {rows?.map((p) => (
+        <Row key={p.id} label={p.active ? p.name : `${p.name} (off)`} detail={planSummary(p)} testID={`manage-plan-${p.id}`} onPress={() => open(p)} />
+      ))}
+      {rows?.length === 0 ? (
+        <View style={styles.stack}>
+          <Text style={styles.note} testID="manage-plans-empty">No plans yet. You can start with Yearly tune-up, Twice-a-year and Commercial / Property manager, then set prices and wording yourself.</Text>
+          {canEdit ? (
+            <Pressable
+              onPress={async () => {
+                setStarterMsg('');
+                try {
+                  const n = await addStarterPlans(client);
+                  setStarterMsg(`Made ${n} plan${n === 1 ? '' : 's'} in Odoo.`);
+                  reload();
+                } catch (e) {
+                  setStarterMsg(`Not made: ${errText(e)}`);
+                }
+              }}
+              accessibilityRole="button"
+              testID="manage-plans-starter"
+              style={styles.back}
+            >
+              <Text style={styles.buttonText}>Add starter plans</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {starterMsg ? <Text style={styles.note} testID="manage-plans-msg">{starterMsg}</Text> : null}
+      <AddButton show={canEdit} label="Add a plan" testID="manage-plan-new" onPress={() => open(blankPlan())} />
     </View>
   );
 }
