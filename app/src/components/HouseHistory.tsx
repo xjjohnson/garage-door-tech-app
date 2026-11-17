@@ -13,7 +13,7 @@ import { Icon } from './Icon';
 import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
-import { badgeText, CustomerBadge, fetchCustomerBadge, fetchCustomerEquipment, HouseEquipment, fetchHouseHistory, houseOfOrder, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';
+import { badgeText, CustomerBadge, fetchCustomerBadge, fetchCustomerEquipment, HouseEquipment, fetchHouseHistory, houseAtAddress, houseOfOrder, HouseHistory as House, isRepeat, warrantyStatus } from '../lib/odooHouse';
 import { formatMoney } from '../lib/prices';
 import { Invoice, invoiceNo } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
@@ -79,23 +79,28 @@ export function CustomerBadgeLine({ partnerId, testID = 'customer-badge', onDark
 }
 
 /** The house's doors, openers and past visits from Odoo; `orderId` is the Odoo job being opened. */
-export function useHouseHistory(orderId: number | undefined): { house: House | null; error: string | null } {
+export function useHouseHistory(orderId: number | undefined, where?: { partnerId?: number; address?: string }): { house: House | null; error: string | null } {
   const { client } = useOdoo();
   const [house, setHouse] = useState<House | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const partnerId = where?.partnerId;
+  const address = where?.address?.trim();
+  const savedKey = `o${orderId}${address ? `@${address.toLowerCase()}` : ''}`;
   useEffect(() => {
     if (!orderId) return;
     let live = true;
-    readSaved<House>(HOUSE_STORAGE_KEY, `o${orderId}`).then((s) => live && s && setHouse((h) => h ?? s));
+    setHouse(null);
+    readSaved<House>(HOUSE_STORAGE_KEY, savedKey).then((s) => live && s && setHouse((h) => h ?? s));
     if (client) {
       (async () => {
-        const loc = await houseOfOrder(client, orderId);
+        // The job's delivery address first (its house), else the location its Odoo order is at.
+        const loc = (partnerId && address ? await houseAtAddress(client, partnerId, address) : undefined) ?? (await houseOfOrder(client, orderId));
         if (!loc) return;
         const h = await fetchHouseHistory(client, loc, orderId);
         if (!live) return;
         setHouse(h);
         setError(null);
-        writeSaved(HOUSE_STORAGE_KEY, `o${orderId}`, h);
+        writeSaved(HOUSE_STORAGE_KEY, savedKey, h);
       })().catch((e) => {
         if (!live) return;
         setError(e instanceof Error ? e.message : String(e));
@@ -105,13 +110,13 @@ export function useHouseHistory(orderId: number | undefined): { house: House | n
     return () => {
       live = false;
     };
-  }, [client, orderId]);
+  }, [client, orderId, partnerId, address]);
   return { house, error };
 }
 
 /** The House card on a job: doors and openers with warranty, and the visits here before. */
-export function HouseCard({ orderId, now = Date.now }: { orderId: number | undefined; now?: () => number }) {
-  const { house, error } = useHouseHistory(orderId);
+export function HouseCard({ orderId, partnerId, address, now = Date.now }: { orderId: number | undefined; partnerId?: number; address?: string; now?: () => number }) {
+  const { house, error } = useHouseHistory(orderId, { partnerId, address });
   if (!orderId) return null;
   if (!house) return error ? <Text style={styles.meta}>Couldn&apos;t read this house from Odoo: {error}</Text> : null;
   const t = now();
@@ -167,8 +172,8 @@ const styles = StyleSheet.create({
 });
 
 /** "Opener 2" and "Door 1" style chips for the house's equipment records; tap one for its history and warranty. */
-export function EquipmentChips({ orderId, now = Date.now, onDark }: { orderId: number | undefined; now?: () => number; onDark?: boolean }) {
-  const { house } = useHouseHistory(orderId);
+export function EquipmentChips({ orderId, partnerId, address, now = Date.now, onDark }: { orderId: number | undefined; partnerId?: number; address?: string; now?: () => number; onDark?: boolean }) {
+  const { house } = useHouseHistory(orderId, { partnerId, address });
   if (!orderId || !house) return null;
   return <ChipList equipment={house.equipment} now={now} onDark={onDark} />;
 }

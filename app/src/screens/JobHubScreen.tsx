@@ -119,7 +119,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
           {job.what ? ` · ${job.what}` : ''}
         </Text>
         {jobAddress(job, customer) ? <Text style={styles.sub}>{jobAddress(job, customer)}</Text> : null}
-        {job.odooJob?.model === 'fsm.order' ? <EquipmentChips orderId={job.odooJob.id} now={now} onDark /> : null}
+        {job.odooJob?.model === 'fsm.order' ? <EquipmentChips orderId={job.odooJob.id} partnerId={customer?.odooId} address={jobAddress(job, customer)} now={now} onDark /> : null}
       </View>
       <View style={styles.row}>
         {tel ? <QuickAction icon="phone" label="Call" onPress={() => open(tel)} testID="job-call" /> : null}
@@ -182,7 +182,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       />
       {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
       {customer?.odooId ? <NavRow label="Address" detail={`${jobAddress(job, customer) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
-      {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} now={now} /> : null}
+      {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} partnerId={customer?.odooId} address={jobAddress(job, customer)} now={now} /> : null}
         <JobExtras job={job} partnerId={customer?.odooId} />
         </>
       ) : null}

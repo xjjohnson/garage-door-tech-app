@@ -19,8 +19,8 @@ export const MODEL: Record<ListKind, RecordModel> = { quotations: 'sale.order', 
 export const FILTERS = {
   quotations: [
     { value: 'all', label: 'All' },
-    { value: 'quotes', label: 'Quotations' },
-    { value: 'orders', label: 'Sales orders' },
+    { value: 'quotes', label: 'Quotes' },
+    { value: 'orders', label: 'Approved' },
   ],
   invoices: [
     { value: 'all', label: 'All' },
@@ -46,7 +46,7 @@ export interface OdooListRow {
   total: number;
   /** Invoices only: still owed. */
   residual?: number;
-  /** "Quotation", "Sales order", "Not paid", "Overdue", "Paid"... */
+  /** "Quote", "Approved", "Not paid", "Overdue", "Paid"... */
   status: string;
   /** Whether the status needs attention (unpaid, overdue). */
   warn: boolean;
@@ -75,7 +75,7 @@ const cents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0);
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const many2one = (v: unknown): [number, string] => (Array.isArray(v) ? [v[0] as number, str(v[1])] : [0, '']);
 
-const QUOTE_STATE: Record<string, string> = { draft: 'Quotation', sent: 'Quotation sent', sale: 'Sales order', done: 'Locked', cancel: 'Cancelled' };
+const QUOTE_STATE: Record<string, string> = { draft: 'Quote', sent: 'Quote sent', sale: 'Approved', done: 'Locked', cancel: 'Cancelled' };
 
 function quoteRow(r: Record<string, unknown>): OdooListRow {
   const [partnerId, customer] = many2one(r.partner_id);

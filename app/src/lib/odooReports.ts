@@ -248,3 +248,17 @@ export function emailedText(r: EmailResult): string {
   if (r.state === 'failed') return `Odoo couldn't email ${r.to}: ${r.reason}`;
   return `Sent to Odoo for ${r.to}. Check the record in Odoo to see whether the email went out.`;
 }
+
+/**
+ * Odoo's own invoice PDF as base64 with its file name (making it first if
+ * needed), for the app's Send as PDF and Download buttons. Undefined when this
+ * Odoo can't make one (16 and older); throws when it should have and couldn't.
+ */
+export async function fetchInvoicePdf(client: Pick<OdooClient, 'call'>, moveId: number): Promise<{ name: string; base64: string } | undefined> {
+  const id = await invoicePdf(client, moveId);
+  if (!id) return undefined;
+  const [a] = (await client.call('ir.attachment', 'read', [[id]], { fields: ['name', 'datas'] })) as { name?: unknown; datas?: unknown }[];
+  if (typeof a?.datas !== 'string' || !a.datas) throw new Error("Odoo's invoice PDF is empty.");
+  const name = typeof a.name === 'string' && a.name.trim() ? a.name.trim() : 'Invoice.pdf';
+  return { name: /\.pdf$/i.test(name) ? name : `${name}.pdf`, base64: a.datas };
+}

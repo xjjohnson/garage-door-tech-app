@@ -16,7 +16,7 @@ import { acceptedLabel, Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText } from '../lib/prices';
-import { addTyped, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, signaturePending } from '../lib/ticket';
+import { addText, addTyped, hasPriced, isText, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, signaturePending } from '../lib/ticket';
 import { discountKey, discountText, presetsFor } from '../lib/discounts';
 import { DiscountPanel } from '../components/DiscountPanel';
 import { useInvoices } from '../lib/useInvoices';
@@ -167,7 +167,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   // Deposits are written to the quotation too, so they're kept in Odoo and not only on the phone.
   const depositsUnsaved = (ticket.depositsSaved ?? '') !== depositsKey(ticket);
   const stale = !!client && !invoice && ((ticket.lines.length > 0 && !odooTotals) || depositsUnsaved);
-  const key = `${ticket.lines.map((l) => `${l.id}:${l.qty}:${l.unitCents}`).join('|')}#${depositsKey(ticket)}#${discountKey(ticket.discount)}`;
+  const key = `${ticket.lines.map((l) => `${l.id}:${l.qty}:${l.unitCents}:${isText(l) ? l.name : ''}`).join('|')}#${depositsKey(ticket)}#${discountKey(ticket.discount)}`;
   useEffect(() => {
     if (!stale) return;
     const t = setTimeout(() => syncRef.current(), SYNC_DELAY_MS);
@@ -299,6 +299,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
 
       {section('service')}
       {section('material')}
+      <NotesSection lines={ticket.lines.filter(isText)} locked={!!invoice} onAdd={(kind, text) => setTicket(job.id, (t) => addText(t, kind, text, newLineId(now())))} onRemove={(id) => setTicket(job.id, (t) => removeLine(t, id))} />
       {!invoice ? <TypedLine onAdd={(l) => setTicket(job.id, (t) => addTyped(t, l, newLineId(now())))} /> : null}
 
       {!invoice && ticket.lines.length > 0 ? <DiscountPanel discount={ticket.discount} presets={presetsFor(business.discounts)} onChange={(d) => setTicket(job.id, (t) => setDiscount(t, d))} /> : null}
@@ -351,7 +352,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
 
       {!invoice ? (
         <View style={styles.refBox} testID="ticket-estimate-box">
-          <Action label={ticket.estimateAt ? 'Save the estimate again' : 'Save as estimate'} disabled={making || syncing || ticket.lines.length === 0} onPress={saveEstimate} testID="ticket-save-estimate" />
+          <Action label={ticket.estimateAt ? 'Save the estimate again' : 'Save as estimate'} disabled={making || syncing || !hasPriced(ticket)} onPress={saveEstimate} testID="ticket-save-estimate" />
           {estimateNote ? (
             <Text style={styles.meta} testID="ticket-estimate-note">
               {estimateNote}
@@ -400,7 +401,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
           <Action label="Parts used on the job" onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })} testID="ticket-parts-open-job" />
         </View>
       ) : null}
-      {!invoice ? <Action label={making ? 'Creating the invoice...' : 'Create invoice'} primary disabled={making || ticket.lines.length === 0 || syncing || missingParts.length > 0} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
+      {!invoice ? <Action label={making ? 'Creating the invoice...' : 'Create invoice'} primary disabled={making || !hasPriced(ticket) || syncing || missingParts.length > 0} onPress={makeInvoice} testID="ticket-make-invoice" /> : null}
 
       <SectionTitle>Optional</SectionTitle>
       <NavRow
@@ -569,6 +570,47 @@ function LineRow({ line, locked, onQty, onPrice, onRemove }: { line: TicketLine;
         </View>
       )}
     </View>
+  );
+}
+
+/** Notes and section headings: text lines saved on the quotation in Odoo (Add note / Add section). */
+function NotesSection({ lines, locked, onAdd, onRemove }: { lines: TicketLine[]; locked: boolean; onAdd: (kind: 'note' | 'section', text: string) => void; onRemove: (id: string) => void }) {
+  const [kind, setKind] = useState<'note' | 'section' | null>(null);
+  const [text, setText] = useState('');
+  if (locked && lines.length === 0) return null;
+  return (
+    <>
+      <SectionTitle>Notes</SectionTitle>
+      {lines.map((l) => (
+        <View key={l.id} style={styles.line} testID={`ticket-text-${l.id}`}>
+          <Text style={l.kind === 'section' ? styles.name : styles.meta}>{l.kind === 'section' ? l.name : `Note: ${l.name}`}</Text>
+          {!locked ? <Small label="Remove" onPress={() => onRemove(l.id)} testID={`ticket-text-remove-${l.id}`} /> : null}
+        </View>
+      ))}
+      {!locked && !kind ? (
+        <>
+          <Action label="+ Add a note" onPress={() => setKind('note')} testID="ticket-add-note" />
+          <Action label="+ Add a section" onPress={() => setKind('section')} testID="ticket-add-section" />
+        </>
+      ) : null}
+      {!locked && kind ? (
+        <View style={styles.card} testID="ticket-text-form">
+          <TextInput value={text} onChangeText={setText} placeholder={kind === 'note' ? 'Note for the customer' : 'Section heading'} placeholderTextColor={colors.muted} multiline={kind === 'note'} accessibilityLabel={kind === 'note' ? 'Note' : 'Section heading'} testID="ticket-text-input" style={styles.input} />
+          <Action
+            label={kind === 'note' ? 'Add note' : 'Add section'}
+            primary
+            disabled={!text.trim()}
+            onPress={() => {
+              onAdd(kind, text);
+              setText('');
+              setKind(null);
+            }}
+            testID="ticket-text-add"
+          />
+          <Action label="Cancel" onPress={() => { setText(''); setKind(null); }} testID="ticket-text-cancel" />
+        </View>
+      ) : null}
+    </>
   );
 }
 

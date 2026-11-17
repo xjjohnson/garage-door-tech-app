@@ -13,7 +13,12 @@ import type { PriceBookItem } from './priceBook';
 import { cents as priceCents, formatMoney, OdooLink } from './prices';
 import type { QuoteLine, QuoteOption } from './quote';
 
-export type LineKind = 'service' | 'material';
+export type LineKind = 'service' | 'material' | 'note' | 'section';
+
+/** A note or section heading: shown on the quotation in Odoo (display_type line_note / line_section), never priced. */
+export const isText = (l: { kind: LineKind }) => l.kind === 'note' || l.kind === 'section';
+/** Whether the ticket has anything to charge for. */
+export const hasPriced = (t: Pick<Ticket, 'lines'>) => t.lines.some((l) => !isText(l));
 
 export interface TicketLine {
   id: string;
@@ -223,7 +228,7 @@ export const subtotal = (t: Ticket) => t.lines.reduce((n, l) => n + lineTotal(l)
 /** A fingerprint of what Odoo needs to price: changes whenever a line does. */
 export function linesKey(lines: TicketLine[], discount?: Discount): string {
   const d = discountKey(discount);
-  return lines.map((l) => `${l.productId ?? ''}:${l.name}:${l.qty}:${l.unitCents}`).join('|') + (d ? `#${d}` : '');
+  return lines.map((l) => (isText(l) ? `${l.kind}:${l.name}` : `${l.productId ?? ''}:${l.name}:${l.qty}:${l.unitCents}`)).join('|') + (d ? `#${d}` : '');
 }
 
 /** Odoo's totals, if they are for the lines and discount as they are now. */
@@ -272,6 +277,12 @@ export function setDiscount(t: Ticket, discount: Discount | undefined): Ticket {
   return discount ? { ...rest, discount } : rest;
 }
 
+/** Adds a note or a section heading (text only, no price) after what's there. */
+export function addText(t: Ticket, kind: 'note' | 'section', text: string, id: string): Ticket {
+  const name = text.trim();
+  return name ? { ...t, lines: [...t.lines, { id, name, qty: 1, unitCents: 0, kind }] } : t;
+}
+
 export function removeLine(t: Ticket, id: string): Ticket {
   return { ...t, lines: t.lines.filter((l) => l.id !== id) };
 }
@@ -294,7 +305,7 @@ export function addOption(t: Ticket, option: QuoteOption, links: Record<string, 
 /** The ticket's lines as quote lines, for the invoice and for Odoo. */
 export function toQuoteLines(t: Ticket): QuoteLine[] {
   const pct = t.discount?.pct;
-  const lines = t.lines.map((l) => ({ label: l.name, cents: lineTotal(l), taxable: l.kind === 'material', ...(l.qty !== 1 ? { qty: l.qty } : {}), ...(l.productId ? { productId: l.productId } : {}), ...(pct ? { discountPct: pct } : {}) }));
+  const lines = t.lines.filter((l) => !isText(l)).map((l) => ({ label: l.name, cents: lineTotal(l), taxable: l.kind === 'material', ...(l.qty !== 1 ? { qty: l.qty } : {}), ...(l.productId ? { productId: l.productId } : {}), ...(pct ? { discountPct: pct } : {}) }));
   // A dollar discount is one negative service line (untaxed), after the others.
   return t.discount?.cents && lines.length > 0 ? [...lines, { label: discountLineName(t.discount), cents: -t.discount.cents, taxable: false }] : lines;
 }
@@ -335,7 +346,20 @@ async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, r
   const lines = toQuoteLines(t);
   const needService = lines.some((l) => l.cents !== 0 && !l.productId);
   const service = needService ? await serviceProduct(client) : 0;
-  const vals = [...lineValues(lines, {}, () => service, 'product_uom_qty'), ...depositNotes(t)];
+  // Notes and sections keep their place among the priced lines, so the quotation in Odoo reads the way the ticket does.
+  const priced = lines;
+  let at = 0;
+  const body: Record<string, unknown>[] = [];
+  for (const l of t.lines) {
+    if (isText(l)) body.push({ display_type: l.kind === 'note' ? 'line_note' : 'line_section', name: l.name });
+    else {
+      const q = priced[at++];
+      if (q) body.push(...lineValues([q], {}, () => service, 'product_uom_qty'));
+    }
+  }
+  // A dollar discount is the last quote line, after the others.
+  for (; at < priced.length; at++) body.push(...lineValues([priced[at]], {}, () => service, 'product_uom_qty'));
+  const vals = [...body, ...depositNotes(t)];
   let order = t.order;
   // The picked delivery address. Nothing picked: a new order gets the customer's own,
   // and an existing one keeps whatever Odoo has (it may have been set there by hand).
@@ -380,7 +404,7 @@ export function parseTicket(v: unknown): Ticket | undefined {
             name: l.name,
             qty: typeof l.qty === 'number' && l.qty > 0 ? l.qty : 1,
             unitCents: typeof l.unitCents === 'number' && l.unitCents > 0 ? Math.round(l.unitCents) : 0,
-            kind: l.kind === 'service' ? 'service' : 'material',
+            kind: l.kind === 'service' || l.kind === 'note' || l.kind === 'section' ? l.kind : 'material',
             ...(typeof l.productId === 'number' ? { productId: l.productId } : {}),
           },
         ];

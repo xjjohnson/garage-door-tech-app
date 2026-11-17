@@ -8,6 +8,7 @@ import { CoveragePicker } from '../components/CoveragePicker';
 import { QrCode } from '../components/QrCode';
 import { SignatureSheet } from '../components/SignaturePad';
 import { signatureFor } from '../lib/attachments';
+import { fetchInvoicePdf } from '../lib/odooReports';
 import { invoiceHtml, pdfName } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
 import { balance, Invoice, invoiceLabel, invoiceStatus, invoiceText, optionLabel, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
@@ -51,10 +52,52 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
     status !== 'void' && (warranty.partsUntil || warranty.laborUntil)
       ? `Warranty: ${warranty.partsUntil ? `springs until ${formatJobDate(warranty.partsUntil)}` : 'no spring warranty'}${warranty.laborUntil ? `, labor until ${formatJobDate(warranty.laborUntil)}` : ''}.`
       : undefined;
-  const sendPdf = () => {
-    if (!attachments.media) return;
+  const [pdfBusy, setPdfBusy] = useState(false);
+  // Odoo's own invoice PDF when the invoice is in Odoo and online; otherwise the app's own PDF (offline or not sent yet).
+  const odooPdf = async () => {
+    const c = invoiceOdoo.client;
+    if (!c || !invoice.odoo || invoice.odoo.voided) return undefined;
+    try {
+      return await fetchInvoicePdf(c, invoice.odoo.id);
+    } catch {
+      return undefined;
+    }
+  };
+  const sendPdf = async () => {
+    const media = attachments.media;
+    if (!media) return;
     setPdfError(false);
-    attachments.media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(invoiceLabel(invoice), invoice.billTo)).catch(() => setPdfError(true));
+    setPdfBusy(true);
+    try {
+      const odoo = await odooPdf();
+      if (odoo && media.shareBase64Pdf) await media.shareBase64Pdf(odoo.base64, odoo.name);
+      else await media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(invoiceLabel(invoice), invoice.billTo));
+    } catch {
+      setPdfError(true);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+  const downloadPdf = async () => {
+    const media = attachments.media;
+    if (!media) return;
+    setPdfError(false);
+    setPdfBusy(true);
+    try {
+      const odoo = await odooPdf();
+      if (odoo) {
+        if (media.savePdf) await media.savePdf(odoo.base64, odoo.name);
+        else if (media.shareBase64Pdf) await media.shareBase64Pdf(odoo.base64, odoo.name);
+      } else if (media.pdfBase64 && media.savePdf) {
+        await media.savePdf(await media.pdfBase64(invoiceHtml(invoice, business, signature, { warranty: warrantyNote })), `${pdfName(invoiceLabel(invoice), invoice.billTo)}`);
+      } else {
+        await media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(invoiceLabel(invoice), invoice.billTo));
+      }
+    } catch {
+      setPdfError(true);
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   const [method, setMethod] = useState<PayMethod>('cash');
@@ -233,7 +276,8 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
       />
 
       <SectionTitle>More</SectionTitle>
-      {attachments.media ? <Action label="Send as PDF" primary onPress={sendPdf} testID="invoice-pdf" /> : null}
+      {attachments.media ? <Action label={pdfBusy ? 'Getting the PDF...' : 'Send as PDF'} primary disabled={pdfBusy} onPress={sendPdf} testID="invoice-pdf" /> : null}
+      {attachments.media ? <Action label="Download PDF" disabled={pdfBusy} onPress={downloadPdf} testID="invoice-pdf-download" /> : null}
       {pdfError ? <Text style={styles.meta}>Couldn't make the PDF. Try again, or send it as text.</Text> : null}
       <Action label="Send as text" onPress={() => Share.share({ message: invoiceText(invoice, business) }).catch(() => undefined)} testID="invoice-share" />
       {status === 'void' ? (
