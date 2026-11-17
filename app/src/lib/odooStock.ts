@@ -275,7 +275,9 @@ export async function ensureTracked(client: OdooClient, productId: number): Prom
   throw new UntrackedError(name);
 }
 
-export async function setTruckQty(client: OdooClient, locationId: number, productId: number, qty: number): Promise<void> {
+export async function setTruckQty(client: OdooClient, locationId: number, productId: number, qty: number, reason?: string): Promise<void> {
+  // `reason` becomes the name of Odoo's inventory adjustment, so its history says why.
+  const INVENTORY = reason ? { inventory_mode: true, inventory_name: reason } : { inventory_mode: true };
   const rows = (await client.call('stock.quant', 'search_read', [[['product_id', '=', productId], ['location_id', 'child_of', locationId]]], { fields: ['quantity', 'location_id'], context: INVENTORY })) as Record<string, unknown>[];
   const quants = rows
     .map((r) => ({ id: r.id as number, qty: typeof r.quantity === 'number' ? r.quantity : 0, here: many2one(r.location_id)?.[0] === locationId }))
@@ -645,17 +647,21 @@ export async function sendPurchaseOrder(client: OdooClient, supplier: Supplier, 
       // The receipt stays at the warehouse; it can be moved to the truck in Odoo.
     }
   }
-  let emailed = false;
+  const emailed = await emailPurchaseOrder(client, id);
+  return { odooId: id, name: row?.name ?? `#${id}`, vendorId, emailed };
+}
+
+/** Has Odoo email a purchase order to its vendor (the "Send PO by email" button). False when it can't go (no email on the vendor, or outgoing mail isn't set up). */
+export async function emailPurchaseOrder(client: OdooClient, id: number): Promise<boolean> {
   try {
     const action = (await client.call('purchase.order', 'action_rfq_send', [[id]])) as { context?: Record<string, unknown> } | null;
     const context = action?.context ?? {};
     const wizard = (await client.call('mail.compose.message', 'create', [{}], { context })) as number;
     await client.call('mail.compose.message', 'action_send_mail', [[wizard]], { context });
-    emailed = true;
+    return true;
   } catch {
-    // Odoo couldn't email it (no email on the vendor, or outgoing mail isn't set up).
+    return false;
   }
-  return { odooId: id, name: row?.name ?? `#${id}`, vendorId, emailed };
 }
 
 /**

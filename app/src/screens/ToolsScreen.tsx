@@ -9,6 +9,7 @@ import { followUps } from '../lib/followups';
 import { isLow } from '../lib/stock';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
+import { useDepartments } from '../lib/useDepartments';
 import { useStock } from '../lib/useStock';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, openShift, shiftMs } from '../lib/worklog';
@@ -24,6 +25,7 @@ import { StatsCard } from './StatsScreen';
 export function ToolsScreen() {
   const { items } = useStock();
   const low = items.filter(isLow).length;
+  const { access } = useDepartments();
   return (
     <View style={styles.stack} testID="tools">
       <StatsCard />
@@ -52,6 +54,16 @@ export function ToolsScreen() {
         <IconRow icon="chart" label="Business numbers" detail="Sales, close rate, average ticket" href="/stats" testID="tools-stats" />
         <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last />
       </RowGroup>
+
+      {access.warehouse || access.purchasing ? (
+        <>
+          <Caption>Departments</Caption>
+          <RowGroup>
+            {access.warehouse ? <IconRow icon="truck" label="Warehouse" detail="Count, move parts, receive, parts on jobs" href="/warehouse" testID="tools-warehouse" last={!access.purchasing} /> : null}
+            {access.purchasing ? <IconRow icon="tag" label="Purchasing" detail="What to order, purchase orders, cost and prices" href="/purchasing" testID="tools-purchasing" last /> : null}
+          </RowGroup>
+        </>
+      ) : null}
 
       <Text style={styles.version}>Version {SHORT_VERSION} · tap the gear for Settings</Text>
     </View>
