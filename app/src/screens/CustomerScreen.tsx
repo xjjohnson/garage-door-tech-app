@@ -101,7 +101,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
         </>
       ) : null}
 
-      {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} name={customerName(customer)} address={customer.address} tab={tab} /> : null}
+      {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} customerId={customer.id} name={customerName(customer)} address={customer.address} tab={tab} /> : null}
 
       {tab === 'notes' && fromOdoo && customer.odooId ? <OdooNotes target={{ model: 'res.partner', id: customer.odooId }} title="Customer notes" testID="customer-notes" /> : null}
 

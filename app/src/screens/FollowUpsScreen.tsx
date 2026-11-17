@@ -5,6 +5,9 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { NewFollowUpSheet, dayAhead } from '../components/PlanSheets';
 import { completeActivity, createManualFollowUp, fetchMyTodos, TodoRow } from '../lib/odooFollowUps';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { endText, ensureRenewalTodo, fetchPlanRenewals, RenewalRow } from '../lib/planRecords';
+import { useMaintenancePlans } from '../lib/useMaintenancePlans';
 import { useOdoo } from '../lib/useOdoo';
 import { DAY, followUpId, followUps, textLink } from '../lib/followups';
 import { formatJobDate } from '../lib/jobs';
@@ -12,6 +15,8 @@ import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type } from '../theme';
+
+const PLAN_TODOS_KEY = 'plan-renewal-todos/v1';
 
 /**
  * Repeat work that's due: tune-ups, springs near the end of their life and
@@ -40,6 +45,40 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
   useEffect(() => {
     loadTodos();
   }, [loadTodos]);
+  // Maintenance plans about to end (60 days) or ended in the last 30: each gets a renewal to-do in Odoo once, and a Renew button.
+  const plans = useMaintenancePlans();
+  const [renewals, setRenewals] = useState<RenewalRow[]>([]);
+  const planNames = plans.map((p) => p.id).join(',');
+  useEffect(() => {
+    if (!client || plans.length === 0) return;
+    let live = true;
+    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+    fetchPlanRenewals(client, plans, day(now() - 30 * DAY), day(now() + 60 * DAY))
+      .then(async (rows) => {
+        if (!live) return;
+        setRenewals(rows);
+        // Once per plan end on this phone, so a to-do marked done in Odoo is not made again.
+        const raw = await AsyncStorage.getItem(PLAN_TODOS_KEY).catch(() => null);
+        const seen = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+        for (const r of rows) {
+          const key = `${r.agreementId}:${r.end}`;
+          if (!r.end || seen.has(key) || (r.daysLeft ?? 99) > (plans.find((p) => p.id === r.planId)?.noticeDays ?? 30)) continue;
+          try {
+            await ensureRenewalTodo(client, r.partnerId, { agreementId: r.agreementId, name: r.name, end: r.end, customer: r.customer });
+            seen.add(key);
+          } catch {
+            // Try again next time.
+          }
+        }
+        AsyncStorage.setItem(PLAN_TODOS_KEY, JSON.stringify([...seen])).catch(() => undefined);
+        if (live) loadTodos();
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, planNames]);
   const list = useMemo(() => followUps(invoices, settings, business, now(), dismissed), [invoices, settings, business, dismissed, now]);
   const t = now();
   const t0 = t;
@@ -74,6 +113,21 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
         }}
       />
       {todoError ? <Text style={styles.meta} testID="followup-todo-error">Couldn&apos;t read your to-dos from Odoo: {todoError}</Text> : null}
+      {renewals.map((r) => {
+        const mine = customers.find((c) => c.odooId === r.partnerId);
+        const plan = plans.find((p) => p.id === r.planId);
+        return (
+          <View key={`plan-${r.agreementId}`} style={[styles.item, r.status === 'Ended' && styles.overdue]} testID={`followup-plan-${r.agreementId}`}>
+            <Text style={styles.title}>{r.name}</Text>
+            <Text style={styles.detail}>{r.customer}</Text>
+            <Text style={styles.meta}>{endText(r.daysLeft)} · maintenance plan</Text>
+            <View style={styles.row}>
+              {mine ? <Action label="Customer" grow onPress={() => router.push({ pathname: '/customer/[id]', params: { id: mine.id } })} testID={`followup-plan-customer-${r.agreementId}`} /> : null}
+              {plan && mine ? <Action label="Renew" primary grow onPress={() => router.push({ pathname: '/new-job', params: { customer: mine.id, plan: String(plan.id) } })} testID={`followup-plan-renew-${r.agreementId}`} /> : null}
+            </View>
+          </View>
+        );
+      })}
       {(todos ?? []).map((t) => {
         const mine = customers.find((c) => c.odooId === t.partnerId);
         const overdue = !!t.due && Date.parse(t.due) < t0 - DAY;
@@ -97,7 +151,7 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
           </View>
         );
       })}
-      {list.length === 0 && (todos ?? []).length === 0 ? (
+      {list.length === 0 && (todos ?? []).length === 0 && renewals.length === 0 ? (
         <View style={styles.empty} testID="followups-empty">
           <Text style={styles.emptyTitle}>Nothing due</Text>
           <Text style={styles.emptyBody}>Springs near the end of their life and warranties about to end show up here from your invoices, 45 days ahead. Yearly tune-ups are repeating visits on the customer's page.</Text>
