@@ -114,6 +114,9 @@ export interface Business {
   textReview: string;
   /** Quick discounts in Management > Discounts; unset means the standard list (see discounts.ts). */
   discounts?: DiscountPreset[];
+  /** Wording of the two automatic headings on a ticket with sections (Management > Texts); blank means the standard wording (see ticketSections.ts). */
+  planHeading?: string;
+  paymentsHeading?: string;
 }
 
 export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '', reviewUrl: '', textOnMyWay: '', textEta: '', textReview: '' };
@@ -322,7 +325,7 @@ export function parseBusiness(raw: string | null | object): Business {
   }
   if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
   const d = data as Record<string, unknown>;
-  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}) };
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}) };
 }
 
 /** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */

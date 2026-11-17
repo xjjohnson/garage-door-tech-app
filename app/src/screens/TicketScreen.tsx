@@ -29,6 +29,7 @@ import { useJobs } from '../lib/useJobs';
 import { useStock } from '../lib/useStock';
 import { EmailResult, emailedText, emailRecord, partnerEmail } from '../lib/odooReports';
 import { usePriceSheet } from '../lib/usePriceSheet';
+import { canMove, groupIntoLaborAndParts, hasSections, headings, moveLine, moveToSection, orderLines, renameLine, sectionTotals } from '../lib/ticketSections';
 import { colors, touch, type } from '../theme';
 
 const message = (e: unknown) => (e instanceof OdooError || e instanceof Error ? e.message : "Couldn't reach Odoo. Try again.");
@@ -47,6 +48,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   const { setTicket, setEstimates, setOdooOrder, setStep } = useJobs();
   const invoiceOdoo = useInvoiceOdoo(now);
   const { invoices, create, business } = useInvoices();
+  const autoHeadings = { plan: business.planHeading, payments: business.paymentsHeading };
   const { sheet } = usePriceSheet();
   const client = useSalesOdoo();
   const partner = usePartner();
@@ -168,7 +170,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     setError(null);
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-      const r = await syncTicket(client, pid, ticket, ticketRef(ticket), now(), `${job.id}:${ticket.id ?? ''}`);
+      const r = await syncTicket(client, pid, ticket, ticketRef(ticket), now(), `${job.id}:${ticket.id ?? ''}`, autoHeadings);
       if (n === run.current) setTicket(job.id, (t) => (t.id === estId || (!estId && !t.order) ? { ...t, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved, planSaved: r.planSaved } : t));
       return { ...ticket, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved, planSaved: r.planSaved };
     } catch (e) {
@@ -190,7 +192,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       for (const t of staleOthers) {
         try {
           const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
-          const r = await syncTicket(client, pid, t, ticketRef(t), now(), `${job.id}:${t.id ?? ''}`);
+          const r = await syncTicket(client, pid, t, ticketRef(t), now(), `${job.id}:${t.id ?? ''}`, autoHeadings);
           if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines, o.discount) === linesKey(t.lines, t.discount) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved, planSaved: r.planSaved } : o)) }));
         } catch (e) {
           log.warn('ticket', `${job.id}: couldn't save estimate ${t.title ?? t.id}: ${message(e)}`);
@@ -353,25 +355,6 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     }
   };
 
-  const section = (kind: LineKind) => {
-    const lines = ticket.lines.filter((l) => l.kind === kind);
-    return (
-      <>
-        <SectionTitle>{kind === 'service' ? 'Services' : 'Materials'}</SectionTitle>
-        {lines.map((l) => (
-          <LineRow key={l.id} line={l} locked={frozen || !!l.planFee} onQty={(q) => setTicket(job.id, (t) => setQty(t, l.id, q))} onPrice={(c) => setTicket(job.id, (t) => setPrice(t, l.id, c))} onRemove={() => setTicket(job.id, (t) => removeLine(t, l.id))} />
-        ))}
-        {!frozen ? (
-          <Action
-            label={kind === 'service' ? '+ Add a service' : '+ Add a material'}
-            onPress={() => router.push({ pathname: '/ticket-add', params: { id: job.id, kind } })}
-            testID={`ticket-add-${kind}`}
-          />
-        ) : null}
-      </>
-    );
-  };
-
   return (
     <View style={styles.stack} testID="ticket">
       <Text style={styles.for}>
@@ -395,8 +378,13 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
           <Action label={reopening ? 'Working...' : 'Put back to draft'} disabled={reopening} onPress={backToDraft} testID="ticket-back-to-draft" />
         </View>
       ) : null}
-      {section('service')}
-      {section('material')}
+      <TicketList
+        ticket={ticket}
+        frozen={frozen}
+        jobId={job.id}
+        now={now}
+        onChange={(fn) => setTicket(job.id, fn)}
+      />
       <PlanRow
         plan={ticket.plan}
         plans={plans}
@@ -407,8 +395,6 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         onChange={(p) => setTicket(job.id, (t) => setPlan(t, p))}
         onRetry={() => setTicket(job.id, (t) => (t.plan ? { ...t, plan: { ...t.plan, setUpError: undefined } } : t))}
       />
-      <NotesSection lines={ticket.lines.filter(isText)} locked={frozen} onAdd={(kind, text) => setTicket(job.id, (t) => addText(t, kind, text, newLineId(now())))} onRemove={(id) => setTicket(job.id, (t) => removeLine(t, id))} />
-      {!frozen ? <TypedLine onAdd={(l) => setTicket(job.id, (t) => addTyped(t, l, newLineId(now())))} /> : null}
 
       {!frozen && ticket.lines.length > 0 ? <DiscountPanel discount={ticket.discount} presets={presetsFor(business.discounts)} onChange={(d) => setTicket(job.id, (t) => setDiscount(t, d))} /> : null}
 
@@ -643,13 +629,14 @@ function CustomerRef({ value, placeholder, onChange }: { value: string; placehol
   );
 }
 
-function LineRow({ line, locked, onQty, onPrice, onRemove }: { line: TicketLine; locked: boolean; onQty: (q: number) => void; onPrice: (c: number) => void; onRemove: () => void }) {
+function LineRow({ line, locked, onQty, onPrice, onRemove, onMenu }: { line: TicketLine; locked: boolean; onQty: (q: number) => void; onPrice: (c: number) => void; onRemove: () => void; onMenu?: () => void }) {
   const [price, setPriceText] = useState(priceText(line.unitCents));
   useEffect(() => setPriceText(priceText(line.unitCents)), [line.unitCents]);
   return (
     <View style={styles.line} testID={`ticket-line-${line.id}`}>
       <View style={styles.lineTop}>
         <Text style={styles.name}>{line.name}</Text>
+        <Text style={styles.chip} testID={`ticket-kind-${line.id}`}>{line.kind === 'material' ? 'Part' : 'Labor'}</Text>
         <Text style={styles.amount}>{formatMoney(lineTotal(line))}</Text>
       </View>
       {locked ? (
@@ -675,61 +662,160 @@ function LineRow({ line, locked, onQty, onPrice, onRemove }: { line: TicketLine;
             style={styles.price}
           />
           <Small label="Remove" onPress={onRemove} testID={`ticket-remove-${line.id}`} />
+          {onMenu ? <Small label="⋮" onPress={onMenu} testID={`ticket-more-menu-${line.id}`} hint="Move this line" /> : null}
         </View>
       )}
     </View>
   );
 }
 
-/** Notes and section headings: text lines saved on the quotation in Odoo (Add note / Add section). */
-function NotesSection({ lines, locked, onAdd, onRemove }: { lines: TicketLine[]; locked: boolean; onAdd: (kind: 'note' | 'section', text: string) => void; onRemove: (id: string) => void }) {
-  const [kind, setKind] = useState<'note' | 'section' | null>(null);
+/**
+ * The ticket's lines as one ordered list, the way the quotation in Odoo reads: section heading bands with their
+ * lines under them, notes among the lines. Lines move with buttons (up, down, to a section), not by dragging.
+ */
+function TicketList({ ticket, frozen, jobId, now, onChange }: { ticket: Ticket; frozen: boolean; jobId: string; now: () => number; onChange: (fn: (t: Ticket) => Ticket) => void }) {
+  const lines = orderLines(ticket.lines);
+  const [menu, setMenu] = useState<string | null>(null);
+  const [picking, setPicking] = useState<string | null>(null);
+  const [adding, setAdding] = useState<{ kind: 'note' | 'section'; at?: string } | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; text: string } | null>(null);
   const [text, setText] = useState('');
-  if (locked && lines.length === 0) return null;
+  const totals = sectionTotals(lines);
+  const sections = hasSections(lines);
+  const heads = headings(lines);
+  const done = () => {
+    setMenu(null);
+    setPicking(null);
+  };
+  const go = (fn: (t: Ticket) => Ticket) => {
+    onChange(fn);
+    done();
+  };
+  const addPicked = (kind: LineKind, at?: string) => {
+    done();
+    router.push({ pathname: '/ticket-add', params: { id: jobId, kind, ...(at ? { section: at } : {}) } });
+  };
+  const moveMenu = (l: TicketLine) => (
+    <View style={styles.menu} testID={`ticket-menu-${l.id}`}>
+      <Small label="Move up" onPress={() => go((t) => moveLine(t, l.id, -1))} testID={`ticket-up-${l.id}`} disabled={!canMove(ticket, l.id, -1)} />
+      <Small label="Move down" onPress={() => go((t) => moveLine(t, l.id, 1))} testID={`ticket-down-${l.id}`} disabled={!canMove(ticket, l.id, 1)} />
+      {l.kind !== 'section' && sections ? <Small label="Move to section..." onPress={() => setPicking(picking === l.id ? null : l.id)} testID={`ticket-to-${l.id}`} /> : null}
+      {picking === l.id ? (
+        <View style={styles.menu}>
+          <Small label="No section" onPress={() => go((t) => moveToSection(t, l.id, null))} testID={`ticket-to-none-${l.id}`} />
+          {heads.map((h) => (
+            <Small key={h.id} label={h.name} onPress={() => go((t) => moveToSection(t, l.id, h.id))} testID={`ticket-to-${l.id}-${h.id}`} />
+          ))}
+        </View>
+      ) : null}
+      {l.kind === 'section' ? (
+        <>
+          <Small label="Rename" onPress={() => { setRenaming({ id: l.id, text: l.name }); done(); }} testID={`ticket-rename-${l.id}`} />
+          <Small label="Delete heading" onPress={() => go((t) => ({ ...t, lines: t.lines.filter((x) => x.id !== l.id) }))} testID={`ticket-text-remove-${l.id}`} hint="Keeps its lines, which fall into the section above" />
+        </>
+      ) : l.kind === 'note' ? (
+        <Small label="Remove" onPress={() => go((t) => removeLine(t, l.id))} testID={`ticket-text-remove-${l.id}`} />
+      ) : null}
+    </View>
+  );
+  const addForm = (at?: string) =>
+    adding && adding.at === at ? (
+      <View style={styles.card} testID="ticket-text-form">
+        <TextInput value={text} onChangeText={setText} placeholder={adding.kind === 'note' ? 'Note for the customer' : 'Section heading'} placeholderTextColor={colors.muted} multiline={adding.kind === 'note'} accessibilityLabel={adding.kind === 'note' ? 'Note' : 'Section heading'} testID="ticket-text-input" style={styles.input} />
+        <Action
+          label={adding.kind === 'note' ? 'Add note' : 'Add section'}
+          primary
+          disabled={!text.trim()}
+          onPress={() => {
+            const kind = adding.kind;
+            const id = newLineId(now());
+            onChange((t) => addText(t, kind, text, id, at));
+            setText('');
+            setAdding(null);
+          }}
+          testID="ticket-text-add"
+        />
+        <Action label="Cancel" onPress={() => { setText(''); setAdding(null); }} testID="ticket-text-cancel" />
+      </View>
+    ) : null;
+  const priced = lines.some((l) => !isText(l) && !l.planFee);
   return (
     <>
-      <SectionTitle>Notes</SectionTitle>
-      {lines.map((l) => (
-        <View key={l.id} style={styles.line} testID={`ticket-text-${l.id}`}>
-          <Text style={l.kind === 'section' ? styles.name : styles.meta}>{l.kind === 'section' ? l.name : `Note: ${l.name}`}</Text>
-          {!locked ? <Small label="Remove" onPress={() => onRemove(l.id)} testID={`ticket-text-remove-${l.id}`} /> : null}
-        </View>
-      ))}
-      {!locked && !kind ? (
+      <SectionTitle>Ticket</SectionTitle>
+      {lines.map((l) =>
+        l.kind === 'section' ? (
+          <View key={l.id} style={styles.band} testID={`ticket-text-${l.id}`}>
+            {renaming?.id === l.id ? (
+              <>
+                <TextInput value={renaming.text} onChangeText={(v) => setRenaming({ id: l.id, text: v })} accessibilityLabel="Section heading" testID={`ticket-rename-input-${l.id}`} style={styles.input} />
+                <View style={styles.controls}>
+                  <Small label="Save" onPress={() => { const r = renaming; setRenaming(null); onChange((t) => renameLine(t, r.id, r.text)); }} testID={`ticket-rename-save-${l.id}`} />
+                  <Small label="Cancel" onPress={() => setRenaming(null)} testID={`ticket-rename-cancel-${l.id}`} />
+                </View>
+              </>
+            ) : (
+              <View style={styles.lineTop}>
+                <Text style={styles.bandName}>{l.name}</Text>
+                <Text style={styles.amount} testID={`ticket-section-total-${l.id}`}>{formatMoney(totals.get(l.id) ?? 0)}</Text>
+              </View>
+            )}
+            {!frozen && renaming?.id !== l.id ? (
+              <View style={styles.controls}>
+                <Small label="+ Add here" onPress={() => setPicking(picking === `add:${l.id}` ? null : `add:${l.id}`)} testID={`ticket-add-here-${l.id}`} />
+                <Small label="⋮" onPress={() => setMenu(menu === l.id ? null : l.id)} testID={`ticket-more-menu-${l.id}`} hint="Rename, move or delete this heading" />
+              </View>
+            ) : null}
+            {picking === `add:${l.id}` ? (
+              <View style={styles.menu}>
+                <Small label="Service" onPress={() => addPicked('service', l.id)} testID={`ticket-here-service-${l.id}`} />
+                <Small label="Material" onPress={() => addPicked('material', l.id)} testID={`ticket-here-material-${l.id}`} />
+                <Small label="Note" onPress={() => { done(); setAdding({ kind: 'note', at: l.id }); }} testID={`ticket-here-note-${l.id}`} />
+                <TypedLine prefix={`ticket-here-typed-${l.id}`} onAdd={(x) => go((t) => addTyped(t, x, newLineId(now()), l.id))} />
+              </View>
+            ) : null}
+            {menu === l.id ? moveMenu(l) : null}
+            {addForm(l.id)}
+          </View>
+        ) : l.kind === 'note' ? (
+          <View key={l.id} style={styles.line} testID={`ticket-text-${l.id}`}>
+            <Text style={styles.meta}>{`Note: ${l.name}`}</Text>
+            {!frozen ? <Small label="⋮" onPress={() => setMenu(menu === l.id ? null : l.id)} testID={`ticket-more-menu-${l.id}`} hint="Move or remove this note" /> : null}
+            {menu === l.id ? moveMenu(l) : null}
+          </View>
+        ) : (
+          <View key={l.id}>
+            <LineRow line={l} locked={frozen || !!l.planFee} onQty={(q) => onChange((t) => setQty(t, l.id, q))} onPrice={(c) => onChange((t) => setPrice(t, l.id, c))} onRemove={() => onChange((t) => removeLine(t, l.id))} onMenu={frozen || l.planFee ? undefined : () => setMenu(menu === l.id ? null : l.id)} />
+            {menu === l.id ? moveMenu(l) : null}
+          </View>
+        ),
+      )}
+      {addForm(undefined)}
+      {!frozen ? (
         <>
-          <Action label="+ Add a note" onPress={() => setKind('note')} testID="ticket-add-note" />
-          <Action label="+ Add a section" onPress={() => setKind('section')} testID="ticket-add-section" />
+          <Action label="+ Add a service" onPress={() => addPicked('service')} testID="ticket-add-service" />
+          <Action label="+ Add a material" onPress={() => addPicked('material')} testID="ticket-add-material" />
+          {!adding ? (
+            <>
+              <Action label="+ Add a note" onPress={() => setAdding({ kind: 'note' })} testID="ticket-add-note" />
+              <Action label="+ Add a section" onPress={() => setAdding({ kind: 'section' })} testID="ticket-add-section" />
+            </>
+          ) : null}
+          {!sections && priced ? <Action label="Group into Labor and Parts" onPress={() => onChange((t) => groupIntoLaborAndParts(t, () => newLineId(now(), Math.random)))} testID="ticket-group" /> : null}
+          <TypedLine onAdd={(l) => onChange((t) => addTyped(t, l, newLineId(now())))} />
         </>
-      ) : null}
-      {!locked && kind ? (
-        <View style={styles.card} testID="ticket-text-form">
-          <TextInput value={text} onChangeText={setText} placeholder={kind === 'note' ? 'Note for the customer' : 'Section heading'} placeholderTextColor={colors.muted} multiline={kind === 'note'} accessibilityLabel={kind === 'note' ? 'Note' : 'Section heading'} testID="ticket-text-input" style={styles.input} />
-          <Action
-            label={kind === 'note' ? 'Add note' : 'Add section'}
-            primary
-            disabled={!text.trim()}
-            onPress={() => {
-              onAdd(kind, text);
-              setText('');
-              setKind(null);
-            }}
-            testID="ticket-text-add"
-          />
-          <Action label="Cancel" onPress={() => { setText(''); setKind(null); }} testID="ticket-text-cancel" />
-        </View>
       ) : null}
     </>
   );
 }
 
-function TypedLine({ onAdd }: { onAdd: (l: { name: string; unitCents: number; kind: LineKind }) => void }) {
+function TypedLine({ onAdd, prefix = 'ticket-typed' }: { onAdd: (l: { name: string; unitCents: number; kind: LineKind }) => void; prefix?: string }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [price, setPriceText] = useState('');
   const [kind, setKind] = useState<LineKind>('service');
-  if (!open) return <Action label="Type a line by hand" onPress={() => setOpen(true)} testID="ticket-typed-open" />;
+  if (!open) return <Action label="Type a line by hand" onPress={() => setOpen(true)} testID={`${prefix}-open`} />;
   return (
-    <View style={styles.card} testID="ticket-typed">
+    <View style={styles.card} testID={prefix}>
       <Segmented
         options={[
           { value: 'service', label: 'Service' },
@@ -738,8 +824,8 @@ function TypedLine({ onAdd }: { onAdd: (l: { name: string; unitCents: number; ki
         value={kind}
         onChange={setKind}
       />
-      <TextInput value={name} onChangeText={setName} placeholder="What it is" placeholderTextColor={colors.muted} accessibilityLabel="Line name" testID="ticket-typed-name" style={styles.input} />
-      <TextInput value={price} onChangeText={setPriceText} placeholder="Price $" placeholderTextColor={colors.muted} keyboardType="decimal-pad" accessibilityLabel="Line price" testID="ticket-typed-price" style={styles.input} />
+      <TextInput value={name} onChangeText={setName} placeholder="What it is" placeholderTextColor={colors.muted} accessibilityLabel="Line name" testID={`${prefix}-name`} style={styles.input} />
+      <TextInput value={price} onChangeText={setPriceText} placeholder="Price $" placeholderTextColor={colors.muted} keyboardType="decimal-pad" accessibilityLabel="Line price" testID={`${prefix}-price`} style={styles.input} />
       <Action
         label="Add line"
         primary
@@ -750,7 +836,7 @@ function TypedLine({ onAdd }: { onAdd: (l: { name: string; unitCents: number; ki
           setPriceText('');
           setOpen(false);
         }}
-        testID="ticket-typed-add"
+        testID={`${prefix}-add`}
       />
     </View>
   );
@@ -767,9 +853,9 @@ function Row({ label, value, big, testID }: { label: string; value: string; big?
   );
 }
 
-function Small({ label, onPress, testID, hint }: { label: string; onPress: () => void; testID: string; hint?: string }) {
+function Small({ label, onPress, testID, hint, disabled }: { label: string; onPress: () => void; testID: string; hint?: string; disabled?: boolean }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityHint={hint} testID={testID} style={({ pressed }) => [styles.small, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} accessibilityHint={hint} testID={testID} style={({ pressed }) => [styles.small, pressed && styles.pressed, disabled && styles.off]}>
       <Text style={styles.smallText}>{label}</Text>
     </Pressable>
   );
@@ -797,6 +883,11 @@ const styles = StyleSheet.create({
   small: { minWidth: touch.min, minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
   smallText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.info },
+  off: { opacity: 0.4 },
+  menu: { gap: 6, paddingVertical: 6 },
+  band: { gap: 6, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border },
+  bandName: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
+  chip: { fontSize: 13, fontWeight: '800', color: colors.muted },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between' },
   totalLabel: { fontSize: type.body, fontWeight: '700', color: colors.text },
   totalValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
