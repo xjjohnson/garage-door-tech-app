@@ -109,3 +109,57 @@ describe('Developer screen', () => {
     expect(app.getPathname()).toBe('/profile');
   });
 });
+
+import { fireEvent } from '@testing-library/react-native';
+import { clearLocalCache, CACHE_KEYS } from '../lib/clearCache';
+import { filterLog } from '../lib/devInfo';
+import { INVOICES_STORAGE_KEY } from '../lib/invoices';
+import { JOBS_STORAGE_KEY } from '../lib/jobs';
+import { CUSTOMERS_STORAGE_KEY } from '../lib/customers';
+import { NOTES_OUTBOX_KEY } from '../lib/odooNotes';
+import { ATTACHMENTS_STORAGE_KEY } from '../lib/attachments';
+import { PRICE_BOOK_FAVORITES_KEY } from '../lib/priceBook';
+
+describe('clear local cache and log tools', () => {
+  it('removes only the Odoo copies and keeps unsent work', async () => {
+    await AsyncStorage.clear();
+    const keep = [JOBS_STORAGE_KEY, CUSTOMERS_STORAGE_KEY, INVOICES_STORAGE_KEY, NOTES_OUTBOX_KEY, ATTACHMENTS_STORAGE_KEY, PRICE_BOOK_FAVORITES_KEY];
+    for (const k of keep) await AsyncStorage.setItem(k, '[1]');
+    for (const c of CACHE_KEYS) await AsyncStorage.setItem(c.key, '[2]');
+    expect(await clearLocalCache()).toBe(CACHE_KEYS.length);
+    for (const c of CACHE_KEYS) expect(await AsyncStorage.getItem(c.key)).toBeNull();
+    for (const k of keep) expect(await AsyncStorage.getItem(k)).toBe('[1]');
+    expect(CACHE_KEYS.map((c) => c.key)).not.toEqual(expect.arrayContaining(keep));
+  });
+
+  it('filters the log by kind and search word', () => {
+    const e = [
+      { t: 1, level: 'info' as const, area: 'odoo', msg: 'read res.partner' },
+      { t: 2, level: 'warn' as const, area: 'sync', msg: 'slow answer' },
+      { t: 3, level: 'error' as const, area: 'crash', msg: 'Boom' },
+    ];
+    expect(filterLog(e, 'warnings', '').map((x) => x.t)).toEqual([2]);
+    expect(filterLog(e, 'errors', '').map((x) => x.t)).toEqual([2, 3]);
+    expect(filterLog(e, 'odoo', '').map((x) => x.t)).toEqual([1, 2]);
+    expect(filterLog(e, 'all', 'BOOM').map((x) => x.t)).toEqual([3]);
+    expect(filterLog(e, 'all', 'sync slow').map((x) => x.t)).toEqual([2]);
+  });
+
+  it('asks before clearing, and the screen search narrows the log', async () => {
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(CACHE_KEYS[0].key, '[2]');
+    await AsyncStorage.setItem(PRICE_BOOK_FAVORITES_KEY, '[1]');
+    await renderApp('/developer');
+    for (let i = 0; i < 6; i++) await act(async () => undefined);
+    await fireEvent.press(screen.getByTestId('dev-clear-cache'));
+    expect(screen.getByTestId('dev-clear-confirm')).toHaveTextContent(/keeps everything not yet sent to Odoo/);
+    expect(await AsyncStorage.getItem(CACHE_KEYS[0].key)).toBe('[2]');
+    await fireEvent.press(screen.getByTestId('dev-clear-yes'));
+    for (let i = 0; i < 6; i++) await act(async () => undefined);
+    expect(await AsyncStorage.getItem(CACHE_KEYS[0].key)).toBeNull();
+    expect(await AsyncStorage.getItem(PRICE_BOOK_FAVORITES_KEY)).toBe('[1]');
+    expect(screen.getByTestId('dev-cache-note')).toHaveTextContent(/Nothing waiting to send was touched/);
+    await fireEvent.changeText(screen.getByTestId('dev-log-search'), 'zzz-no-such-line');
+    expect(screen.getByTestId('dev-log-count')).toHaveTextContent(/^0 lines/);
+  });
+});
