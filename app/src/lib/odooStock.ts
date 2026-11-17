@@ -454,6 +454,7 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
   // Reorder numbers and suppliers changed on the phone since Odoo last had them. Items from before this was
   // tracked (no synced value) are taken as matching, so nothing old is written to Odoo.
   const suppliers: Supplier[] = [...store.suppliers];
+  mergeVendors(suppliers, await readVendors(client));
   const heldRule = new Set<string>();
   const heldSupplier = new Set<string>();
   for (const i of items) {
@@ -545,6 +546,25 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
     });
   }
   return { store: { ...store, items: [...out, ...heldUnlinked], suppliers, truck: { ...truck, syncedAt: now } }, sent, added, linked, removed, created, problems };
+}
+
+/** The vendors in Odoo (Purchase > Vendors): contacts flagged as suppliers. Empty when Purchase isn't there or can't be read. */
+export async function readVendors(client: OdooClient): Promise<{ id: number; name: string; email: string; phone: string }[]> {
+  try {
+    const rows = (await client.call('res.partner', 'search_read', [[['supplier_rank', '>', 0], ['is_company', '=', true]]], { fields: ['name', 'email', 'phone'], order: 'name asc', limit: 200 })) as Record<string, unknown>[];
+    return rows.flatMap((r) => (typeof r.id === 'number' && typeof r.name === 'string' && r.name.trim() ? [{ id: r.id, name: r.name.trim(), email: str(r.email), phone: str(r.phone) }] : []));
+  } catch {
+    return [];
+  }
+}
+
+/** Adds Odoo's vendors to the phone's supplier list (in place), matching by Odoo id or name and filling in blank contact details. */
+export function mergeVendors(suppliers: Supplier[], vendors: { id: number; name: string; email: string; phone: string }[]): void {
+  for (const v of vendors) {
+    const at = suppliers.findIndex((s) => s.odooId === v.id || (!s.odooId && s.name.trim().toLowerCase() === v.name.toLowerCase()));
+    if (at < 0) suppliers.push({ name: v.name, phone: v.phone, email: v.email, odooId: v.id });
+    else suppliers[at] = { ...suppliers[at], odooId: v.id, phone: suppliers[at].phone || v.phone, email: suppliers[at].email || v.email };
+  }
 }
 
 /** The supplier's contact in Odoo: the one linked, else one by that name, else a new vendor. */

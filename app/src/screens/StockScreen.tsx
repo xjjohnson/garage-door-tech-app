@@ -70,6 +70,7 @@ export function StockScreen() {
   const due = orders(items, ordered);
   const open = openPurchases(store.purchases);
   const names = supplierNames(store);
+  const vendorNames = suppliers.filter((x) => x.odooId).map((x) => x.name).sort((a, b) => a.localeCompare(b));
   const now = Date.now();
   const today = startOfDay(now);
   const usedToday = usedTotals(store.used, { from: today });
@@ -282,6 +283,18 @@ export function StockScreen() {
               </Text>
             ))}
             {o.costCents > 0 ? <Text style={styles.meta}>About {formatMoney(o.costCents)}</Text> : null}
+            {!o.supplier && vendorNames.length > 0 ? (
+              <>
+                <Text style={styles.meta}>Pick the Odoo vendor to order these from</Text>
+                <ChipRow
+                  options={vendorNames.map((v) => ({ label: v, value: v }))}
+                  value=""
+                  onChange={(v: string) => o.lines.forEach(({ item }) => update(item.id, { supplier: v }))}
+                  scroll
+                  testID="order-pick-vendor"
+                />
+              </>
+            ) : null}
             {client && o.supplier && linked > 0 ? (
               <>
                 <Action
