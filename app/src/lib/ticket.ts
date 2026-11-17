@@ -45,6 +45,8 @@ export interface Ticket {
   lines: TicketLine[];
   /** The draft quotation in Odoo holding these lines. */
   order?: OdooRef;
+  /** The order was picked from Odoo when the job was made, not made by this ticket: once approved it is left alone, not replaced by a new quotation. */
+  linked?: boolean;
   totals?: TicketTotals;
   /** A quick discount: a percent off every line (Odoo's line discount) or one negative Discount line. Odoo works out the totals. */
   discount?: Discount;
@@ -407,11 +409,16 @@ async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, r
   // The picked delivery address. Nothing picked: a new order gets the customer's own,
   // and an existing one keeps whatever Odoo has (it may have been set there by hand).
   const ship = t.shipTo ? { partner_shipping_id: t.shipTo.id } : {};
+  let confirmed = false;
   if (order) {
     const [row] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['state'] })) as { state?: string }[];
-    if (row?.state !== 'draft' && row?.state !== 'sent') order = undefined;
+    // An approved order linked from an earlier job (see odooOpenOrders.ts) keeps its lines: Odoo won't let them be removed, and a second quotation would double it.
+    if (t.linked && (row?.state === 'sale' || row?.state === 'done')) confirmed = true;
+    else if (row?.state !== 'draft' && row?.state !== 'sent') order = undefined;
   }
-  if (order) {
+  if (order && confirmed) {
+    // Nothing to write; just read its totals back.
+  } else if (order) {
     await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false, ...ship, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
   } else {
     const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, partner_shipping_id: partnerId, ...ship, order_line: vals.map((v) => [0, 0, v]) }])) as number;
@@ -488,5 +495,5 @@ export function parseTicket(v: unknown): Ticket | undefined {
   const sg = d.signed as Record<string, unknown> | undefined;
   const signed = sg && typeof sg === 'object' && str(sg.id) && at(sg.at) && typeof sg.key === 'string' ? { id: str(sg.id)!, by: typeof sg.by === 'string' ? sg.by : '', at: at(sg.at)!, key: sg.key, ...(str(sg.sent) ? { sent: str(sg.sent) } : {}) } : undefined;
   const plan = parsePlan(d.plan);
-  return { lines, ...(signed ? { signed } : {}), ...(plan ? { plan } : {}), ...(typeof d.planSaved === 'string' && d.planSaved ? { planSaved: d.planSaved } : {}), ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(totals ? { totals } : {}), ...(parseDiscount(d.discount) ? { discount: parseDiscount(d.discount) } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
+  return { lines, ...(signed ? { signed } : {}), ...(plan ? { plan } : {}), ...(typeof d.planSaved === 'string' && d.planSaved ? { planSaved: d.planSaved } : {}), ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(d.linked === true && order ? { linked: true } : {}), ...(totals ? { totals } : {}), ...(parseDiscount(d.discount) ? { discount: parseDiscount(d.discount) } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
 }
