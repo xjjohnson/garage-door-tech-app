@@ -125,6 +125,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
         <Line k="Odoo" v={odooLine} />
         <Line k="To send" v={pending.total ? describePending(pending) : 'Nothing, all in Odoo'} testID="dev-pending" />
       </View>
+      <NavRow label="Odoo account" detail="Sign in, sign out or refresh (also under your profile)" href="/team" testID="dev-odoo-account" />
       {pending.total ? <NavRow label="See what's waiting" detail="Each one, and Sync now" href="/odoo-waiting" testID="dev-waiting" /> : null}
 
       <SectionTitle>Beta updates</SectionTitle>

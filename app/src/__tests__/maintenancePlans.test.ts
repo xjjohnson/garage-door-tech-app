@@ -81,3 +81,28 @@ describe('maintenance plans', () => {
     expect(planSummary({ ...blankPlan(), everyMonths: 6, priceCents: 15000, termMonths: 24 })).toBe('Every 6 months · $150 · 2 years');
   });
 });
+
+describe('plans on an Agreement with another notes field', () => {
+  it('keeps the plan in the notes field the model has, and names what is missing when there is none', async () => {
+    const calls: { method: string; args: unknown[] }[] = [];
+    const mk = (fields: Record<string, { type: string }>) =>
+      ({
+        call: async (_m: string, method: string, args: unknown[]) => {
+          calls.push({ method, args });
+          if (method === 'fields_get') return fields;
+          if (method === 'search') return [];
+          if (method === 'create') return 9;
+          return [];
+        },
+      }) as never;
+    const { savePlan, plansProblem, blankPlan } = jest.requireActual('../lib/maintenancePlans') as typeof import('../lib/maintenancePlans');
+    const withNotes = mk({ name: { type: 'char' }, notes: { type: 'text' }, partner_id: { type: 'many2one' } });
+    expect(await plansProblem(withNotes)).toBeNull();
+    await savePlan(withNotes, { ...blankPlan(), name: 'Gold' });
+    const created = calls.find((c) => c.method === "create")!.args as Record<string, unknown>[];
+    expect(String(created[0].notes)).toContain('johnsons-plan:');
+    expect(created[0].notes).not.toMatch(/<p>/);
+    const none = mk({ name: { type: 'char' }, partner_id: { type: 'many2one' } });
+    expect(await plansProblem(none)).toMatch(/no notes or description field/);
+  });
+});

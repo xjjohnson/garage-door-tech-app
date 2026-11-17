@@ -94,15 +94,14 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
       <Caption>Setup (owner)</Caption>
       <RowGroup>
         <IconRow icon="gear" label="Management" detail="Owner: job types, quote templates, parts, prices and checklists, saved to Odoo" href="/management" testID="settings-management" />
-        <IconRow icon="wrap" label="Inspection checklists" detail="The garage door and gate checklists, kept in Odoo as Surveys" href="/checklists" testID="settings-checklists" />
         <IconRow
           icon="users"
           label="Your business"
           detail={business.name ? `${business.name}: name, payment handles and review link` : 'Name, payment handles and review link for invoices'}
           href="/business"
           testID="settings-business"
+          last
         />
-        <IconRow icon="users" label="Odoo account" detail={signedIn ? `Signed in at ${odoo.client!.session.url}. Sign out or refresh` : odooLine} href="/team" testID="settings-odoo-account" last />
       </RowGroup>
 
       <Caption>Appearance</Caption>

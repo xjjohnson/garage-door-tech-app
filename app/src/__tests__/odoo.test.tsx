@@ -196,7 +196,7 @@ describe('Team screen', () => {
     jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
     const app = await renderApp('/settings');
     await settle();
-    await fireEvent.press(screen.getByTestId('settings-odoo-account'));
+    await fireEvent.press(screen.getByTestId('settings-odoo'));
     expect(app.getPathname()).toBe('/team');
     await settle();
     await fireEvent.changeText(screen.getByTestId('team-url'), 'acme.odoo.com');

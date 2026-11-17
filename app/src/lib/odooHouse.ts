@@ -95,12 +95,23 @@ export function readEquipmentNotes(notes: string): Pick<HouseEquipment, 'lines' 
   return { lines, ...(partsUntil !== undefined ? { partsUntil } : {}), ...(laborUntil !== undefined ? { laborUntil } : {}) };
 }
 
+/** "11 months", "3 weeks", "5 days": how long until a warranty date. */
+export function timeLeft(until: number, now: number): string {
+  const days = Math.max(1, Math.ceil((until - now) / 86_400_000));
+  if (days >= 60) {
+    const months = Math.round(days / 30.4);
+    return months >= 24 ? `${Math.floor(months / 12)} yr${months % 12 ? ` ${months % 12} mo` : ''}` : `${months} months`;
+  }
+  if (days >= 14) return `${Math.round(days / 7)} weeks`;
+  return days === 1 ? '1 day' : `${days} days`;
+}
+
 /** "In warranty until Nov 14, 2027", "Warranty ended Mar 3, 2026" or nothing when no date is known. */
 export function warrantyStatus(e: Pick<HouseEquipment, 'partsUntil' | 'laborUntil'>, now: number): { text: string; active: boolean } | null {
   const until = Math.max(e.partsUntil ?? 0, e.laborUntil ?? 0);
   if (!until) return null;
   const day = new Date(until).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  return until >= now ? { text: `In warranty until ${day}`, active: true } : { text: `Warranty ended ${day}`, active: false };
+  return until >= now ? { text: `In warranty until ${day} (${timeLeft(until, now)} left)`, active: true } : { text: `Warranty ended ${day}`, active: false };
 }
 
 /** The house a Field Service job is at: its location. Undefined when the job isn't in Odoo's Field Service. */

@@ -39,7 +39,7 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
   const covered = parts > 0 || labor > 0;
   const tracked = invoice.warranty?.tracked ?? [];
   const toggle = (key: string) => onChange({ warranty: { tracked: tracked.includes(key) ? tracked.filter((k) => k !== key) : [...tracked, key] } });
-  const lines = invoice.lines.filter((l) => l.cents > 0 && isTrackable(l.label));
+  const lines = invoice.lines.filter((l) => l.cents > 0 && l.taxable && isTrackable(l.label));
   return (
     <View style={styles.box} testID="invoice-coverage">
       <Text style={styles.title}>Warranty on this job</Text>

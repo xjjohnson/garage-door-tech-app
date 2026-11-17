@@ -114,7 +114,7 @@ export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'odoo' | 'lin
   const warranty = warrantyLines(warrantyFor(inv as Invoice, settings), invoiceNo(inv));
   const out: EquipmentItem[] = [];
   inv.lines.forEach((l, i) => {
-    if (!tracked.includes(trackKey(l)) || !isTrackable(l.label)) return;
+    if (!tracked.includes(trackKey(l)) || !l.taxable || !isTrackable(l.label)) return;
     const units = Math.min(MAX_PER_LINE, Math.max(1, Math.round(l.qty ?? 1)));
     for (let u = 0; u < units; u++) {
       out.push({
