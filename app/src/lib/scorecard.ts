@@ -7,6 +7,7 @@
  * A callback is a new job at the same place within 30 days of an earlier
  * one; it counts against the tech who did the earlier job.
  */
+import { rolePreview } from './devFlags';
 import { odooTime, OdooClient, toOdooTime } from './odoo';
 import type { Invoice } from './invoices';
 import type { Job } from './jobs';
@@ -110,6 +111,8 @@ export function tierIn(text: string): Tier | undefined {
 
 /** Whether the signed-in Odoo user is the owner: an Odoo admin, or a Field Service manager. */
 export async function isOwner(client: OdooClient): Promise<boolean> {
+  // Developer > Look as a tech.
+  if (rolePreview() === 'tech') return false;
   for (const g of ['base.group_system', 'fieldservice.group_fsm_manager']) {
     try {
       if ((await client.call('res.users', 'has_group', [[client.session.uid], g])) === true) return true;

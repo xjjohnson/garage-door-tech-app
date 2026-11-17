@@ -131,3 +131,21 @@ export function filterLog(entries: LogEntry[], filter: LogFilter, query: string)
     return !q || `${e.area} ${e.msg}`.toLowerCase().includes(q);
   });
 }
+
+export interface PhotoUse {
+  waiting: { count: number; bytes: number };
+  sent: { count: number; bytes: number };
+}
+
+/** Photo storage on the phone: those still waiting to upload to Odoo, and those already in Odoo (kept on the phone too). */
+export function photoUse(photos: { uri: string; odooId?: number }[], sizeOf: (uri: string) => number | null): PhotoUse {
+  const use: PhotoUse = { waiting: { count: 0, bytes: 0 }, sent: { count: 0, bytes: 0 } };
+  for (const p of photos) {
+    const bucket = p.odooId ? use.sent : use.waiting;
+    bucket.count++;
+    bucket.bytes += sizeOf(p.uri) ?? 0;
+  }
+  return use;
+}
+
+export const bytesLabel = (n: number) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} KB`);

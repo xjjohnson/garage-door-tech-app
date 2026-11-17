@@ -163,3 +163,90 @@ describe('clear local cache and log tools', () => {
     expect(screen.getByTestId('dev-log-count')).toHaveTextContent(/^0 lines/);
   });
 });
+
+import { callTrace, clearCallTrace, recordCall, slowest, TRACE_SIZE } from '../lib/callTrace';
+import { bytesLabel, photoUse } from '../lib/devInfo';
+import { rolePreview, setRolePreview } from '../lib/devFlags';
+import { FEATURE_FLAGS, featureOn, FLAGS_STORAGE_KEY, loadFeatureFlags, resetFeatureFlags, setFeature } from '../lib/featureFlags';
+import { checkNetwork } from '../lib/networkCheck';
+import { OdooClient } from '../lib/odoo';
+import { isOwner } from '../lib/scorecard';
+
+describe('network, storage, call trace, flags and role preview', () => {
+  it('times the internet and Odoo checks, and reports slow and failed', async () => {
+    let t = 0;
+    const clock = () => t;
+    const fast = async () => {
+      t += 120;
+      return { ok: true, status: 200 };
+    };
+    const r = await checkNetwork({ odooUrl: 'https://acme.odoo.com/', fetchFn: fast, now: clock });
+    expect(r.map((x) => [x.name, x.state, x.ms])).toEqual([['Internet', 'ok', 120], ['Odoo', 'ok', 120]]);
+    const slow = await checkNetwork({ odooUrl: null, fetchFn: async () => { t += 3000; return { ok: true, status: 200 }; }, now: clock });
+    expect(slow[0].state).toBe('slow');
+    const down = await checkNetwork({ odooUrl: 'https://x.odoo.com', fetchFn: async (url) => { if (url.includes('odoo')) return { ok: false, status: 502 }; throw new Error('Network request failed'); }, now: clock });
+    expect(down.map((x) => x.state)).toEqual(['failed', 'failed']);
+    expect(down[0].detail).toContain('Network request failed');
+    const off = await checkNetwork({ odooUrl: 'https://x.odoo.com', offline: true });
+    expect(off.every((x) => x.state === 'failed' && /Pretend offline/.test(x.detail))).toBe(true);
+  });
+
+  it('counts photos waiting to upload separately from those in Odoo', () => {
+    const u = photoUse([{ uri: 'a', odooId: 3 }, { uri: 'b' }, { uri: 'c' }], (uri) => ({ a: 2e6, b: 1.5e6, c: null })[uri] ?? null);
+    expect(u.waiting).toEqual({ count: 2, bytes: 1.5e6 });
+    expect(u.sent).toEqual({ count: 1, bytes: 2e6 });
+    expect(bytesLabel(1.5e6)).toBe('1.5 MB');
+    expect(bytesLabel(800)).toBe('1 KB');
+  });
+
+  it('keeps the last 50 Odoo calls, by model and method only', async () => {
+    clearCallTrace();
+    for (let i = 0; i < 60; i++) recordCall({ t: i, model: 'res.partner', method: 'read', ms: i, ok: true });
+    expect(callTrace()).toHaveLength(TRACE_SIZE);
+    expect(callTrace()[0].t).toBe(10);
+    expect(slowest(callTrace(), 2).map((c) => c.ms)).toEqual([59, 58]);
+    clearCallTrace();
+    // A real client call lands in the trace without its arguments or answer.
+    const fetchFn = async (_u: string, init?: { body?: string }) => ({ ok: true, status: 200, json: async () => ({ result: [{ secret: 'x' }], id: JSON.parse(init?.body ?? '{}').id }), text: async () => '' });
+    const client = new OdooClient(fetchFn as never, { url: 'https://a.odoo.com', db: 'a', login: 'l', uid: 1, name: 'N', kind: 'none', me: 1, fsm: false, assignField: 'user_ids', fields: [], apps: {} as never, productFields: [] }, 'KEY');
+    await client.call('res.partner', 'search_read', [[['name', '=', 'Pat']]]).catch(() => undefined);
+    expect(callTrace().map((c) => `${c.model}.${c.method}`)).toEqual(['res.partner.search_read']);
+    expect(JSON.stringify(callTrace())).not.toMatch(/Pat|KEY/);
+  });
+
+  it('saves feature flags and falls back to defaults', async () => {
+    await AsyncStorage.clear();
+    resetFeatureFlags();
+    expect(featureOn('callTrace')).toBe(FEATURE_FLAGS.find((f) => f.id === 'callTrace')!.default);
+    expect(featureOn('logSlowCalls')).toBe(false);
+    await setFeature('logSlowCalls', true);
+    resetFeatureFlags();
+    await loadFeatureFlags();
+    expect(featureOn('logSlowCalls')).toBe(true);
+    expect(JSON.parse((await AsyncStorage.getItem(FLAGS_STORAGE_KEY))!)).toEqual({ logSlowCalls: true });
+  });
+
+  it('role preview makes the owner look like a tech without calling Odoo', async () => {
+    const calls: string[] = [];
+    const owner = { session: { uid: 1 }, call: async (m: string, method: string) => { calls.push(`${m}.${method}`); return true; } } as never;
+    expect(await isOwner(owner)).toBe(true);
+    calls.length = 0;
+    setRolePreview('tech');
+    expect(rolePreview()).toBe('tech');
+    expect(await isOwner(owner)).toBe(false);
+    expect(calls).toEqual([]);
+    setRolePreview(null);
+  });
+
+  it('shows the new sections on the screen', async () => {
+    await AsyncStorage.clear();
+    await renderApp('/developer');
+    for (let i = 0; i < 6; i++) await act(async () => undefined);
+    expect(screen.getByTestId('dev-network')).toBeTruthy();
+    expect(screen.getByTestId('dev-storage-waiting')).toHaveTextContent('No photos waiting to upload');
+    await fireEvent.press(screen.getByTestId('dev-calls-toggle'));
+    expect(screen.getByTestId('dev-calls')).toBeTruthy();
+    expect(screen.getByTestId('dev-as-tech')).toBeTruthy();
+    expect(screen.getByTestId('dev-flag-callTrace')).toBeTruthy();
+  });
+});

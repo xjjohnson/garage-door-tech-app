@@ -19,3 +19,15 @@ export function onDevFlags(l: () => void): () => void {
   listeners.add(l);
   return () => listeners.delete(l);
 }
+
+let preview: 'tech' | null = null;
+
+/** Looking at the app as a tech: owner-only screens and rows hide. Only the app's view changes; Odoo and its data are never touched. Memory only, so a restart clears it. */
+export function rolePreview(): 'tech' | null {
+  return preview;
+}
+
+export function setRolePreview(p: 'tech' | null) {
+  preview = p;
+  listeners.forEach((l) => l());
+}

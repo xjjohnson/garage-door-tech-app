@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Fetch, ODOO_STORAGE_KEY, OdooClient, OdooError, OdooLogin } from './odoo';
+import { loadFeatureFlags } from './featureFlags';
 import { deviceSecrets, SecretStore } from './secrets';
 
 const SECRET_KEY = 'odoo.secret';
@@ -69,6 +70,7 @@ export function OdooProvider({ children, fetchFn, secrets: givenSecrets }: { chi
 
   useEffect(() => {
     let alive = true;
+    loadFeatureFlags().catch(() => undefined);
     (async () => {
       const login = parseLogin(await AsyncStorage.getItem(ODOO_STORAGE_KEY).catch(() => null));
       if (!alive) return;
