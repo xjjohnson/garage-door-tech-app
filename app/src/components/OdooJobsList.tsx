@@ -35,7 +35,14 @@ export function parseSavedJobs(raw: string | null): { rows: OdooTask[]; at: numb
   }
 }
 
-export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { filter: 'open' | 'done' | 'all'; search: string; /** When given, only jobs the phone has an unpaid invoice for. */ owedJobIds?: Set<string>; now?: () => number }) {
+/** The start of tomorrow on this phone: jobs planned from then on are upcoming. */
+export function startOfTomorrow(now: number): number {
+  const d = new Date(now);
+  d.setHours(24, 0, 0, 0);
+  return d.getTime();
+}
+
+export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { filter: 'open' | 'done' | 'all' | 'upcoming'; search: string; /** When given, only jobs the phone has an unpaid invoice for. */ owedJobIds?: Set<string>; now?: () => number }) {
   const { client } = useOdoo();
   const { jobs } = useJobs();
   const openJob = useOpenOdooJob();
@@ -65,7 +72,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
       setBusy(true);
       setError(null);
       try {
-        const page = await client.listJobs(filter, search, offset, PAGE);
+        const page = await client.listJobs(filter, search, offset, PAGE, filter === 'upcoming' ? startOfTomorrow(now()) : undefined);
         if (n !== asked.current) return;
         setRows((r) => (offset === 0 ? page : [...(r ?? []), ...page]));
         setMore(page.length === PAGE);
@@ -104,7 +111,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
       {rows === null && busy ? <Text style={styles.meta}>Reading Odoo&apos;s jobs...</Text> : null}
       {rows && rows.length === 0 && !busy ? (
         <Text style={styles.meta} testID="odoo-jobs-empty">
-          {search.trim() ? 'No jobs in Odoo match.' : filter === 'open' ? 'No open jobs in Odoo.' : 'No jobs in Odoo.'}
+          {search.trim() ? 'No jobs in Odoo match.' : filter === 'upcoming' ? 'Nothing planned after today. Visits from maintenance plans show up here once Odoo makes them, about 30 days ahead.' : filter === 'open' ? 'No open jobs in Odoo.' : 'No jobs in Odoo.'}
         </Text>
       ) : null}
       {(rows ?? []).map((t) => {

@@ -14,10 +14,11 @@ import { OdooJobsList } from '../components/OdooJobsList';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
 
-type Filter = JobStatus | 'all' | 'unpaid';
+type Filter = JobStatus | 'all' | 'unpaid' | 'upcoming';
 
 const FILTERS: ChipOption<Filter>[] = [
   { label: 'Open', value: 'open' },
+  { label: 'Upcoming', value: 'upcoming' },
   { label: 'Unpaid', value: 'unpaid' },
   { label: 'Done', value: 'done' },
   { label: 'All', value: 'all' },
@@ -46,7 +47,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   const fromOdoo = odooStatus === 'signedIn' && !!client && client.session.kind !== 'none';
   const shown = useMemo(() => {
     const own = fromOdoo ? jobs.filter((j) => !j.odooJob) : jobs;
-    const byStatus = filter === 'all' ? own : filter === 'unpaid' ? own.filter((j) => owedJobIds.has(j.id)) : own.filter((j) => j.status === filter);
+    const byStatus = filter === 'all' ? own : filter === 'upcoming' ? [] : filter === 'unpaid' ? own.filter((j) => owedJobIds.has(j.id)) : own.filter((j) => j.status === filter);
     return sortJobs(searchJobs(byStatus, query));
   }, [jobs, filter, query, fromOdoo, owedJobIds]);
   const openCount = jobs.filter((j) => j.status === 'open').length;
@@ -71,7 +72,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           </Pressable>
         ) : null}
       </View>
-      <ChipRow options={FILTERS} value={filter} onChange={setFilter} compact scroll testID="jobs-filter" />
+      <ChipRow options={fromOdoo ? FILTERS : FILTERS.filter((f) => f.value !== 'upcoming')} value={filter} onChange={setFilter} compact scroll testID="jobs-filter" />
 
       {!fromOdoo && loaded && jobs.length === 0 ? (
         <View style={styles.empty} testID="jobs-empty">

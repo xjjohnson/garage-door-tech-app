@@ -115,6 +115,15 @@ describe('dispatch (Odoo logic)', () => {
     expect((await c.unassignedTasks()).map((t) => t.id)).toEqual([603]);
   });
 
+  it('lists upcoming jobs: open, planned from tomorrow on, soonest first', async () => {
+    const o = fakeOdoo();
+    const c = await OdooClient.signIn(o.fetchFn, login, 'k');
+    await c.listJobs('upcoming', '', 0, 40, at(0, 0, 1));
+    const read = o.calls.filter((x) => x.model === 'fsm.order' && x.method === 'search_read').at(-1)!;
+    expect(JSON.stringify(read.args[0])).toContain(JSON.stringify(['scheduled_date_start', '>=', toOdooTime(at(0, 0, 1))]));
+    expect(await c.listJobs('upcoming')).toEqual([]);
+  });
+
   it("reads job addresses on Odoo 19, where contacts have no mobile field", async () => {
     const o = fakeOdoo();
     const c = await OdooClient.signIn(o.fetchFn, login, 'k');
