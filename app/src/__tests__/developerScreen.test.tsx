@@ -32,7 +32,7 @@ describe('developer helpers', () => {
   it('summarises the setup check and update details', () => {
     expect(checkCounts([{ state: 'ok' }, { state: 'ok' }, { state: 'warn' }, { state: 'missing' }] as never)).toEqual({ ok: 2, warn: 1, missing: 1 });
     const lines = Object.fromEntries(updateLines(update, null, now));
-    expect(lines['Release']).toBe('0.5.144');
+    expect(lines['Release']).toBe(update.release);
     expect(lines['Update ID']).toBe('abcd-1234');
     expect(lines['Published']).toContain('2026-11-17 20:00');
     expect(lines['Last checked']).toMatch(/not yet/);
