@@ -27,7 +27,7 @@ export function activityWindow(list: FollowUp[], now: number): FollowUp[] {
 const marker = (id: string) => `johnsons-followup:${id}`;
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-async function todoType(client: Caller): Promise<number | undefined> {
+export async function todoType(client: Caller): Promise<number | undefined> {
   try {
     const [x] = (await client.call('ir.model.data', 'search_read', [[['module', '=', 'mail'], ['name', '=', 'mail_activity_data_todo']]], { fields: ['res_id'], limit: 1 })) as { res_id?: number }[];
     return x?.res_id || undefined;

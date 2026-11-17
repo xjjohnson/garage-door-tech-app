@@ -5,6 +5,7 @@ import { DAY } from '../lib/followups';
 import type { AgreementRow, FrequencySet, RepeatRow } from '../lib/odooRecurring';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { colors, touch, type } from '../theme';
+import { MaintenancePlan, planSummary } from '../lib/maintenancePlans';
 import { ChipRow } from './controls';
 
 /** A bottom sheet with a title, Cancel, the fields, an error line and one save button. */
@@ -31,9 +32,9 @@ function Sheet({ visible, title, children, canSave, busy, error, saveLabel, onSa
               {error}
             </Text>
           ) : null}
-          <Pressable onPress={() => canSave && !busy && onSave()} disabled={!canSave || busy} accessibilityRole="button" accessibilityState={{ disabled: !canSave || !!busy }} testID={`${testID}-save`} style={({ pressed }) => [styles.save, (!canSave || busy) && styles.saveOff, pressed && styles.pressed]}>
+          {saveLabel ? <Pressable onPress={() => canSave && !busy && onSave()} disabled={!canSave || busy} accessibilityRole="button" accessibilityState={{ disabled: !canSave || !!busy }} testID={`${testID}-save`} style={({ pressed }) => [styles.save, (!canSave || busy) && styles.saveOff, pressed && styles.pressed]}>
             <Text style={styles.saveText}>{busy ? 'Saving to Odoo...' : saveLabel}</Text>
-          </Pressable>
+          </Pressable> : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -76,6 +77,22 @@ export function RepeatSheet({ visible, customer, sets, busy, error, onSave, onCa
       <Text style={styles.label}>First visit in</Text>
       <ChipRow options={WHEN.map((w) => ({ label: w.label, value: w.value }))} value={days} onChange={setDays} testID="repeat-when" />
       <Text style={styles.note}>Odoo makes each visit as a job on its own, about 30 days before it is due for the tune-up. Nothing is texted to the customer.</Text>
+    </Sheet>
+  );
+}
+
+/** Choose one of the maintenance plans: to add to a customer, or to change their plan to. */
+export function PlanPickSheet({ visible, title, plans, note, busy, error, onPick, onCancel }: { visible: boolean; title: string; plans: MaintenancePlan[]; note?: string; busy?: boolean; error?: string | null; onPick: (p: MaintenancePlan) => void; onCancel: () => void }) {
+  return (
+    <Sheet visible={visible} title={title} canSave={false} saveLabel="" busy={busy} error={error} onSave={() => undefined} onCancel={onCancel} testID="plan-sheet">
+      {plans.length === 0 ? <Text style={styles.note}>No plans are set up. The owner adds them in Management, Maintenance plans.</Text> : null}
+      {plans.map((p) => (
+        <Pressable key={p.id} disabled={busy} onPress={() => onPick(p)} accessibilityRole="button" testID={`plan-pick-${p.id}`} style={({ pressed }) => [styles.pick, pressed && styles.pressed]}>
+          <Text style={styles.value}>{p.name}</Text>
+          <Text style={styles.note}>{planSummary(p)}</Text>
+        </Pressable>
+      ))}
+      {note ? <Text style={styles.note}>{note}</Text> : null}
     </Sheet>
   );
 }
@@ -207,7 +224,7 @@ const styles = StyleSheet.create({
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 8, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   multi: { minHeight: 90, textAlignVertical: 'top' },
-  pick: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  pick: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
   error: { fontSize: 16, fontWeight: '700', color: colors.stop },
   save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
