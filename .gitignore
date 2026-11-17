@@ -8,3 +8,5 @@ dist/
 *.jks
 *.keystore
 *.p12.b64
+coverage/
+build/

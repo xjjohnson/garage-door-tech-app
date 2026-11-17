@@ -1,0 +1,13 @@
+# Heavy files agents shouldn't open unless a task targets them.
+**/package-lock.json
+yarn.lock
+pnpm-lock.yaml
+dist/
+build/
+coverage/
+node_modules/
+.expo/
+app/src/data/manuals.ts
+app/src/data/diagnostics.ts
+app/src/data/logoPng.ts
+spring-calc/src/data.ts
