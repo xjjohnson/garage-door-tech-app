@@ -10,6 +10,10 @@ export interface DeviceMedia {
   deletePhoto(uri: string): void;
   /** Makes a PDF from HTML and opens the share sheet (text, email, Drive, print). */
   sharePdf(html: string, name: string): Promise<void>;
+  /** Opens the share sheet for a PDF that already exists (base64), such as Odoo's own invoice. */
+  shareBase64Pdf?(base64: string, name: string): Promise<void>;
+  /** Saves a PDF (base64) into a folder the person picks, e.g. Downloads; resolves false when they back out. */
+  savePdf?(base64: string, name: string): Promise<boolean>;
   /** Opens the share sheet for photo files. */
   sharePhoto(uri: string): Promise<void>;
   /** A saved photo as a data URL, to put in a PDF; null if it can't be read. */
@@ -86,6 +90,24 @@ export function deviceMedia(): DeviceMedia | null {
         // Keep the generated name.
       }
       await sharing.shareAsync(shareUri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: name });
+    },
+    async shareBase64Pdf(base64, name) {
+      const f = new fs.File(fs.Paths.cache, name);
+      if (f.exists) f.delete();
+      f.create();
+      f.write(base64, { encoding: 'base64' });
+      await sharing.shareAsync(f.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: name });
+    },
+    async savePdf(base64, name) {
+      let dir;
+      try {
+        dir = await fs.Directory.pickDirectoryAsync();
+      } catch {
+        return false;
+      }
+      const f = dir.createFile(name.replace(/\.pdf$/i, ''), 'application/pdf');
+      f.write(base64, { encoding: 'base64' });
+      return true;
     },
     async sharePhoto(uri) {
       await sharing.shareAsync(uri, { mimeType: 'image/jpeg' });

@@ -1,4 +1,4 @@
-import { badgeText, fetchCustomerBadge, fetchHouseHistory, isRepeat, readEquipmentNotes, warrantyStatus } from '../lib/odooHouse';
+import { badgeText, fetchCustomerBadge, fetchHouseHistory, houseAtAddress, isRepeat, readEquipmentNotes, warrantyStatus } from '../lib/odooHouse';
 
 const NOW = Date.UTC(2026, 10, 14, 12);
 
@@ -68,6 +68,15 @@ describe('fetchHouseHistory', () => {
     const h = await fetchHouseHistory(client, 77, undefined, NOW);
     expect(h.equipment).toEqual([]);
     expect(h.visits).toEqual([]);
+  });
+});
+
+describe('houseAtAddress', () => {
+  it('finds the customer location with the delivery address street, ignoring the others', async () => {
+    const { client } = fake((m) => (m === 'fsm.location' ? [{ id: 1, name: '10 Oak Street', street: '10 Oak Street' }, { id: 2, name: '912 Rockmoor Drive', street: '912 Rockmoor Dr' }] : []));
+    expect(await houseAtAddress(client, 5, '912 Rockmoor Drive, Georgetown 78626')).toBe(2);
+    expect(await houseAtAddress(client, 5, '5 Elm Ln, Austin 78701')).toBeUndefined();
+    expect(await houseAtAddress(client, 5, '')).toBeUndefined();
   });
 });
 
