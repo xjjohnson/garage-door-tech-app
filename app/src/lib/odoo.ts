@@ -379,11 +379,17 @@ export class OdooClient {
    * Every job in Odoo, whoever has it, for the Jobs tab: open, done or all,
    * latest planned first, matching a search on its reference, place or notes.
    */
-  listJobs(filter: 'open' | 'done' | 'all', search = '', offset = 0, limit = 40): Promise<OdooTask[]> {
+  listJobs(filter: 'open' | 'done' | 'all' | 'upcoming', search = '', offset = 0, limit = 40, after?: number): Promise<OdooTask[]> {
     const s = this.session;
     if (s.kind === 'none') return Promise.resolve([]);
     const d: unknown[] = [];
     if (filter === 'open') d.push(...this.open());
+    // Upcoming: open jobs planned to start from `after` on, soonest first (the visits a repeating plan makes ahead of time).
+    if (filter === 'upcoming') {
+      const f = this.startField;
+      if (!f || after === undefined) return Promise.resolve([]);
+      d.push(...this.open(), [f, '>=', toOdooTime(after)]);
+    }
     if (filter === 'done') {
       if (s.kind === 'oca') d.push(...(s.closedStage ? [['stage_id.is_closed', '=', true]] : []));
       else d.push(...(s.fsm ? [['is_fsm', '=', true]] : []), this.has('fsm_done') ? ['fsm_done', '=', true] : ['stage_id.fold', '=', true]);
@@ -394,7 +400,7 @@ export class OdooClient {
       if (s.kind === 'oca') d.push('|', '|', ['name', 'ilike', q], ['location_id', 'ilike', q], ['description', 'ilike', q]);
       else d.push('|', ['name', 'ilike', q], ['partner_id', 'ilike', q]);
     }
-    return this.readWhere(d, { newest: true, limit, offset });
+    return this.readWhere(d, { newest: filter !== 'upcoming', limit, offset });
   }
 
   /**
