@@ -9,8 +9,12 @@ import { OdooSignInForm } from '../components/OdooSignInForm';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { releaseFrom } from '../lib/buildInfo';
 import { clearLocalCache, CLEAR_CACHE_WARNING } from '../lib/clearCache';
-import { ageLabel, checkCounts, diagnosticsText, filterLog, LogFilter, queueRows, recentProblems, STUCK_MS, storageLabel, UpdateDetails, updateLines } from '../lib/devInfo';
-import { onDevFlags, pretendOffline, setPretendOffline } from '../lib/devFlags';
+import { ageLabel, bytesLabel, checkCounts, photoUse, diagnosticsText, filterLog, LogFilter, queueRows, recentProblems, STUCK_MS, storageLabel, UpdateDetails, updateLines } from '../lib/devInfo';
+import { callTrace, clearCallTrace, onCallTrace, slowest } from '../lib/callTrace';
+import { onDevFlags, pretendOffline, rolePreview, setPretendOffline, setRolePreview } from '../lib/devFlags';
+import { FEATURE_FLAGS, featureOn, loadFeatureFlags, onFeatureFlags, setFeature } from '../lib/featureFlags';
+import { checkNetwork, NetResult } from '../lib/networkCheck';
+import { useAttachments } from '../lib/useAttachments';
 import { formatLog, log, Logger, stamp } from '../lib/log';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
 import { appsFound } from '../lib/odoo';
@@ -49,6 +53,21 @@ interface Props {
   /** Free and total space on the phone, in bytes. */
   storage?: () => { free: number | null; total: number | null };
   now?: () => number;
+  /** Runs the network check; tests pass a fake. */
+  network?: (odooUrl: string | null) => Promise<NetResult[]>;
+  /** Size of a saved photo in bytes, or null. */
+  fileSize?: (uri: string) => number | null;
+}
+
+function deviceFileSize(uri: string): number | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { File } = require('expo-file-system') as typeof import('expo-file-system');
+    const f = new File(uri);
+    return f.exists ? f.size ?? null : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Read once: what's running doesn't change until the app restarts. */
@@ -89,7 +108,7 @@ const CHECK_NOTE: Record<OtaCheck, string> = {
  * running, the Odoo connection, what's waiting to send, the app's log with
  * a Share button, beta updates, and switches for testing.
  */
-export function DeveloperScreen({ logger = log, updates = Updates, restart = () => Updates.reloadAsync(), share = shareTextFile, buildInfo = BUILD_INFO, channel = UPDATE_CHANNEL, runCheck = runSetupCheck, details = RUNNING, storage = deviceStorage, now = Date.now }: Props) {
+export function DeveloperScreen({ logger = log, updates = Updates, restart = () => Updates.reloadAsync(), share = shareTextFile, buildInfo = BUILD_INFO, channel = UPDATE_CHANNEL, runCheck = runSetupCheck, details = RUNNING, storage = deviceStorage, now = Date.now, network, fileSize = deviceFileSize }: Props) {
   const odoo = useOdoo();
   const pending = usePending();
   const items = usePendingItems();
@@ -109,14 +128,29 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
   const [beta, setBetaOn] = useState<boolean | null>(null);
   const [needsRestart, setNeedsRestart] = useState(false);
   const [offline, setOffline] = useState(pretendOffline());
+  const [asTech, setAsTech] = useState(rolePreview() === 'tech');
+  const [, setFlagTick] = useState(0);
+  const [calls, setCalls] = useState(callTrace());
+  const [net, setNet] = useState<NetResult[] | null>(null);
+  const [netBusy, setNetBusy] = useState(false);
+  const [showCalls, setShowCalls] = useState(false);
+  const { photos } = useAttachments();
 
   useEffect(() => {
     readBeta().then(setBetaOn);
-    const off = onDevFlags(() => setOffline(pretendOffline()));
+    const off = onDevFlags(() => {
+      setOffline(pretendOffline());
+      setAsTech(rolePreview() === 'tech');
+    });
     const offSync = onSyncStatus(() => setSync(syncStatus()));
+    const offCalls = onCallTrace(() => setCalls(callTrace()));
+    const offFlags = onFeatureFlags(() => setFlagTick((n) => n + 1));
+    loadFeatureFlags().catch(() => undefined);
     return () => {
       off();
       offSync();
+      offCalls();
+      offFlags();
     };
   }, []);
 
@@ -206,6 +240,17 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
     const ok = await share(`johnsons-diagnostics-${new Date(t).toISOString().slice(0, 10)}.txt`, text).catch(() => false);
     if (!ok) setNote("Couldn't open sharing on this phone.");
   };
+
+  const runNetwork = async () => {
+    setNetBusy(true);
+    const url = client?.session.url ?? null;
+    const r = await (network ?? ((u) => checkNetwork({ odooUrl: u, offline: pretendOffline() })))(url).catch((): NetResult[] => [{ name: 'Check', state: 'failed', ms: null, detail: "Couldn't run the check." }]);
+    setNet(r);
+    setNetBusy(false);
+    logger.info('dev', `network check: ${r.map((x) => `${x.name} ${x.state}${x.ms !== null ? ` ${x.ms} ms` : ''}`).join(', ')}`);
+  };
+
+  const use = useMemo(() => photoUse(photos, fileSize), [photos, fileSize]);
 
   const shareLines = async (lines: typeof entries, name: string) => {
     const text = formatLog(lines, ['Johnsons app log (part)', buildInfo, `${lines.length} line${lines.length === 1 ? '' : 's'}${query.trim() ? ` matching "${query.trim()}"` : ''}`]);
@@ -398,6 +443,64 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
         />
       </View>
       <Text style={styles.meta}>Every Odoo call fails as if there were no signal, until you turn it off or restart.</Text>
+
+      <SectionTitle>Network</SectionTitle>
+      <View style={styles.row}>
+        <Action label={netBusy ? 'Checking...' : 'Check network'} grow disabled={netBusy} onPress={runNetwork} testID="dev-network" />
+      </View>
+      {net ? (
+        <View style={styles.card} testID="dev-network-result">
+          {net.map((r) => (
+            <View key={r.name} style={styles.line}>
+              <Text style={styles.k}>{r.name}</Text>
+              <Text style={[styles.v, r.state === 'failed' && styles.logErrorText]}>
+                {r.state === 'ok' ? 'Good' : r.state === 'slow' ? 'Slow' : 'Failed'} · {r.detail}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <SectionTitle>Storage</SectionTitle>
+      <View style={styles.card} testID="dev-storage">
+        <Line k="Waiting" v={use.waiting.count ? `${use.waiting.count} photo${use.waiting.count === 1 ? '' : 's'} · ${bytesLabel(use.waiting.bytes)} to upload` : 'No photos waiting to upload'} testID="dev-storage-waiting" />
+        <Line k="In Odoo" v={`${use.sent.count} photo${use.sent.count === 1 ? '' : 's'} · ${bytesLabel(use.sent.bytes)} also kept on this phone`} />
+        <Line k="Free" v={storageLabel(storage().free, storage().total)} />
+      </View>
+
+      <SectionTitle>Odoo calls</SectionTitle>
+      <Text style={styles.meta}>The last 50 calls by model and method, with how long each took. Nothing that was sent or answered is kept.</Text>
+      <View style={styles.row}>
+        <Action label={showCalls ? 'Hide calls' : `Show calls (${calls.length})`} grow onPress={() => setShowCalls((v) => !v)} testID="dev-calls-toggle" />
+        <Action label="Clear" onPress={clearCallTrace} testID="dev-calls-clear" />
+      </View>
+      {showCalls ? (
+        <View style={styles.log} testID="dev-calls">
+          {calls.length === 0 ? <Text style={styles.logLine}>No calls yet.</Text> : null}
+          {slowest(calls, 3).length ? <Text style={styles.logLine}>Slowest: {slowest(calls, 3).map((c) => `${c.model}.${c.method} ${c.ms} ms`).join(' · ')}</Text> : null}
+          {[...calls].reverse().map((c, i) => (
+            <Text key={`${c.t}-${i}`} style={[styles.logLine, !c.ok && styles.logError, c.ms > 3000 && styles.logWarn]}>
+              {stamp(c.t)} {c.model}.{c.method} {c.ms} ms{c.ok ? '' : ' failed'}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
+      <SectionTitle>Testing tools</SectionTitle>
+      <View style={styles.switchRow}>
+        <Text style={[styles.label, styles.grow]}>Look at the app as a tech</Text>
+        <Switch value={asTech} onValueChange={(on) => setRolePreview(on ? 'tech' : null)} accessibilityLabel="Look at the app as a tech" testID="dev-as-tech" trackColor={{ true: colors.selected, false: colors.info }} thumbColor={colors.bg} style={styles.switch} />
+      </View>
+      <Text style={styles.meta}>Hides what only the owner sees, so you can check a tech's screens. It only changes what this phone shows: nothing is written to Odoo, and a restart turns it off.</Text>
+      {FEATURE_FLAGS.map((f) => (
+        <View key={f.id}>
+          <View style={styles.switchRow}>
+            <Text style={[styles.label, styles.grow]}>{f.label}</Text>
+            <Switch value={featureOn(f.id)} onValueChange={(on) => setFeature(f.id, on)} accessibilityLabel={f.label} testID={`dev-flag-${f.id}`} trackColor={{ true: colors.selected, false: colors.info }} thumbColor={colors.bg} style={styles.switch} />
+          </View>
+          <Text style={styles.meta}>{f.detail}</Text>
+        </View>
+      ))}
 
       <SectionTitle>Saved lists</SectionTitle>
       <Text style={styles.meta}>Prices, templates and lists copied from Odoo for when there's no signal.</Text>

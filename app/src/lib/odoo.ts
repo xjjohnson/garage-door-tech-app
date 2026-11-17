@@ -7,6 +7,7 @@
  * otherwise ordinary Project tasks. Kept free of React; the network call is
  * passed in, so tests use a fake server.
  */
+import { noteCall } from './noteCall';
 import { addressParts } from './geocode';
 import type { CustomerFields } from './customers';
 import type { OdooPartner } from './customerSync';
@@ -218,7 +219,18 @@ export class OdooClient {
 
   call(model: string, method: string, args: unknown[], kwargs: Record<string, unknown> = {}): Promise<unknown> {
     const s = this.session;
-    return rpc(this.fetchFn, s.url, 'object', 'execute_kw', [s.db, s.uid, this.secret, model, method, args, kwargs]);
+    const started = Date.now();
+    const done = (ok: boolean) => noteCall({ t: started, model, method, ms: Date.now() - started, ok });
+    return rpc(this.fetchFn, s.url, 'object', 'execute_kw', [s.db, s.uid, this.secret, model, method, args, kwargs]).then(
+      (r) => {
+        done(true);
+        return r;
+      },
+      (e) => {
+        done(false);
+        throw e;
+      },
+    );
   }
 
   private has(f: string) {
