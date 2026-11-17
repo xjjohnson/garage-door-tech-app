@@ -16,11 +16,18 @@ export type PriceBookTab = 'all' | 'favorites';
  * (for adding to a job); without, the price book is for looking up. Good /
  * better / best comes from Odoo's quotation templates, not from here.
  */
-export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all' }: { onPick?: (item: PriceBookItem) => void; now?: () => number; initialTab?: PriceBookTab }) {
-  const { book, loaded, favorites, toggle, refresh, busy, error, signedIn } = usePriceBook(now);
+export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', kind }: { onPick?: (item: PriceBookItem) => void; now?: () => number; initialTab?: PriceBookTab; kind?: 'service' | 'material' }) {
+  const { book: fullBook, loaded, favorites, toggle, refresh, busy, error, signedIn } = usePriceBook(now);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<PriceBookTab>(onPick ? 'all' : initialTab);
   const [path, setPath] = useState<string[]>([]);
+  // Add a service shows only services, Add a material only goods; no kind shows everything.
+  const book = useMemo(() => {
+    if (!kind) return fullBook;
+    const items = fullBook.items.filter((i) => i.kind === kind);
+    const ids = new Set(items.map((i) => i.id));
+    return { ...fullBook, items, frequent: fullBook.frequent.filter((id) => ids.has(id)) };
+  }, [fullBook, kind]);
 
   const found = useMemo(() => searchItems(book.items, query), [book.items, query]);
   const level = useMemo(() => categoryLevel(book.items, path), [book.items, path]);
