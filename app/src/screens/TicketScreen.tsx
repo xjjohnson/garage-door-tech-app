@@ -16,8 +16,13 @@ import { acceptedLabel, Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText } from '../lib/prices';
-import { addText, addTyped, hasPriced, isText, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, signaturePending } from '../lib/ticket';
+import { addText, addTyped, hasPriced, isText, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, signaturePending, signedNow, setPlan, planKey, planDone } from '../lib/ticket';
+import { activePlanFor, PlanProgress, PlanSetupError, setUpPlan } from '../lib/planSetup';
+import { useMaintenancePlans } from '../lib/useMaintenancePlans';
+import { PlanRow } from '../components/PlanRow';
+import { useJobCustomer } from './JobAddressScreen';
 import { discountKey, discountText, presetsFor } from '../lib/discounts';
+import type { ActivePlan } from '../lib/planSetup';
 import { DiscountPanel } from '../components/DiscountPanel';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -107,6 +112,53 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signKey, client, attachments.signatures.length, signRetry]);
 
+  // Maintenance plans: the list to choose from, and the plan this customer is already on.
+  const plans = useMaintenancePlans();
+  const jobCustomer = useJobCustomer(job);
+  const [active, setActive] = useState<ActivePlan | undefined>();
+  const planNames = plans.map((p) => p.name).join('|');
+  useEffect(() => {
+    if (!client || !jobCustomer?.odooId || !planNames) return setActive(undefined);
+    let live = true;
+    activePlanFor(client, jobCustomer.odooId, planNames.split('|'), new Date(now()).toISOString().slice(0, 10))
+      .then((a) => live && setActive(a))
+      .catch(() => live && setActive(undefined));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, jobCustomer?.odooId, planNames]);
+
+  // An accepted plan is made in Odoo: when the customer signs the estimate, or the invoice is made from it.
+  // Each estimate is checked, so a plan on one that was signed and switched away from still gets made.
+  const acceptedPlans = client ? [ticket, ...others].filter((t) => !t.declinedAt && t.plan && !planDone(t) && !t.plan.setUpError && (signedNow(t) || (!!invoice && t === ticket))) : [];
+  const planKeyNow = acceptedPlans.map((t) => `${t.id ?? ''}:${t.plan!.id}:${t.plan!.setUp?.repeatId ?? ''}`).join('#');
+  useEffect(() => {
+    if (!client || acceptedPlans.length === 0) return;
+    let live = true;
+    (async () => {
+      for (const t of acceptedPlans) {
+        const plan = t.plan!;
+        const estId = t.id;
+        const mark = (x: Ticket, patch: Partial<NonNullable<Ticket['plan']>>) => (x.id === estId && x.plan && x.plan.id === plan.id ? { ...x, plan: { ...x.plan, ...patch } } : x);
+        try {
+          const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
+          const made = await setUpPlan(client, pid, { customer: job.customer, address: t.shipTo?.address || job.address }, plan, now(), { orderId: t.order?.id, prior: plan.setUp });
+          if (live) setEstimates(job.id, (set) => ({ ticket: mark(set.ticket, { setUp: { ...made, at: now() }, setUpError: undefined }), others: set.others.map((o) => mark(o, { setUp: { ...made, at: now() }, setUpError: undefined })) }));
+        } catch (e) {
+          log.warn('ticket', `${job.id}: couldn't set up plan ${plan.name}: ${message(e)}`);
+          const progress: PlanProgress = e instanceof PlanSetupError ? e.progress : {};
+          if (live) setEstimates(job.id, (set) => ({ ticket: mark(set.ticket, { setUpError: message(e), ...(progress.repeatId || progress.agreementId ? { setUp: { ...progress, at: 0 } } : {}) }), others: set.others.map((o) => mark(o, { setUpError: message(e), ...(progress.repeatId || progress.agreementId ? { setUp: { ...progress, at: 0 } } : {}) })) }));
+          return;
+        }
+      }
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, planKeyNow]);
+
   const sync = async (): Promise<Ticket | undefined> => {
     if (!client || (ticket.lines.length === 0 && !ticket.deposits?.length && !ticket.order)) return;
     const n = ++run.current;
@@ -117,8 +169,8 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
     try {
       const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
       const r = await syncTicket(client, pid, ticket, ticketRef(ticket), now(), `${job.id}:${ticket.id ?? ''}`);
-      if (n === run.current) setTicket(job.id, (t) => (t.id === estId || (!estId && !t.order) ? { ...t, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : t));
-      return { ...ticket, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved };
+      if (n === run.current) setTicket(job.id, (t) => (t.id === estId || (!estId && !t.order) ? { ...t, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved, planSaved: r.planSaved } : t));
+      return { ...ticket, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved, planSaved: r.planSaved };
     } catch (e) {
       if (n === run.current) setError(message(e));
     } finally {
@@ -139,7 +191,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         try {
           const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
           const r = await syncTicket(client, pid, t, ticketRef(t), now(), `${job.id}:${t.id ?? ''}`);
-          if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines, o.discount) === linesKey(t.lines, t.discount) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved } : o)) }));
+          if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines, o.discount) === linesKey(t.lines, t.discount) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved, planSaved: r.planSaved } : o)) }));
         } catch (e) {
           log.warn('ticket', `${job.id}: couldn't save estimate ${t.title ?? t.id}: ${message(e)}`);
         }
@@ -170,8 +222,10 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   // Ask Odoo for totals a moment after the lines stop changing (not after the invoice is made).
   // Deposits are written to the quotation too, so they're kept in Odoo and not only on the phone.
   const depositsUnsaved = (ticket.depositsSaved ?? '') !== depositsKey(ticket);
-  const stale = !!client && !invoice && ((ticket.lines.length > 0 && !odooTotals) || depositsUnsaved);
-  const key = `${ticket.lines.map((l) => `${l.id}:${l.qty}:${l.unitCents}:${isText(l) ? l.name : ''}`).join('|')}#${depositsKey(ticket)}#${discountKey(ticket.discount)}`;
+  // A plan chosen or changed is written to the quotation as a note, so it's saved again too.
+  const planUnsaved = (ticket.planSaved ?? '') !== planKey(ticket) && (ticket.lines.length > 0 || !!ticket.order);
+  const stale = !!client && !invoice && ((ticket.lines.length > 0 && !odooTotals) || depositsUnsaved || planUnsaved);
+  const key = `${ticket.lines.map((l) => `${l.id}:${l.qty}:${l.unitCents}:${isText(l) ? l.name : ''}`).join('|')}#${depositsKey(ticket)}#${discountKey(ticket.discount)}#${planKey(ticket)}`;
   useEffect(() => {
     if (!stale) return;
     const t = setTimeout(() => syncRef.current(), SYNC_DELAY_MS);
@@ -343,6 +397,16 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       ) : null}
       {section('service')}
       {section('material')}
+      <PlanRow
+        plan={ticket.plan}
+        plans={plans}
+        locked={frozen}
+        active={active}
+        done={planDone(ticket)}
+        error={ticket.plan?.setUpError}
+        onChange={(p) => setTicket(job.id, (t) => setPlan(t, p))}
+        onRetry={() => setTicket(job.id, (t) => (t.plan ? { ...t, plan: { ...t.plan, setUpError: undefined } } : t))}
+      />
       <NotesSection lines={ticket.lines.filter(isText)} locked={frozen} onAdd={(kind, text) => setTicket(job.id, (t) => addText(t, kind, text, newLineId(now())))} onRemove={(id) => setTicket(job.id, (t) => removeLine(t, id))} />
       {!frozen ? <TypedLine onAdd={(l) => setTicket(job.id, (t) => addTyped(t, l, newLineId(now())))} /> : null}
 

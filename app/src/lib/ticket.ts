@@ -74,6 +74,47 @@ export interface Ticket {
   cancelPending?: boolean;
   /** The customer's signature approving this estimate (0.8): saved on its quotation in Odoo. */
   signed?: EstimateSigned;
+  /** A maintenance plan offered with this estimate. It is set up in Odoo once the customer accepts. */
+  plan?: TicketPlan;
+  /** planKey of the plan last written to the quotation in Odoo (as a note line). */
+  planSaved?: string;
+}
+
+/** The plan as it was when picked: a copy, so a later change to the plan doesn't change what the customer was offered. */
+export interface TicketPlan {
+  id: number;
+  name: string;
+  description: string;
+  everyMonths: number;
+  visitsPerYear: number;
+  daysAhead: number;
+  jobTypeId?: number;
+  termMonths: number;
+  renews: boolean;
+  priceCents: number;
+  /** Set once the plan is made in Odoo (its agreement and repeating visit). */
+  setUp?: { agreementId?: number; repeatId?: number; at: number };
+  /** Why setting it up in Odoo failed, so the tech can try again. */
+  setUpError?: string;
+}
+
+/** Fingerprint of the plan on a ticket, to tell when the quotation in Odoo needs it written again. */
+export const planKey = (t: Pick<Ticket, 'plan'>) => (t.plan ? `${t.plan.id}:${t.plan.name}:${t.plan.priceCents}` : '');
+
+/** Whether the plan is fully made in Odoo (a partly made one has `setUp.at` of 0 and carries on from where it stopped). */
+export const planDone = (t: Pick<Ticket, 'plan'>): boolean => !!t.plan?.setUp && t.plan.setUp.at > 0;
+
+/** Puts a plan on the ticket, replacing any other; undefined takes it off. */
+export function setPlan(t: Ticket, plan: TicketPlan | undefined): Ticket {
+  const { plan: _old, ...rest } = t;
+  return plan ? { ...rest, plan } : rest;
+}
+
+/** What the quotation in Odoo says about the plan, as a note line (the fee, when there is one, is its own line). */
+export function planLineNotes(t: Pick<Ticket, 'plan'>): Record<string, unknown>[] {
+  if (!t.plan) return [];
+  const p = t.plan;
+  return [{ display_type: 'line_note', name: `Maintenance plan: ${p.name}${p.priceCents > 0 ? '' : ' (included, no charge)'}${p.description ? `. ${p.description}` : ''}` }];
 }
 
 /** A customer's signature on one estimate. `key` is linesKey of what they signed, so a changed estimate asks again. */
@@ -88,7 +129,9 @@ export interface EstimateSigned {
 }
 
 /** The estimate's signature, if the customer signed it as it is now. */
-export const signedNow = (t: Ticket): EstimateSigned | undefined => (t.signed && t.signed.key === linesKey(t.lines) ? t.signed : undefined);
+/** What a signature covers: the lines and the plan, so adding or changing a plan asks the customer again. */
+export const signKeyOf = (t: Pick<Ticket, 'lines' | 'plan'>) => linesKey(t.lines) + (t.plan ? `+plan:${t.plan.id}` : '');
+export const signedNow = (t: Ticket): EstimateSigned | undefined => (t.signed && t.signed.key === signKeyOf(t) ? t.signed : undefined);
 
 /** Whether this signature still has to be saved on the estimate's quotation in Odoo. */
 export const signaturePending = (t: Ticket): boolean => !!t.order && !!signedNow(t) && t.signed!.sent !== `${t.signed!.id}:${t.order.id}`;
@@ -330,7 +373,7 @@ const toCents = (v: unknown) => (typeof v === 'number' ? Math.round(v * 100) : 0
 /** Saves of the same estimate wait for each other, and a quotation made is remembered, so a slow save can't make a second one. */
 const saving = new Map<string, Promise<unknown>>();
 
-export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number, key?: string): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string }> {
+export async function syncTicket(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number, key?: string): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string; planSaved: string }> {
   if (!key) return syncTicketNow(client, partnerId, t, ref, now);
   const prev = saving.get(key);
   const run = (async () => {
@@ -344,7 +387,7 @@ export async function syncTicket(client: OdooClient, partnerId: number, t: Ticke
   return run;
 }
 
-async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string }> {
+async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, ref: string, now: number): Promise<{ order: OdooRef; totals: TicketTotals; depositsSaved: string; planSaved: string }> {
   const lines = toQuoteLines(t);
   const needService = lines.some((l) => l.cents !== 0 && !l.productId);
   const service = needService ? await serviceProduct(client) : 0;
@@ -361,7 +404,7 @@ async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, r
   }
   // A dollar discount is the last quote line, after the others.
   for (; at < priced.length; at++) body.push(...lineValues([priced[at]], {}, () => service, 'product_uom_qty'));
-  const vals = [...body, ...depositNotes(t)];
+  const vals = [...body, ...planLineNotes(t), ...depositNotes(t)];
   let order = t.order;
   // The picked delivery address. Nothing picked: a new order gets the customer's own,
   // and an existing one keeps whatever Odoo has (it may have been set there by hand).
@@ -386,6 +429,7 @@ async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, r
     order: { id: order.id, name: typeof r?.name === 'string' ? r.name : order.name },
     totals: { untaxed: toCents(r?.amount_untaxed), tax: toCents(r?.amount_tax), total: toCents(r?.amount_total), key: linesKey(t.lines, t.discount), at: now },
     depositsSaved: depositsKey(t),
+    planSaved: planKey(t),
   };
 }
 
@@ -395,6 +439,29 @@ export async function confirmTicket(client: OdooClient, order: OdooRef, ref?: st
   if (row?.state !== 'draft' && row?.state !== 'sent') return;
   if (ref !== undefined) await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false }]);
   await client.call('sale.order', 'action_confirm', [[order.id]]);
+}
+
+function parsePlan(v: unknown): TicketPlan | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const p = v as Record<string, unknown>;
+  if (typeof p.id !== 'number' || typeof p.name !== 'string' || !p.name) return undefined;
+  const n = (x: unknown, d: number) => (typeof x === 'number' && Number.isFinite(x) ? x : d);
+  const u = p.setUp as Record<string, unknown> | undefined;
+  const setUp = u && typeof u === 'object' && (typeof u.agreementId === 'number' || typeof u.repeatId === 'number') ? { ...(typeof u.agreementId === 'number' ? { agreementId: u.agreementId } : {}), ...(typeof u.repeatId === 'number' ? { repeatId: u.repeatId } : {}), at: n(u.at, 0) } : undefined;
+  return {
+    id: p.id,
+    name: p.name,
+    description: typeof p.description === 'string' ? p.description : '',
+    everyMonths: Math.max(1, n(p.everyMonths, 12)),
+    visitsPerYear: Math.max(1, n(p.visitsPerYear, 1)),
+    daysAhead: Math.max(0, n(p.daysAhead, 30)),
+    ...(typeof p.jobTypeId === 'number' && p.jobTypeId > 0 ? { jobTypeId: p.jobTypeId } : {}),
+    termMonths: Math.max(0, n(p.termMonths, 12)),
+    renews: p.renews === true,
+    priceCents: Math.max(0, Math.round(n(p.priceCents, 0))),
+    ...(setUp ? { setUp } : {}),
+    ...(typeof p.setUpError === 'string' && p.setUpError ? { setUpError: p.setUpError } : {}),
+  };
 }
 
 export function parseTicket(v: unknown): Ticket | undefined {
@@ -427,5 +494,6 @@ export function parseTicket(v: unknown): Ticket | undefined {
   const at = (x: unknown) => (typeof x === 'number' && x > 0 ? x : undefined);
   const sg = d.signed as Record<string, unknown> | undefined;
   const signed = sg && typeof sg === 'object' && str(sg.id) && at(sg.at) && typeof sg.key === 'string' ? { id: str(sg.id)!, by: typeof sg.by === 'string' ? sg.by : '', at: at(sg.at)!, key: sg.key, ...(str(sg.sent) ? { sent: str(sg.sent) } : {}) } : undefined;
-  return { lines, ...(signed ? { signed } : {}), ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(d.linked === true && order ? { linked: true } : {}), ...(totals ? { totals } : {}), ...(parseDiscount(d.discount) ? { discount: parseDiscount(d.discount) } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
+  const plan = parsePlan(d.plan);
+  return { lines, ...(signed ? { signed } : {}), ...(plan ? { plan } : {}), ...(typeof d.planSaved === 'string' && d.planSaved ? { planSaved: d.planSaved } : {}), ...(str(d.id) ? { id: str(d.id) } : {}), ...(str(d.title) ? { title: str(d.title) } : {}), ...(at(d.pickedAt) ? { pickedAt: at(d.pickedAt) } : {}), ...(at(d.declinedAt) ? { declinedAt: at(d.declinedAt) } : {}), ...(d.cancelPending === true ? { cancelPending: true } : {}), ...(order ? { order } : {}), ...(d.linked === true && order ? { linked: true } : {}), ...(totals ? { totals } : {}), ...(parseDiscount(d.discount) ? { discount: parseDiscount(d.discount) } : {}), ...(typeof d.ref === 'string' && d.ref ? { ref: d.ref } : {}), ...(typeof d.estimateAt === 'number' && d.estimateAt > 0 ? { estimateAt: d.estimateAt } : {}), ...(parseShipTo(d.shipTo) ? { shipTo: parseShipTo(d.shipTo) } : {}), ...(parseDeposits(d.deposits).length ? { deposits: parseDeposits(d.deposits) } : {}), ...(typeof d.depositsSaved === 'string' && d.depositsSaved ? { depositsSaved: d.depositsSaved } : {}), ...(Array.isArray(d.bought) && d.bought.some((x) => typeof x === 'string') ? { bought: d.bought.filter((x): x is string => typeof x === 'string') } : {}) };
 }
