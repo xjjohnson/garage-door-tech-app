@@ -29,6 +29,8 @@ export interface TicketLine {
   kind: LineKind;
   /** The Odoo product, when it came from the price book or a linked price-sheet line. */
   productId?: number;
+  /** The maintenance plan's fee line: put on and taken off with the plan, not edited by hand. */
+  planFee?: boolean;
 }
 
 /** What Odoo worked out for the ticket's draft quotation. */
@@ -104,17 +106,28 @@ export const planKey = (t: Pick<Ticket, 'plan'>) => (t.plan ? `${t.plan.id}:${t.
 /** Whether the plan is fully made in Odoo (a partly made one has `setUp.at` of 0 and carries on from where it stopped). */
 export const planDone = (t: Pick<Ticket, 'plan'>): boolean => !!t.plan?.setUp && t.plan.setUp.at > 0;
 
-/** Puts a plan on the ticket, replacing any other; undefined takes it off. */
+/** How long a plan runs, in words: "12 months", "2 years", "ongoing". */
+export const termText = (months: number) => (months === 0 ? 'ongoing' : months % 12 === 0 ? `${months / 12} year${months === 12 ? '' : 's'}` : `${months} months`);
+
+/** The plan's fee as a service line, valid for the plan's term (untaxed: tax is on parts only). */
+export const planFeeLine = (p: Pick<TicketPlan, 'name' | 'priceCents' | 'termMonths'>): TicketLine => ({ id: 'plan-fee', name: `${p.name} plan (${termText(p.termMonths)})`, qty: 1, unitCents: p.priceCents, kind: 'service', planFee: true });
+
+/**
+ * Puts a plan on the ticket, replacing any other; undefined takes it off. A plan
+ * with a fee also puts its fee on the ticket as one service line, which goes
+ * when the plan does. A plan with no charge adds no line.
+ */
 export function setPlan(t: Ticket, plan: TicketPlan | undefined): Ticket {
   const { plan: _old, ...rest } = t;
-  return plan ? { ...rest, plan } : rest;
+  const lines = rest.lines.filter((l) => !l.planFee);
+  return plan ? { ...rest, plan, lines: plan.priceCents > 0 ? [...lines, planFeeLine(plan)] : lines } : { ...rest, lines };
 }
 
 /** What the quotation in Odoo says about the plan, as a note line (the fee, when there is one, is its own line). */
 export function planLineNotes(t: Pick<Ticket, 'plan'>): Record<string, unknown>[] {
   if (!t.plan) return [];
   const p = t.plan;
-  return [{ display_type: 'line_note', name: `Maintenance plan: ${p.name}${p.priceCents > 0 ? '' : ' (included, no charge)'}${p.description ? `. ${p.description}` : ''}` }];
+  return [{ display_type: 'line_note', name: `Maintenance plan: ${p.name}${p.priceCents > 0 ? `, valid for ${termText(p.termMonths)} (the fee is the plan line above)` : ' (included, no charge)'}${p.description ? `. ${p.description}` : ''}` }];
 }
 
 /** A customer's signature on one estimate. `key` is linesKey of what they signed, so a changed estimate asks again. */
@@ -480,6 +493,7 @@ export function parseTicket(v: unknown): Ticket | undefined {
             unitCents: typeof l.unitCents === 'number' && l.unitCents > 0 ? Math.round(l.unitCents) : 0,
             kind: l.kind === 'service' || l.kind === 'note' || l.kind === 'section' ? l.kind : 'material',
             ...(typeof l.productId === 'number' ? { productId: l.productId } : {}),
+            ...(l.planFee === true ? { planFee: true } : {}),
           },
         ];
       })
