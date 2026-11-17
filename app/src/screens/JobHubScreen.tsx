@@ -10,7 +10,6 @@ import { SectionTitle } from '../components/controls';
 import { CustomerBadgeLine, EquipmentChips, HouseCard } from '../components/HouseHistory';
 import { JobParts } from '../components/JobParts';
 import { OdooNotes } from '../components/OdooNotes';
-import { TuneUpOffer } from '../components/TuneUpOffer';
 import { jobAddress, useJobCustomer } from './JobAddressScreen';
 import { checkCounts } from '../lib/inspection';
 import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoices';
@@ -172,7 +171,6 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
 
       {tab === 'overview' ? (
         <>
-      <TuneUpOffer partnerId={customer?.odooId} customer={job.customer} address={jobAddress(job, customer)} what={job.what} workDone={!!job.steps?.workDoneAt || !!inv} now={now} />
 
       <NavRow
         label="Visit"

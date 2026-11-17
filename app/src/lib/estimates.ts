@@ -8,7 +8,7 @@
  * as Declined. Kept free of React so it can be tested directly.
  */
 import type { OdooClient } from './odoo';
-import { linesKey, newLineId, parseTicket, Ticket } from './ticket';
+import { newLineId, parseTicket, signKeyOf, Ticket } from './ticket';
 
 export interface EstimateSet {
   ticket: Ticket;
@@ -113,7 +113,7 @@ export function signEstimate(s: EstimateSet, id: string | undefined, sig: { id: 
   let cur = s;
   if (awaitingPick(s)) cur = pickEstimate(s, target, sig.at, mkId);
   else if (target && s.ticket.id !== target) cur = switchTo(s, target, mkId);
-  return { ...cur, ticket: { ...cur.ticket, signed: { id: sig.id, by: sig.by, at: sig.at, key: linesKey(cur.ticket.lines) } } };
+  return { ...cur, ticket: { ...cur.ticket, signed: { id: sig.id, by: sig.by, at: sig.at, key: signKeyOf(cur.ticket) } } };
 }
 
 /** Notes that the signature is saved on this estimate's quotation in Odoo. */

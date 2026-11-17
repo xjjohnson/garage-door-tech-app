@@ -133,6 +133,10 @@ export interface NewRepeat {
   start: number;
   /** The kind of visit, in the repeat's name and description. */
   what: string;
+  /** The Field Service job type (fsm.template) the visits use. */
+  templateId?: number;
+  /** When the repeat stops making visits (ms). */
+  end?: number;
 }
 
 /**
@@ -149,6 +153,8 @@ export async function createRepeat(c: Caller, partnerId: number, r: NewRepeat): 
     fsm_frequency_set_id: set,
     start_date: toOdooTime(r.start),
     ...(have.includes('description') ? { description: `${r.what} (made in the Johnsons app)` } : {}),
+    ...(r.templateId && have.includes('fsm_order_template_id') ? { fsm_order_template_id: r.templateId } : {}),
+    ...(r.end && have.includes('end_date') ? { end_date: toOdooTime(r.end) } : {}),
   };
   const id = (await c.call('fsm.recurring', 'create', [vals])) as number;
   await setRepeatState(c, id, 'start');
