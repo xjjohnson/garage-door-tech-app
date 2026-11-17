@@ -1,16 +1,17 @@
 import * as Updates from 'expo-updates';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Switch, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 import type { OdooClient } from '../lib/odoo';
-import { Text } from '../components/AppText';
+import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { ChipRow, SectionTitle } from '../components/controls';
 import { OdooSignInForm } from '../components/OdooSignInForm';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { releaseFrom } from '../lib/buildInfo';
-import { ageLabel, checkCounts, diagnosticsText, queueRows, recentProblems, STUCK_MS, storageLabel, UpdateDetails, updateLines } from '../lib/devInfo';
+import { clearLocalCache, CLEAR_CACHE_WARNING } from '../lib/clearCache';
+import { ageLabel, checkCounts, diagnosticsText, filterLog, LogFilter, queueRows, recentProblems, STUCK_MS, storageLabel, UpdateDetails, updateLines } from '../lib/devInfo';
 import { onDevFlags, pretendOffline, setPretendOffline } from '../lib/devFlags';
-import { log, LogEntry, Logger, stamp } from '../lib/log';
+import { formatLog, log, Logger, stamp } from '../lib/log';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
 import { appsFound } from '../lib/odoo';
 import { describePending } from '../lib/pending';
@@ -24,10 +25,11 @@ import { useOdoo } from '../lib/useOdoo';
 import { usePending, usePendingItems } from '../lib/usePending';
 import { colors, touch, type } from '../theme';
 
-type Filter = 'all' | 'errors' | 'odoo';
+type Filter = LogFilter;
 const FILTERS = [
   { label: 'All', value: 'all' as const },
   { label: 'Problems', value: 'errors' as const },
+  { label: 'Warnings', value: 'warnings' as const },
   { label: 'Odoo', value: 'odoo' as const },
 ];
 
@@ -139,10 +141,11 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
     };
   }, [client, runCheck]);
 
-  const shown = useMemo(() => {
-    const keep = (e: LogEntry) => (filter === 'errors' ? e.level !== 'info' : filter === 'odoo' ? e.area === 'odoo' || e.area === 'sync' : true);
-    return entries.filter(keep).slice(-SHOWN).reverse();
-  }, [entries, filter]);
+  const [query, setQuery] = useState('');
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [cacheNote, setCacheNote] = useState<string | null>(null);
+  const filtered = useMemo(() => filterLog(entries, filter, query), [entries, filter, query]);
+  const shown = useMemo(() => filtered.slice(-SHOWN).reverse(), [filtered]);
   const problems = entries.filter((e) => e.level !== 'info').length;
 
   const s = odoo.client?.session;
@@ -202,6 +205,31 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
     });
     const ok = await share(`johnsons-diagnostics-${new Date(t).toISOString().slice(0, 10)}.txt`, text).catch(() => false);
     if (!ok) setNote("Couldn't open sharing on this phone.");
+  };
+
+  const shareLines = async (lines: typeof entries, name: string) => {
+    const text = formatLog(lines, ['Johnsons app log (part)', buildInfo, `${lines.length} line${lines.length === 1 ? '' : 's'}${query.trim() ? ` matching "${query.trim()}"` : ''}`]);
+    const ok = await share(`${name}-${new Date(now()).toISOString().slice(0, 10)}.txt`, text).catch(() => false);
+    if (!ok) setNote("Couldn't open sharing on this phone.");
+  };
+
+  const clearCache = async () => {
+    setConfirmClear(false);
+    const n = await clearLocalCache();
+    logger.info('dev', `cleared local cache (${n} kinds)`);
+    if (client) {
+      setCacheNote(`Cleared ${n} saved lists. Downloading them again...`);
+      await requestSyncNow().catch(() => undefined);
+      setCacheNote(`Cleared ${n} saved lists and downloaded them again. Nothing waiting to send was touched.`);
+    } else {
+      setCacheNote(`Cleared ${n} saved lists. Sign in to Odoo to download them again. Nothing waiting to send was touched.`);
+    }
+  };
+
+  const redownload = async () => {
+    setCacheNote('Downloading lists...');
+    await requestSyncNow().catch(() => undefined);
+    setCacheNote('Lists downloaded again from Odoo.');
   };
 
   const refreshAccess = async () => {
@@ -371,10 +399,32 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       </View>
       <Text style={styles.meta}>Every Odoo call fails as if there were no signal, until you turn it off or restart.</Text>
 
+      <SectionTitle>Saved lists</SectionTitle>
+      <Text style={styles.meta}>Prices, templates and lists copied from Odoo for when there's no signal.</Text>
+      <View style={styles.row}>
+        <Action label="Re-download lists" grow disabled={!client} onPress={redownload} testID="dev-redownload" />
+        <Action label="Clear cache" grow onPress={() => setConfirmClear(true)} testID="dev-clear-cache" />
+      </View>
+      {confirmClear ? (
+        <View style={styles.card} testID="dev-clear-confirm">
+          <Text style={styles.note}>{CLEAR_CACHE_WARNING}</Text>
+          <View style={styles.row}>
+            <Action label="Keep it" grow onPress={() => setConfirmClear(false)} testID="dev-clear-no" />
+            <Action label="Yes, clear cache" primary grow onPress={clearCache} testID="dev-clear-yes" />
+          </View>
+        </View>
+      ) : null}
+      {cacheNote ? (
+        <Text style={styles.note} testID="dev-cache-note" accessibilityLiveRegion="polite">
+          {cacheNote}
+        </Text>
+      ) : null}
+
       <SectionTitle>Log</SectionTitle>
       <Text style={styles.meta}>Last 7 days on this phone. Passwords and keys are blanked out. Share diagnostics sends the build, phone, Odoo setup, what's waiting and this log in one file, with no keys.</Text>
       <View style={styles.row}>
         <Action label="Share diagnostics" primary grow onPress={shareDiagnostics} testID="dev-share-log" />
+        <Action label="Share these lines" grow onPress={() => shareLines(filtered, 'johnsons-log')} testID="dev-share-lines" />
         <Action label="Clear" onPress={() => logger.clear()} testID="dev-clear-log" />
       </View>
       {note ? (
@@ -383,12 +433,26 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
         </Text>
       ) : null}
       <ChipRow options={FILTERS.map((f) => (f.value === 'errors' ? { ...f, label: `Problems ${problems}` } : f))} value={filter} onChange={setFilter} compact testID="dev-filter" />
+      <TextInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search the log"
+        placeholderTextColor={colors.muted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        accessibilityLabel="Search the log"
+        testID="dev-log-search"
+        style={styles.search}
+      />
+      <Text style={styles.meta} testID="dev-log-count">{`${filtered.length} line${filtered.length === 1 ? '' : 's'}${filtered.length > SHOWN ? `, showing the latest ${SHOWN}` : ''}. Tap a line to share just it.`}</Text>
       <View style={styles.log} testID="dev-log">
         {shown.length === 0 ? <Text style={styles.logLine}>Nothing logged yet.</Text> : null}
         {shown.map((e, i) => (
-          <Text key={`${e.t}-${i}`} style={[styles.logLine, e.level === 'error' && styles.logError, e.level === 'warn' && styles.logWarn]} selectable>
-            {stamp(e.t)} {e.area} {e.msg}
-          </Text>
+          <Pressable key={`${e.t}-${i}`} onPress={() => shareLines([e], 'johnsons-log-line')} accessibilityRole="button" accessibilityLabel={`Share this log line: ${e.area} ${e.msg}`} testID={`dev-log-line-${i}`}>
+            <Text style={[styles.logLine, e.level === 'error' && styles.logError, e.level === 'warn' && styles.logWarn]}>
+              {stamp(e.t)} {e.area} {e.msg}
+            </Text>
+          </Pressable>
         ))}
       </View>
     </View>
@@ -421,6 +485,7 @@ const styles = StyleSheet.create({
   note: { fontSize: 16, fontWeight: '700', color: colors.text },
   switchRow: { flexDirection: 'row', alignItems: 'center', minHeight: touch.min, gap: 8 },
   switch: { transform: [{ scale: 1.3 }] },
+  search: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   log: { backgroundColor: colors.text, borderRadius: 12, padding: 10, gap: 4 },
   logLine: { fontFamily: mono, fontSize: 12, lineHeight: 17, color: '#E3E3E3' },
   logWarn: { color: colors.safety },

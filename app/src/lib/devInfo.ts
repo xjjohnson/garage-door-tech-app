@@ -118,3 +118,16 @@ export function storageLabel(free: number | null, total: number | null): string 
   if (free === null || !Number.isFinite(free)) return 'unknown';
   return total ? `${gb(free)} free of ${gb(total)}` : `${gb(free)} free`;
 }
+
+export type LogFilter = 'all' | 'errors' | 'warnings' | 'odoo';
+
+/** The log lines to show: by kind, then by a search word (any part of the area or message, any case). */
+export function filterLog(entries: LogEntry[], filter: LogFilter, query: string): LogEntry[] {
+  const q = query.trim().toLowerCase();
+  return entries.filter((e) => {
+    if (filter === 'errors' && e.level === 'info') return false;
+    if (filter === 'warnings' && e.level !== 'warn') return false;
+    if (filter === 'odoo' && e.area !== 'odoo' && e.area !== 'sync') return false;
+    return !q || `${e.area} ${e.msg}`.toLowerCase().includes(q);
+  });
+}
