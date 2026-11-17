@@ -197,8 +197,9 @@ describe('Today › Map', () => {
 
     expect(nominatim.asked).toEqual(['1 Elm St', '9 Oak Ave']);
     const last = injected.at(-1)!;
-    expect(last).toContain('"id":"stop-v1","lat":40,"lon":-75,"label":"1","kind":"next"');
-    expect(last).toContain('"id":"stop-v2","lat":40.05,"lon":-75.02,"label":"2","kind":"stop"');
+    const dow = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+    expect(last).toContain(`"id":"stop-v1","lat":40,"lon":-75,"label":"${dow}","kind":"next","color":"#1B6E3A"`);
+    expect(last).toContain(`"id":"stop-v2","lat":40.05,"lon":-75.02,"label":"${dow}","kind":"stop","color":"#1B6E3A"`);
     expect(last).toContain('"route":[[40,-75],[40.05,-75.02]]');
     expect(screen.getByTestId('map-row-stop-v1')).toHaveTextContent(/1 · Pat Lee.*1 Elm St · Broken spring/);
 
@@ -217,12 +218,19 @@ describe('Today › Map', () => {
 
   it('has the week strip under the map and shows the picked day\'s stops', async () => {
     const list = visits();
-    const tomorrow = { ...list[0], id: 'v9', start: list[0].start + 86_400_000, name: 'Dana Cruz', address: '5 Pine Rd' };
+    const tomorrow = { ...list[0], id: 'v9', start: list[0].start + 86_400_000, name: 'Dana Cruz', address: '7 Pine Ln' };
     await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([...list, tomorrow]));
     await renderApp();
     await settle();
     await fireEvent.press(within(screen.getByTestId('today-view')).getByText('Map'));
     await settle();
+    await act(async () => screen.getByTestId('map-webview').props.webProps.onMessage({ nativeEvent: { data: '{"type":"ready"}' } }));
+    await settle();
+    // The map shows the whole week: tomorrow's pin is there, in its own colour, fainter than today's.
+    const pins = injected.at(-1)!;
+    expect(pins).toContain('"id":"stop-v9"');
+    expect(pins).toMatch(/"id":"stop-v9"[^}]*"color":"#1F5FA8","dim":true/);
+    expect(pins).not.toMatch(/"id":"stop-v1"[^}]*"dim"/);
     expect(screen.getByTestId('map-day')).toHaveTextContent(/Today · 2 visits/);
     expect(screen.getByTestId('day-1').props.accessibilityLabel).toMatch(/1 visit/);
     await fireEvent.press(screen.getByTestId('day-1'));
@@ -230,6 +238,9 @@ describe('Today › Map', () => {
     expect(screen.getByTestId('map-day')).toHaveTextContent(/Tomorrow · 1 visit/);
     expect(screen.getByTestId('map-row-stop-v9')).toHaveTextContent(/1 · Dana Cruz/);
     expect(screen.queryByTestId('map-row-stop-v1')).toBeNull();
+    // Tapping a pin from another day switches to that day.
+    await pickPin('stop-v1');
+    expect(screen.getByTestId('map-day')).toHaveTextContent(/Today · 2 visits/);
   });
 
   it('uses the address on the visit\'s job when the visit itself has none', async () => {

@@ -17,7 +17,14 @@ export interface MapPin {
   kind: PinKind;
   /** Placed by ZIP only: drawn dashed. */
   approx?: boolean;
+  /** The pin's own colour (one per weekday), when the map shows the whole week. */
+  color?: string;
+  /** Another day than the one picked: drawn fainter. */
+  dim?: boolean;
 }
+
+/** One colour per day of the week strip, readable with white text, none of them the brand's yellow. */
+export const DAY_COLORS = ['#1B6E3A', '#1F5FA8', '#8A3FA8', '#B5481C', '#0F7C86', '#A8324F', '#5B5F66'];
 
 export interface MapData {
   pins: MapPin[];
@@ -84,6 +91,9 @@ html,body,#map{margin:0;height:100%;background:#E9EDE6;font-family:system-ui,san
     var el = document.createElement('div');
     el.className = 'pin ' + p.kind + (p.approx ? ' approx' : '') + (sel ? ' sel' : '');
     el.style.width = big + 'px'; el.style.height = big + 'px';
+    if (p.color) { if (p.kind === 'done') el.style.borderColor = p.color; else el.style.background = p.color; }
+    if (p.dim) el.style.opacity = '.55';
+    if (p.label.length > 1) el.style.fontSize = '13px';
     el.textContent = p.label;
     return L.divIcon({ html: el.outerHTML, className: '', iconSize: [big, big], iconAnchor: [big/2, big/2] });
   }
@@ -92,7 +102,7 @@ html,body,#map{margin:0;height:100%;background:#E9EDE6;font-family:system-ui,san
     if (d.route && d.route.length > 1) L.polyline(d.route, { color: '${brand}', weight: 6, opacity: 0.9 }).addTo(layer);
     var pts = [];
     (d.pins || []).forEach(function(p){
-      var m = L.marker([p.lat, p.lon], { icon: icon(p, p.id === d.selected), zIndexOffset: p.kind === 'next' ? 1000 : p.kind === 'stop' ? 500 : 0, keyboard: false });
+      var m = L.marker([p.lat, p.lon], { icon: icon(p, p.id === d.selected), zIndexOffset: (p.dim ? 0 : 600) + (p.kind === 'next' ? 1000 : p.kind === 'stop' ? 500 : 0), keyboard: false });
       m.on('click', function(){ send({ type: 'pick', id: p.id }); });
       m.addTo(layer); pts.push([p.lat, p.lon]);
     });
