@@ -594,7 +594,7 @@ function Plans({ client, canEdit }: TabProps) {
     setPerks(p.perks.join('\n'));
     setMsg('');
   };
-  if (problem) return <Text style={styles.note} testID="manage-plans-unsupported">Maintenance plans are kept as agreements in Odoo. {problem}</Text>;
+  if (problem) return <Text style={styles.note} testID="manage-plans-unsupported">{problem}</Text>;
   if (edit) {
     const dollars = Number(price.replace('$', '').trim());
     const full: MaintenancePlan = { ...edit, priceCents: Number.isFinite(dollars) && dollars > 0 ? Math.round(dollars * 100) : 0, perks: perks.split('\n').map((x) => x.trim()).filter(Boolean) };
