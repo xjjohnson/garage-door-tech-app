@@ -9,10 +9,10 @@ import { useCallback, useEffect, useRef } from 'react';
 import { findCustomer } from '../lib/customers';
 import { log } from '../lib/log';
 import { canSendJobs, myId, partnerFor, visitId } from '../lib/odooJobs';
+import { withContactLock } from '../lib/odooContactLock';
 import { createVisitOrder, pushVisitStatus, visitOrder, visitsToCheck, visitsToClose, visitsToCreate } from '../lib/odooVisits';
 import { readJobStates } from '../lib/odooJobs';
 import { onSyncNow } from '../lib/syncNow';
-import type { OdooPartner } from '../lib/customerSync';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useCustomers } from '../lib/useCustomers';
 import { useJobsSince } from '../lib/useJobsSince';
@@ -47,15 +47,14 @@ export function OdooVisitSync({ now = Date.now }: { now?: () => number }) {
 
       // 1. Visits with no job become Odoo jobs, given to me so they stay on my schedule.
       // A worker is needed for that: without one the job would be unassigned and leave the schedule.
-      let known: Promise<OdooPartner[]> | undefined;
       if (myId(client)) {
         for (const v of visitsToCreate(S.appointments, from).filter((x) => retryable(x.id)).slice(0, BATCH)) {
           try {
             const c = (v.customerId ? C.customers.find((x) => x.id === v.customerId) : undefined) ?? findCustomer(C.customers, { customer: v.name, address: v.address, phone: v.phone });
             let partnerId = c?.odooId;
             if (!partnerId) {
-              known ??= client.partners();
-              partnerId = await partnerFor(client, c ?? { name: v.name, phone: v.phone, email: '', address: v.address, notes: '' }, known);
+              const who = c ?? { name: v.name, phone: v.phone, email: '', address: v.address, notes: '' };
+              partnerId = await withContactLock(async () => partnerFor(client, who, client.partners()));
               if (c) C.apply((prev) => prev.map((x) => (x.id === c.id ? { ...x, odooId: partnerId, syncedAt: x.updatedAt } : x)));
             }
             const ref = await createVisitOrder(client, partnerId, v);
