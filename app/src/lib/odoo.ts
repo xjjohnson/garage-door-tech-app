@@ -518,6 +518,16 @@ export class OdooClient {
     return this.dispatchCache;
   }
 
+  /**
+   * Whether the user holds any of these Odoo groups (xml ids). Asks Odoo
+   * directly, and if has_group is refused over RPC, reads the user's own group
+   * list instead. Anything that goes wrong asking means no.
+   */
+  async inAnyGroup(xmlids: string[]): Promise<boolean> {
+    for (const g of xmlids) if (await this.inGroup(g)) return true;
+    return this.inGroupsByRecord(xmlids);
+  }
+
   private async inGroup(xmlid: string): Promise<boolean> {
     try {
       // Odoo 17 and later call it on the user record.

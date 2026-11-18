@@ -14,6 +14,7 @@ import { formatTime } from '../lib/schedule';
 import { unsyncedItems } from '../lib/stock';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
+import { useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { usePending } from '../lib/usePending';
 import { useSchedule } from '../lib/useSchedule';
@@ -34,6 +35,7 @@ export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
   const work = useWorkLog();
   const stock = useStock();
   const { client } = useOdoo();
+  const { owner } = useOwner();
   const pending = usePending();
   const [closed, setClosed] = useState<ClosedDay[]>([]);
   const [odometer, setOdometer] = useState('');
@@ -156,7 +158,7 @@ export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
       <SectionTitle>Before you close</SectionTitle>
       <View style={styles.checks}>
         {s.inspections > 0 ? <Check done={s.inspectionsDone >= s.inspections} label={`Inspections finished · ${s.inspectionsDone} of ${s.inspections}`} testID="eod-inspections" /> : null}
-        <Check done={notSent === 0} label={notSent === 0 ? 'Everything is in Odoo' : `${notSent} change${notSent === 1 ? '' : 's'} not sent to Odoo yet`} onPress={notSent ? () => router.push('/developer') : undefined} testID="eod-pending" />
+        <Check done={notSent === 0} label={notSent === 0 ? 'Everything is in Odoo' : `${notSent} change${notSent === 1 ? '' : 's'} not sent to Odoo yet`} onPress={notSent && owner ? () => router.push('/developer') : undefined} testID="eod-pending" />
         <Check
           done={s.toOrder === 0}
           label={s.toOrder === 0 ? `Truck stocked${s.partsUsed ? ` · ${s.partsUsed} part${s.partsUsed === 1 ? '' : 's'} used today` : ''}` : `Restock list ready · ${s.toOrder} item${s.toOrder === 1 ? '' : 's'}`}

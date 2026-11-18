@@ -109,18 +109,26 @@ export function tierIn(text: string): Tier | undefined {
   return m ? (m[1].toLowerCase() as Tier) : undefined;
 }
 
-/** Whether the signed-in Odoo user is the owner: an Odoo admin, or a Field Service manager. */
-export async function isOwner(client: OdooClient): Promise<boolean> {
-  // Developer > Look as a tech.
-  if (rolePreview() === 'tech') return false;
-  for (const g of ['base.group_system', 'fieldservice.group_fsm_manager']) {
+/** Odoo groups that make someone the owner. */
+export const OWNER_GROUPS = ['base.group_system', 'fieldservice.group_fsm_manager'];
+
+/** Whether the signed-in Odoo user really is the owner (an Odoo admin, or a Field Service manager), whatever the tech preview says. Only the Developer screen uses this, so the owner can always switch the preview off. */
+export async function isRealOwner(client: OdooClient): Promise<boolean> {
+  for (const g of OWNER_GROUPS) {
     try {
       if ((await client.call('res.users', 'has_group', [[client.session.uid], g])) === true) return true;
     } catch {
       // Not an available group here; try the next.
     }
   }
-  return false;
+  // has_group can be refused over RPC: read the user's own groups instead.
+  return typeof client.inAnyGroup === 'function' ? client.inAnyGroup(OWNER_GROUPS) : false;
+}
+
+/** Whether to treat the signed-in user as the owner: the real owner, unless Developer > Look as a tech is on. */
+export async function isOwner(client: OdooClient): Promise<boolean> {
+  if (rolePreview() === 'tech') return false;
+  return isRealOwner(client);
 }
 
 const name = (v: unknown) => (Array.isArray(v) && typeof v[1] === 'string' ? v[1] : '');
