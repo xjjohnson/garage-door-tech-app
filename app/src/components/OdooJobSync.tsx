@@ -12,8 +12,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { log } from '../lib/log';
 import { onSyncNow } from '../lib/syncNow';
-import type { OdooPartner } from '../lib/customerSync';
 import { applyState, canSendJobs, createOdooJob, jobChanged, myId, orphanVisits, partnerFor, pullSchedule, pushJobChanges, readJobStates, sentAtCreate, shouldSend, visitId, writeVisit } from '../lib/odooJobs';
+import { withContactLock } from '../lib/odooContactLock';
 import { Appointment } from '../lib/schedule';
 import { useAppForeground } from '../lib/useAppForeground';
 import { useCustomers } from '../lib/useCustomers';
@@ -56,8 +56,6 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
       const toSend = J.jobs.filter((j) => shouldSend(j, from) && now() - (failed.current.get(j.id) ?? 0) > RETRY_MS).slice(0, BATCH);
       // Odoo jobs made in this pass: the phone's job owns their visit.
       const madeNow: number[] = [];
-      // Odoo's contacts, read once a pass and only when a job needs one.
-      let known: Promise<OdooPartner[]> | undefined;
       for (const job of toSend) {
         // Started from a visit that came from Odoo: it's that Odoo job already.
         const fromOdoo = visits.find((a) => a.jobId === job.id && /^odoo-\d+$/.test(a.id));
@@ -74,8 +72,8 @@ export function OdooJobSync({ now = Date.now }: { now?: () => number }) {
           if (!c) continue;
           let partnerId = c.odooId;
           if (!partnerId) {
-            known ??= client.partners();
-            partnerId = await partnerFor(client, c, known);
+            // One at a time, with Odoo's contacts read fresh, so the customer sync or a visit made a moment ago isn't doubled.
+            partnerId = await withContactLock(async () => partnerFor(client, c, client.partners()));
             C.apply((prev) => prev.map((x) => (x.id === c.id ? { ...x, odooId: partnerId, syncedAt: x.updatedAt } : x)));
           }
           const visit = bookedFor(job.id);

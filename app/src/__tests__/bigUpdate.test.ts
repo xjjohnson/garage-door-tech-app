@@ -110,7 +110,7 @@ describe('warranty per part', () => {
   it('lists every part sold, each following the job unless it has its own length', () => {
     const inv = { ...base, warranty: { partsMonths: 24, laborDays: 30, partMonths: { [trackKey(base.lines[1]!)]: 12 } } } as Invoice;
     const w = partWarranties(inv, DEFAULT_FOLLOW_UP, trackKey);
-    expect(w.map((l) => [l.label, l.months])).toEqual([['Genie Keypad', 12], ['Roller Long Stem (Nylon)', 24]]);
+    expect(w.map((l) => [l.label, l.months, l.part])).toEqual([['3rd Party Op Install', 0, false], ['Genie Keypad', 12, true], ['Roller Long Stem (Nylon)', 24, true]]);
   });
 
   it('says parts (not springs) when there are no springs, names parts that differ, and counts 30 days to Dec 17', () => {
