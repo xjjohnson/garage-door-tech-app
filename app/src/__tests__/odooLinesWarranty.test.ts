@@ -19,3 +19,11 @@ describe('Odoo lines keep the parts for warranty', () => {
     expect(lines[1]!.key).toBe('9:CAP2D');
   });
 });
+
+describe('Odoo says which lines are taxed', () => {
+  it('treats a line Odoo taxed as a part even when the phone has lost its own copy', () => {
+    const inv = { id: 'i2', createdAt: Date.UTC(2026, 10, 17), source: 'ticket', tier: 'good', lines: [{ label: 'CAP2D', cents: 207870, taxable: false }] } as unknown as Invoice;
+    const out = withOdoo(inv, { name: 'X', lines: [{ label: 'CAP2D', cents: 207870, qty: 1, taxable: true }, { label: 'Install', cents: 30000, qty: 1, taxable: false }] } as never);
+    expect(out.lines.map((l) => l.taxable)).toEqual([true, false]);
+  });
+});

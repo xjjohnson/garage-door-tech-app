@@ -63,6 +63,8 @@ export interface OdooInvoiceLine {
   qty: number;
   /** The line's amount before tax, cents. */
   cents: number;
+  /** Odoo put tax on the line, which on these invoices means it is a part (material), not labor. */
+  taxable?: boolean;
   /** A section heading or note, not a charge. */
   display?: 'section' | 'note';
 }
@@ -212,7 +214,7 @@ export async function readInvoice(client: OdooClient, id: number, sentPayments: 
 /** The invoice's lines as Odoo has them, in order: product lines plus section headings and notes. */
 async function readLines(client: OdooClient, ids: unknown): Promise<OdooInvoiceLine[] | undefined> {
   if (!Array.isArray(ids) || ids.length === 0) return undefined;
-  const rows = await client.call('account.move.line', 'read', [ids], { fields: ['name', 'quantity', 'price_subtotal', 'display_type', 'sequence'] });
+  const rows = await client.call('account.move.line', 'read', [ids], { fields: ['name', 'quantity', 'price_subtotal', 'display_type', 'sequence', 'tax_ids'] });
   if (!Array.isArray(rows)) return undefined;
   return (rows as Record<string, unknown>[])
     .filter((l) => !l.display_type || l.display_type === 'product' || l.display_type === 'line_section' || l.display_type === 'line_note')
@@ -220,7 +222,7 @@ async function readLines(client: OdooClient, ids: unknown): Promise<OdooInvoiceL
     .map((l): OdooInvoiceLine => {
       const label = typeof l.name === 'string' ? l.name : '';
       if (l.display_type === 'line_section' || l.display_type === 'line_note') return { label, qty: 1, cents: 0, display: l.display_type === 'line_note' ? 'note' : 'section' };
-      return { label: label.split('\n')[0], qty: typeof l.quantity === 'number' ? l.quantity : 1, cents: toCents(l.price_subtotal) };
+      return { label: label.split('\n')[0], qty: typeof l.quantity === 'number' ? l.quantity : 1, cents: toCents(l.price_subtotal), ...(Array.isArray(l.tax_ids) ? { taxable: l.tax_ids.length > 0 } : {}) };
     });
 }
 
@@ -412,7 +414,7 @@ export function parseInvoiceState(v: unknown): OdooInvoiceState | undefined {
           lines: r.lines.flatMap((l): OdooInvoiceLine[] => {
             if (!l || typeof l !== 'object') return [];
             const y = l as Record<string, unknown>;
-            return [{ label: typeof y.label === 'string' ? y.label : '', qty: n(y.qty) || 1, cents: n(y.cents), ...(y.display === 'section' || y.display === 'note' ? { display: y.display } : {}) }];
+            return [{ label: typeof y.label === 'string' ? y.label : '', qty: n(y.qty) || 1, cents: n(y.cents), ...(typeof y.taxable === 'boolean' ? { taxable: y.taxable } : {}), ...(y.display === 'section' || y.display === 'note' ? { display: y.display } : {}) }];
           }),
         }
       : {}),
