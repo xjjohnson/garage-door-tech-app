@@ -1,6 +1,7 @@
 import { router, usePathname } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import * as Updates from 'expo-updates';
+import { SyncPill } from '../../components/SyncNowButton';
 import { Icon } from '../../components/Icon';
 import { requestHeaderAdd } from '../../lib/headerAdd';
 import { useSchedule } from '../../lib/useSchedule';
@@ -33,12 +34,12 @@ export default function TabsLayout() {
   const { appointments } = useSchedule();
   const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
   const subtitle = current.id === 'today' ? `${dateLine(Date.now())} · ${visits === 0 ? 'no visits' : `${visits} visit${visits === 1 ? '' : 's'}`}` : current.subtitle;
-  // Today, Jobs and Customers carry their own action in the header; Settings sits under it. The version lives at the bottom of Home and in Settings.
-  const action = !tool && current.id === 'today' ? <BookPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : null;
+  // Today, Jobs, Customers and Sales carry their own action in the header. Settings is only the gear on Tools. The version lives at the bottom of Home and in Settings.
+  const action = !tool && current.id === 'today' ? <BookPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : !tool && current.id === 'sales' ? <SyncPill label="Sync all" testID="sales-sync-all" /> : null;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
-      {/* The forest header with the page title; Settings at the top right. */}
+      {/* The forest header with the page title; its action (or the Tools gear) at the top right. */}
       <View style={styles.header} testID="header">
         {tool ? (
           <Pressable onPress={() => router.navigate('/tools')} accessibilityRole="button" accessibilityLabel="Back to Tools" testID="back-to-tools" style={({ pressed }) => [styles.back, pressed && styles.headPressed]}>
@@ -54,27 +55,12 @@ export default function TabsLayout() {
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
         {action ? (
-          <View style={styles.actionCol}>
-            {action}
-            <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" testID="open-settings" hitSlop={10}>
-              <Text style={styles.versionLink}>Settings</Text>
-            </Pressable>
-          </View>
+          action
         ) : current.id === 'tools' && !tool ? (
           <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" testID="open-settings" style={({ pressed }) => [styles.gear, pressed && styles.headPressed]}>
             <Icon name="gear" size={24} color={colors.onHead} />
           </Pressable>
-        ) : (
-          <Pressable
-            onPress={() => router.push('/settings')}
-            accessibilityRole="button"
-            accessibilityLabel="Settings"
-            testID="open-settings"
-            style={({ pressed }) => [styles.settings, pressed && styles.headPressed]}
-          >
-            <Text style={styles.settingsText}>Settings</Text>
-          </Pressable>
-        )}
+        ) : null}
       </View>
       {/* The runtime version is the installed APK's app.json version (appVersion policy). */}
       <ApkUpdateBanner manifestUrl={APK_MANIFEST_URL} currentVersion={Updates.runtimeVersion} />

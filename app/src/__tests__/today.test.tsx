@@ -33,6 +33,7 @@ describe('Today', () => {
     expect(screen.getByTestId('home-version')).toHaveTextContent(/^Johnsons /);
     expect(screen.queryByTestId('header-version')).toBeNull();
     expect(screen.queryByTestId('sync-now')).toBeNull();
+    expect(screen.queryByTestId('open-settings')).toBeNull();
     await fireEvent.press(screen.getByTestId('home-book-visit'));
     expect(app.getPathname()).toBe('/schedule');
     expect(screen.getByTestId('book-sheet')).toBeTruthy();

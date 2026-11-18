@@ -79,8 +79,10 @@ describe('Settings', () => {
     expect(screen.getByTestId('settings-update-note')).toHaveTextContent(/Couldn't reach the update server/);
   });
 
-  it('opens from the header on any section and links to the backend pages', async () => {
+  it('opens from the gear on Tools (and nowhere else) and links to the backend pages', async () => {
     const app = await renderApp('/diagnose');
+    expect(screen.queryByTestId('open-settings')).toBeNull();
+    await act(async () => router.navigate('/tools'));
     await fireEvent.press(screen.getByTestId('open-settings'));
     expect(app.getPathname()).toBe('/settings');
     for (const [id, path] of [
