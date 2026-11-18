@@ -14,6 +14,12 @@ export interface ManualFiles {
   remove(uri: string): void;
   /** Opens a saved PDF in the phone's PDF viewer. */
   open(uri: string, title: string): Promise<void>;
+  /**
+   * Downloads a document to the phone's temporary storage and opens it in the
+   * PDF viewer, where it can be saved or shared. Rejects with NotPdfError when
+   * the link is a web page (nothing is kept), or any other error when there's no signal.
+   */
+  view?(url: string, title: string): Promise<void>;
 }
 
 export class NotPdfError extends Error {
@@ -99,6 +105,26 @@ export function deviceManualFiles(): ManualFiles | null {
     },
     async open(uri, title) {
       await new File(uri).preview({ mimeType: 'application/pdf', title });
+    },
+    async view(url, title) {
+      const file = new File(Paths.cache, fileNameFor(url));
+      const got = await File.downloadFileAsync(url, file, { idempotent: true });
+      let pdf = false;
+      try {
+        const handle = got.open(FileMode.ReadOnly);
+        try {
+          pdf = looksLikePdf(handle.readBytesSync(PDF_MAGIC.length));
+        } finally {
+          handle.close();
+        }
+      } catch {
+        pdf = false;
+      }
+      if (!pdf) {
+        if (got.exists) got.delete();
+        throw new NotPdfError(url);
+      }
+      await got.preview({ mimeType: 'application/pdf', title });
     },
   };
 }

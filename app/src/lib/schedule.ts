@@ -32,6 +32,8 @@ export interface Appointment {
   updatedAt: number;
   /** When this visit's time last matched its Odoo job; a later updatedAt means the phone changed it. */
   syncedAt?: number;
+  /** The arrival window given to the customer, in minutes from the start (0 or unset = the exact time). Goes to Odoo as the order's Earliest and Latest Request Date. */
+  windowMinutes?: number;
   /** For a visit pulled from Odoo: the job's reference there ("FO0002"). */
   odooName?: string;
 }
@@ -142,11 +144,24 @@ export function onMyWayText(a: Pick<Appointment, 'name'>, business: string | Par
   return messageText(b, kind, { name: a.name, minutes: etaMinutes });
 }
 
-export function reminderText(a: Pick<Appointment, 'name' | 'start'>, businessName: string, now: number): string {
+/** "2:00 pm" or, with an arrival window, "between 2:00 pm and 5:00 pm". */
+export function arrivalText(a: Pick<Appointment, 'start' | 'windowMinutes'>): string {
+  return a.windowMinutes && a.windowMinutes > 0 ? `between ${formatTime(a.start)} and ${formatTime(a.start + a.windowMinutes * 60_000)}` : `at ${formatTime(a.start)}`;
+}
+
+/** The time as shown on a card: "2:00 pm" or "2:00 to 5:00 pm". */
+export function windowLabel(a: Pick<Appointment, 'start' | 'windowMinutes'>): string {
+  if (!a.windowMinutes || a.windowMinutes <= 0) return formatTime(a.start);
+  const end = formatTime(a.start + a.windowMinutes * 60_000);
+  const s = formatTime(a.start);
+  return s.slice(-2) === end.slice(-2) ? `${s.slice(0, -3)} to ${end}` : `${s} to ${end}`;
+}
+
+export function reminderText(a: Pick<Appointment, 'name' | 'start' | 'windowMinutes'>, businessName: string, now: number): string {
   const first = a.name.split(/\s+/)[0] || 'there';
   const label = dayLabel(a.start, now);
   const when = label === 'Today' || label === 'Tomorrow' ? label.toLowerCase() : `on ${label}`;
-  return `Hi ${first}, it's ${businessName || 'your garage door tech'}. Just confirming your garage door appointment ${when} at ${formatTime(a.start)}. Reply if you need to change it.`;
+  return `Hi ${first}, it's ${businessName || 'your garage door tech'}. Just confirming your garage door appointment ${when} ${arrivalText(a)}. Reply if you need to change it.`;
 }
 
 function str(v: unknown): string {
@@ -184,6 +199,7 @@ export function parseSchedule(raw: string | null | unknown[]): Appointment[] {
         status: STATUSES.includes(a.status as VisitStatus) ? (a.status as VisitStatus) : 'booked',
         createdAt,
         updatedAt: typeof a.updatedAt === 'number' ? a.updatedAt : createdAt,
+        ...(typeof a.windowMinutes === 'number' && a.windowMinutes > 0 ? { windowMinutes: Math.round(a.windowMinutes) } : {}),
         ...(typeof a.syncedAt === 'number' ? { syncedAt: a.syncedAt } : {}),
         ...(typeof a.odooName === 'string' && a.odooName ? { odooName: a.odooName } : {}),
       },

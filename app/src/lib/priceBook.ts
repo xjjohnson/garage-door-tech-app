@@ -24,6 +24,10 @@ export interface PriceBookItem {
   category: string[];
   /** The sales description, if any. */
   description: string;
+  /** The product's own name without its variant, set only when it has one (e.g. "Roller Long Stem"). */
+  baseName?: string;
+  /** What tells this variant apart, from its attribute values (e.g. "Nylon, 2 in"). Set only for variants. */
+  variant?: string;
 }
 
 export interface PriceBook {
@@ -78,7 +82,7 @@ export function searchItems(items: PriceBookItem[], query: string): PriceBookIte
   const ws = words(query);
   if (ws.length === 0) return [];
   return items.filter((i) => {
-    const hay = `${i.name} ${i.code} ${i.category.join(' ')} ${i.description}`.toLowerCase();
+    const hay = `${i.name} ${i.variant ?? ''} ${i.code} ${i.category.join(' ')} ${i.description}`.toLowerCase();
     return ws.every((w) => hay.includes(w));
   });
 }
@@ -142,6 +146,7 @@ function parseItem(v: unknown): PriceBookItem[] {
       kind: x.kind === 'service' ? 'service' : 'material',
       category: Array.isArray(x.category) ? x.category.filter((c): c is string => typeof c === 'string') : [],
       description: str(x.description),
+      ...(str(x.variant) && str(x.baseName) ? { baseName: str(x.baseName), variant: str(x.variant) } : {}),
     },
   ];
 }
@@ -188,12 +193,39 @@ export function fetchedLabel(at: number, now: number): string {
   return `Updated ${months[d.getMonth()]} ${d.getDate()}`;
 }
 
+/**
+ * What tells a variant apart. Odoo's product.product `name` is the plain
+ * template name; its `display_name` adds the attribute values in brackets,
+ * "[CODE] Roller Long Stem (Nylon, 2 in)". Empty for a product with no variants.
+ */
+export function variantOf(name: string, displayName: string): string {
+  const rest = displayName.replace(/^\[[^\]]*\]\s*/, '').trim();
+  if (!name || !rest.startsWith(name)) return '';
+  const m = /^\s*\((.+)\)\s*$/.exec(rest.slice(name.length));
+  return m ? m[1]!.trim() : '';
+}
+
+/** The items in order, with a heading item before each run of variants of one product, so the list can group them. */
+export function groupVariants(items: PriceBookItem[]): ({ heading: string } | { item: PriceBookItem })[] {
+  const out: ({ heading: string } | { item: PriceBookItem })[] = [];
+  let last = '';
+  for (const item of items) {
+    if (item.variant && item.baseName && item.baseName !== last) out.push({ heading: item.baseName });
+    last = item.variant && item.baseName ? item.baseName : '';
+    out.push({ item });
+  }
+  return out;
+}
+
 /** The fields we read about a product, in the shape Odoo returns them. */
 export function toItem(r: Record<string, unknown>, category: string[]): PriceBookItem {
   const price = typeof r.lst_price === 'number' ? r.lst_price : 0;
+  const base = str(r.name);
+  const variant = variantOf(base, str(r.display_name));
   return {
     id: r.id as number,
-    name: str(r.name),
+    name: variant ? `${base} (${variant})` : base,
+    ...(variant ? { baseName: base, variant } : {}),
     code: str(r.default_code),
     cents: Math.max(0, Math.round(price * 100)),
     kind: r.type === 'service' ? 'service' : 'material',
@@ -212,7 +244,7 @@ export interface PriceBookSource {
 export async function fetchPriceBook(client: PriceBookSource, now: number): Promise<PriceBook> {
   if (!client.session.apps.products) return { ...EMPTY_PRICE_BOOK, fetchedAt: now };
   const pf = client.session.productFields;
-  const optional = ['default_code', 'categ_id', 'type', 'description_sale'].filter((f) => pf.includes(f));
+  const optional = ['default_code', 'categ_id', 'type', 'description_sale', 'display_name'].filter((f) => pf.includes(f));
   const domain = pf.includes('sale_ok') ? [['sale_ok', '=', true]] : [];
   const rows = (await client.call('product.product', 'search_read', [domain], { fields: ['name', 'lst_price', ...optional], limit: 2000, order: 'name asc' })) as Record<string, unknown>[];
   const names = rows.map((r) => (Array.isArray(r.categ_id) && typeof r.categ_id[1] === 'string' ? r.categ_id[1] : ''));

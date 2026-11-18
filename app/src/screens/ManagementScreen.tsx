@@ -35,7 +35,7 @@ import {
   truckSource,
 } from '../lib/odooManage';
 import { FSM_TEMPLATES_STORAGE_KEY } from '../lib/fsmTemplates';
-import { addStarterPlans, archivePlan, blankPlan, fetchPlans, MaintenancePlan, PLANS_STORAGE_KEY, planSummary, plansProblem, PlanAudience, savePlan } from '../lib/maintenancePlans';
+import { addStarterPlans, archivePlan, blankPlan, fetchPlans, MaintenancePlan, PLANS_STORAGE_KEY, planSummary, plansProblem, savePlan } from '../lib/maintenancePlans';
 import { resetQuoteTemplates } from '../lib/useQuoteTemplates';
 import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
@@ -43,16 +43,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, radius, shadow, touch, type } from '../theme';
 import { ChecklistsScreen } from './ChecklistsScreen';
 import { PricelistEditor } from '../components/PricelistEditor';
+import { CustomerTypesTab } from './CustomerTypesTab';
 import { DiscountsTab } from './DiscountsTab';
+import { useCustomerTypes } from '../lib/useInvoices';
 import { TextsTab } from './TextsTab';
 
-type Tab = 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists';
+type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'jobTypes', label: 'Job types' },
   { id: 'templates', label: 'Templates' },
   { id: 'parts', label: 'Parts' },
   { id: 'techs', label: 'Techs' },
   { id: 'trucks', label: 'Trucks' },
+  { id: 'customerTypes', label: 'Customer types' },
   { id: 'plans', label: 'Maintenance plans' },
   { id: 'discounts', label: 'Discounts' },
   { id: 'pricelists', label: 'Pricelists' },
@@ -100,6 +103,7 @@ export function ManagementScreen() {
       {tab === 'parts' ? <Parts client={client} canEdit={owner === true} /> : null}
       {tab === 'techs' ? <Techs client={client} canEdit={owner === true} /> : null}
       {tab === 'trucks' ? <Trucks client={client} canEdit={owner === true} /> : null}
+      {tab === 'customerTypes' ? <CustomerTypesTab client={client} canEdit={owner === true} /> : null}
       {tab === 'plans' ? <Plans client={client} canEdit={owner === true} /> : null}
       {tab === 'discounts' ? <DiscountsTab canEdit={owner === true} /> : null}
       {tab === 'pricelists' ? <PricelistEditor client={client} canEdit={owner === true} /> : null}
@@ -539,11 +543,6 @@ function Trucks({ client, canEdit }: TabProps) {
 
 /* -------------------------------------------------------- Maintenance plans */
 
-const AUDIENCES: { id: PlanAudience; label: string }[] = [
-  { id: 'all', label: 'Everyone' },
-  { id: 'homes', label: 'Homes only' },
-  { id: 'commercial', label: 'Commercial / property managers' },
-];
 const EVERY = [3, 6, 12];
 const TERMS: { months: number; label: string }[] = [
   { months: 12, label: '1 year' },
@@ -580,6 +579,7 @@ function Plans({ client, canEdit }: TabProps) {
   const [price, setPrice] = useState('');
   const [perks, setPerks] = useState('');
   const [starterMsg, setStarterMsg] = useState('');
+  const customerTypes = useCustomerTypes();
   useEffect(() => {
     listJobTypes(client).then((l) => setJobTypes(l.map((t) => ({ id: t.id, label: t.name })))).catch(() => undefined);
   }, [client]);
@@ -639,7 +639,16 @@ function Plans({ client, canEdit }: TabProps) {
         <TextField label="Perks" value={perks} onChange={setPerks} editable={canEdit} multiline testID="manage-plan-perks" hint="One per line, like Priority scheduling. Text only; nothing is figured from it." />
         <View style={styles.field}>
           <Text style={styles.label}>Who it is for</Text>
-          <Chips options={AUDIENCES} value={edit.audience} onPick={(audience) => set({ audience })} canEdit={canEdit} testID="manage-plan-audience" />
+          <View style={styles.chips}>
+            {[{ id: '', label: 'Everyone' }, ...customerTypes.map((t) => ({ id: t, label: t }))].map((o) => {
+              const on = o.id === '' ? edit.types.length === 0 : edit.types.includes(o.id);
+              return (
+                <Pressable key={o.id || 'all'} disabled={!canEdit} onPress={() => set({ types: o.id === '' ? [] : on ? edit.types.filter((t) => t !== o.id) : [...edit.types, o.id], audience: 'all' })} accessibilityRole="checkbox" accessibilityState={{ checked: on }} testID={`manage-plan-type-${o.id || 'all'}`} style={[styles.chip, on && styles.tabOn]}>
+                  <Text style={[styles.tabText, on && styles.tabTextOn]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
         <TextField label="Order in the list" value={String(edit.sort)} onChange={(v) => set({ sort: intOf(v) })} editable={canEdit} keyboard="numeric" testID="manage-plan-sort" hint="Smaller numbers come first." />
         <View style={styles.field}>

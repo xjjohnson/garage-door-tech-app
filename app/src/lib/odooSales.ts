@@ -145,7 +145,17 @@ export async function sendInvoice(client: OdooClient, partnerId: number, lines: 
     const priced = vals.filter((v) => !v.display_type);
     if (orderLines.length === priced.length) priced.forEach((v, i) => (v.sale_line_ids = [[6, 0, [orderLines[i].id]]]));
   }
-  const id = (await client.call('account.move', 'create', [{ move_type: 'out_invoice', partner_id: partnerId, ref: ref || false, ...(shipId ? { partner_shipping_id: shipId } : {}), ...(order ? { invoice_origin: order.name } : {}), invoice_line_ids: vals.map((v) => [0, 0, v]) }])) as number;
+  // The invoice carries the terms its quotation has (switched on at the ticket), else none: an explicit empty narration keeps Odoo's default terms off.
+  let narration: string | false = false;
+  if (order) {
+    try {
+      const [o] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['note'] })) as { note?: unknown }[];
+      if (typeof o?.note === 'string' && o.note.replace(/<[^>]*>/g, '').trim()) narration = o.note;
+    } catch {
+      // The order's note is a nice-to-have; the invoice goes out clean.
+    }
+  }
+  const id = (await client.call('account.move', 'create', [{ move_type: 'out_invoice', partner_id: partnerId, ref: ref || false, narration, ...(shipId ? { partner_shipping_id: shipId } : {}), ...(order ? { invoice_origin: order.name } : {}), invoice_line_ids: vals.map((v) => [0, 0, v]) }])) as number;
   await postMove(client, id);
   return readInvoice(client, id, []);
 }

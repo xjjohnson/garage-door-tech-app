@@ -11,10 +11,10 @@ import { signatureFor } from '../lib/attachments';
 import { fetchInvoicePdf } from '../lib/odooReports';
 import { invoiceHtml, pdfName } from '../lib/pdf';
 import { useAttachments } from '../lib/useAttachments';
-import { balance, Invoice, invoiceLabel, invoiceStatus, invoiceText, optionLabel, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL } from '../lib/invoices';
+import { balance, Invoice, invoiceLabel, invoiceStatus, invoiceText, optionLabel, paid, PAY_LABEL, PAY_METHODS, payLinks, PayMethod, reviewLink, reviewRequestText, STATUS_LABEL, trackKey } from '../lib/invoices';
 import { formatJobDate } from '../lib/jobs';
 import { cents, formatMoney, TIER_LABEL } from '../lib/prices';
-import { textLink, warrantyFor } from '../lib/followups';
+import { partWarranties, textLink, warrantyFor, warrantyText } from '../lib/followups';
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
@@ -48,10 +48,11 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
   const invoiceOdoo = useInvoiceOdoo();
   const [sigNote, setSigNote] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState(false);
-  const warrantyNote =
-    status !== 'void' && (warranty.partsUntil || warranty.laborUntil)
-      ? `Warranty: ${warranty.partsUntil ? `springs until ${formatJobDate(warranty.partsUntil)}` : 'no spring warranty'}${warranty.laborUntil ? `, labor until ${formatJobDate(warranty.laborUntil)}` : ''}.`
-      : undefined;
+  const partUntils = partWarranties(invoice, followSettings, trackKey).map((l) => l.until ?? 0);
+  const lastUntil = Math.max(warranty.partsUntil ?? 0, warranty.laborUntil ?? 0, ...partUntils);
+  const warrantyOn = lastUntil > 0;
+  const warrantyLine = warrantyText(invoice, followSettings, trackKey, formatJobDate);
+  const warrantyNote = status !== 'void' && warrantyOn ? warrantyLine : undefined;
   const [pdfBusy, setPdfBusy] = useState(false);
   // Odoo's own invoice PDF when the invoice is in Odoo and online; otherwise the app's own PDF (offline or not sent yet).
   const odooPdf = async () => {
@@ -86,10 +87,10 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
     try {
       const odoo = await odooPdf();
       if (odoo) {
-        if (media.savePdf) await media.savePdf(odoo.base64, odoo.name);
+        if (media.openPdf) await media.openPdf(odoo.base64, odoo.name);
         else if (media.shareBase64Pdf) await media.shareBase64Pdf(odoo.base64, odoo.name);
-      } else if (media.pdfBase64 && media.savePdf) {
-        await media.savePdf(await media.pdfBase64(invoiceHtml(invoice, business, signature, { warranty: warrantyNote })), `${pdfName(invoiceLabel(invoice), invoice.billTo)}`);
+      } else if (media.pdfBase64 && media.openPdf) {
+        await media.openPdf(await media.pdfBase64(invoiceHtml(invoice, business, signature, { warranty: warrantyNote })), `${pdfName(invoiceLabel(invoice), invoice.billTo)}`);
       } else {
         await media.sharePdf(invoiceHtml(invoice, business, signature, { warranty: warrantyNote }), pdfName(invoiceLabel(invoice), invoice.billTo));
       }
@@ -124,11 +125,10 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
       <Text style={styles.meta}>
         {formatJobDate(invoice.createdAt)} · {optionLabel(invoice)}
       </Text>
-      {status !== 'void' && (warranty.partsUntil || warranty.laborUntil) ? (
+      {status !== 'void' && warrantyOn ? (
         <Text style={styles.meta} testID="invoice-warranty">
-          Warranty: {warranty.partsUntil ? `springs until ${formatJobDate(warranty.partsUntil)}` : 'no spring warranty'}
-          {warranty.laborUntil ? `, labor until ${formatJobDate(warranty.laborUntil)}` : ''}
-          {(warranty.partsUntil ?? 0) > Date.now() || (warranty.laborUntil ?? 0) > Date.now() ? ' (covered now)' : ' (ended)'}
+          {warrantyLine}
+          {lastUntil > Date.now() ? ' (covered now)' : ' (ended)'}
         </Text>
       ) : null}
       {status !== 'void' ? <CoveragePicker invoice={invoice} settings={followSettings} onChange={(patch) => setCoverage(invoice.id, patch)} /> : null}
@@ -275,7 +275,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
 
       <SectionTitle>More</SectionTitle>
       {attachments.media ? <Action label={pdfBusy ? 'Getting the PDF...' : 'Send as PDF'} primary disabled={pdfBusy} onPress={sendPdf} testID="invoice-pdf" /> : null}
-      {attachments.media ? <Action label="Download PDF" disabled={pdfBusy} onPress={downloadPdf} testID="invoice-pdf-download" /> : null}
+      {attachments.media ? <Action label="Open PDF" disabled={pdfBusy} onPress={downloadPdf} testID="invoice-pdf-download" /> : null}
       {pdfError ? <Text style={styles.meta}>Couldn't make the PDF. Try again, or send it as text.</Text> : null}
       <Action label="Send as text" onPress={() => Share.share({ message: invoiceText(invoice, business) }).catch(() => undefined)} testID="invoice-share" />
       {status === 'void' ? (

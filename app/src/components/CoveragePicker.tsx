@@ -1,10 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { ChipOption, ChipRow } from './controls';
-import { FollowUpSettings, warrantyFor } from '../lib/followups';
+import { FollowUpSettings, partWarranties, warrantyFor } from '../lib/followups';
 import { DAY } from '../lib/followups';
 import { Invoice, trackKey } from '../lib/invoices';
-import { isTrackable } from '../lib/odooEquipment';
 import { formatMoney } from '../lib/prices';
 import { colors, type } from '../theme';
 
@@ -39,7 +38,13 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
   const covered = parts > 0 || labor > 0;
   const tracked = invoice.warranty?.tracked ?? [];
   const toggle = (key: string) => onChange({ warranty: { tracked: tracked.includes(key) ? tracked.filter((k) => k !== key) : [...tracked, key] } });
-  const lines = invoice.lines.filter((l) => l.cents > 0 && l.taxable && isTrackable(l.label));
+  const lines = partWarranties(invoice, settings, trackKey);
+  const same = { label: 'Same as job', value: -1 };
+  const setPart = (key: string, months: number) => onChange({ warranty: { partMonths: { ...(invoice.warranty?.partMonths ?? {}), ...(months < 0 ? {} : { [key]: months }) } } });
+  const clearPart = (key: string) => {
+    const { [key]: _gone, ...rest } = invoice.warranty?.partMonths ?? {};
+    onChange({ warranty: { partMonths: rest } });
+  };
   return (
     <View style={styles.box} testID="invoice-coverage">
       <Text style={styles.title}>Warranty on this job</Text>
@@ -47,21 +52,30 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
       <ChipRow options={chips(MONTHS, parts, yearsLabel)} value={parts} onChange={(m) => onChange({ warranty: { partsMonths: m } })} scroll testID="coverage-parts" />
       <Text style={styles.label}>Labor</Text>
       <ChipRow options={chips(DAYS, labor, daysLabel)} value={labor} onChange={(d) => onChange({ warranty: { laborDays: d } })} scroll testID="coverage-labor" />
-      {covered && lines.length > 0 ? (
-        <View style={styles.track} testID="coverage-track">
-          <Text style={styles.label}>Track as equipment in Odoo</Text>
-          <Text style={styles.hint}>Tap the parts sold that should be kept on the house&apos;s equipment record, with this warranty.</Text>
+      {lines.length > 0 ? (
+        <View style={styles.track} testID="coverage-lines">
+          <Text style={styles.label}>What is covered</Text>
+          <Text style={styles.hint}>Every part sold is listed. Tap a part to turn its warranty on or off, or pick a different length for it.</Text>
           {lines.map((l, i) => {
-            const key = trackKey(l);
-            const on = tracked.includes(key);
+            const on = l.months > 0;
+            const own = invoice.warranty?.partMonths?.[l.key] !== undefined;
+            const key = l.key;
             return (
-              <Pressable key={`${key}-${i}`} onPress={() => toggle(key)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} testID={`track-${i}`} style={[styles.line, on && styles.lineOn]}>
-                <Text style={[styles.lineText, on && styles.lineTextOn]} numberOfLines={2}>
-                  {on ? '✓ ' : ''}
-                  {l.label}
-                </Text>
-                <Text style={[styles.lineText, on && styles.lineTextOn]}>{formatMoney(l.cents)}</Text>
-              </Pressable>
+              <View key={`${key}-${i}`} style={styles.lineBox}>
+                <Pressable onPress={() => (on ? setPart(key, 0) : own ? clearPart(key) : setPart(key, parts > 0 ? parts : 12))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} testID={`cover-${i}`} style={[styles.line, on && styles.lineOn]}>
+                  <Text style={[styles.lineText, on && styles.lineTextOn]} numberOfLines={2}>
+                    {on ? '✓ ' : ''}
+                    {l.label}
+                  </Text>
+                  <Text style={[styles.lineText, on && styles.lineTextOn]}>{on ? yearsLabel(l.months) : 'Not covered'}</Text>
+                </Pressable>
+                {on ? <ChipRow options={[same, ...MONTHS.filter((m) => m > 0).map((m) => ({ label: yearsLabel(m), value: m }))]} value={own ? l.months : -1} onChange={(m) => (m < 0 ? clearPart(key) : setPart(key, m))} scroll testID={`cover-length-${i}`} /> : null}
+                {on ? (
+                  <Pressable onPress={() => toggle(key)} accessibilityRole="checkbox" accessibilityState={{ checked: tracked.includes(key) }} testID={`track-${i}`} style={styles.trackRow}>
+                    <Text style={styles.hint}>{tracked.includes(key) ? '✓ ' : ''}Keep on the house's equipment in Odoo</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             );
           })}
         </View>
@@ -76,6 +90,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '700', color: colors.muted },
   hint: { fontSize: 15, color: colors.muted },
   track: { gap: 6, marginTop: 6 },
+  lineBox: { gap: 6 },
+  trackRow: { minHeight: 36, justifyContent: 'center' },
   line: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
   lineOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   lineText: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: colors.text },

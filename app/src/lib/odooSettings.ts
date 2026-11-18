@@ -62,14 +62,14 @@ export async function companyDetails(client: Caller): Promise<{ name: string; ph
 }
 
 /** Whether two sets of details are the same. */
-export const sameBusiness = (a: Business, b: Business) => ([...Object.keys(EMPTY_BUSINESS), 'discounts', 'planHeading', 'paymentsHeading'] as (keyof Business)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
+export const sameBusiness = (a: Business, b: Business) => ([...Object.keys(EMPTY_BUSINESS), 'discounts', 'planHeading', 'paymentsHeading', 'customerTypes'] as (keyof Business)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
 
 /**
  * The terms-and-conditions line for a new quotation: the company's terms
- * text, or the link to its terms page. Terms belong on quotations only, so
- * the owner turns Odoo's Default Terms & Conditions off (it would put them
- * on every invoice too) and the app adds them here. Empty when the company
- * has none or Odoo won't say.
+ * text, or the link to its terms page. Odoo's own Default Terms &
+ * Conditions can stay on: the app writes an empty note on every document it
+ * makes and adds these only when the Terms switch on the ticket is on.
+ * Empty when the company has none or Odoo won't say.
  */
 export async function termsNote(client: Caller): Promise<string> {
   try {

@@ -114,7 +114,7 @@ export async function toOrder(client: OdooClient): Promise<VendorOrder[]> {
  * A draft for the same vendor and source that is still open gets the new parts
  * added instead of a second order. Confirming and emailing is a separate button.
  */
-export async function draftForVendor(client: OdooClient, vendorId: number, lines: { productId: number; name: string; qty: number; priceCents: number }[], ref = 'Johnsons app reorder'): Promise<{ id: number; name: string; reused: boolean }> {
+export async function draftForVendor(client: OdooClient, vendorId: number, lines: { productId: number; name: string; qty: number; priceCents: number }[], ref = 'Johnsons app reorder', forOrderId?: number): Promise<{ id: number; name: string; reused: boolean }> {
   const wanted = lines.filter((l) => l.qty > 0);
   if (!vendorId) throw new Error('Pick a vendor for these parts first.');
   if (wanted.length === 0) throw new Error('Nothing to order.');
@@ -128,9 +128,34 @@ export async function draftForVendor(client: OdooClient, vendorId: number, lines
     if (add.length) await client.call('purchase.order', 'write', [[existing], { order_line: add.map(make) }]);
     return { id: existing, name: row?.name ?? `#${existing}`, reused: true };
   }
-  const id = (await client.call('purchase.order', 'create', [{ partner_id: vendorId, origin: ref, order_line: wanted.map(make) }])) as number;
+  const link = forOrderId ? await orderLinkVals(client, forOrderId) : {};
+  const id = (await client.call('purchase.order', 'create', [{ partner_id: vendorId, origin: ref, ...link, order_line: wanted.map(make) }])) as number;
   const [row] = (await client.call('purchase.order', 'read', [[id]], { fields: ['name'] })) as { name?: string }[];
   return { id, name: row?.name ?? `#${id}`, reused: false };
+}
+
+/** The field tying a purchase order to a Field Service order (Field Service Purchase), when this Odoo has one. */
+async function orderLinkVals(client: OdooClient, orderId: number): Promise<Record<string, unknown>> {
+  try {
+    const f = (await client.call('purchase.order', 'fields_get', [['fsm_order_id']], { attributes: ['type'] })) as Record<string, unknown>;
+    return f.fsm_order_id ? { fsm_order_id: orderId } : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Orders a part for one job: a DRAFT purchase order to the part's first vendor
+ * in Odoo, linked to the job's order so it shows on the order's Purchases tab.
+ * Never confirmed or sent from here. Throws a plain sentence when the part has no vendor.
+ */
+export async function orderPartForJob(client: OdooClient, part: { productId: number; name: string; qty: number }, order: { id: number; name: string }): Promise<{ id: number; name: string; reused: boolean }> {
+  const [p] = (await client.call('product.product', 'read', [[part.productId]], { fields: ['product_tmpl_id'] })) as { product_tmpl_id?: unknown }[];
+  const tmpl = m2o(p?.product_tmpl_id)?.[0];
+  const prices = tmpl ? (await vendorPrices(client, [tmpl])).get(tmpl) ?? [] : [];
+  const best = prices[0];
+  if (!best) throw new Error('This part has no vendor in Odoo yet. Add one on the product, then try again.');
+  return draftForVendor(client, best.vendorId, [{ productId: part.productId, name: part.name, qty: part.qty, priceCents: best.priceCents }], `Job ${order.name}`, order.id);
 }
 
 // ---- Purchase orders ----

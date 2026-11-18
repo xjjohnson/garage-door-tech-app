@@ -43,6 +43,8 @@ export interface MaintenancePlan {
   /** Text lines such as "Priority scheduling". Nothing computed. */
   perks: string[];
   audience: PlanAudience;
+  /** The customer types (Management > Customer types) this plan is offered to; empty means everyone. */
+  types: string[];
   sort: number;
   /** Days before the end that the renewal notice shows. */
   noticeDays: number;
@@ -63,6 +65,7 @@ export const blankPlan = (): MaintenancePlan => ({
   priceCents: 0,
   perks: [],
   audience: 'all',
+  types: [],
   sort: 0,
   noticeDays: DEFAULT_NOTICE_DAYS,
   active: true,
@@ -71,8 +74,8 @@ export const blankPlan = (): MaintenancePlan => ({
 /** The three plans "Add starter plans" makes. Prices are left blank for the owner. */
 export const STARTER_PLANS: MaintenancePlan[] = [
   { ...blankPlan(), name: 'Yearly tune-up', description: 'One tune-up visit a year: safety check, lubrication and adjustment of the door and opener.', everyMonths: 12, visitsPerYear: 1, termMonths: 12, sort: 1 },
-  { ...blankPlan(), name: 'Twice-a-year service', description: 'A tune-up visit every six months.', everyMonths: 6, visitsPerYear: 2, termMonths: 12, audience: 'homes', sort: 2 },
-  { ...blankPlan(), name: 'Commercial / Property manager plan', description: 'A tune-up visit every six months for commercial doors and managed properties.', everyMonths: 6, visitsPerYear: 2, termMonths: 12, audience: 'commercial', sort: 3 },
+  { ...blankPlan(), name: 'Twice-a-year service', description: 'A tune-up visit every six months.', everyMonths: 6, visitsPerYear: 2, termMonths: 12, audience: 'homes', types: ['Homeowner'], sort: 2 },
+  { ...blankPlan(), name: 'Commercial / Property manager plan', description: 'A tune-up visit every six months for commercial doors and managed properties.', everyMonths: 6, visitsPerYear: 2, termMonths: 12, audience: 'commercial', types: ['Commercial'], sort: 3 },
 ];
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
@@ -92,6 +95,7 @@ function planData(p: MaintenancePlan) {
     priceCents: p.priceCents,
     perks: p.perks,
     audience: p.audience,
+    types: p.types,
     sort: p.sort,
     noticeDays: p.noticeDays,
   };
@@ -136,6 +140,8 @@ export function parsePlanJson(line: string): Partial<MaintenancePlan> | undefine
       priceCents: whole(d.priceCents, 0),
       perks: Array.isArray(d.perks) ? d.perks.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [],
       audience,
+      // Older plans only said homes or commercial; they map onto the two standard types.
+      types: Array.isArray(d.types) ? d.types.filter((x): x is string => typeof x === 'string' && !!x.trim()) : audience === 'homes' ? ['Homeowner'] : audience === 'commercial' ? ['Commercial'] : [],
       sort: whole(d.sort, 0),
       noticeDays: whole(d.noticeDays, DEFAULT_NOTICE_DAYS),
     };
@@ -311,6 +317,11 @@ export async function addStarterPlans(c: Client, now = Date.now()): Promise<numb
     made += 1;
   }
   return made;
+}
+
+/** Plans for a customer of this type: ones for everyone, or that list the type. A customer with no type known gets every active plan. */
+export function plansForType(list: MaintenancePlan[], type: string | undefined): MaintenancePlan[] {
+  return sortPlans(list.filter((p) => p.active && (!type || p.types.length === 0 || p.types.includes(type))));
 }
 
 /** Plans a customer can be offered: active ones that fit a home or a commercial customer. */

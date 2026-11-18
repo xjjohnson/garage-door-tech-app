@@ -16,6 +16,7 @@ import { CustomerOdoo, CustomerTab } from '../components/CustomerOdoo';
 import { CustomerBadgeLine, CustomerEquipmentChips } from '../components/HouseHistory';
 import { OdooNotes } from '../components/OdooNotes';
 import { useOdoo } from '../lib/useOdoo';
+import { CustomerTypeRow } from '../components/CustomerTypeRow';
 import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
 import { AddressSuggestions } from '../components/AddressSuggestions';
@@ -97,6 +98,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
         {mail ? <Action grow label="Email" onPress={() => Linking.openURL(mail).catch(() => undefined)} testID="customer-email" /> : null}
       </View>
 
+      {fromOdoo ? <CustomerTypeRow partnerId={customer.odooId!} /> : null}
       {customer.odooId ? <Addresses partnerId={customer.odooId} /> : null}
         </>
       ) : null}

@@ -12,7 +12,7 @@ import { jobSteps, nextStep, STEP_LABEL } from '../lib/jobSteps';
 import { log } from '../lib/log';
 import { canSendJobs, cleanNotes, olderJobs } from '../lib/odooJobs';
 import { describePending } from '../lib/pending';
-import { Appointment, formatTime, onDay } from '../lib/schedule';
+import { Appointment, formatTime, onDay, windowLabel } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useLog } from '../lib/useLog';
@@ -113,7 +113,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
         return (
           <VisitCard
             key={a.id}
-            top={formatTime(a.start).toUpperCase()}
+            top={windowLabel(a).toUpperCase()}
             chip={st.label}
             tone={st.tone}
             name={a.name}

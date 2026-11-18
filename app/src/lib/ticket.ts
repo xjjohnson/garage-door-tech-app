@@ -82,6 +82,8 @@ export interface Ticket {
   plan?: TicketPlan;
   /** planKey of the plan last written to the quotation in Odoo (as a note line). */
   planSaved?: string;
+  /** Terms & Conditions on this quotation (and the invoice made from it). Off unless switched on; Odoo's own default is cleared when it is off. */
+  terms?: boolean;
 }
 
 /** The plan as it was when picked: a copy, so a later change to the plan doesn't change what the customer was offered. */
@@ -288,14 +290,14 @@ export const lineTotal = (l: TicketLine) => Math.round(l.unitCents * l.qty);
 export const subtotal = (t: Ticket) => t.lines.reduce((n, l) => n + lineTotal(l), 0);
 
 /** A fingerprint of what Odoo needs to price: changes whenever a line does. */
-export function linesKey(lines: TicketLine[], discount?: Discount): string {
+export function linesKey(lines: TicketLine[], discount?: Discount, terms?: boolean): string {
   const d = discountKey(discount);
-  return lines.map((l) => (isText(l) ? `${l.kind}:${l.name}` : `${l.productId ?? ''}:${l.name}:${l.qty}:${l.unitCents}`)).join('|') + (d ? `#${d}` : '');
+  return lines.map((l) => (isText(l) ? `${l.kind}:${l.name}` : `${l.productId ?? ''}:${l.name}:${l.qty}:${l.unitCents}`)).join('|') + (d ? `#${d}` : '') + (terms === undefined ? '' : terms ? '~terms' : '~clean');
 }
 
 /** Odoo's totals, if they are for the lines and discount as they are now. */
 export function currentTotals(t: Ticket): TicketTotals | undefined {
-  return t.totals && t.totals.key === linesKey(t.lines, t.discount) ? t.totals : undefined;
+  return t.totals && t.totals.key === linesKey(t.lines, t.discount, t.terms) ? t.totals : undefined;
 }
 
 /**
@@ -337,6 +339,11 @@ export function setPrice(t: Ticket, id: string, unitCents: number): Ticket {
 }
 
 /** Puts a quick discount on the ticket, replacing any other; undefined takes it off. */
+/** Switches the Terms & Conditions on or off for this quotation. */
+export function setTerms(t: Ticket, on: boolean): Ticket {
+  return { ...t, terms: on };
+}
+
 export function setDiscount(t: Ticket, discount: Discount | undefined): Ticket {
   const { discount: _old, ...rest } = t;
   return discount ? { ...rest, discount } : rest;
@@ -468,17 +475,19 @@ async function syncTicketNow(client: OdooClient, partnerId: number, t: Ticket, r
   if (order && confirmed) {
     // Nothing to write; just read its totals back.
   } else if (order) {
-    await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false, ...ship, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
+    // The note (terms) is only touched once the switch has been used, so a note typed in Odoo isn't wiped by a plain save.
+    const termsVals = t.terms === undefined ? {} : { note: t.terms ? (await termsNote(client)) || false : false };
+    await client.call('sale.order', 'write', [[order.id], { client_order_ref: ref || false, ...ship, ...termsVals, order_line: [[5, 0, 0], ...vals.map((v) => [0, 0, v])] }]);
   } else {
-    // The terms go on the quotation only; invoices are made without them (see termsNote).
-    const terms = await termsNote(client);
-    const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, partner_shipping_id: partnerId, ...ship, ...(terms ? { note: terms } : {}), order_line: vals.map((v) => [0, 0, v]) }])) as number;
+    // Clean by default: an explicit empty note keeps Odoo's default terms off the new quotation. The switch on the ticket turns the terms on.
+    const terms = t.terms ? await termsNote(client) : '';
+    const id = (await client.call('sale.order', 'create', [{ partner_id: partnerId, client_order_ref: ref || false, partner_shipping_id: partnerId, ...ship, note: terms || false, order_line: vals.map((v) => [0, 0, v]) }])) as number;
     order = { id, name: `#${id}` };
   }
   const [r] = (await client.call('sale.order', 'read', [[order.id]], { fields: ['name', 'amount_untaxed', 'amount_tax', 'amount_total'] })) as Record<string, unknown>[];
   return {
     order: { id: order.id, name: typeof r?.name === 'string' ? r.name : order.name },
-    totals: { untaxed: toCents(r?.amount_untaxed), tax: toCents(r?.amount_tax), total: toCents(r?.amount_total), key: linesKey(t.lines, t.discount), at: now },
+    totals: { untaxed: toCents(r?.amount_untaxed), tax: toCents(r?.amount_tax), total: toCents(r?.amount_total), key: linesKey(t.lines, t.discount, t.terms), at: now },
     depositsSaved: depositsKey(t),
     planSaved: planKey(t),
   };

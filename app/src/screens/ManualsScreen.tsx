@@ -89,15 +89,26 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
   const shown = hits.slice(0, shownCount);
   const more = Math.min(MANUALS_PAGE, hits.length - shown.length);
 
-  async function open(target: Target) {
+  async function open(target: Target, title?: string) {
     setChecking(target.key);
     const reach = await checkReach(target.url, fetchImpl);
-    setChecking(null);
     if (reach === 'offline') {
+      setChecking(null);
       setOffline(target);
       return;
     }
     setOffline(null);
+    // A direct PDF opens in the phone's PDF viewer, where it can be saved or shared; a web page opens in the browser.
+    if (files?.view && title) {
+      try {
+        await files.view(target.url, title);
+        setChecking(null);
+        return;
+      } catch {
+        // Not a PDF, or it wouldn't download: the browser gets it as before.
+      }
+    }
+    setChecking(null);
     openUrl(target.url).catch(() => setOffline(target));
   }
 
@@ -256,7 +267,7 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
                 return (
                   <Pressable
                     key={target.key}
-                    onPress={() => (uri ? openSaved(uri, target, doc.label) : open(target))}
+                    onPress={() => (uri ? openSaved(uri, target, doc.label) : open(target, doc.label))}
                     disabled={checking !== null}
                     accessibilityRole="link"
                     accessibilityLabel={`${b.name}, ${doc.label}. ${uri ? 'Opens the copy saved on this phone.' : 'Opens the document.'}`}

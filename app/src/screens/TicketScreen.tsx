@@ -16,9 +16,12 @@ import { acceptedLabel, Job, jobName } from '../lib/jobs';
 import { log } from '../lib/log';
 import { OdooError } from '../lib/odoo';
 import { cents, formatMoney, priceText } from '../lib/prices';
-import { addText, addTyped, hasPriced, isText, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, signaturePending, signedNow, setPlan, planKey, planDone } from '../lib/ticket';
+import { addText, addTyped, hasPriced, isText, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, setTerms, signaturePending, signedNow, setPlan, planKey, planDone } from '../lib/ticket';
 import { activePlanFor, PlanProgress, PlanSetupError, setUpPlan } from '../lib/planSetup';
 import { useMaintenancePlans } from '../lib/useMaintenancePlans';
+import { orderPartForJob } from '../lib/odooPurchasing';
+import { useCustomerType } from '../lib/useCustomerType';
+import { plansForType } from '../lib/maintenancePlans';
 import { PlanRow } from '../components/PlanRow';
 import { useJobCustomer } from './JobAddressScreen';
 import { discountKey, discountText, presetsFor } from '../lib/discounts';
@@ -115,10 +118,13 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   }, [signKey, client, attachments.signatures.length, signRetry]);
 
   // Maintenance plans: the list to choose from, and the plan this customer is already on.
-  const plans = useMaintenancePlans();
+  const allPlans = useMaintenancePlans();
   const jobCustomer = useJobCustomer(job);
+  // Plans for this customer's type (Homeowner, Commercial...); every plan while the type isn't known.
+  const { type: customerType } = useCustomerType(jobCustomer?.odooId);
+  const plans = plansForType(allPlans, customerType);
   const [active, setActive] = useState<ActivePlan | undefined>();
-  const planNames = plans.map((p) => p.name).join('|');
+  const planNames = allPlans.map((p) => p.name).join('|');
   useEffect(() => {
     if (!client || !jobCustomer?.odooId || !planNames) return setActive(undefined);
     let live = true;
@@ -179,12 +185,29 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
       if (n === run.current) setSyncing(false);
     }
   };
+  // A part not on the truck can be ordered for this job: a draft purchase order in Odoo, linked to the job's order.
+  const [ordering, setOrdering] = useState<string | null>(null);
+  const [orderMsg, setOrderMsg] = useState('');
+  const orderForJob = async (p: { lineId: string; qty: number; name: string }) => {
+    const line = ticket.lines.find((l) => l.id === p.lineId);
+    if (!client || !ticket.order || !line?.productId) return;
+    setOrdering(p.lineId);
+    setOrderMsg('');
+    try {
+      const po = await orderPartForJob(client, { productId: line.productId, name: line.name, qty: p.qty }, ticket.order);
+      setOrderMsg(`${po.reused ? 'Added to' : 'Made'} draft purchase order ${po.name} in Odoo. It isn't sent until you confirm it.`);
+    } catch (e) {
+      setOrderMsg(message(e));
+    } finally {
+      setOrdering(null);
+    }
+  };
   const syncRef = useRef(sync);
   syncRef.current = sync;
 
   // The job's other open estimates are quotations in Odoo too: each is saved once it has lines.
   const staleOthers = client && !invoice ? openEstimates(others).filter((t) => t.id && t.lines.length > 0 && !currentTotals(t)) : [];
-  const staleKey = staleOthers.map((t) => `${t.id}:${linesKey(t.lines, t.discount)}`).join('#');
+  const staleKey = staleOthers.map((t) => `${t.id}:${linesKey(t.lines, t.discount, t.terms)}`).join('#');
   useEffect(() => {
     if (!client || staleOthers.length === 0) return;
     let live = true;
@@ -193,7 +216,7 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
         try {
           const pid = await partner(client, job.customerId, { name: job.customer, phone: job.phone, address: job.address });
           const r = await syncTicket(client, pid, t, ticketRef(t), now(), `${job.id}:${t.id ?? ''}`, autoHeadings);
-          if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines, o.discount) === linesKey(t.lines, t.discount) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved, planSaved: r.planSaved } : o)) }));
+          if (live) setEstimates(job.id, (s) => ({ ...s, others: s.others.map((o) => (o.id === t.id && linesKey(o.lines, o.discount, o.terms) === linesKey(t.lines, t.discount, t.terms) ? { ...o, order: r.order, totals: r.totals, depositsSaved: r.depositsSaved, planSaved: r.planSaved } : o)) }));
         } catch (e) {
           log.warn('ticket', `${job.id}: couldn't save estimate ${t.title ?? t.id}: ${message(e)}`);
         }
@@ -398,6 +421,14 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
 
       {!frozen && ticket.lines.length > 0 ? <DiscountPanel discount={ticket.discount} presets={presetsFor(business.discounts)} onChange={(d) => setTicket(job.id, (t) => setDiscount(t, d))} /> : null}
 
+      {!frozen && ticket.lines.length > 0 ? (
+        <View style={styles.card} testID="ticket-terms">
+          <Text style={styles.termsTitle}>Terms &amp; Conditions</Text>
+          <Text style={styles.meta}>Off keeps the terms area empty on the quote and invoice. On adds your company terms.</Text>
+          <ChipRow options={TERMS_OPTIONS} value={ticket.terms ? 'on' : 'off'} onChange={(v) => setTicket(job.id, (t) => setTerms(t, v === 'on'))} testID="ticket-terms-chips" />
+        </View>
+      ) : null}
+
       <View style={styles.card} testID="ticket-totals">
         <Row label={ticket.discount ? 'Subtotal (after discount)' : 'Subtotal'} value={formatMoney(shown.untaxed)} />
         {ticket.discount ? <Row label="Discount" value={discountText(ticket.discount)} testID="ticket-discount-row" /> : null}
@@ -487,11 +518,20 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
               <Text style={styles.label}>
                 {p.qty} x {p.name}: {p.why === 'ordered' ? "ordered, not in yet. Tap Got it on the order when it's in." : 'not on the truck.'}
               </Text>
+ {p.why === 'not-on-truck' && client && ticket.order && ticket.lines.find((l) => l.id === p.lineId)?.productId ? (
+                <Action
+                  label={ordering === p.lineId ? 'Ordering...' : 'Order it for this job'}
+                  disabled={ordering !== null}
+                  onPress={() => orderForJob(p)}
+                  testID={`ticket-part-order-${p.lineId}`}
+                />
+              ) : null}
               {p.why === 'not-on-truck' ? (
                 <Action label="Bought it for this job" onPress={() => setTicket(job.id, (t) => ({ ...t, bought: [...(t.bought ?? []), p.lineId] }))} testID={`ticket-part-bought-${p.lineId}`} />
               ) : null}
             </View>
           ))}
+          {orderMsg ? <Text style={styles.meta} testID="ticket-part-order-msg">{orderMsg}</Text> : null}
           <Action label="Parts used on the job" onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })} testID="ticket-parts-open-job" />
         </View>
       ) : null}
@@ -508,6 +548,10 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   );
 }
 
+const TERMS_OPTIONS: ChipOption<'on' | 'off'>[] = [
+  { label: 'Off', value: 'off' },
+  { label: 'On', value: 'on' },
+];
 const METHOD_OPTIONS: ChipOption<PayMethod>[] = PAY_METHODS.map((m) => ({ label: PAY_LABEL[m], value: m }));
 
 /**
@@ -863,6 +907,7 @@ function Small({ label, onPress, testID, hint, disabled }: { label: string; onPr
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
+  termsTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   for: { fontSize: 22, fontWeight: '800', color: colors.text },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
   refBox: { gap: 6 },

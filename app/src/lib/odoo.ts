@@ -7,6 +7,7 @@
  * otherwise ordinary Project tasks. Kept free of React; the network call is
  * passed in, so tests use a fake server.
  */
+import { vehicleVals } from './odooVehicle';
 import { noteCall } from './noteCall';
 import { addressParts } from './geocode';
 import type { CustomerFields } from './customers';
@@ -166,8 +167,8 @@ export function toOdooTime(ms: number): string {
 
 const TASK_OPTIONAL = ['planned_date_begin', 'date_deadline', 'description', 'partner_phone', 'fsm_done'];
 const PARTNER_OPTIONAL = ['customer_rank', 'mobile', 'partner_latitude', 'partner_longitude'];
-const PRODUCT_OPTIONAL = ['sale_ok', 'default_code', 'categ_id', 'type', 'description_sale'];
-const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end', 'scheduled_duration', 'template_id', 'type', 'category_ids'];
+const PRODUCT_OPTIONAL = ['sale_ok', 'default_code', 'categ_id', 'type', 'description_sale', 'display_name'];
+const ORDER_OPTIONAL = ['scheduled_date_start', 'date_start', 'description', 'todo', 'stage_id', 'date_end', 'scheduled_duration', 'template_id', 'type', 'category_ids', 'request_early', 'request_late', 'vehicle_id'];
 
 export class OdooClient {
   constructor(
@@ -448,9 +449,9 @@ export class OdooClient {
   }
 
   /** Gives a job to a tech (replacing whoever had it). */
-  assign(taskId: number, techId: number): Promise<unknown> {
+  async assign(taskId: number, techId: number): Promise<unknown> {
     const s = this.session;
-    if (s.kind === 'oca') return this.call('fsm.order', 'write', [[taskId], { person_id: techId }]);
+    if (s.kind === 'oca') return this.call('fsm.order', 'write', [[taskId], { person_id: techId, ...(await vehicleVals(this, techId)) }]);
     const value = s.assignField === 'user_ids' ? [[6, 0, [techId]]] : techId;
     return this.call('project.task', 'write', [[taskId], { [s.assignField]: value }]);
   }

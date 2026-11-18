@@ -78,23 +78,38 @@ const fromHtml = (h: string) => h.replace(/<\/p>\s*<p>/g, '\n').replace(/<br\s*\
  * it before (found by the key in its notes), else makes one. Returns how
  * many were written.
  */
-export async function sendEquipment(client: Caller, locationId: number, items: EquipmentItem[], ready: { htmlNotes: boolean; product: boolean }): Promise<number> {
+export async function sendEquipment(client: Caller, locationId: number, items: EquipmentItem[], ready: { htmlNotes: boolean; product: boolean }, orderId?: number): Promise<number> {
   if (!items.length) return 0;
   const there = (await client.call('fsm.equipment', 'search_read', [[['location_id', '=', locationId]]], { fields: ['name', 'notes'], limit: 200 })) as { id: number; name?: unknown; notes?: unknown }[];
   const notesOf = (r: { notes?: unknown }) => (ready.htmlNotes ? fromHtml(plain(r.notes)) : plain(r.notes));
   let n = 0;
+  const ids: number[] = [];
   for (const item of items) {
     const match = there.find((r) => notesOf(r).includes(marker(item.key)));
     const text = mergeNotes(match ? notesOf(match) : '', item);
     const notes = ready.htmlNotes ? toHtml(text) : text;
     if (match) {
       await client.call('fsm.equipment', 'write', [[match.id], { notes }]);
+      ids.push(match.id);
     } else {
-      await client.call('fsm.equipment', 'create', [{ name: item.name, location_id: locationId, notes, ...(ready.product && item.productId ? { product_id: item.productId } : {}) }]);
+      const made = (await client.call('fsm.equipment', 'create', [{ name: item.name, location_id: locationId, notes, ...(ready.product && item.productId ? { product_id: item.productId } : {}) }])) as number;
+      if (typeof made === 'number') ids.push(made);
     }
     n += 1;
   }
+  if (orderId && ids.length) await linkEquipmentToOrder(client, orderId, ids);
   return n;
+}
+
+/** Puts the equipment on the order's own Equipments tab too. Quietly skipped when this Odoo's order has no such field. */
+export async function linkEquipmentToOrder(client: Caller, orderId: number, equipmentIds: number[]): Promise<void> {
+  try {
+    const f = (await client.call('fsm.order', 'fields_get', [['equipment_ids']], { attributes: ['type'] })) as Record<string, unknown>;
+    if (!f.equipment_ids) return;
+    await client.call('fsm.order', 'write', [[orderId], { equipment_ids: equipmentIds.map((id) => [4, id]) }]);
+  } catch {
+    // The equipment is on the house either way.
+  }
 }
 
 const MAX_PER_LINE = 6;
@@ -118,13 +133,15 @@ export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'odoo' | 'lin
     if (l.display) return;
     i++;
     if (!tracked.includes(trackKey(l)) || !l.taxable || !isTrackable(l.label)) return;
+    const own = inv.warranty?.partMonths?.[trackKey(l)];
+    const lineWarranty = own === undefined ? warranty : warrantyLines(warrantyFor({ ...(inv as Invoice), warranty: { ...inv.warranty, partsMonths: own } }, settings), invoiceNo(inv));
     const units = Math.min(MAX_PER_LINE, Math.max(1, Math.round(l.qty ?? 1)));
     for (let u = 0; u < units; u++) {
       out.push({
         key: `${inv.id}:${i}:${u}`,
         name: units > 1 ? `${l.label} ${u + 1}` : l.label,
         ...(l.productId ? { productId: l.productId } : {}),
-        lines: [`Sold: ${dateOf(inv.createdAt)} (invoice ${invoiceNo(inv)})`, ...warranty],
+        lines: [`Sold: ${dateOf(inv.createdAt)} (invoice ${invoiceNo(inv)})`, ...lineWarranty],
       });
     }
   });

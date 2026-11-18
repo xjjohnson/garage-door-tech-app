@@ -3,6 +3,9 @@ import { useState, useSyncExternalStore } from 'react';
 import { Pressable, Share, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
+import { PartPickerSheet } from '../components/PartPickerSheet';
+import { PriceBookItem } from '../lib/priceBook';
+import { formatMoney } from '../lib/prices';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { SignatureSheet } from '../components/SignaturePad';
 import { VoiceNotes } from '../components/VoiceNotes';
@@ -25,6 +28,7 @@ import {
   Rating,
   Repair,
   repairFromFlag,
+  repairFromPart,
   restGood,
   SCALES,
   sections,
@@ -91,6 +95,7 @@ export function InspectionScreen({ job }: { job: Job }) {
   };
   const tapAgain = (id: string, label: string) => (armed === id ? 'Tap again: answers will be lost' : label);
 
+  const [pickRepair, setPickRepair] = useState(false);
   const addRepair = (r: Repair) => save((i) => ({ ...i, repairs: [...i.repairs, r] }));
   const setRepair = (id: string, patch: Partial<Repair>) => save((i) => ({ ...i, repairs: i.repairs.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
   const takePhoto = async (key: AnswerKey) => {
@@ -248,11 +253,25 @@ export function InspectionScreen({ job }: { job: Job }) {
       {insp.repairs.map((r) => (
         <View key={r.id} style={styles.repair} testID={`repair-${r.id}`}>
           <TextInput value={r.label} onChangeText={(label) => setRepair(r.id, { label })} placeholder="Part or repair" placeholderTextColor={colors.muted} accessibilityLabel="Repair name" testID={`repair-name-${r.id}`} style={styles.input} />
+          {r.productId ? (
+            <View style={styles.partBox}>
+              <Text style={[styles.partName, styles.grow]}>How many</Text>
+              <Pressable onPress={() => setRepair(r.id, { qty: Math.max(1, (r.qty ?? 1) - 1) })} accessibilityRole="button" accessibilityLabel="One less" testID={`repair-qty-down-${r.id}`} style={styles.step}>
+                <Text style={styles.stepText}>−</Text>
+              </Pressable>
+              <Text style={styles.partName} testID={`repair-qty-${r.id}`}>{r.qty ?? 1}</Text>
+              <Pressable onPress={() => setRepair(r.id, { qty: (r.qty ?? 1) + 1 })} accessibilityRole="button" accessibilityLabel="One more" testID={`repair-qty-up-${r.id}`} style={styles.step}>
+                <Text style={styles.stepText}>+</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <MeasureField label="Price" value={r.price} onChange={(price) => setRepair(r.id, { price })} unit="dollars" allowFraction={false} placeholder="Tap to set" testID={`repair-price-${r.id}`} />
           <ChipRow options={TAX_OPTIONS} value={r.taxable ? 'yes' : 'no'} onChange={(v) => setRepair(r.id, { taxable: v === 'yes' })} testID={`repair-tax-${r.id}`} />
           <Action label="Remove" onPress={() => save((i) => ({ ...i, repairs: i.repairs.filter((x) => x.id !== r.id) }))} testID={`repair-remove-${r.id}`} />
         </View>
       ))}
+      <Action label="Add a part from the price book" onPress={() => setPickRepair(true)} testID="repair-add-part" />
+      {pickRepair ? <PartPickerSheet onPick={(p) => { addRepair(repairFromPart(p, 1, Date.now(), insp.repairs.length)); setPickRepair(false); }} onClose={() => setPickRepair(false)} /> : null}
       <Action label="Add a repair" onPress={() => addRepair({ id: `r-${Date.now().toString(36)}-${insp.repairs.length}`, label: '', price: '', taxable: true })} testID="repair-add" />
 
       <SectionTitle>Report</SectionTitle>
@@ -328,7 +347,7 @@ function SectionItems({
           hasRepair={insp.repairs.some((r) => r.label === (i.answer?.action.trim() || `${i.def.label}: repair`))}
           onAnswer={(patch) => onAnswer(i.key, patch)}
           onPhoto={onPhoto ? () => onPhoto(i.key) : undefined}
-          onRepair={() => onRepair(repairFromFlag({ key: i.key, label: i.def.label, action: i.answer?.action ?? '' }, Date.now(), insp.repairs.length))}
+          onRepair={(part, qty = 1) => onRepair(part ? repairFromPart(part, qty, Date.now(), insp.repairs.length, i.key) : repairFromFlag({ key: i.key, label: i.def.label, action: i.answer?.action ?? '' }, Date.now(), insp.repairs.length))}
         />
       ))}
       {open > 0 && open < section.items.length ? <Action label={`Mark the other ${open} as good`} onPress={onRestGood} testID={`rest-good-${sectionKey}`} /> : null}
@@ -353,9 +372,12 @@ function ItemRow({
   hasRepair: boolean;
   onAnswer: (patch: Partial<Answer>) => void;
   onPhoto?: () => void;
-  onRepair: () => void;
+  onRepair: (part?: PriceBookItem, qty?: number) => void;
 }) {
   const [more, setMore] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [part, setPart] = useState<PriceBookItem | undefined>();
+  const [qty, setQty] = useState(1);
   const flagged = isFlagged(answer?.rating);
   // Fair items open too, so they can be offered as add-ons.
   const showMore = flagged || answer?.rating === 'fair' || more || !!answer?.note || !!answer?.action;
@@ -388,9 +410,35 @@ function ItemRow({
         <>
           <TextInput value={answer?.note ?? ''} onChangeText={(note) => onAnswer({ note })} placeholder="Note" placeholderTextColor={colors.muted} accessibilityLabel={`${def.label} note`} testID={`item-${itemKey}-note`} style={styles.input} />
           <TextInput value={answer?.action ?? ''} onChangeText={(action) => onAnswer({ action })} placeholder="Action (e.g. Replace rollers)" placeholderTextColor={colors.muted} accessibilityLabel={`${def.label} action`} testID={`item-${itemKey}-action`} style={styles.input} />
+          {part ? (
+            <View style={styles.partBox} testID={`item-${itemKey}-part`}>
+              <View style={styles.grow}>
+                <Text style={styles.partName}>{part.name}</Text>
+                <Text style={styles.note}>{formatMoney(part.cents)} each{qty > 1 ? ` · ${formatMoney(part.cents * qty)} for ${qty}` : ''}</Text>
+              </View>
+              <Pressable onPress={() => setQty(Math.max(1, qty - 1))} accessibilityRole="button" accessibilityLabel="One less" testID={`item-${itemKey}-qty-down`} style={styles.step}>
+                <Text style={styles.stepText}>−</Text>
+              </Pressable>
+              <Text style={styles.partName} testID={`item-${itemKey}-qty`}>{qty}</Text>
+              <Pressable onPress={() => setQty(qty + 1)} accessibilityRole="button" accessibilityLabel="One more" testID={`item-${itemKey}-qty-up`} style={styles.step}>
+                <Text style={styles.stepText}>+</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {!hasRepair ? <Action label={part ? 'Pick a different part' : 'Pick a part from the price book'} onPress={() => setPicking(true)} testID={`item-${itemKey}-pick-part`} /> : null}
+          {picking ? (
+            <PartPickerSheet
+              onPick={(p) => {
+                setPart(p);
+                setQty(1);
+                setPicking(false);
+              }}
+              onClose={() => setPicking(false)}
+            />
+          ) : null}
           <View style={styles.row}>
             {onPhoto ? <Action label={photoCount ? `Photo (${photoCount})` : 'Photo'} grow onPress={onPhoto} testID={`item-${itemKey}-photo`} /> : null}
-            {!hasRepair ? <Action label="Add as repair" grow onPress={onRepair} testID={`item-${itemKey}-repair`} /> : null}
+            {!hasRepair ? <Action label="Add as repair" grow onPress={() => onRepair(part, qty)} testID={`item-${itemKey}-repair`} /> : null}
           </View>
         </>
       ) : (
@@ -479,6 +527,11 @@ const styles = StyleSheet.create({
   choiceTextOn: { color: colors.onSelected },
   moreLink: { minHeight: 44, justifyContent: 'center' },
   moreText: { fontSize: 16, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
+  grow: { flex: 1 },
+  partBox: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  partName: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  step: { width: touch.min, minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  stepText: { fontSize: type.value, fontWeight: '800', color: colors.text },
   repair: { padding: 12, gap: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   field: { flex: 1, gap: 4 },
   fieldLabel: { fontSize: 15, fontWeight: '800', color: colors.muted },

@@ -4,7 +4,7 @@ import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle, Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
-import { categoryLevel, fetchedLabel, itemsByIds, PriceBookItem, searchItems, sortByName } from '../lib/priceBook';
+import { categoryLevel, fetchedLabel, groupVariants, itemsByIds, PriceBookItem, searchItems, sortByName } from '../lib/priceBook';
 import { usePriceBook } from '../lib/usePriceBook';
 import { useStock } from '../lib/useStock';
 import { colors, touch, type } from '../theme';
@@ -112,7 +112,7 @@ export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', ki
               {level.items.length > 0 ? (
                 <>
                   {path.length === 0 && level.folders.length > 0 ? <SectionTitle>Other items</SectionTitle> : null}
-                  {level.items.map(row)}
+                  {groupVariants(level.items).map((g, n) => ('heading' in g ? <Text key={`h-${g.heading}-${n}`} style={styles.variantHeading}>{g.heading}</Text> : row(g.item)))}
                 </>
               ) : null}
               {loaded && book.items.length === 0 ? (
@@ -134,7 +134,8 @@ export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', ki
 function ItemRow({ item, onTruck, favorite, onToggle, onPick }: { item: PriceBookItem; onTruck?: number; favorite: boolean; onToggle: () => void; onPick?: (item: PriceBookItem) => void }) {
   const body = (
     <>
-      <Text style={styles.name}>{item.name}</Text>
+      {item.variant && item.baseName ? <Text style={styles.meta}>{item.baseName}</Text> : null}
+      <Text style={styles.name}>{item.variant ?? item.name}</Text>
       <Text style={styles.meta} numberOfLines={2}>
         {[item.kind === 'service' ? 'Service' : 'Material', onTruck ? `${onTruck} on truck` : '', item.code, item.description].filter(Boolean).join(' · ')}
       </Text>
@@ -169,6 +170,7 @@ const styles = StyleSheet.create({
   grow: { flex: 1, gap: 2 },
   note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
   meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
+  variantHeading: { fontSize: 16, fontWeight: '800', color: colors.text, marginTop: 8 },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   up: { minHeight: touch.min, justifyContent: 'center' },

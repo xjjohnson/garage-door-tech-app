@@ -64,7 +64,7 @@ export interface Invoice {
   /** The delivery address picked on the ticket; partner_shipping_id on the invoice in Odoo. */
   shipTo?: ShipTo;
   /** Warranty picked for this job, in months (0 for none); what isn't set follows the follow-up settings. */
-  warranty?: { partsMonths?: number; /** Labor by days (laborMonths is how 0.5.62 to 0.5.77 saved it). */ laborDays?: number; laborMonths?: number; /** The lines sold that are tracked as equipment in Odoo (see trackKey). */ tracked?: string[] };
+  warranty?: { partsMonths?: number; /** Labor by days (laborMonths is how 0.5.62 to 0.5.77 saved it). */ laborDays?: number; laborMonths?: number; /** The lines sold that are tracked as equipment in Odoo (see trackKey). */ tracked?: string[]; /** Parts warranty for one part line (by trackKey) in months, 0 when that part isn't covered; a part not listed follows partsMonths. */ partMonths?: Record<string, number> };
 }
 
 /** Identifies an invoice line for equipment tracking: its Odoo product and name. */
@@ -117,6 +117,8 @@ export interface Business {
   /** Wording of the two automatic headings on a ticket with sections (Management > Texts); blank means the standard wording (see ticketSections.ts). */
   planHeading?: string;
   paymentsHeading?: string;
+  /** The customer types in Management > Customer types, in order; unset means Homeowner and Commercial (see customerTypes.ts). Each is a tag on the customer's contact in Odoo. */
+  customerTypes?: string[];
 }
 
 export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '', reviewUrl: '', textOnMyWay: '', textEta: '', textReview: '' };
@@ -305,7 +307,9 @@ function parseCoverage(x: Record<string, unknown>): Pick<Invoice, 'warranty'> {
   const laborMonths = n(w.laborMonths);
   const laborDays = n(w.laborDays);
   const tracked = Array.isArray(w.tracked) ? w.tracked.filter((k): k is string => typeof k === 'string') : [];
+  const pm = w.partMonths && typeof w.partMonths === 'object' && !Array.isArray(w.partMonths) ? Object.entries(w.partMonths as Record<string, unknown>).flatMap(([k, v]): [string, number][] => (n(v) !== undefined ? [[k, n(v)!]] : [])) : [];
   const warranty = {
+    ...(pm.length ? { partMonths: Object.fromEntries(pm) } : {}),
     ...(partsMonths !== undefined ? { partsMonths } : {}),
     ...(laborMonths !== undefined ? { laborMonths } : {}),
     ...(laborDays !== undefined ? { laborDays } : {}),
@@ -325,7 +329,7 @@ export function parseBusiness(raw: string | null | object): Business {
   }
   if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
   const d = data as Record<string, unknown>;
-  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}) };
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}), ...(Array.isArray(d.customerTypes) && d.customerTypes.some((x) => typeof x === 'string' && x.trim()) ? { customerTypes: d.customerTypes.flatMap((x): string[] => (typeof x === 'string' && x.trim() ? [x.trim()] : [])) } : {}) };
 }
 
 /** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */
