@@ -14,7 +14,7 @@
  */
 import { OdooClient } from './odoo';
 import { emailPurchaseOrder } from './odooStock';
-import { JobUse } from './odooWarehouse';
+import type { JobUse } from './odooWarehouse';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const num = (v: unknown) => (typeof v === 'number' ? v : 0);
@@ -176,6 +176,33 @@ export interface PoRow {
   /** When the vendor is expected to deliver. */
   expected?: number;
   late: boolean;
+  /** Parts on the order, as "qty x name". */
+  items: { name: string; qty: number; priceCents: number }[];
+  /** Who made the order in Odoo. */
+  orderedBy: string;
+  /** What it is for in plain words: a job, a stock reorder, or Odoo's own source text. */
+  forWhat: string;
+  /** What happens next, in plain words. */
+  next: string;
+}
+
+/** The Source of an order as a short plain phrase. */
+export function forWhatText(origin: string, job = ''): string {
+  if (job) return `For job ${job}`;
+  const o = origin.trim();
+  if (!o) return '';
+  const j = /^Job\s+(.+)$/i.exec(o);
+  if (j) return `For job ${j[1]}`;
+  if (/^Johnsons app reorder/i.test(o)) return 'Stock reorder';
+  return `Source ${o}`;
+}
+
+/** The next step for an order, in plain words. */
+export function nextStepText(group: PoGroup, late: boolean, email = true): string {
+  if (group === 'draft') return email ? 'Next: look it over, then confirm and email it to the vendor' : 'Next: add an email to the vendor, then confirm it';
+  if (group === 'sent') return 'Next: waiting on the vendor to confirm';
+  if (group === 'receive') return late ? 'Next: call the vendor, it is past due. Receive it in Warehouse when it comes' : 'Next: receive it in Warehouse when it arrives';
+  return 'Done: received';
 }
 
 /** Odoo's state as the four groups a buyer thinks in. Cancelled orders have none. */
@@ -189,12 +216,20 @@ export function poGroup(state: string): PoGroup | null {
 
 /** Recent purchase orders (newest first), each in a group, with what is late (expected before now and still to receive). */
 export async function listPurchases(client: OdooClient, now = Date.now(), limit = 80): Promise<PoRow[]> {
-  const rows = (await client.call('purchase.order', 'search_read', [[['state', '!=', 'cancel']]], { fields: ['name', 'partner_id', 'state', 'amount_total', 'date_planned'], order: 'id desc', limit })) as Record<string, unknown>[];
+  const rows = (await client.call('purchase.order', 'search_read', [[['state', '!=', 'cancel']]], { fields: ['name', 'partner_id', 'state', 'amount_total', 'date_planned', 'origin', 'create_uid', 'order_line'], order: 'id desc', limit })) as Record<string, unknown>[];
+  const lineIds = rows.flatMap((r) => (Array.isArray(r.order_line) ? (r.order_line as number[]) : []));
+  const lineRows = lineIds.length ? ((await client.call('purchase.order.line', 'read', [lineIds], { fields: ['product_id', 'name', 'product_qty', 'price_unit'] }).catch(() => [])) as Record<string, unknown>[]) : [];
+  const lineById = new Map(lineRows.map((l) => [l.id as number, l]));
   return rows.flatMap((r) => {
     const group = poGroup(str(r.state));
     if (!group) return [];
     const expected = odooMs(r.date_planned);
-    return [{ id: r.id as number, name: str(r.name), vendor: m2o(r.partner_id)?.[1] ?? '', state: str(r.state), group, totalCents: cents(r.amount_total), ...(expected ? { expected } : {}), late: group === 'receive' && !!expected && expected < now }];
+    const late = group === 'receive' && !!expected && expected < now;
+    const items = ((r.order_line as number[] | undefined) ?? []).flatMap((id) => {
+      const l = lineById.get(id);
+      return l ? [{ name: m2o(l.product_id)?.[1] ?? str(l.name), qty: num(l.product_qty), priceCents: cents(l.price_unit) }] : [];
+    });
+    return [{ id: r.id as number, name: str(r.name), vendor: m2o(r.partner_id)?.[1] ?? '', state: str(r.state), group, totalCents: cents(r.amount_total), ...(expected ? { expected } : {}), late, items, orderedBy: m2o(r.create_uid)?.[1] ?? '', forWhat: forWhatText(str(r.origin)), next: nextStepText(group, late) }];
   });
 }
 
@@ -215,7 +250,7 @@ export interface PoDetail extends PoRow {
 }
 
 export async function readPurchase(client: OdooClient, id: number, now = Date.now()): Promise<PoDetail> {
-  const [r] = (await client.call('purchase.order', 'read', [[id]], { fields: ['name', 'partner_id', 'state', 'amount_total', 'date_planned', 'origin', 'order_line'] })) as Record<string, unknown>[];
+  const [r] = (await client.call('purchase.order', 'read', [[id]], { fields: ['name', 'partner_id', 'state', 'amount_total', 'date_planned', 'origin', 'create_uid', 'order_line'] })) as Record<string, unknown>[];
   if (!r) throw new Error('Odoo no longer has this purchase order.');
   const lines = ((r.order_line as number[] | undefined)?.length ? await client.call('purchase.order.line', 'read', [r.order_line as number[]], { fields: ['product_id', 'name', 'product_qty', 'qty_received', 'price_unit'] }) : []) as Record<string, unknown>[];
   const vendor = m2o(r.partner_id);
@@ -237,6 +272,10 @@ export async function readPurchase(client: OdooClient, id: number, now = Date.no
     totalCents: cents(r.amount_total),
     ...(expected ? { expected } : {}),
     late: group === 'receive' && !!expected && expected < now,
+    items: lines.map((l) => ({ name: m2o(l.product_id)?.[1] ?? str(l.name), qty: num(l.product_qty), priceCents: cents(l.price_unit) })),
+    orderedBy: m2o(r.create_uid)?.[1] ?? '',
+    forWhat: forWhatText(str(r.origin)),
+    next: nextStepText(group, group === 'receive' && !!expected && expected < now, !!email),
     origin: str(r.origin),
     lines: lines.map((l) => ({ id: l.id as number, productId: m2o(l.product_id)?.[0] ?? 0, name: m2o(l.product_id)?.[1] ?? str(l.name), qty: num(l.product_qty), received: num(l.qty_received), priceCents: cents(l.price_unit) })),
   };
@@ -567,4 +606,18 @@ export function suggestFromUse(uses: JobUse[], weeks: number, coverWeeks = 2): U
       return { productId, name, used, perWeek: Math.round(perWeek * 10) / 10, min, max: min * 2 };
     })
     .sort((a, b) => b.used - a.used);
+}
+
+/** What the purchase orders behind receipts are for, by order name (best effort: a failure just shows less). */
+export async function orderInfoByName(client: OdooClient, names: string[]): Promise<Map<string, { orderedBy: string; forWhat: string; totalCents: number }>> {
+  const out = new Map<string, { orderedBy: string; forWhat: string; totalCents: number }>();
+  const list = [...new Set(names.filter(Boolean))];
+  if (list.length === 0) return out;
+  try {
+    const rows = (await client.call('purchase.order', 'search_read', [[['name', 'in', list]]], { fields: ['name', 'origin', 'create_uid', 'amount_total'] })) as Record<string, unknown>[];
+    for (const r of rows) out.set(str(r.name), { orderedBy: m2o(r.create_uid)?.[1] ?? '', forWhat: forWhatText(str(r.origin)), totalCents: cents(r.amount_total) });
+  } catch {
+    // Receipts still show their own lines.
+  }
+  return out;
 }

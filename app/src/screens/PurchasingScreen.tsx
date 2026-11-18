@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
-import { Card, dateText, Message, Meta, money, Note, NumBox, Row, TextBox, Title, toCents, toNum, useRun } from '../components/Dept';
+import { Card, dateText, Message, Meta, money, PartsSummary, Note, NumBox, Row, TextBox, Title, toCents, toNum, useRun } from '../components/Dept';
 import { PricelistEditor } from '../components/PricelistEditor';
 import { ChipRow } from '../components/controls';
 import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
@@ -181,7 +181,10 @@ function Orders({ client }: { client: OdooClient }) {
       {mine.map((r) => (
         <Card key={r.id} warn={r.late} testID={`po-${r.id}`}>
           <Title>{`${r.name} · ${r.vendor}`}</Title>
+          <PartsSummary items={r.items.map((i) => ({ name: i.name, qty: i.qty, extra: `${money(i.priceCents)} each` }))} testID={`po-parts-${r.id}`} />
+          <Meta>{[r.forWhat, r.orderedBy ? `ordered by ${r.orderedBy}` : ''].filter(Boolean).join(' · ') || 'No job or reason on it'}</Meta>
           <Meta bad={r.late}>{`${money(r.totalCents)}${r.expected ? ` · expected ${dateText(r.expected)}` : ''}${r.late ? ' · late' : ''}`}</Meta>
+          <Meta>{r.next}</Meta>
           <Action label="Open" onPress={() => show(r.id)} testID={`po-open-${r.id}`} />
         </Card>
       ))}
@@ -219,6 +222,8 @@ function OrderDetail({ client, po, busy, msg, run, onBack, reload }: { client: O
     <View style={styles.stack} testID="po-detail">
       <Action label="‹ All orders" onPress={onBack} testID="po-back" />
       <Title>{`${po.name} · ${po.vendor}`}</Title>
+      <Meta>{[po.forWhat, po.orderedBy ? `ordered by ${po.orderedBy}` : ''].filter(Boolean).join(' · ')}</Meta>
+      <Meta>{po.next}</Meta>
       <Meta>{`${PO_GROUP_LABEL[po.group]}${po.expected ? ` · expected ${dateText(po.expected)}` : ''}${po.late ? ' · late' : ''}${po.email ? ` · ${po.email}` : ' · no email on the vendor'}`}</Meta>
       <Message msg={msg} testID="po-message" />
       {po.lines.map((l) => (

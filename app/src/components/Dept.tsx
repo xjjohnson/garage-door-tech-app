@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { colors, radius, touch, type } from '../theme';
 
@@ -56,6 +56,25 @@ export const Note = ({ children, testID }: { children: ReactNode; testID?: strin
   </Text>
 );
 
+/**
+ * The parts on an order in one short line ("2 x Spring, 1 x Cable, +3 more"),
+ * tap it to open the full list. Kept compact so a list of orders stays short.
+ */
+export function PartsSummary({ items, testID, children }: { items: { name: string; qty: number; extra?: string }[]; testID?: string; children?: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  if (items.length === 0) return <Meta>No parts on it yet</Meta>;
+  const short = items.slice(0, 2).map((i) => `${i.qty} × ${i.name}`).join(', ') + (items.length > 2 ? `, +${items.length - 2} more` : '');
+  return (
+    <View style={{ gap: 4 }}>
+      <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityLabel={open ? 'Hide the parts' : 'Show all the parts'} testID={testID}>
+        <Text style={styles.parts}>{open ? 'Parts (tap to close)' : `${short} ▾`}</Text>
+      </Pressable>
+      {open ? items.map((i, n) => <Meta key={n}>{`${i.qty} × ${i.name}${i.extra ? ` · ${i.extra}` : ''}`}</Meta>) : null}
+      {open ? children : null}
+    </View>
+  );
+}
+
 /** A typed number (whole or with a decimal point). */
 export function NumBox({ value, onChange, label, testID, width = 96 }: { value: string; onChange: (v: string) => void; label: string; testID?: string; width?: number }) {
   return (
@@ -100,6 +119,7 @@ const styles = StyleSheet.create({
   warn: { borderWidth: 3, borderColor: colors.caution },
   title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  parts: { fontSize: 16, fontWeight: '700', color: colors.text },
   note: { fontSize: 16, color: colors.text, lineHeight: 22 },
   input: { minHeight: touch.min - 8, borderRadius: radius.field, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   wide: { alignSelf: 'stretch' },

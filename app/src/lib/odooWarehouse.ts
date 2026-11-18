@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { rolePreview } from './devFlags';
 import { OdooClient } from './odoo';
 import { readProducts, setTruckQty, StockProduct } from './odooStock';
+import { orderInfoByName } from './odooPurchasing';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const num = (v: unknown) => (typeof v === 'number' ? v : 0);
@@ -349,6 +350,10 @@ export interface OpenReceipt {
   scheduled?: number;
   late: boolean;
   lines: ReceiptLine[];
+  /** From the purchase order behind it, when Odoo lets the phone read it. */
+  orderedBy?: string;
+  forWhat?: string;
+  totalCents?: number;
 }
 
 /** Receipts still waiting to come in (from confirmed purchase orders), oldest first. */
@@ -356,8 +361,10 @@ export async function openReceipts(client: OdooClient, now = Date.now()): Promis
   const picks = (await client.call('stock.picking', 'search_read', [[['picking_type_code', '=', 'incoming'], ['state', 'in', ['assigned', 'confirmed', 'waiting']]]], { fields: ['name', 'partner_id', 'origin', 'scheduled_date'], order: 'scheduled_date asc', limit: 100 })) as Record<string, unknown>[];
   if (picks.length === 0) return [];
   const moves = (await client.call('stock.move', 'search_read', [[['picking_id', 'in', picks.map((p) => p.id)]]], { fields: ['picking_id', 'product_id', 'product_uom_qty'] })) as Record<string, unknown>[];
+  const info = await orderInfoByName(client, picks.map((p) => str(p.origin)));
   return picks.map((p) => {
     const at = odooMs(p.scheduled_date);
+    const po = info.get(str(p.origin));
     return {
       pickingId: p.id as number,
       name: str(p.name),
@@ -365,6 +372,7 @@ export async function openReceipts(client: OdooClient, now = Date.now()): Promis
       origin: str(p.origin),
       ...(at ? { scheduled: at } : {}),
       late: !!at && at < now,
+      ...(po ? { orderedBy: po.orderedBy, forWhat: po.forWhat, totalCents: po.totalCents } : {}),
       lines: moves
         .filter((m) => m2o(m.picking_id)?.[0] === p.id)
         .map((m) => ({ moveId: m.id as number, productId: m2o(m.product_id)?.[0] ?? 0, name: m2o(m.product_id)?.[1] ?? '', ordered: num(m.product_uom_qty) })),

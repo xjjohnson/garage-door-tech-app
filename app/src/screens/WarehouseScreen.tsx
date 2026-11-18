@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { Action } from '../components/Buttons';
-import { Card, dateText, Message, Meta, Note, NumBox, Row, TextBox, Title, toNum, useRun } from '../components/Dept';
+import { Card, dateText, Message, Meta, Note, NumBox, PartsSummary, Row, TextBox, Title, toNum, useRun } from '../components/Dept';
 import { ChipRow } from '../components/controls';
 import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
 import { useBadges } from '../lib/useBadges';
@@ -379,6 +379,9 @@ function Receive({ client }: { client: OdooClient }) {
         <Card key={r.pickingId} warn={r.late} testID={`receipt-${r.pickingId}`}>
           <Title>{`${r.name}${r.vendor ? ` · ${r.vendor}` : ''}`}</Title>
           <Meta bad={r.late}>{`${r.origin || 'No order'} · expected ${dateText(r.scheduled)}${r.late ? ' · late' : ''}`}</Meta>
+          {open !== r.pickingId ? <PartsSummary items={r.lines.map((l) => ({ name: l.name, qty: l.ordered }))} testID={`receipt-parts-${r.pickingId}`} /> : null}
+          <Meta>{[r.forWhat, r.orderedBy ? `ordered by ${r.orderedBy}` : '', r.totalCents ? `$${(r.totalCents / 100).toFixed(2)}` : ''].filter(Boolean).join(' · ') || 'No job or reason on the order'}</Meta>
+          <Meta>{r.late ? 'Next: count what came in and receive it. It is past due, so check with the vendor if nothing came' : 'Next: count what came in and receive it'}</Meta>
           {open === r.pickingId ? (
             <View style={styles.stack}>
               {r.lines.map((l) => (
