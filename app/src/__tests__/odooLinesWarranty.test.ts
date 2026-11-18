@@ -15,7 +15,7 @@ describe('Odoo lines keep the parts for warranty', () => {
     } as unknown as Invoice;
     const out = withOdoo(inv, { name: '26-11-04', lines: [{ label: '3rd Party Op Install', cents: 30000, qty: 1 }, { label: 'CAP2D', cents: 207870, qty: 1 }] } as never);
     const lines = partWarranties(out, { warrantyMonths: { good: 0, better: 0, best: 0 } } as never, trackKey);
-    expect(lines.map((l) => l.label)).toEqual(['CAP2D']);
-    expect(lines[0]!.key).toBe('9:CAP2D');
+    expect(lines.map((l) => [l.label, l.part])).toEqual([['3rd Party Op Install', false], ['CAP2D', true]]);
+    expect(lines[1]!.key).toBe('9:CAP2D');
   });
 });

@@ -55,7 +55,7 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
       {lines.length > 0 ? (
         <View style={styles.track} testID="coverage-lines">
           <Text style={styles.label}>What is covered</Text>
-          <Text style={styles.hint}>Every part sold is listed. Tap a part to turn its warranty on or off, or pick a different length for it.</Text>
+          <Text style={styles.hint}>Every line sold is listed, marked Part or Labor. Tap a line to turn its warranty on or off, or pick a different length for it.</Text>
           {lines.map((l, i) => {
             const on = l.months > 0;
             const own = invoice.warranty?.partMonths?.[l.key] !== undefined;
@@ -63,10 +63,15 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
             return (
               <View key={`${key}-${i}`} style={styles.lineBox}>
                 <Pressable onPress={() => (on ? setPart(key, 0) : own ? clearPart(key) : setPart(key, parts > 0 ? parts : 12))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} testID={`cover-${i}`} style={[styles.line, on && styles.lineOn]}>
-                  <Text style={[styles.lineText, on && styles.lineTextOn]} numberOfLines={2}>
-                    {on ? '✓ ' : ''}
-                    {l.label}
-                  </Text>
+                  <View style={styles.lineName}>
+                    <View style={[styles.badge, l.part ? styles.badgePart : styles.badgeLabor]} testID={`cover-kind-${i}`}>
+                      <Text style={[styles.badgeText, l.part ? styles.badgePartText : styles.badgeLaborText]}>{l.part ? 'Part' : 'Labor'}</Text>
+                    </View>
+                    <Text style={[styles.lineText, on && styles.lineTextOn]} numberOfLines={2}>
+                      {on ? '✓ ' : ''}
+                      {l.label}
+                    </Text>
+                  </View>
                   <Text style={[styles.lineText, on && styles.lineTextOn]}>{on ? yearsLabel(l.months) : 'Not covered'}</Text>
                 </Pressable>
                 {on ? <ChipRow options={[same, ...MONTHS.filter((m) => m > 0).map((m) => ({ label: yearsLabel(m), value: m }))]} value={own ? l.months : -1} onChange={(m) => (m < 0 ? clearPart(key) : setPart(key, m))} scroll testID={`cover-length-${i}`} /> : null}
@@ -94,6 +99,13 @@ const styles = StyleSheet.create({
   trackRow: { minHeight: 36, justifyContent: 'center' },
   line: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
   lineOn: { backgroundColor: colors.selected, borderColor: colors.selected },
+  lineName: { flex: 1, flexShrink: 1, gap: 4, alignItems: 'flex-start' },
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  badgePart: { backgroundColor: colors.info },
+  badgeLabor: { backgroundColor: colors.warnBg },
+  badgeText: { fontSize: 13, fontWeight: '800' },
+  badgePartText: { color: colors.selected },
+  badgeLaborText: { color: colors.warn },
   lineText: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: colors.text },
   lineTextOn: { color: colors.onSelected },
 });

@@ -54,31 +54,35 @@ export function jobPartsMonths(inv: Invoice, s: FollowUpSettings): number {
   return inv.warranty?.partsMonths ?? (inv.source === 'ticket' ? 0 : s.warrantyMonths[inv.tier]);
 }
 
-/** The part lines sold (priced, with tax), each with its own months of warranty: its own pick, else the job's. */
-export function partWarranties(inv: Invoice, s: FollowUpSettings, keyOf: (l: Invoice['lines'][number]) => string): { key: string; label: string; months: number; until: number | null }[] {
+/**
+ * Every priced line sold, each with its own months of warranty: its own pick, else the job's
+ * for a part (a taxable line) and none for labor. `part` says which kind it is, for the badge.
+ */
+export function partWarranties(inv: Invoice, s: FollowUpSettings, keyOf: (l: Invoice['lines'][number]) => string): { key: string; label: string; part: boolean; months: number; until: number | null }[] {
   const job = jobPartsMonths(inv, s);
   return inv.lines
-    .filter((l) => !l.display && l.cents > 0 && l.taxable)
+    .filter((l) => !l.display && l.cents > 0)
     .map((l) => {
       const key = keyOf(l);
-      const months = inv.warranty?.partMonths?.[key] ?? job;
-      return { key, label: l.label, months, until: months > 0 ? addMonths(inv.createdAt, months) : null };
+      const months = inv.warranty?.partMonths?.[key] ?? (l.taxable ? job : 0);
+      return { key, label: l.label, part: l.taxable, months, until: months > 0 ? addMonths(inv.createdAt, months) : null };
     });
 }
 
 /**
  * The warranty in a sentence for the invoice and its PDF. Parts read as
- * "parts" (not "springs", which an invoice may not have); when some parts
- * have their own length, each is named.
+ * "parts" (not "springs", which an invoice may not have); when the covered
+ * lines don't all share one length, or some part isn't covered, each is named.
  */
 export function warrantyText(inv: Invoice, s: FollowUpSettings, keyOf: (l: Invoice['lines'][number]) => string, fmt: (t: number) => string): string {
   const w = warrantyFor(inv, s);
   const lines = partWarranties(inv, s, keyOf);
-  const custom = lines.length > 0 && lines.some((l) => l.months !== lines[0]!.months);
+  const covered = lines.filter((l) => l.until);
+  const custom = covered.length > 0 && (covered.some((l) => l.months !== covered[0]!.months) || lines.some((l) => l.part && !l.until));
   const parts = custom
-    ? lines.filter((l) => l.until).map((l) => `${l.label} until ${fmt(l.until!)}`).join(', ')
-    : lines.length > 0 && lines[0]!.until
-      ? `${lines.some((l) => /spring/i.test(l.label)) ? 'springs' : 'parts'} until ${fmt(lines[0]!.until)}`
+    ? covered.map((l) => `${l.label} until ${fmt(l.until!)}`).join(', ')
+    : covered.length > 0
+      ? `${covered.some((l) => /spring/i.test(l.label)) ? 'springs' : 'parts'} until ${fmt(covered[0]!.until!)}`
       : w.partsUntil && lines.length === 0
         ? `parts until ${fmt(w.partsUntil)}`
         : '';
