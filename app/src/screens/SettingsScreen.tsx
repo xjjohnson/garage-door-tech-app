@@ -10,6 +10,7 @@ import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
 import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
 import { useInvoices } from '../lib/useInvoices';
+import { useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, scheme, touch, type } from '../theme';
 
@@ -36,6 +37,7 @@ const CHECK_NOTE: Record<OtaCheck, string> = {
 export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAsync(), buildInfo = BUILD_INFO, channel = UPDATE_CHANNEL }: Props) {
   const { business } = useInvoices();
   const odoo = useOdoo();
+  const { owner } = useOwner();
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<OtaCheck | null>(null);
   const [restartFailed, setRestartFailed] = useState(false);
@@ -91,6 +93,8 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         />
       </RowGroup>
 
+      {owner ? (
+        <>
       <Caption>Setup (owner)</Caption>
       <RowGroup>
         <IconRow icon="gear" label="Management" detail="Owner: job types, quote templates, parts, prices and checklists, saved to Odoo" href="/management" testID="settings-management" />
@@ -103,6 +107,8 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
           last
         />
       </RowGroup>
+        </>
+      ) : null}
 
       <Caption>Appearance</Caption>
       <Segmented<ThemePref>

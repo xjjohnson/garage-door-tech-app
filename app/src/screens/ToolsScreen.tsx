@@ -9,7 +9,7 @@ import { followUps } from '../lib/followups';
 import { isLow } from '../lib/stock';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
-import { useDepartments } from '../lib/useDepartments';
+import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useStock } from '../lib/useStock';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, openShift, shiftMs } from '../lib/worklog';
@@ -26,9 +26,10 @@ export function ToolsScreen() {
   const { items } = useStock();
   const low = items.filter(isLow).length;
   const { access } = useDepartments();
+  const { owner } = useOwner();
   return (
     <View style={styles.stack} testID="tools">
-      <StatsCard />
+      {owner ? <StatsCard /> : null}
       {low > 0 ? <AlertBanner testID="stock-alert" title={`Truck stock: ${low} low`} detail="Check what to reorder" action="Review" onPress={() => router.push('/stock')} /> : null}
       <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />
 
@@ -50,9 +51,9 @@ export function ToolsScreen() {
 
       <Caption>Business</Caption>
       <RowGroup>
-        <IconRow icon="tag" label="Price book" detail="Parts and labor prices" href="/price-book" testID="tools-price-book" />
-        <IconRow icon="chart" label="Business numbers" detail="Sales, close rate, average ticket" href="/stats" testID="tools-stats" />
-        <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last />
+        <IconRow icon="tag" label="Price book" detail="Parts and labor prices" href="/price-book" testID="tools-price-book" last={!owner} />
+        {owner ? <IconRow icon="chart" label="Business numbers" detail="Sales, close rate, average ticket" tag="Owner only" href="/stats" testID="tools-stats" /> : null}
+        {owner ? <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last /> : null}
       </RowGroup>
 
       {access.warehouse || access.purchasing ? (

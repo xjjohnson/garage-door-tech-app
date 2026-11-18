@@ -12,6 +12,7 @@
  * Kept free of React; the client is passed in, so tests use a fake server.
  */
 import { rolePreview } from './devFlags';
+import { OWNER_GROUPS } from './scorecard';
 import { OdooClient } from './odoo';
 import { readProducts, setTruckQty, StockProduct } from './odooStock';
 
@@ -28,7 +29,6 @@ export const ROLE_GROUPS: Record<Role, string[]> = {
   // Cost and pricelists change what the business earns: a purchase manager who is also a sales manager.
   pricing: ['purchase.group_purchase_manager'],
 };
-const OWNER_GROUPS = ['base.group_system', 'fieldservice.group_fsm_manager'];
 
 export interface Access {
   warehouse: boolean;
@@ -59,7 +59,7 @@ export async function departmentAccess(client: OdooClient): Promise<Access> {
     for (const g of groups) if (await inGroup(client, g)) return true;
     return false;
   };
-  const owner = await held(OWNER_GROUPS);
+  const owner = (await held(OWNER_GROUPS)) || (typeof client.inAnyGroup === 'function' && (await client.inAnyGroup(OWNER_GROUPS)));
   if (owner) return { warehouse: true, purchasing: true, pricing: true, owner: true };
   const [warehouse, purchasing, buyManager, salesManager] = await Promise.all([held(ROLE_GROUPS.warehouse), held(ROLE_GROUPS.purchasing), held(ROLE_GROUPS.pricing), inGroup(client, 'sales_team.group_sale_manager')]);
   return { warehouse, purchasing: purchasing || buyManager, pricing: buyManager && salesManager, owner: false };
