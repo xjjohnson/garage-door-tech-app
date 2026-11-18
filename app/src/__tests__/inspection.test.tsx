@@ -242,11 +242,8 @@ describe('inspection in the app', () => {
     expect(html).toContain('data:image/jpeg;base64,AAAA');
     expect(name).toMatch(/^Inspection/);
 
-    const base = buildQuote(MATCH, SHEET).options[0];
     await fireEvent.press(screen.getByTestId('inspection-quote'));
     expect(app.getPathname()).toBe('/quote/j1');
-    expect(screen.getByTestId('quote-good')).toHaveTextContent(/Cables: repair/);
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent(`$${((base.total + 4950) / 100).toFixed(2)}`);
   });
 
   it('adds a second door and a gate', async () => {

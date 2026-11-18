@@ -248,69 +248,39 @@ describe('quote screen', () => {
   });
 });
 
-describe('repair-only quote', () => {
+describe('Templates screen without the old quote area', () => {
   const job = createJob({ mode: 'match', form: DEFAULT_MATCH_FORM }, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: '' }, 1000, 'j1');
 
   beforeEach(async () => {
     resetQuoteTemplates();
     await AsyncStorage.clear();
-    await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify({ ...SHEET, serviceCall: '89' }));
-    await AsyncStorage.setItem('price-book/v1', JSON.stringify({ items: [{ id: 77, name: 'Cable', code: '', cents: 3500, kind: 'material', category: [], description: '' }], frequent: [], fetchedAt: Date.now() }));
+    await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify(SHEET));
+    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Opener' }]));
   });
 
-  it('quotes the service call and inspection repairs when there are no spring measurements', async () => {
-    const insp: Inspection = { ...EMPTY_INSPECTION(1000), repairs: [{ id: 'r1', label: 'Top fixture', price: '60', taxable: false }] };
-    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Tune-up', inspection: insp }]));
+  it('has no price book lines, picked-option card or send buttons, and never lists spring measurements', async () => {
+    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true } }));
     await renderApp('/quote/j1');
     await settle();
-    expect(screen.queryByTestId('quote-blocked')).toBeNull();
-    expect(screen.getByTestId('quote-good')).toHaveTextContent(/Repairs/);
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$149');
-    expect(screen.queryByTestId('quote-better')).toBeNull();
-    await fireEvent.press(screen.getByTestId('quote-accept-good'));
-    expect(screen.getByTestId('quote-accepted-note')).toHaveTextContent(/Customer picked Repairs/);
-    expect(screen.getByTestId('quote-make-invoice')).toHaveTextContent('Make invoice for $149');
+    for (const id of ['quote-blocked', 'quote-line-add', 'quote-line-custom', 'quote-good', 'quote-pdf', 'quote-share', 'quote-accept-good']) expect(screen.queryByTestId(id)).toBeNull();
+    expect(screen.queryByText(/coils|Spring length|Customer picked/)).toBeNull();
+    expect(screen.getByTestId('quote-template-template: opener · good')).toBeTruthy();
   });
 
-  it('still says what is missing on a spring job, and can be quoted by hand', async () => {
-    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
+  it('shows each picked template as its own card, with the total only when they go on one estimate', async () => {
+    await AsyncStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify({ 'template: opener · good': { type: 'Opener · Good', tiers: { good: SETS.opener.tiers.good }, plain: true }, 'template: opener · best': { type: 'Opener · Best', tiers: { good: SETS.opener.tiers.best }, plain: true } }));
     await renderApp('/quote/j1');
     await settle();
-    expect(screen.getByTestId('quote-blocked')).toHaveTextContent(/Missing.*add a line below/);
-    expect(screen.queryByTestId('quote-line-name-x')).toBeNull();
-    await fireEvent.press(screen.getByTestId('quote-line-add'));
-    await settle();
-    await fireEvent.press(screen.getByTestId('pb-pick-77'));
-    await settle();
-    const [line] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines!;
-    expect(line).toMatchObject({ label: 'Cable', price: '35', taxable: true, productId: 77 });
-    expect(screen.queryByTestId('quote-blocked')).toBeNull();
-    expect(screen.getByTestId('quote-repairs-only')).toBeTruthy();
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$127.50');
-  });
-
-  it('still lets a custom line be typed, as the second choice', async () => {
-    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
-    await renderApp('/quote/j1');
-    await settle();
-    await fireEvent.press(screen.getByTestId('quote-line-custom'));
-    const [line] = parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines!;
-    await fireEvent.changeText(screen.getByTestId(`quote-line-name-${line.id}`), 'Cable replacement');
-    await settle();
-    expect(screen.queryByTestId('quote-blocked')).toBeNull();
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
-  });
-
-  it('never lists spring measurements for an opener with no templates', async () => {
-    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, what: 'Opener', quoteLines: [{ id: 'q1', label: 'Opener install', price: '150', taxable: false }] }]));
-    await renderApp('/quote/j1');
-    await settle();
-    expect(screen.queryByTestId('quote-blocked')).toBeNull();
-    expect(screen.queryByText(/coils|Spring length/)).toBeNull();
-    expect(screen.getByTestId('quote-good')).toHaveTextContent(/Opener install/);
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$239');
-    await fireEvent.press(screen.getByTestId('quote-line-remove-q1'));
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$89');
-    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteLines).toBeUndefined();
+    await fireEvent.press(screen.getByTestId('quote-template-template: opener · good'));
+    expect(screen.queryByTestId('quote-selected-total')).toBeNull();
+    await fireEvent.press(screen.getByTestId('quote-template-template: opener · best'));
+    expect(screen.getByTestId('quote-selected-template: opener · good')).toBeTruthy();
+    expect(screen.getByTestId('quote-selected-template: opener · best')).toBeTruthy();
+    expect(screen.getByTestId('quote-selected-total')).toBeTruthy();
+    await fireEvent.press(within(screen.getByTestId('quote-template-mode')).getByText('Separate estimates'));
+    expect(screen.queryByTestId('quote-selected-total')).toBeNull();
+    expect(screen.getByTestId('quote-template-add')).toHaveTextContent('Add 2 separate estimates');
+    await fireEvent.press(screen.getByTestId('quote-selected-remove-template: opener · best'));
+    expect(screen.queryByTestId('quote-selected-template: opener · best')).toBeNull();
   });
 });

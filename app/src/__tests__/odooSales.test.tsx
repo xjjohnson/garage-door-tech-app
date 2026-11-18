@@ -3,7 +3,7 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { CUSTOMERS_STORAGE_KEY, parseCustomers } from '../lib/customers';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
-import { INVOICES_STORAGE_KEY, PAY_LABEL, parseInvoices } from '../lib/invoices';
+import { createInvoice, INVOICES_STORAGE_KEY, PAY_LABEL, parseInvoices } from '../lib/invoices';
 import { createJob, JOBS_STORAGE_KEY, parseJobs } from '../lib/jobs';
 import { Fetch, OdooClient } from '../lib/odoo';
 import { InvoiceGone, lineValues, readInvoice, sendInvoice, sendOrder, sendPayments, SERVICE_PRODUCT_CODE, voidInvoice, voidNote } from '../lib/odooSales';
@@ -274,83 +274,5 @@ describe('an invoice deleted in Odoo', () => {
     });
     await settle(30);
     expect(o.calls.filter((x) => x.model === 'account.move' && x.method === 'read')).toHaveLength(reads);
-  });
-});
-
-describe('quote and invoice screens with Odoo', () => {
-  const settle = async (n = 10) => {
-    for (let k = 0; k < n; k++) await act(async () => undefined);
-  };
-  afterEach(() => jest.restoreAllMocks());
-
-  it('sends the picked option as a sales order and the invoice with its payment', async () => {
-    const job = createJob(MATCH, { customer: 'Pat Smith', address: '12 Oak St', phone: '555-123-4567', notes: '' }, { title: '.225 × 2" × 24"' }, 1000, 'j1');
-    const good = buildQuote(MATCH, SHEET).options[0];
-    await AsyncStorage.clear();
-    await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify(SHEET));
-    await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, customerId: 'c1', accepted: { tier: 'good', total: good.total, at: 2000 } }]));
-    await AsyncStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify([{ id: 'c1', name: 'Pat Smith', phone: '555-123-4567', email: '', address: '12 Oak St', notes: '', createdAt: 1, updatedAt: 1 }]));
-    const o = fakeOdoo();
-    jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
-    await renderApp('/team');
-    await settle();
-    await fireEvent.changeText(screen.getByTestId('team-url'), login.url);
-    await fireEvent.changeText(screen.getByTestId('team-db'), login.db);
-    await fireEvent.changeText(screen.getByTestId('team-login'), login.login);
-    await fireEvent.changeText(screen.getByTestId('team-secret'), 'k');
-    await fireEvent.press(screen.getByTestId('team-signin-go'));
-    await settle();
-
-    await act(async () => router.push('/quote/j1'));
-    await settle();
-    await fireEvent.press(screen.getByTestId('quote-odoo-send'));
-    await settle();
-    expect(screen.getByTestId('quote-odoo-order')).toHaveTextContent('In Odoo as sales order S00012.');
-    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].odooOrder).toEqual({ id: 700, name: 'S00012' });
-    // The customer is now an Odoo contact too.
-    expect(parseCustomers(await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY))[0].odooId).toBe(300);
-
-    // The customer signs the quote: the signature goes on the sales order's own fields in Odoo.
-    await fireEvent.press(screen.getByTestId('quote-sign'));
-    const pad = screen.getByTestId('signature-pad');
-    await fireEvent(pad, 'layout', { nativeEvent: { layout: { width: 300, height: 200 } } });
-    let tick = 0;
-    const touch = (x: number, y: number) => ({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, touches: [], changedTouches: [], identifier: 1, timestamp: Date.now() }, touchHistory: { touchBank: [{ touchActive: true, startPageX: x, startPageY: y, startTimeStamp: 0, currentPageX: x, currentPageY: y, currentTimeStamp: ++tick, previousPageX: x, previousPageY: y, previousTimeStamp: tick - 1 }], numberActiveTouches: 1, indexOfSingleActiveTouch: 0, mostRecentTimeStamp: tick } });
-    await fireEvent(pad, 'responderGrant', touch(10, 10));
-    await fireEvent(pad, 'responderMove', touch(50, 40));
-    await fireEvent(pad, 'responderRelease', touch(50, 40));
-    await fireEvent.press(screen.getByTestId('signature-save'));
-    await settle();
-    const signed = o.calls.find((x) => x.model === 'sale.order' && x.method === 'write')!;
-    expect(signed.args[0]).toEqual([700]);
-    expect(signed.args[1]).toMatchObject({ signed_by: 'Pat Smith', signed_on: expect.stringMatching(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/), signature: expect.stringMatching(/^iVBORw0KGgo/) });
-    expect(screen.getByTestId('quote-odoo-order')).toHaveTextContent('In Odoo as sales order S00012. Signature saved on it.');
-    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].quoteSignatureSent).toBeTruthy();
-    expect(o.calls.filter((x) => x.model === 'sale.order' && x.method === 'write')).toHaveLength(1);
-
-    await fireEvent.press(screen.getByTestId('quote-make-invoice'));
-    await settle();
-    await fireEvent.press(screen.getByTestId('invoice-odoo-send'));
-    await settle();
-    expect(screen.getByTestId('invoice-odoo-state')).toHaveTextContent('In Odoo as INV/2026/00007: Not paid, $359 owed. Odoo total $359.');
-    const saved = parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY))[0];
-    expect(saved.odoo).toMatchObject({ id: 900, residual: 35900 });
-    // Sent once only: a second tap syncs instead of making another invoice.
-    await fireEvent.press(screen.getByTestId('invoice-odoo-send'));
-    await settle();
-    expect(o.calls.filter((x) => x.model === 'account.move' && x.method === 'create')).toHaveLength(1);
-
-    // Voided on the phone: Odoo gets a credit note, and the invoice can't be restored after that.
-    await fireEvent.press(screen.getByTestId('invoice-void'));
-    expect(screen.getByTestId('invoice-void')).toHaveTextContent('Tap again to void here and in Odoo');
-    await fireEvent.press(screen.getByTestId('invoice-void'));
-    await settle();
-    expect(screen.getByTestId('invoice-odoo-send')).toHaveTextContent('Void it in Odoo now');
-    await fireEvent.press(screen.getByTestId('invoice-odoo-send'));
-    await settle();
-    expect(screen.getByTestId('invoice-odoo-void')).toHaveTextContent('Voided: credit note RINV/2026/00001 reverses it in Odoo.');
-    expect(parseInvoices(await AsyncStorage.getItem(INVOICES_STORAGE_KEY))[0].odoo?.voided).toBe('RINV/2026/00001');
-    expect(screen.queryByTestId('invoice-unvoid')).toBeNull();
-    expect(screen.queryByTestId('invoice-odoo-send')).toBeNull();
   });
 });
