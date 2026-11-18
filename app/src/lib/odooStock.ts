@@ -15,7 +15,7 @@
  */
 import { OdooClient, OdooError } from './odoo';
 import { variantOf } from './priceBook';
-import { DEFAULT_TRUCK, guessCategory, holdBack, STARTER_ITEMS, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
+import { DEFAULT_TRUCK, holdBack, OTHER_CATEGORY, STARTER_ITEMS, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
 
 /** A product as truck stock needs it. */
 export interface StockProduct {
@@ -529,6 +529,8 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       onHand: Math.max(0, l.qty - (hold.get(i.id) ?? 0)),
       syncedOnHand: l.qty,
       ...(l.code ? { sku: l.code } : {}),
+      // The category is Odoo's.
+      ...(l.category ? { category: l.category } : {}),
       ...(l.barcode ? { barcode: l.barcode } : {}),
       ...(l.costCents > 0 ? { costCents: l.costCents } : l.vendor && l.vendor.priceCents > 0 ? { costCents: l.vendor.priceCents } : {}),
       ...(l.min !== undefined && l.max !== undefined && !heldRule.has(i.id) ? { min: Math.round(l.min), par: Math.round(l.max) } : {}),
@@ -553,7 +555,7 @@ export async function syncTruck(client: OdooClient, given: StockStore, now: numb
       id: newId(),
       name: l.name,
       sku: l.code,
-      category: guessCategory(l.name),
+      category: l.category ?? OTHER_CATEGORY,
       onHand: l.qty,
       syncedOnHand: l.qty,
       min: l.min !== undefined ? Math.round(l.min) : 1,
@@ -637,6 +639,45 @@ export async function purchaseStates(client: OdooClient, ids: number[]): Promise
   return out;
 }
 
+/** Ties a purchase order to a Field Service order (the Field Service Purchase field), when this Odoo has one. */
+export async function linkPurchaseToJob(client: OdooClient, purchaseId: number, fsmOrderId: number): Promise<void> {
+  try {
+    const f = (await client.call('purchase.order', 'fields_get', [['fsm_order_id']], { attributes: ['type'] })) as Record<string, unknown>;
+    if (f.fsm_order_id) await client.call('purchase.order', 'write', [[purchaseId], { fsm_order_id: fsmOrderId }]);
+  } catch {
+    // The order still names the job in its Source.
+  }
+}
+
+/** A purchase order's total in cents, 0 when Odoo has no price on it yet. */
+export async function purchaseTotalCents(client: OdooClient, purchaseId: number): Promise<number> {
+  const [row] = (await client.call('purchase.order', 'read', [[purchaseId]], { fields: ['amount_total'] })) as { amount_total?: number }[];
+  return Math.round((typeof row?.amount_total === 'number' ? row.amount_total : 0) * 100);
+}
+
+export interface JobOrderStatus {
+  /** Odoo's state: 'draft', 'sent', 'to approve', 'purchase', 'done'. */
+  state: string;
+  /** Every receipt of this order is done: the warehouse has it. */
+  received: boolean;
+  /** Where the received parts are now (the receipts' destination), to move them to the truck. */
+  placeId?: number;
+}
+
+/** Where a job's part order stands: with the buyer, on its way, or received by the warehouse. Undefined when Odoo no longer has it. */
+export async function jobOrderStatus(client: OdooClient, purchaseId: number): Promise<JobOrderStatus | undefined> {
+  const rows = (await client.call('purchase.order', 'search_read', [[['id', '=', purchaseId]]], { fields: ['state', 'picking_ids'] })) as { state?: string; picking_ids?: number[] }[];
+  const row = rows[0];
+  if (!row?.state) return undefined;
+  const ids = row.picking_ids ?? [];
+  if (ids.length === 0) return { state: row.state, received: false };
+  const picks = (await client.call('stock.picking', 'read', [ids], { fields: ['state', 'location_dest_id'] })) as { state?: string; location_dest_id?: unknown }[];
+  const live = picks.filter((p) => p.state !== 'cancel');
+  const received = live.length > 0 && live.every((p) => p.state === 'done');
+  const dest = live.map((p) => (Array.isArray(p.location_dest_id) ? (p.location_dest_id[0] as number) : undefined)).find((d) => d !== undefined);
+  return { state: row.state, received, ...(dest ? { placeId: dest } : {}) };
+}
+
 export interface SentPurchase {
   odooId: number;
   name: string;
@@ -710,4 +751,15 @@ export async function receivePurchaseOrder(client: OdooClient, purchaseId: numbe
 export async function postPartsUsed(client: OdooClient, ref: { model: string; id: number }, uses: { name: string; qty: number }[]): Promise<void> {
   const body = `Parts used from the truck (from the app): ${uses.map((u) => `${u.qty} × ${u.name}`).join(', ')}`;
   await client.call(ref.model, 'message_post', [[ref.id]], { body, message_type: 'comment', subtype_xmlid: 'mail.mt_note' });
+}
+
+/** The product categories in Odoo (last part of each name, "All" left out), for sorting parts. Empty when they can't be read. */
+export async function readCategories(client: OdooClient): Promise<string[]> {
+  try {
+    const rows = (await client.call('product.category', 'search_read', [[]], { fields: ['complete_name'], order: 'complete_name asc', limit: 200 })) as { complete_name?: unknown }[];
+    const names = rows.map((r) => str(r.complete_name).split('/').pop()!.trim()).filter((n) => n && n.toLowerCase() !== 'all');
+    return [...new Set(names)];
+  } catch {
+    return [];
+  }
 }

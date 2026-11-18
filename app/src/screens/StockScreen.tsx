@@ -6,11 +6,11 @@ import { BarcodeScanner } from '../components/BarcodeScanner';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
 import { ProductPicker } from '../components/ProductPicker';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
-import { browseProducts, ensureTracked, findProductByCode, listTrucks, NoTruckError, StockProduct, SyncResult, UntrackedError } from '../lib/odooStock';
+import { browseProducts, ensureTracked, findProductByCode, listTrucks, NoTruckError, readCategories, StockProduct, SyncResult, UntrackedError } from '../lib/odooStock';
 import { pickList } from '../lib/pickList';
 import { cents, formatMoney } from '../lib/prices';
 import { startOfDay } from '../lib/schedule';
-import { CATEGORY_LABEL, findByCode, findSupplier, guessCategory, isLow, onOrder, openPurchases, orderLinks, orders, orderText, STOCK_CATEGORIES, StockItem, SupplierOrder, supplierNames, TruckLink, unsyncedItems, usedTotals } from '../lib/stock';
+import { categoriesOf, categoryName, findByCode, findSupplier, isLow, OTHER_CATEGORY, onOrder, openPurchases, orderLinks, orders, orderText, StockItem, SupplierOrder, supplierNames, TruckLink, unsyncedItems, usedTotals } from '../lib/stock';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
@@ -32,7 +32,7 @@ export function StockButton() {
   );
 }
 
-const blank = (): NewStockItem => ({ name: '', sku: '', category: 'parts', onHand: 0, min: 1, par: 2, supplier: '', costCents: 0 });
+const blank = (): NewStockItem => ({ name: '', sku: '', category: OTHER_CATEGORY, onHand: 0, min: 1, par: 2, supplier: '', costCents: 0 });
 
 const ago = (ms: number, now: number) => {
   const m = Math.round((now - ms) / 60_000);
@@ -172,7 +172,7 @@ export function StockScreen() {
         setEditing({ item: { ...blank(), barcode: code } });
         return `No Odoo product has the code ${code}. Add it here, and set the barcode on the product in Odoo too.`;
       }
-      setEditing({ item: { ...blank(), name: p.name, sku: p.code, barcode: p.barcode || code, odooId: p.id, category: guessCategory(p.name), supplier: p.vendor?.name ?? '', costCents: p.costCents || p.vendor?.priceCents || 0 } });
+      setEditing({ item: { ...blank(), name: p.name, sku: p.code, barcode: p.barcode || code, odooId: p.id, category: p.category ?? OTHER_CATEGORY, supplier: p.vendor?.name ?? '', costCents: p.costCents || p.vendor?.priceCents || 0 } });
       return `Found ${p.name} in Odoo.`;
     });
   };
@@ -336,12 +336,12 @@ export function StockScreen() {
         );
       })}
 
-      {STOCK_CATEGORIES.map((cat) => {
-        const list = items.filter((i) => i.category === cat).sort((a, b) => a.name.localeCompare(b.name));
+      {categoriesOf(items).map((cat) => {
+        const list = items.filter((i) => categoryName(i.category) === cat).sort((a, b) => a.name.localeCompare(b.name));
         if (list.length === 0) return null;
         return (
           <View key={cat} style={styles.stack}>
-            <SectionTitle>{CATEGORY_LABEL[cat]}</SectionTitle>
+            <SectionTitle>{cat}</SectionTitle>
             {list.map((i) => (
               <Row key={i.id} i={i} unsent={!!store.truck && i.odooId !== undefined && i.onHand !== i.syncedOnHand} readOnly={!canAdjust} onAdjust={(by) => adjust(i.id, by)} onEdit={() => setEditing({ id: i.id, item: { ...i } })} />
             ))}
@@ -405,7 +405,7 @@ export function StockScreen() {
               sku: p.code,
               ...(p.barcode ? { barcode: p.barcode } : {}),
               odooId: p.id,
-              category: guessCategory(`${p.category ?? ''} ${p.name}`),
+              category: p.category ?? OTHER_CATEGORY,
               onHand: n,
               min: 1,
               par: 2,
@@ -567,6 +567,12 @@ function ItemSheet({
 }) {
   const [f, setF] = useState<NewStockItem | null>(value);
   const [cost, setCost] = useState('');
+  const { client: odooClient } = useOdoo();
+  const [odooCategories, setOdooCategories] = useState<string[]>([]);
+  // The categories Odoo has, to sort a part that isn't in Odoo yet.
+  useEffect(() => {
+    if (odooClient && value) readCategories(odooClient).then(setOdooCategories);
+  }, [odooClient, value]);
   useEffect(() => {
     setF(value);
     setCost(value && value.costCents > 0 ? (value.costCents / 100).toFixed(2) : '');
@@ -587,7 +593,11 @@ function ItemSheet({
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.fields}>
             <TextField label="Name" value={f.name} onChange={(name) => set({ name })} placeholder=".250 x 2 x 30 spring, rollers..." testID="stock-field-name" />
-            <ChipRow options={STOCK_CATEGORIES.map((c) => ({ label: CATEGORY_LABEL[c], value: c }))} value={f.category} onChange={(category) => set({ category })} scroll testID="stock-field-category" />
+            {f.odooId !== undefined ? (
+              <Text style={styles.meta} testID="stock-field-category">Category: {categoryName(f.category)} (from Odoo)</Text>
+            ) : (
+              <ChipRow options={categoriesOf([f], [...odooCategories, OTHER_CATEGORY]).map((c) => ({ label: c, value: c }))} value={categoryName(f.category)} onChange={(category) => set({ category })} scroll testID="stock-field-category" />
+            )}
             <MeasureField label="On the truck" value={String(f.onHand)} onChange={(v) => set({ onHand: whole(v) })} unit="" allowFraction={false} allowDecimal={false} testID="stock-field-onhand" />
             <MeasureField label="Reorder at" hint="Order when you're down to this many." value={String(f.min)} onChange={(v) => set({ min: whole(v) })} unit="" allowFraction={false} allowDecimal={false} testID="stock-field-min" />
             <MeasureField label="Fill to" hint="How many to have after an order. 0 never orders it." value={String(f.par)} onChange={(v) => set({ par: whole(v) })} unit="" allowFraction={false} allowDecimal={false} testID="stock-field-par" />

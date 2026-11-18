@@ -4,7 +4,7 @@ import { Linking } from 'react-native';
 import { makeBackup, parseBackup } from '../lib/backup';
 import { BUSINESS_STORAGE_KEY } from '../lib/invoices';
 import { DEFAULT_PRICE_SHEET } from '../lib/prices';
-import { isLow, mergeStock, orderLinks, orderQty, orders, orderText, parseStock, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, supplierNames } from '../lib/stock';
+import { categoriesOf, categoryName, isLow, mergeStock, orderLinks, orderQty, orders, orderText, parseStock, receive, STARTER_ITEMS, STOCK_STORAGE_KEY, StockItem, supplierNames } from '../lib/stock';
 import { renderApp } from '../testing/renderApp';
 
 const item = (id: string, extra: Partial<StockItem> = {}): StockItem => ({ id, name: id, sku: '', category: 'parts', onHand: 0, min: 1, par: 3, supplier: '', costCents: 0, updatedAt: 1, ...extra });
@@ -45,9 +45,11 @@ describe('truck stock (plain logic)', () => {
   it('reads saved stock safely, merges, and goes into backups', () => {
     expect(parseStock('junk')).toEqual({ items: [], suppliers: [] });
     expect(parseStock({ items: [{ id: 'x' }, { id: 'a', name: 'A', onHand: -2, category: 'weird' }], suppliers: [{ name: '' }, { name: 'DDM', phone: 5 }] })).toEqual({
-      items: [{ id: 'a', name: 'A', sku: '', category: 'other', onHand: 0, min: 0, par: 0, supplier: '', costCents: 0, updatedAt: 0 }],
+      items: [{ id: 'a', name: 'A', sku: '', category: 'weird', onHand: 0, min: 0, par: 0, supplier: '', costCents: 0, updatedAt: 0 }],
       suppliers: [{ name: 'DDM', phone: '', email: '' }],
     });
+    // Old saved categories read as their labels; custom names stay.
+    expect(parseStock({ items: [{ id: 'a', name: 'A', category: 'openers' }, { id: 'b', name: 'B', category: '' }], suppliers: [] }).items.map((i) => i.category)).toEqual(['Openers and remotes', 'Other']);
     const merged = mergeStock({ items: [item('a', { onHand: 5, updatedAt: 10 })], suppliers: [{ name: 'DDM', phone: '', email: 'me@x.test' }] }, { items: [item('a', { onHand: 1, updatedAt: 5 }), item('b')], suppliers: [{ name: 'ddm', phone: '555', email: 'old@x.test' }] });
     expect(merged.items.map((i) => [i.id, i.onHand])).toEqual([
       ['a', 5],
@@ -56,6 +58,12 @@ describe('truck stock (plain logic)', () => {
     expect(merged.suppliers).toEqual([{ name: 'DDM', phone: '555', email: 'me@x.test' }]);
     const parsed = parseBackup(makeBackup({ jobs: [], stock: { items: [item('a')], suppliers: [] }, priceSheet: DEFAULT_PRICE_SHEET }, 1));
     expect(parsed.ok && parsed.backup.stock?.items.map((i) => i.id)).toEqual(['a']);
+  });
+  it('groups by Odoo category names, A to Z, with Other last', () => {
+    const items = [item('a', { category: 'Springs' }), item('b', { category: 'Other' }), item('c', { category: 'Openers' }), item('d', { category: '' })];
+    expect(categoriesOf(items)).toEqual(['Openers', 'Springs', 'Other']);
+    expect(categoriesOf([], ['Rollers', 'Other'])).toEqual(['Rollers', 'Other']);
+    expect(categoryName('')).toBe('Other');
   });
 });
 
