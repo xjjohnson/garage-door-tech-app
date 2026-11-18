@@ -290,10 +290,19 @@ describe('inspection in the app', () => {
     expect(screen.queryByText('Opener')).toBeNull();
     expect(screen.getByTestId('inspection-summary')).toHaveTextContent(/–.*0.*Flagged.*0\/18/);
     await fireEvent.press(screen.getByTestId(`entry-${door.id}`));
-    expect(screen.queryByTestId(`item-d:${door.id}:cables-note`)).toBeNull();
+    expect(screen.queryByTestId('item-sheet')).toBeNull();
+    expect(screen.getByTestId(`door-0-summary`)).toBeTruthy();
+    expect(screen.getByTestId(`progress-${door.id}`)).toHaveTextContent(/^0 of 18 checked/);
 
     const cables = `d:${door.id}:cables`;
-    await fireEvent.press(screen.getByTestId(`item-d:${door.id}:rollers-good`));
+    // One tap marks Good; another tap clears it again.
+    await fireEvent.press(screen.getByTestId(`tile-d:${door.id}:rollers`));
+    expect(screen.getByTestId(`progress-${door.id}`)).toHaveTextContent(/^1 of 18 checked/);
+    await fireEvent.press(screen.getByTestId(`tile-d:${door.id}:rollers`));
+    expect(screen.getByTestId(`progress-${door.id}`)).toHaveTextContent(/^0 of 18 checked/);
+    await fireEvent.press(screen.getByTestId(`tile-d:${door.id}:rollers`));
+    // Holding a tile opens its pop-up.
+    await fireEvent(screen.getByTestId(`tile-${cables}`), 'longPress');
     await fireEvent.press(screen.getByTestId(`item-${cables}-fair`));
     await fireEvent.changeText(screen.getByTestId(`item-${cables}-note`), 'Frayed');
     await fireEvent.press(screen.getByTestId(`item-${cables}-photo`));
@@ -316,6 +325,9 @@ describe('inspection in the app', () => {
     for (const k of ['4', '5']) await fireEvent.press(within(pad).getByTestId(`key-${k}`));
     await fireEvent.press(within(pad).getByTestId('keypad-done'));
     expect(screen.queryByTestId(`item-${cables}-repair`)).toBeNull();
+    await fireEvent.press(screen.getByTestId('item-sheet-done'));
+    expect(screen.queryByTestId('item-sheet')).toBeNull();
+    expect(screen.getByTestId(`tile-${cables}-repair`)).toHaveTextContent('repair added');
 
     await fireEvent.press(screen.getByTestId(`rest-good-${door.id}`));
     await fireEvent.press(screen.getAllByTestId('inspection-back')[0]);
@@ -377,17 +389,17 @@ describe('inspection in the app', () => {
 
     // The gate has its own page; its swing items show once the type is picked.
     await fireEvent.press(screen.getByTestId('entry-gate'));
-    expect(screen.getByTestId('item-g:ul-signs')).toBeTruthy();
-    expect(screen.queryByTestId('item-g:swing-pivot')).toBeNull();
+    expect(screen.getByTestId('tile-g:ul-signs')).toBeTruthy();
+    expect(screen.queryByTestId('tile-g:swing-pivot')).toBeNull();
     await fireEvent.press(within(screen.getByTestId('gate-type')).getByText('Swing'));
-    expect(screen.getByTestId('item-g:swing-pivot')).toBeTruthy();
-    expect(screen.queryByTestId('item-g:slide-stops')).toBeNull();
+    expect(screen.getByTestId('tile-g:swing-pivot')).toBeTruthy();
+    expect(screen.queryByTestId('tile-g:slide-stops')).toBeNull();
     await fireEvent.press(screen.getAllByTestId('inspection-back')[0]);
 
     // A door with answers needs a second tap to remove, and removing returns to the list.
     const first = insp.doors[0];
     await fireEvent.press(screen.getByTestId(`entry-${first.id}`));
-    await fireEvent.press(screen.getByTestId(`item-d:${first.id}:rollers-good`));
+    await fireEvent.press(screen.getByTestId(`tile-d:${first.id}:rollers`));
     await fireEvent.press(screen.getByTestId('door-0-remove'));
     expect(screen.getByTestId('door-0-remove')).toHaveTextContent('Tap again: answers will be lost');
     expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].inspection!.doors).toHaveLength(2);
