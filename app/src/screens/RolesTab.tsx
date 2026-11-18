@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Text } from '../components/AppText';
 import type { OdooClient } from '../lib/odoo';
-import { canChangeRoles, LinkState, Links, linkEmployee, linkStatus, linkWorker, listPeople, Person, ROLE_INFO, RoleId, saveRoles } from '../lib/odooRoles';
+import { canChangeRoles, createPerson, LinkState, Links, linkEmployee, linkStatus, linkWorker, listPeople, looksLikeEmail, Person, ROLE_INFO, RoleId, saveRoles, sendInvite } from '../lib/odooRoles';
 import { colors, touch, type } from '../theme';
 
 /**
@@ -21,6 +21,11 @@ export function RolesTab({ client }: { client: OdooClient }) {
   const [msg, setMsg] = useState('');
   const [links, setLinks] = useState<Links | null>(null);
   const [linkMsg, setLinkMsg] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [justMade, setJustMade] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState('');
 
   const load = useCallback(() => {
     listPeople(client).then((p) => setPeople(p), (e) => setErr(e instanceof Error ? e.message : String(e)));
@@ -55,6 +60,40 @@ export function RolesTab({ client }: { client: OdooClient }) {
     setBusy(false);
   };
 
+  const makePerson = async () => {
+    if (!want) return;
+    setBusy(true);
+    setMsg('');
+    try {
+      const p = await createPerson(client, { name: newName, email: newEmail, roles: want });
+      setAdding(false);
+      setNewName('');
+      setNewEmail('');
+      setJustMade(true);
+      setInviteMsg('');
+      setOpen(p);
+      setWant({ ...p.roles });
+      load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+      load();
+    }
+    setBusy(false);
+  };
+
+  const invite = async () => {
+    if (!open) return;
+    setBusy(true);
+    setInviteMsg('');
+    try {
+      await sendInvite(client, open.id);
+      setInviteMsg(`Odoo sent ${open.login} an email with a link to set a password.`);
+    } catch (e) {
+      setInviteMsg(`Not sent: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    setBusy(false);
+  };
+
   const save = async () => {
     if (!open || !want) return;
     setBusy(true);
@@ -69,13 +108,53 @@ export function RolesTab({ client }: { client: OdooClient }) {
     setBusy(false);
   };
 
+  if (adding && want) {
+    const ready = newName.trim() !== '' && looksLikeEmail(newEmail);
+    return (
+      <View style={styles.stack} testID="roles-add">
+        <Pressable onPress={() => { setAdding(false); setMsg(''); }} accessibilityRole="button" testID="roles-add-back" style={styles.back}>
+          <Text style={styles.buttonText}>‹ Back to the list</Text>
+        </Pressable>
+        <Text style={styles.title}>Add a person</Text>
+        <Text style={styles.note}>Makes a new user in Odoo. Their email is their login.</Text>
+        <TextInput value={newName} onChangeText={setNewName} placeholder="Full name" placeholderTextColor={colors.muted} accessibilityLabel="Full name" testID="roles-add-name" style={styles.input} />
+        <TextInput value={newEmail} onChangeText={setNewEmail} placeholder="Email (their login)" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" accessibilityLabel="Email" testID="roles-add-email" style={styles.input} />
+        {ROLE_INFO.map((r) => (
+          <View key={r.id} style={styles.switchRow}>
+            <View style={styles.grow}>
+              <Text style={styles.label}>{r.label}</Text>
+              <Text style={styles.note}>{r.detail}</Text>
+            </View>
+            <Switch value={want[r.id]} disabled={busy} onValueChange={(on) => setWant({ ...want, [r.id]: on })} accessibilityLabel={r.label} testID={`roles-add-switch-${r.id}`} trackColor={{ true: colors.selected, false: colors.info }} thumbColor={colors.bg} />
+          </View>
+        ))}
+        <Text style={styles.note}>Leave them all off for a tech. Nothing is emailed yet; you can send Odoo's invitation next.</Text>
+        <Pressable onPress={makePerson} disabled={busy || !ready} accessibilityRole="button" accessibilityState={{ disabled: busy || !ready }} testID="roles-add-save" style={[styles.primary, (busy || !ready) && styles.off]}>
+          <Text style={styles.primaryText}>{busy ? 'Making...' : 'Make in Odoo'}</Text>
+        </Pressable>
+        {msg ? <Text style={styles.warn} testID="roles-add-msg">Not made: {msg}</Text> : null}
+      </View>
+    );
+  }
+
   if (open && want) {
     return (
       <View style={styles.stack} testID="roles-edit">
-        <Pressable onPress={() => { setOpen(null); setMsg(''); }} accessibilityRole="button" testID="roles-back" style={styles.back}>
+        <Pressable onPress={() => { setOpen(null); setMsg(''); setJustMade(false); }} accessibilityRole="button" testID="roles-back" style={styles.back}>
           <Text style={styles.buttonText}>‹ Back to the list</Text>
         </Pressable>
         <Text style={styles.title}>{open.name}</Text>
+        {justMade ? (
+          <>
+            <Text style={styles.note} testID="roles-made">Made in Odoo. They can't sign in until they have a password: send Odoo's invitation below, or set one in Odoo's Settings, Users. Then link their employee and Field Service worker here.</Text>
+            {admin ? (
+              <Pressable onPress={invite} disabled={busy} accessibilityRole="button" testID="roles-invite" style={styles.small}>
+                <Text style={styles.buttonText}>{busy ? 'Sending...' : `Email Odoo's invitation to ${open.login}`}</Text>
+              </Pressable>
+            ) : null}
+            {inviteMsg ? <Text style={styles.note} testID="roles-invite-msg">{inviteMsg}</Text> : null}
+          </>
+        ) : null}
         {open.admin ? <Text style={styles.note}>An Odoo administrator, so already an owner. Odoo's Settings, Users changes that.</Text> : null}
         {ROLE_INFO.map((r) => (
           <View key={r.id} style={styles.switchRow}>
@@ -106,6 +185,11 @@ export function RolesTab({ client }: { client: OdooClient }) {
 
   return (
     <View style={styles.stack} testID="roles-list">
+      {admin ? (
+        <Pressable onPress={() => { setAdding(true); setWant({ owner: false, warehouse: false, buyer: false }); setMsg(''); }} accessibilityRole="button" testID="roles-add-person" style={styles.primary}>
+          <Text style={styles.primaryText}>Add person</Text>
+        </Pressable>
+      ) : null}
       <Text style={styles.note}>{admin ? 'Tap a person to change their roles.' : 'Only an Odoo administrator can change roles. You can see who has which.'}</Text>
       {err ? <Text style={styles.warn}>{err}</Text> : null}
       {people === null && !err ? <Text style={styles.note}>Reading Odoo...</Text> : null}
@@ -140,6 +224,8 @@ function LinkRow({ label, what, state, canFix, onFix, testID }: { label: string;
 }
 
 const styles = StyleSheet.create({
+  off: { opacity: 0.5 },
+  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, fontSize: type.body, color: colors.text },
   small: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   stack: { gap: 10 },
   grow: { flex: 1 },

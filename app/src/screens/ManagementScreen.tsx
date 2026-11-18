@@ -626,7 +626,8 @@ function Plans({ client, canEdit }: TabProps) {
         {jobTypes.length ? (
           <View style={styles.field}>
             <Text style={styles.label}>Visit type</Text>
-            <Chips options={[{ id: 0, label: 'Default' }, ...jobTypes]} value={edit.jobTypeId ?? 0} onPick={(id) => set({ jobTypeId: id || undefined, jobTypeName: jobTypes.find((t) => t.id === id)?.label })} canEdit={canEdit} testID="manage-plan-type" />
+            <Text style={styles.note}>Any leaves the type open: Odoo makes the visits without picking one for you.</Text>
+            <Chips options={[{ id: 0, label: 'Any' }, ...jobTypes]} value={edit.jobTypeId ?? 0} onPick={(id) => set({ jobTypeId: id || undefined, jobTypeName: jobTypes.find((t) => t.id === id)?.label })} canEdit={canEdit} testID="manage-plan-type" />
           </View>
         ) : null}
         <View style={styles.field}>
