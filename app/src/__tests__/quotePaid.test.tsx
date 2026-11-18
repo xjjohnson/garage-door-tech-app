@@ -113,7 +113,7 @@ describe('inspection add-ons', () => {
   it('leaves declined add-ons off the quote and keeps the item they came from', () => {
     const r = repairFromFlag({ key: 'd:x:rollers', label: 'Rollers', action: '' }, 1, 0);
     expect(r.item).toBe('d:x:rollers');
-    const insp: Inspection = { ...EMPTY_INSPECTION(1), repairs: [{ ...r, price: '40' }, { id: 'r2', label: 'Seal', price: '30', taxable: true, declined: true }] };
+    const insp: Inspection = { ...EMPTY_INSPECTION(1), holdRepairs: undefined, repairs: [{ ...r, price: '40' }, { id: 'r2', label: 'Seal', price: '30', taxable: true, declined: true }] };
     expect(repairLines(insp).map((l) => l.label)).toEqual(['Rollers: repair']);
     expect(parseInspection(JSON.parse(JSON.stringify(insp)))!.repairs).toEqual(insp.repairs);
   });

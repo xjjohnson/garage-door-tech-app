@@ -11,8 +11,8 @@ import { colors, touch, type } from '../theme';
  * search by name, or walk the categories. Nothing here is typed in; a part
  * that isn't in Odoo gets made in Odoo first.
  */
-export function PriceBookPicker({ visible, items, title = 'Add from the price book', onPick, onClose }: { visible: boolean; items: PriceBookItem[]; title?: string; onPick: (i: PriceBookItem) => void; onClose: () => void }) {
-  const [q, setQ] = useState('');
+export function PriceBookPicker({ visible, items, title = 'Add from the price book', initialQuery = '', onPick, onClose }: { visible: boolean; items: PriceBookItem[]; title?: string; /** What the search box starts with. */ initialQuery?: string; onPick: (i: PriceBookItem) => void; onClose: () => void }) {
+  const [q, setQ] = useState(initialQuery);
   const [path, setPath] = useState<string[]>([]);
   const searching = q.trim() !== '';
   const level = useMemo(() => categoryLevel(items, path), [items, path]);
