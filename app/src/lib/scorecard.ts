@@ -8,6 +8,7 @@
  * one; it counts against the tech who did the earlier job.
  */
 import { rolePreview } from './devFlags';
+import { realAccess } from './odooWarehouse';
 import { odooTime, OdooClient, toOdooTime } from './odoo';
 import type { Invoice } from './invoices';
 import type { Job } from './jobs';
@@ -109,20 +110,9 @@ export function tierIn(text: string): Tier | undefined {
   return m ? (m[1].toLowerCase() as Tier) : undefined;
 }
 
-/** Odoo groups that make someone the owner. */
-export const OWNER_GROUPS = ['base.group_system', 'fieldservice.group_fsm_manager'];
-
-/** Whether the signed-in Odoo user really is the owner (an Odoo admin, or a Field Service manager), whatever the tech preview says. Only the Developer screen uses this, so the owner can always switch the preview off. */
+/** Whether the signed-in Odoo user really is the owner (an Odoo admin, or a Field Service manager), whatever the tech preview says. Uses the last known role when Odoo can't be reached. Only the Developer screen uses this directly, so the owner can always switch the preview off. */
 export async function isRealOwner(client: OdooClient): Promise<boolean> {
-  for (const g of OWNER_GROUPS) {
-    try {
-      if ((await client.call('res.users', 'has_group', [[client.session.uid], g])) === true) return true;
-    } catch {
-      // Not an available group here; try the next.
-    }
-  }
-  // has_group can be refused over RPC: read the user's own groups instead.
-  return typeof client.inAnyGroup === 'function' ? client.inAnyGroup(OWNER_GROUPS) : false;
+  return (await realAccess(client)).owner;
 }
 
 /** Whether to treat the signed-in user as the owner: the real owner, unless Developer > Look as a tech is on. */

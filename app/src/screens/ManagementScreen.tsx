@@ -44,16 +44,18 @@ import { colors, radius, shadow, touch, type } from '../theme';
 import { ChecklistsScreen } from './ChecklistsScreen';
 import { PricelistEditor } from '../components/PricelistEditor';
 import { CustomerTypesTab } from './CustomerTypesTab';
+import { RolesTab } from './RolesTab';
 import { DiscountsTab } from './DiscountsTab';
 import { useCustomerTypes } from '../lib/useInvoices';
 import { TextsTab } from './TextsTab';
 
-type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists';
+type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'jobTypes', label: 'Job types' },
   { id: 'templates', label: 'Templates' },
   { id: 'parts', label: 'Parts' },
   { id: 'techs', label: 'Techs' },
+  { id: 'roles', label: 'Team roles' },
   { id: 'trucks', label: 'Trucks' },
   { id: 'customerTypes', label: 'Customer types' },
   { id: 'plans', label: 'Maintenance plans' },
@@ -103,6 +105,7 @@ export function ManagementScreen() {
       {tab === 'parts' ? <Parts client={client} canEdit={owner === true} /> : null}
       {tab === 'techs' ? <Techs client={client} canEdit={owner === true} /> : null}
       {tab === 'trucks' ? <Trucks client={client} canEdit={owner === true} /> : null}
+      {tab === 'roles' ? <RolesTab client={client} /> : null}
       {tab === 'customerTypes' ? <CustomerTypesTab client={client} canEdit={owner === true} /> : null}
       {tab === 'plans' ? <Plans client={client} canEdit={owner === true} /> : null}
       {tab === 'discounts' ? <DiscountsTab canEdit={owner === true} /> : null}
