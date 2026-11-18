@@ -234,7 +234,10 @@ function OrderSheet({ initial = '', vendors = [], search, make, onSend, onClose 
                 <Button label={looking ? 'Looking…' : 'Search Odoo'} onPress={() => !looking && q.trim() && look(async () => setFound(await search(q)))} testID="job-order-go" />
                 {found?.map((p) => (
                   <Pressable key={p.id} onPress={() => choose(p)} accessibilityRole="button" testID={`job-order-pick-${p.id}`} style={({ pressed }) => [styles.pick, pressed && styles.pressed]}>
-                    <Text style={[styles.body, styles.grow]}>{p.name}</Text>
+                    <View style={styles.grow}>
+                      {p.variant && p.baseName ? <Text style={styles.note}>{p.baseName}</Text> : null}
+                      <Text style={styles.body}>{p.variant ?? p.name}</Text>
+                    </View>
                     {p.code ? <Text style={styles.note}>{p.code}</Text> : null}
                   </Pressable>
                 ))}

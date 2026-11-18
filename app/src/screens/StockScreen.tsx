@@ -17,6 +17,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { useSchedule } from '../lib/useSchedule';
 import { NewStockItem, useStock } from '../lib/useStock';
+import { useCanAdjustStock } from '../lib/useStockLock';
 import { useTruckSync } from '../lib/useTruckSync';
 import { colors, touch, type } from '../theme';
 
@@ -49,6 +50,7 @@ const ago = (ms: number, now: number) => {
  */
 export function StockScreen() {
   const store = useStock();
+  const canAdjust = useCanAdjustStock();
   const { items, suppliers, add, update, adjust, remove, addStarter, received, setSupplier, addToOdoo } = store;
   const { business } = useInvoices();
   const { client } = useOdoo();
@@ -148,8 +150,16 @@ export function StockScreen() {
   const scanned = (code: string) => {
     setScanning(false);
     const found = findByCode(items, code);
+    if (found && !canAdjust) {
+      setMessage({ text: `${found.name}: ${found.onHand} on the truck.` });
+      return;
+    }
     if (found) {
       setCounting(found);
+      return;
+    }
+    if (!canAdjust) {
+      setMessage({ text: `${code} is not on your truck. Only the warehouse manager or owner can add stock.` });
       return;
     }
     if (!client) {
@@ -188,12 +198,19 @@ export function StockScreen() {
         </Text>
       ) : null}
 
+      {!canAdjust ? (
+        <Text style={styles.meta} testID="stock-view-only">
+          Only the warehouse manager or owner can change stock. Parts you use on a job still come off the truck.
+        </Text>
+      ) : null}
       <Action label="Scan a barcode" onPress={() => setScanning(true)} testID="stock-scan" />
 
       {items.length === 0 ? (
         <View style={styles.empty} testID="stock-empty">
           <Text style={styles.emptyTitle}>Nothing on the truck yet</Text>
-          {client ? (
+          {!canAdjust ? (
+            <Text style={styles.emptyBody}>Nothing on {store.truck?.name ?? 'your truck'} in Odoo yet. The warehouse manager puts stock on it.</Text>
+          ) : client ? (
             <Text style={styles.emptyBody}>Odoo has nothing on {store.truck?.name ?? 'your truck'}. Put stock on that location in Odoo (a receipt or an inventory count), or add an item here and its count goes to Odoo.</Text>
           ) : (
             <>
@@ -312,7 +329,7 @@ export function StockScreen() {
               {!links.sms && !links.email ? <Action label="Share order" grow onPress={() => Share.share({ message: orderText(o, business.name) }).catch(() => undefined)} testID={`order-share-${key}`} /> : null}
             </View>
             <View style={styles.row}>
-              <Action label="Got it, add to stock" grow onPress={() => received(o)} testID={`order-received-${key}`} />
+              {canAdjust ? <Action label="Got it, add to stock" grow onPress={() => received(o)} testID={`order-received-${key}`} /> : null}
               {o.supplier ? <Action label="Supplier contact" grow onPress={() => setEditingSupplier(o.supplier)} testID={`order-supplier-${key}`} /> : null}
             </View>
           </View>
@@ -326,13 +343,13 @@ export function StockScreen() {
           <View key={cat} style={styles.stack}>
             <SectionTitle>{CATEGORY_LABEL[cat]}</SectionTitle>
             {list.map((i) => (
-              <Row key={i.id} i={i} unsent={!!store.truck && i.odooId !== undefined && i.onHand !== i.syncedOnHand} onAdjust={(by) => adjust(i.id, by)} onEdit={() => setEditing({ id: i.id, item: { ...i } })} />
+              <Row key={i.id} i={i} unsent={!!store.truck && i.odooId !== undefined && i.onHand !== i.syncedOnHand} readOnly={!canAdjust} onAdjust={(by) => adjust(i.id, by)} onEdit={() => setEditing({ id: i.id, item: { ...i } })} />
             ))}
           </View>
         );
       })}
 
-      <Action label={client ? 'Add a part from Odoo' : 'Add an item'} onPress={() => (client ? setPicking(true) : setEditing({ item: blank() }))} testID="stock-add" />
+      {canAdjust ? <Action label={client ? 'Add a part from Odoo' : 'Add an item'} onPress={() => (client ? setPicking(true) : setEditing({ item: blank() }))} testID="stock-add" /> : null}
 
       {names.length > 0 ? (
         <>
@@ -506,11 +523,11 @@ function CountSheet({ item, prompt, saveLabel = 'Save count', onSave, onCancel }
   );
 }
 
-function Row({ i, unsent, onAdjust, onEdit }: { i: StockItem; unsent?: boolean; onAdjust: (by: number) => void; onEdit: () => void }) {
+function Row({ i, unsent, readOnly, onAdjust, onEdit }: { i: StockItem; unsent?: boolean; readOnly?: boolean; onAdjust: (by: number) => void; onEdit: () => void }) {
   const low = isLow(i);
   return (
     <View style={[styles.item, low && styles.low]} testID={`stock-${i.id}`}>
-      <Pressable onPress={onEdit} accessibilityRole="button" accessibilityHint="Edit this item" testID={`stock-edit-${i.id}`}>
+      <Pressable onPress={readOnly ? undefined : onEdit} disabled={readOnly} accessibilityRole={readOnly ? undefined : 'button'} accessibilityHint={readOnly ? undefined : 'Edit this item'} testID={`stock-edit-${i.id}`}>
         <Text style={styles.name}>{i.name}</Text>
         <Text style={styles.meta}>
           {low ? 'LOW · ' : ''}reorder at {i.min}, fill to {i.par}
@@ -523,11 +540,11 @@ function Row({ i, unsent, onAdjust, onEdit }: { i: StockItem; unsent?: boolean; 
         ) : null}
       </Pressable>
       <View style={styles.row}>
-        <Action label="−" grow onPress={() => onAdjust(-1)} testID={`stock-minus-${i.id}`} accessibilityLabel={`One less ${i.name}`} />
-        <Text style={styles.count} testID={`stock-count-${i.id}`}>
-          {i.onHand}
+        {readOnly ? null : <Action label="−" grow onPress={() => onAdjust(-1)} testID={`stock-minus-${i.id}`} accessibilityLabel={`One less ${i.name}`} />}
+        <Text style={[styles.count, readOnly && styles.grow]} testID={`stock-count-${i.id}`}>
+          {readOnly ? `${i.onHand} on the truck` : i.onHand}
         </Text>
-        <Action label="+" grow onPress={() => onAdjust(1)} testID={`stock-plus-${i.id}`} accessibilityLabel={`One more ${i.name}`} />
+        {readOnly ? null : <Action label="+" grow onPress={() => onAdjust(1)} testID={`stock-plus-${i.id}`} accessibilityLabel={`One more ${i.name}`} />}
       </View>
     </View>
   );

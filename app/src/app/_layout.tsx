@@ -29,6 +29,7 @@ import { OdooProvider } from '../lib/useOdoo';
 import { PriceSheetProvider } from '../lib/usePriceSheet';
 import { ScheduleProvider } from '../lib/useSchedule';
 import { StockProvider } from '../lib/useStock';
+import { StockLock } from '../lib/useStockLock';
 import { WorkLogProvider } from '../lib/useWorkLog';
 import { BUILD_INFO } from '../lib/appVersion';
 import { installCrashHandler } from '../lib/crash';
@@ -64,6 +65,7 @@ export default function RootLayout() {
                     <StockProvider>
                       <AttachmentsProvider>
                         <OdooProvider>
+                          <StockLock />
                           <CalculatorLinkProvider>
                             <StatusBar style={isDark ? 'light' : 'dark'} />
                             <OdooCustomerBackgroundSync />

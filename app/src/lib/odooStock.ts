@@ -14,6 +14,7 @@
  * passed in, so tests use a fake server.
  */
 import { OdooClient, OdooError } from './odoo';
+import { variantOf } from './priceBook';
 import { DEFAULT_TRUCK, guessCategory, holdBack, STARTER_ITEMS, StockItem, StockStore, Supplier, switchTruck, TruckLink } from './stock';
 
 /** A product as truck stock needs it. */
@@ -28,6 +29,9 @@ export interface StockProduct {
   vendor?: { id: number; name: string; code: string; priceCents: number };
   /** Odoo's product category, last part only ("Openers" for "All / Openers"). */
   category?: string;
+  /** For a variant: the product's own name ("Genie 1028") and what tells this one apart ("Head Only"). `name` is then "Genie 1028 (Head Only)". */
+  baseName?: string;
+  variant?: string;
 }
 
 /** One product on the truck in Odoo. */
@@ -103,7 +107,7 @@ export async function myTruck(client: OdooClient): Promise<TruckLink | null> {
 /** Product details and first vendor for these products. */
 export async function readProducts(client: OdooClient, ids: number[]): Promise<StockProduct[]> {
   if (ids.length === 0) return [];
-  const rows = (await client.call('product.product', 'read', [ids], { fields: ['name', 'default_code', 'barcode', 'standard_price', 'product_tmpl_id', 'categ_id'] })) as Record<string, unknown>[];
+  const rows = (await client.call('product.product', 'read', [ids], { fields: ['name', 'display_name', 'default_code', 'barcode', 'standard_price', 'product_tmpl_id', 'categ_id'] })) as Record<string, unknown>[];
   const tmplIds = [...new Set(rows.map((r) => many2one(r.product_tmpl_id)?.[0]).filter((x): x is number => !!x))];
   let sellers: Record<string, unknown>[] = [];
   if (tmplIds.length) {
@@ -118,9 +122,12 @@ export async function readProducts(client: OdooClient, ids: number[]): Promise<S
     const s = sellers.find((x) => many2one(x.product_id)?.[0] === r.id) ?? sellers.find((x) => many2one(x.product_tmpl_id)?.[0] === tmpl && !many2one(x.product_id));
     const partner = s ? many2one(s.partner_id) : undefined;
     const categ = many2one(r.categ_id)?.[1];
+    const base = str(r.name);
+    const variant = variantOf(base, str(r.display_name));
     return {
       id: r.id as number,
-      name: str(r.name),
+      name: variant ? `${base} (${variant})` : base,
+      ...(variant ? { baseName: base, variant } : {}),
       code: str(r.default_code),
       barcode: str(r.barcode),
       costCents: cents(r.standard_price),
@@ -215,9 +222,20 @@ export async function browseProducts(client: OdooClient, q: string, limit = 80):
 
 /** Goods matching what's typed; services (labor, trip charges) can't go on a truck. */
 async function findProducts(client: OdooClient, t: string, limit: number): Promise<StockProduct[]> {
-  const ids = (await client.call('product.product', 'search', [[['type', '!=', 'service'], '|', '|', ['name', 'ilike', t], ['default_code', 'ilike', t], ['barcode', '=', t]]], { limit, order: 'name asc' })) as number[];
-  return readProducts(client, ids);
+  // A variant's choices live in its display name, not its name: "Genie 1028 (Head Only)" is found by "Genie 1028".
+  const base = baseOf(t);
+  const ids = (await client.call('product.product', 'search', [[['type', '!=', 'service'], '|', '|', ['name', 'ilike', base], ['default_code', 'ilike', t], ['barcode', '=', t]]], { limit, order: 'name asc' })) as number[];
+  const found = await readProducts(client, ids);
+  if (base === t) return found;
+  // Typed with choices: the variant that matches them, or if none does, the product's variants to pick from.
+  const want = norm(t);
+  const exact = found.filter((p) => norm(p.name) === want || p.code.toLowerCase() === t.toLowerCase());
+  return exact.length ? exact : found;
 }
+
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+/** What's typed without its trailing "(choices)": "Genie 1028 (Head Only)" is "Genie 1028". */
+export const baseOf = (t: string) => t.replace(/\s*\([^()]*\)\s*$/, '').trim() || t;
 
 /**
  * Makes a new stocked product in Odoo for a part added on the phone. Odoo 18
