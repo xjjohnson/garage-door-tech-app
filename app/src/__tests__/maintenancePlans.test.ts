@@ -103,6 +103,35 @@ describe('plans on an Agreement with another notes field', () => {
     expect(String(created[0].notes)).toContain('johnsons-plan:');
     expect(created[0].notes).not.toMatch(/<p>/);
     const none = mk({ name: { type: 'char' }, partner_id: { type: 'many2one' } });
-    expect(await plansProblem(none)).toMatch(/no notes or description field/);
+    expect(await plansProblem(none)).toBeNull();
+    const notAgreement = mk({ id: { type: 'integer' } });
+    expect(await plansProblem(notAgreement)).not.toMatch(/fields found|activity_ids/);
+  });
+});
+
+describe('plans on an Agreement with no notes field', () => {
+  it('keeps the plan in a file on the agreement and reads it back', async () => {
+    const store: Record<string, unknown>[] = [];
+    const c = {
+      session: {} as never,
+      call: async (model: string, method: string, args: unknown[]) => {
+        if (method === 'fields_get') return { name: {}, code: {}, active: {}, is_template: {}, domain: {} };
+        if (method === 'next_by_code') return 'AGR1';
+        if (model === 'ir.attachment' && method === 'create') {
+          store.push({ id: store.length + 1, ...(args[0] as object) });
+          return store.length;
+        }
+        if (model === 'ir.attachment' && method === 'search_read') return store.filter((a) => a.res_id === (args[0] as unknown[][]).find((d) => d[0] === 'res_id')?.[2] || !(args[0] as unknown[][]).some((d) => d[0] === 'res_id'));
+        if (model === 'agreement' && method === 'create') return 7;
+        if (model === 'agreement' && method === 'search_read') return [{ id: 7, name: 'Gold', active: true }];
+        return true;
+      },
+    };
+    const id = await savePlan(c, { ...blankPlan(), name: 'Gold', priceCents: 12000, everyMonths: 6 });
+    expect(id).toBe(7);
+    expect(store[0]).toMatchObject({ res_model: 'agreement', res_id: 7, name: 'johnsons-plan.json' });
+    const list = await fetchPlans(c);
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ id: 7, name: 'Gold', priceCents: 12000, everyMonths: 6 });
   });
 });
