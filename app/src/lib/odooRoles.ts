@@ -121,3 +121,67 @@ export async function saveRoles(c: Client, personId: number, want: Roles): Promi
   for (const r of ROLE_INFO) if (got[r.id] !== want[r.id]) throw new Error(`Odoo did not keep the ${r.label} change. Check the user in Odoo's Settings, Users.`);
   return got;
 }
+
+/* ----------------------------------------------- Employee and worker links */
+
+export type LinkState = 'linked' | 'missing' | 'unavailable';
+
+export interface Links {
+  employee: LinkState;
+  worker: LinkState;
+}
+
+const m2o = (v: unknown): number => (Array.isArray(v) && typeof v[0] === 'number' ? v[0] : 0);
+
+async function hasModel(c: Client, model: string): Promise<boolean> {
+  try {
+    const f = await c.call(model, 'fields_get', [], { attributes: ['type'] });
+    return !!f && typeof f === 'object' && Object.keys(f as object).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function userRow(c: Client, personId: number): Promise<{ name: string; partner: number }> {
+  const [u] = (await c.call('res.users', 'read', [[personId]], { fields: ['name', 'partner_id'] })) as Record<string, unknown>[];
+  return { name: typeof u?.name === 'string' ? u.name : '', partner: m2o(u?.partner_id) };
+}
+
+/**
+ * Whether this login has its employee record (time clock, profile) and its
+ * Field Service worker (jobs can be given to them). The app finds both through
+ * the login: the employee whose user it is, and the worker on the same contact.
+ */
+export async function linkStatus(c: Client, personId: number): Promise<Links> {
+  const [hasEmp, hasWorker] = await Promise.all([hasModel(c, 'hr.employee'), c.session.kind === 'oca' ? hasModel(c, 'fsm.person') : Promise.resolve(false)]);
+  const { partner } = await userRow(c, personId);
+  const employee: LinkState = !hasEmp ? 'unavailable' : (await c.call('hr.employee', 'search_count', [[['user_id', '=', personId]]])) ? 'linked' : 'missing';
+  const worker: LinkState = !hasWorker ? 'unavailable' : partner && (await c.call('fsm.person', 'search_count', [[['partner_id', '=', partner]]])) ? 'linked' : 'missing';
+  return { employee, worker };
+}
+
+/** Links an existing employee with the same name that has no login yet, or makes a new one. Returns what it did. */
+export async function linkEmployee(c: Client, personId: number): Promise<'linked' | 'created'> {
+  if (!(await canChangeRoles(c))) throw new Error('Only an Odoo administrator can link employees.');
+  const { name } = await userRow(c, personId);
+  if (!name) throw new Error("Couldn't read this user in Odoo.");
+  if ((await c.call('hr.employee', 'search_count', [[['user_id', '=', personId]]])) as number) return 'linked';
+  const same = (await c.call('hr.employee', 'search_read', [[['user_id', '=', false], ['name', '=ilike', name]]], { fields: ['name'], limit: 2 })) as { id: number }[];
+  if (same.length === 1) {
+    await c.call('hr.employee', 'write', [[same[0]!.id], { user_id: personId }]);
+    return 'linked';
+  }
+  await c.call('hr.employee', 'create', [{ name, user_id: personId }]);
+  return 'created';
+}
+
+/** Makes this login's contact a Field Service worker, so jobs can be given to them. Returns what it did. */
+export async function linkWorker(c: Client, personId: number): Promise<'linked' | 'created'> {
+  if (!(await canChangeRoles(c))) throw new Error('Only an Odoo administrator can make Field Service workers.');
+  const { partner } = await userRow(c, personId);
+  if (!partner) throw new Error("This user has no contact in Odoo, so there is nothing to link.");
+  const had = (await c.call('fsm.person', 'search_count', [[['partner_id', '=', partner]]])) as number;
+  if (had) return 'linked';
+  await c.call('fsm.person', 'create', [{ partner_id: partner }]);
+  return 'created';
+}
