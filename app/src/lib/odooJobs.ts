@@ -11,7 +11,7 @@ import type { CustomerFields } from './customers';
 import { phoneKey } from './customers';
 import type { Job, JobSteps, OdooSent } from './jobs';
 import type { OdooClient, OdooTask } from './odoo';
-import { odooTime, toOdooTime } from './odoo';
+import { odooTime, toOdooTime, windowOf } from './odoo';
 import type { Appointment } from './schedule';
 import { formatTime } from './schedule';
 import { templateNamed, templateVals } from './fsmTemplates';
@@ -63,6 +63,8 @@ export interface OdooJobState {
   id: number;
   start?: number;
   minutes?: number;
+  /** Arrival window in minutes; 0 when Odoo has none, unset when this Odoo can't say. */
+  windowMinutes?: number;
   /** The worker (OCA) or user (tasks) it's given to; 0 when nobody. */
   personId: number;
   done: boolean;
@@ -209,6 +211,8 @@ export async function partnerFor(c: Pick<OdooClient, 'partners' | 'createPartner
 /** Sends a changed visit time to the Odoo job. */
 export async function writeVisit(c: Client, ref: OdooJobRef, visit: Pick<Appointment, 'start' | 'minutes' | 'windowMinutes'>): Promise<void> {
   const vals = visitVals(c, visit);
+  // Choosing "no window" on this visit takes the window off the order too, so it doesn't come back when Odoo is read.
+  if (c.session.kind === 'oca' && visit.windowMinutes === 0 && has(c, 'request_early') && has(c, 'request_late')) Object.assign(vals, { request_early: false, request_late: false });
   if (Object.keys(vals).length) await c.call(ref.model, 'write', [[ref.id], vals]);
 }
 
@@ -297,13 +301,14 @@ export async function readJobStates(c: Client, model: OdooJobRef['model'], ids: 
   if (ids.length === 0) return [];
   const s = c.session;
   if (model === 'fsm.order') {
-    const fields = ['person_id', ...['scheduled_date_start', 'scheduled_duration', 'stage_id'].filter((f) => has(c, f))];
+    const fields = ['person_id', ...['scheduled_date_start', 'scheduled_duration', 'stage_id', 'request_early', 'request_late'].filter((f) => has(c, f))];
     const { rows, deleted } = await readExisting(c, 'fsm.order', ids, fields);
     const closed = s.closedStage ? await closedStages(c) : new Set<number>();
     return [...gone(deleted), ...rows.map((r) => ({
       id: r.id as number,
       ...(odooTime(r.scheduled_date_start) !== undefined ? { start: odooTime(r.scheduled_date_start) } : {}),
       ...(typeof r.scheduled_duration === 'number' && r.scheduled_duration > 0 ? { minutes: Math.round(r.scheduled_duration * 60) } : {}),
+      ...(windowOf(r) !== undefined ? { windowMinutes: windowOf(r) } : {}),
       personId: Array.isArray(r.person_id) ? (r.person_id[0] as number) : 0,
       done: Array.isArray(r.stage_id) && closed.has(r.stage_id[0] as number),
     }))];
@@ -345,9 +350,10 @@ export function applyState(visit: Appointment | undefined, state: OdooJobState, 
     ...visit,
     ...(state.start !== undefined ? { start: state.start } : {}),
     ...(state.minutes ? { minutes: state.minutes } : {}),
+    ...(state.windowMinutes !== undefined ? { windowMinutes: state.windowMinutes || undefined } : {}),
     ...(state.done && visit.status === 'booked' ? { status: 'done' as const } : {}),
   };
-  if (next.start === visit.start && next.minutes === visit.minutes && next.status === visit.status) return null;
+  if (next.start === visit.start && next.minutes === visit.minutes && next.status === visit.status && (next.windowMinutes ?? 0) === (visit.windowMinutes ?? 0)) return null;
   return { keep: { ...next, updatedAt: now, syncedAt: now } };
 }
 
@@ -402,6 +408,7 @@ export function pullSchedule(visits: Appointment[], mine: OdooTask[], linked: Se
       id: visitId(t),
       start: t.start,
       minutes: t.minutes ?? v?.minutes ?? 60,
+      ...(t.windowMinutes !== undefined ? { windowMinutes: t.windowMinutes || undefined } : {}),
       name: t.customer || v?.name || t.name,
       address: t.address || v?.address || '',
       phone: t.phone || v?.phone || '',
@@ -410,7 +417,7 @@ export function pullSchedule(visits: Appointment[], mine: OdooTask[], linked: Se
       updatedAt: now,
       syncedAt: now,
     };
-    if (v && v.start === next.start && v.minutes === next.minutes && v.name === next.name && v.address === next.address && v.phone === next.phone && v.what === next.what && v.odooName === next.odooName) continue;
+    if (v && v.start === next.start && v.minutes === next.minutes && (v.windowMinutes ?? 0) === (next.windowMinutes ?? 0) && v.name === next.name && v.address === next.address && v.phone === next.phone && v.what === next.what && v.odooName === next.odooName) continue;
     add.push(next);
   }
   for (const v of visits) {

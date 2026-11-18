@@ -228,6 +228,18 @@ describe('jobs in Odoo (logic)', () => {
     expect(applyState(v, { id: 5, personId: 0, done: true }, 40, 9)?.keep?.status).toBe('done');
   });
 
+  it('reads the arrival window from Odoo, keeps it in step, and never clears one an Odoo without the fields cannot see', () => {
+    const v: Appointment = { id: 'odoo-5', start: at(9), minutes: 60, windowMinutes: 180, name: 'Pat', address: '', phone: '', what: '', status: 'booked', createdAt: 1, updatedAt: 1, syncedAt: 1 };
+    // Same window: nothing changes. Changed on another phone: this one follows. Removed in Odoo: it goes.
+    expect(applyState(v, { id: 5, start: at(9), windowMinutes: 180, personId: 40, done: false }, 40, 9)).toBeNull();
+    expect(applyState(v, { id: 5, start: at(9), windowMinutes: 120, personId: 40, done: false }, 40, 9)?.keep?.windowMinutes).toBe(120);
+    expect(applyState(v, { id: 5, start: at(9), windowMinutes: 0, personId: 40, done: false }, 40, 9)?.keep?.windowMinutes).toBeUndefined();
+    expect(applyState(v, { id: 5, start: at(9), personId: 40, done: false }, 40, 9)).toBeNull();
+    const t: OdooTask = { id: 1, name: 'FO1', customer: 'Atx', phone: '512', address: '1 Oak St', start: at(9), stage: 'New', notes: '', assignees: [40], windowMinutes: 180 };
+    expect(pullSchedule([], [t], new Set(), 9).add[0]!.windowMinutes).toBe(180);
+    expect(pullSchedule([], [{ ...t, windowMinutes: undefined }], new Set(), 9).add[0]!.windowMinutes).toBeUndefined();
+  });
+
   it('builds the schedule from the jobs Odoo gives me', () => {
     const t = (id: number, over: Partial<OdooTask> = {}): OdooTask => ({ id, name: `FO${id}`, customer: 'Atx', phone: '512', address: '1 Oak St, Kyle', start: at(10), stage: 'New', notes: 'Help door trapped\nApp job x', assignees: [40], ...over });
     const kept: Appointment = { id: 'odoo-3', start: at(8), minutes: 60, name: 'Old', address: '', phone: '', what: 'Tune-up', status: 'booked', createdAt: 1, updatedAt: 1, syncedAt: 1 };
