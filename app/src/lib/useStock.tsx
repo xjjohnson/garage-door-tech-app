@@ -47,6 +47,9 @@ interface StockApi extends StockStore {
   orderForJob: (client: OdooClient, o: JobPartOrder) => Promise<PurchaseOrder>;
   /** Adds a part signed in to Odoo: makes the product there when it's new, and its count goes up at the next sync. */
   addToOdoo: (client: OdooClient, i: NewStockItem) => Promise<string>;
+  /** True when this person may not change counts by hand (a signed-in tech). Set by StockLock from the Odoo role; the hand-edit calls above then do nothing. Parts used on a job still come off the truck. */
+  locked: boolean;
+  setLocked: (locked: boolean) => void;
 }
 
 export interface JobPartOrder {
@@ -67,6 +70,9 @@ export function StockProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<StockStore>(EMPTY_STOCK);
   const [loaded, setLoaded] = useState(false);
   const touched = useRef(false);
+  const [locked, setLocked] = useState(false);
+  const lockedRef = useRef(false);
+  lockedRef.current = locked;
   const latest = useRef(store);
   latest.current = store;
   const jobs = useJobsList();
@@ -101,29 +107,34 @@ export function StockProvider({ children }: { children: ReactNode }) {
     setStore(fn);
   }, []);
   const items = useCallback((fn: (list: StockItem[]) => StockItem[]) => change((s) => ({ ...s, items: fn(s.items) })), [change]);
+  /** A hand edit of the counts: ignored for a tech, so no screen can slip one through. */
+  const handEdit = useCallback((fn: (list: StockItem[]) => StockItem[]) => {
+    if (!lockedRef.current) items(fn);
+  }, [items]);
 
   const add = useCallback(
     (i: NewStockItem) => {
       const id = newId();
+      if (lockedRef.current) return id;
       items((l) => [...l, { ...i, name: i.name.trim(), supplier: i.supplier.trim(), id, updatedAt: Date.now() }]);
       return id;
     },
     [items],
   );
-  const update = useCallback((id: string, patch: Partial<NewStockItem>) => items((l) => l.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: Date.now() } : i))), [items]);
-  const adjust = useCallback((id: string, by: number) => items((l) => l.map((i) => (i.id === id ? { ...i, onHand: Math.max(0, i.onHand + by), updatedAt: Date.now() } : i))), [items]);
-  const remove = useCallback((id: string) => items((l) => l.filter((i) => i.id !== id)), [items]);
+  const update = useCallback((id: string, patch: Partial<NewStockItem>) => handEdit((l) => l.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: Date.now() } : i))), [handEdit]);
+  const adjust = useCallback((id: string, by: number) => handEdit((l) => l.map((i) => (i.id === id ? { ...i, onHand: Math.max(0, i.onHand + by), updatedAt: Date.now() } : i))), [handEdit]);
+  const remove = useCallback((id: string) => handEdit((l) => l.filter((i) => i.id !== id)), [handEdit]);
   const addStarter = useCallback(
     () =>
-      items((l) => {
+      handEdit((l) => {
         const have = new Set(l.map((i) => i.name.toLowerCase()));
         const now = Date.now();
         const extra = STARTER_ITEMS.filter((s) => !have.has(s.name.toLowerCase())).map((s, k) => ({ ...s, id: `${newId()}-${k}`, sku: '', onHand: 0, supplier: '', costCents: 0, updatedAt: now }));
         return [...l, ...extra];
       }),
-    [items],
+    [handEdit],
   );
-  const received = useCallback((o: SupplierOrder) => items((l) => receive(l, o, Date.now())), [items]);
+  const received = useCallback((o: SupplierOrder) => handEdit((l) => receive(l, o, Date.now())), [handEdit]);
   const setSupplier = useCallback(
     (sup: Supplier) =>
       change((s) => {
@@ -134,7 +145,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
       }),
     [change],
   );
-  const restore = useCallback((incoming: StockStore) => change((s) => mergeStock(s, incoming)), [change]);
+  const restore = useCallback((incoming: StockStore) => lockedRef.current ? undefined : change((s) => mergeStock(s, incoming)), [change]);
 
   const takeParts = useCallback(
     (itemId: string, qty: number, jobId?: string) =>
@@ -385,6 +396,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
 
   const addToOdoo = useCallback(
     async (client: OdooClient, i: NewStockItem) => {
+      if (lockedRef.current) throw new Error('Only the warehouse manager or owner can add stock.');
       const odooId = i.odooId ?? (await createProduct(client, { name: i.name, sku: i.sku, barcode: i.barcode, costCents: i.costCents }));
       // syncedOnHand 0: the count typed in goes to Odoo as new stock on the truck at the next sync.
       return add({ ...i, odooId, syncedOnHand: 0 });
@@ -393,8 +405,8 @@ export function StockProvider({ children }: { children: ReactNode }) {
   );
 
   const api = useMemo(
-    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, recordMoves, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo }),
-    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, recordMoves, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo],
+    () => ({ ...store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, recordMoves, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo, locked, setLocked }),
+    [store, loaded, add, update, adjust, remove, addStarter, received, setSupplier, restore, takeParts, markUsesSent, recordMoves, undoUse, sync, draftOrder, checkOrders, receiveOrder, chooseTruck, orderForJob, addToOdoo, locked],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

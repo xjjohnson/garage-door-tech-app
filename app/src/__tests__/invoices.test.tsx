@@ -21,6 +21,7 @@ import {
 import { createJob, JOBS_STORAGE_KEY } from '../lib/jobs';
 import { DEFAULT_PRICE_SHEET, PRICE_SHEET_STORAGE_KEY, PriceSheet } from '../lib/prices';
 import { buildQuote } from '../lib/quote';
+import { TRACK_BY_DEFAULT_FROM } from '../lib/odooEquipment';
 import { renderApp } from '../testing/renderApp';
 
 const MATCH = { mode: 'match' as const, form: { ...DEFAULT_MATCH_FORM, twentyCoil: '4 1/2', length: '24' } };
@@ -224,7 +225,8 @@ describe('review requests', () => {
 
   it('ticks the parts sold that are tracked as equipment, once there is a warranty', async () => {
     await AsyncStorage.clear();
-    const i = createInvoice({ ...job, customerId: 'c1' }, good, [], Date.now(), 'i1');
+    // Newer invoices start with their parts already tracked; an older one starts unticked, so this tap ticks it.
+    const i = createInvoice({ ...job, customerId: 'c1' }, good, [], TRACK_BY_DEFAULT_FROM - 1, 'i1');
     await AsyncStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([i]));
     await renderApp('/invoice/i1');
     await settle();
