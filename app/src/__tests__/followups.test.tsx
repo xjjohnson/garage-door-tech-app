@@ -32,7 +32,7 @@ describe('follow-ups (plain logic)', () => {
     const i = inv('1', new Date(2026, 0, 15).getTime(), { tier: 'better' });
     const w = warrantyFor(i, DEFAULT_FOLLOW_UP);
     expect(new Date(w.partsUntil!)).toEqual(new Date(addMonths(i.createdAt, 36)));
-    expect(w.laborUntil).toBe(i.createdAt + 365 * DAY);
+    expect(w.laborUntil).toBe(i.createdAt + 30 * DAY);
     // 25,000 cycles at 4 a day is 6,250 days, about 17 years.
     expect(Math.round((springsWornOutAt(i, DEFAULT_FOLLOW_UP) - i.createdAt) / DAY)).toBe(6250);
     expect(warrantyFor(i, { ...DEFAULT_FOLLOW_UP, warrantyMonths: { good: 0, better: 0, best: 0 }, laborWarrantyDays: 0 })).toEqual({ partsUntil: null, laborUntil: null });
@@ -86,7 +86,8 @@ describe('follow-ups (plain logic)', () => {
     expect(textLink('', 'x')).toBeUndefined();
     expect(parseFollowUpStore('junk')).toEqual({ settings: DEFAULT_FOLLOW_UP, dismissed: {}, activities: {} });
     expect(parseFollowUpStore({ settings: { cyclesPerDay: 6, warrantyMonths: { best: 120 } }, dismissed: { a: 1, b: 'x' } })).toEqual({
-      settings: { ...DEFAULT_FOLLOW_UP, cyclesPerDay: 6, warrantyMonths: { ...DEFAULT_FOLLOW_UP.warrantyMonths, best: 120 } },
+      // Warranty lengths saved by an older version are ignored: they are fixed now.
+      settings: { ...DEFAULT_FOLLOW_UP, cyclesPerDay: 6 },
       dismissed: { a: 1 },
       activities: {},
     });

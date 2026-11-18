@@ -22,7 +22,7 @@ export interface FollowUpSettings {
 export const DEFAULT_FOLLOW_UP: FollowUpSettings = {
   cyclesPerDay: 4,
   warrantyMonths: { good: 12, better: 36, best: 60 },
-  laborWarrantyDays: 365,
+  laborWarrantyDays: 30,
 };
 
 export function addMonths(ms: number, months: number): number {
@@ -176,16 +176,12 @@ export function parseFollowUpSettings(v: unknown): FollowUpSettings {
   if (!v || typeof v !== 'object') return DEFAULT_FOLLOW_UP;
   const d = v as Record<string, unknown>;
   const n = (x: unknown, fallback: number) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? x : fallback);
-  const w = (d.warrantyMonths && typeof d.warrantyMonths === 'object' ? d.warrantyMonths : {}) as Record<string, unknown>;
+  // Warranty lengths are fixed (spring quotes 1, 3 and 5 years; labor 30 days); a length saved by an
+  // older version is ignored so every phone agrees. A job's own pick still wins.
   return {
     cyclesPerDay: n(d.cyclesPerDay, DEFAULT_FOLLOW_UP.cyclesPerDay) || DEFAULT_FOLLOW_UP.cyclesPerDay,
-    warrantyMonths: {
-      good: n(w.good, DEFAULT_FOLLOW_UP.warrantyMonths.good),
-      better: n(w.better, DEFAULT_FOLLOW_UP.warrantyMonths.better),
-      best: n(w.best, DEFAULT_FOLLOW_UP.warrantyMonths.best),
-    },
-    // Phones that saved months keep that length, as days.
-    laborWarrantyDays: n(d.laborWarrantyDays, typeof d.laborWarrantyMonths === 'number' && d.laborWarrantyMonths >= 0 ? Math.round(d.laborWarrantyMonths * 30.4) : DEFAULT_FOLLOW_UP.laborWarrantyDays),
+    warrantyMonths: DEFAULT_FOLLOW_UP.warrantyMonths,
+    laborWarrantyDays: DEFAULT_FOLLOW_UP.laborWarrantyDays,
   };
 }
 
