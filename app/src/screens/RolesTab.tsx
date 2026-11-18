@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Text } from '../components/AppText';
 import type { OdooClient } from '../lib/odoo';
-import { canChangeRoles, listPeople, Person, ROLE_INFO, RoleId, saveRoles } from '../lib/odooRoles';
+import { canChangeRoles, LinkState, Links, linkEmployee, linkStatus, linkWorker, listPeople, Person, ROLE_INFO, RoleId, saveRoles } from '../lib/odooRoles';
 import { colors, touch, type } from '../theme';
 
 /**
@@ -19,6 +19,8 @@ export function RolesTab({ client }: { client: OdooClient }) {
   const [want, setWant] = useState<Record<RoleId, boolean> | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [links, setLinks] = useState<Links | null>(null);
+  const [linkMsg, setLinkMsg] = useState('');
 
   const load = useCallback(() => {
     listPeople(client).then((p) => setPeople(p), (e) => setErr(e instanceof Error ? e.message : String(e)));
@@ -27,6 +29,31 @@ export function RolesTab({ client }: { client: OdooClient }) {
     load();
     canChangeRoles(client).then(setAdmin, () => setAdmin(false));
   }, [client, load]);
+
+  useEffect(() => {
+    setLinks(null);
+    setLinkMsg('');
+    if (!open) return;
+    let alive = true;
+    linkStatus(client, open.id).then((l) => alive && setLinks(l), () => alive && setLinks(null));
+    return () => {
+      alive = false;
+    };
+  }, [open, client]);
+
+  const fixLink = async (what: 'employee' | 'worker') => {
+    if (!open) return;
+    setBusy(true);
+    setLinkMsg('');
+    try {
+      const r = await (what === 'employee' ? linkEmployee(client, open.id) : linkWorker(client, open.id));
+      setLinkMsg(r === 'created' ? `Made the ${what === 'employee' ? 'employee' : 'Field Service worker'} in Odoo.` : `Linked the ${what === 'employee' ? 'employee' : 'Field Service worker'}.`);
+      setLinks(await linkStatus(client, open.id));
+    } catch (e) {
+      setLinkMsg(e instanceof Error ? e.message : String(e));
+    }
+    setBusy(false);
+  };
 
   const save = async () => {
     if (!open || !want) return;
@@ -59,6 +86,13 @@ export function RolesTab({ client }: { client: OdooClient }) {
             <Switch value={want[r.id]} disabled={!admin || busy} onValueChange={(on) => setWant({ ...want, [r.id]: on })} accessibilityLabel={r.label} testID={`roles-switch-${r.id}`} trackColor={{ true: colors.selected, false: colors.info }} thumbColor={colors.bg} />
           </View>
         ))}
+        {links ? (
+          <>
+            <LinkRow label="Employee" what="time clock and profile" state={links.employee} canFix={admin && !busy} onFix={() => fixLink('employee')} testID="roles-link-employee" />
+            <LinkRow label="Field Service worker" what="jobs can be given to them" state={links.worker} canFix={admin && !busy} onFix={() => fixLink('worker')} testID="roles-link-worker" />
+          </>
+        ) : null}
+        {linkMsg ? <Text style={styles.note} testID="roles-link-msg">{linkMsg}</Text> : null}
         <Text style={styles.note}>Anyone not marked is a tech. The change is made in Odoo, and the person gets it the next time they open the app.</Text>
         {admin ? (
           <Pressable onPress={save} disabled={busy} accessibilityRole="button" testID="roles-save" style={styles.primary}>
@@ -88,7 +122,25 @@ export function RolesTab({ client }: { client: OdooClient }) {
   );
 }
 
+function LinkRow({ label, what, state, canFix, onFix, testID }: { label: string; what: string; state: LinkState; canFix: boolean; onFix: () => void; testID: string }) {
+  if (state === 'unavailable') return null;
+  return (
+    <View style={styles.switchRow} testID={testID}>
+      <View style={styles.grow}>
+        <Text style={styles.label}>{label}: {state === 'linked' ? 'linked' : 'missing'}</Text>
+        <Text style={styles.note}>{state === 'linked' ? what : `No ${label.toLowerCase()} for this login yet (${what}).`}</Text>
+      </View>
+      {state === 'missing' && canFix ? (
+        <Pressable onPress={onFix} accessibilityRole="button" testID={`${testID}-fix`} style={styles.small}>
+          <Text style={styles.buttonText}>Link or make</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  small: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   stack: { gap: 10 },
   grow: { flex: 1 },
   row: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 2 },

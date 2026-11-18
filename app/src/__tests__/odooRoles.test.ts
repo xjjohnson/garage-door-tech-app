@@ -61,3 +61,63 @@ describe('team roles', () => {
     await expect(saveRoles(client, 4, { ...none, warehouse: true })).rejects.toThrow(/did not keep/);
   });
 });
+
+import { linkEmployee, linkStatus, linkWorker } from '../lib/odooRoles';
+
+function linkFake(opts: { admin: boolean; employees: { id: number; name: string; user_id: number | false }[]; workers: number[] }) {
+  const calls: Call[] = [];
+  const emps = [...opts.employees];
+  const workers = [...opts.workers];
+  const client = {
+    session: { kind: 'oca', uid: 1 } as never,
+    call: async (model: string, method: string, args: unknown[] = [], kw: Record<string, unknown> = {}) => {
+      calls.push([model, method, args, kw]);
+      const k = `${model}.${method}`;
+      if (k === 'res.users.has_group') return opts.admin;
+      if (k.endsWith('.fields_get')) return { name: {} };
+      if (k === 'res.users.read') return [{ id: 7, name: 'Sam Tech', partner_id: [70, 'Sam Tech'] }];
+      if (k === 'hr.employee.search_count') return emps.filter((e) => e.user_id === 7).length;
+      if (k === 'hr.employee.search_read') return emps.filter((e) => e.user_id === false && e.name.toLowerCase() === 'sam tech').map((e) => ({ id: e.id }));
+      if (k === 'hr.employee.write') {
+        emps.find((e) => e.id === (args[0] as number[])[0])!.user_id = 7;
+        return true;
+      }
+      if (k === 'hr.employee.create') {
+        emps.push({ id: 99, name: 'Sam Tech', user_id: 7 });
+        return 99;
+      }
+      if (k === 'fsm.person.search_count') return workers.length;
+      if (k === 'fsm.person.create') {
+        workers.push(70);
+        return 5;
+      }
+      throw new Error(`unexpected ${k}`);
+    },
+  };
+  return { client, calls };
+}
+
+describe('employee and worker links', () => {
+  it('says what is linked and what is missing', async () => {
+    const { client } = linkFake({ admin: true, employees: [], workers: [70] });
+    expect(await linkStatus(client, 7)).toEqual({ employee: 'missing', worker: 'linked' });
+  });
+
+  it('links an unlinked employee with the same name instead of making a second one', async () => {
+    const { client, calls } = linkFake({ admin: true, employees: [{ id: 3, name: 'Sam Tech', user_id: false }], workers: [] });
+    expect(await linkEmployee(client, 7)).toBe('linked');
+    expect(calls.some((c) => c[1] === 'create')).toBe(false);
+    expect((await linkStatus(client, 7)).employee).toBe('linked');
+  });
+
+  it('makes an employee and a worker when there are none, and only for an admin', async () => {
+    const a = linkFake({ admin: true, employees: [], workers: [] });
+    expect(await linkEmployee(a.client, 7)).toBe('created');
+    expect(await linkWorker(a.client, 7)).toBe('created');
+    expect(a.calls.find((c) => c[0] === 'fsm.person' && c[1] === 'create')![2]).toEqual([{ partner_id: 70 }]);
+    const b = linkFake({ admin: false, employees: [], workers: [] });
+    await expect(linkEmployee(b.client, 7)).rejects.toThrow(/administrator/);
+    await expect(linkWorker(b.client, 7)).rejects.toThrow(/administrator/);
+    expect(b.calls.some((c) => c[1] === 'create' || c[1] === 'write')).toBe(false);
+  });
+});
