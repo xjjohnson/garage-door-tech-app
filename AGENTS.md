@@ -37,4 +37,4 @@ Flag only real bugs: Odoo sync or queue conflicts, data loss, calculation regres
 
 ## PRs
 Branch from main. **Ship one bigger PR per feature, not many small ones**: Justin tests after large batches merge. Tests go in the same PR.
-The "Tests" check is the gate. `.github/workflows/auto-merge.yml` turns on squash auto-merge for non-draft PRs, so a PR merges itself once Tests pass. Merges to main reach the beta channel only; never send an update to production (that is a manual run of the APK workflow by Justin). Use a draft PR for work that isn't ready to merge.
+The "Tests" check is the gate. `.github/workflows/auto-merge.yml` merges a non-draft PR only after its Android APK run passes, then starts the APK workflow on main. Merges to main reach the beta channel only; never send an update to production (a manual run by Justin). Use a draft PR for work that isn't ready to merge.
