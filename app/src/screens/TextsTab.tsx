@@ -8,7 +8,7 @@ import { queueBusiness } from '../lib/settingsSync';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type } from '../theme';
 
-const KINDS: TextKind[] = ['onMyWay', 'eta', 'review'];
+const KINDS: TextKind[] = ['onMyWay', 'eta', 'confirm', 'review'];
 
 const HEADINGS = [
   { field: 'planHeading', label: 'Heading above the plan fee', fallback: DEFAULT_PLAN_HEADING },
@@ -28,7 +28,7 @@ export function TextsTab({ canEdit }: { canEdit: boolean }) {
     setBusiness(() => next);
     setSaved(false);
   };
-  const sample = (kind: TextKind) => fillText(wording(business, kind), { name: 'Maria Lopez', business: business.name, minutes: 20, reviewLink: reviewLink(business) || 'https://g.page/r/your-review-link' });
+  const sample = (kind: TextKind) => fillText(wording(business, kind), { name: 'Maria Lopez', business: business.name, minutes: 20, day: 'tomorrow', window: 'between 9:00 am and 12:00 pm', reviewLink: reviewLink(business) || 'https://g.page/r/your-review-link' });
   return (
     <View style={styles.stack} testID="manage-texts">
       <Text style={styles.note}>These open your texting app with the words filled in. Nothing is ever sent for you. Leave one blank to use the standard wording.</Text>
@@ -37,7 +37,7 @@ export function TextsTab({ canEdit }: { canEdit: boolean }) {
         <View key={k} style={styles.field}>
           <Text style={styles.label}>{TEXT_LABEL[k]}</Text>
           <TextInput
-            value={business[TEXT_FIELD[k]]}
+            value={business[TEXT_FIELD[k]] ?? ''}
             onChangeText={(v) => change(k, v)}
             editable={canEdit}
             multiline

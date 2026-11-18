@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { EMPTY_BUSINESS, parseBusiness, reviewRequestText } from '../lib/invoices';
 import { fillText, messageText, wording } from '../lib/messageTexts';
-import { onMyWayText } from '../lib/schedule';
+import { onMyWayText, reminderText } from '../lib/schedule';
 import { TextsTab } from '../screens/TextsTab';
 import * as settingsSync from '../lib/settingsSync';
 
@@ -23,6 +23,16 @@ describe('pre-written texts', () => {
     expect(wording(b, 'onMyWay')).toBe(b.textOnMyWay);
     expect(messageText(b, 'onMyWay', { name: 'Maria L', minutes: 10 })).toBe('Hey Maria, Johnsons here, ~10 min out {oops}');
     expect(fillText('  {first}  ', {})).toBe('there');
+  });
+
+  it('makes the appointment confirmation with the business name and the arrival window', () => {
+    const start = new Date(2026, 10, 18, 9, 0).getTime();
+    const now = new Date(2026, 10, 18, 7, 0).getTime();
+    expect(reminderText({ name: 'Pat Smith', start }, { ...mockBiz, name: 'Johnsons Home Services' }, now)).toBe("Hi Pat, it's Johnsons Home Services. Just confirming your garage door appointment today at 9:00 am. Reply if you need to change it.");
+    expect(reminderText({ name: 'Pat Smith', start, windowMinutes: 180 }, { ...mockBiz, name: 'Johnsons Home Services' }, now)).toContain('today between 9:00 am and 12:00 pm.');
+    const own = { ...mockBiz, textConfirm: '{business}: see you {day} {window}, {first}!' };
+    expect(reminderText({ name: 'Pat', start, windowMinutes: 180 }, own, now)).toBe('Johnsons: see you today between 9:00 am and 12:00 pm, Pat!');
+    expect(parseBusiness({ textConfirm: 'x' }).textConfirm).toBe('x');
   });
 
   it('keeps the wording through parseBusiness', () => {

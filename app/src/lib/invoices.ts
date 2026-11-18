@@ -125,6 +125,8 @@ export interface Business {
   /** Wording of the pre-written texts; blank means the standard wording (see messageTexts.ts). */
   textOnMyWay: string;
   textEta: string;
+  /** The appointment confirmation text. Optional so older saved data still reads; blank means the standard wording. */
+  textConfirm?: string;
   textReview: string;
   /** Quick discounts in Management > Discounts; unset means the standard list (see discounts.ts). */
   discounts?: DiscountPreset[];
@@ -344,7 +346,7 @@ export function parseBusiness(raw: string | null | object): Business {
   }
   if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
   const d = data as Record<string, unknown>;
-  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}), ...(Array.isArray(d.customerTypes) && d.customerTypes.some((x) => typeof x === 'string' && x.trim()) ? { customerTypes: d.customerTypes.flatMap((x): string[] => (typeof x === 'string' && x.trim() ? [x.trim()] : [])) } : {}) };
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(str(d.textConfirm) ? { textConfirm: str(d.textConfirm) } : {}), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}), ...(Array.isArray(d.customerTypes) && d.customerTypes.some((x) => typeof x === 'string' && x.trim()) ? { customerTypes: d.customerTypes.flatMap((x): string[] => (typeof x === 'string' && x.trim() ? [x.trim()] : [])) } : {}) };
 }
 
 /** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */
