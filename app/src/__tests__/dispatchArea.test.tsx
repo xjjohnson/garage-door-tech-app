@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act } from 'react';
+import { runBackStep } from '../lib/backStep';
 import { DispatchAreaScreen } from '../screens/DispatchAreaScreen';
 import { NO_BADGES, setBadges } from '../lib/deptBadges';
 
@@ -47,7 +49,7 @@ describe('Dispatch area', () => {
     // This page is only the jobs nobody has: no tech lanes.
     expect(screen.queryByTestId('dispatch-lane-40')).toBeNull();
 
-    await fireEvent.press(screen.getByTestId('dispatch-back'));
+    await act(async () => { runBackStep(); });
     await fireEvent.press(await screen.findByTestId('dispatch-tab-board'));
     expect(await screen.findByTestId('dispatch-lane-40')).toBeTruthy();
     expect(screen.queryByTestId('dispatch-unassigned')).toBeNull();

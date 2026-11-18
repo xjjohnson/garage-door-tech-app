@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { runBackStep } from '../lib/backStep';
 import { Text } from './AppText';
 import { Icon } from './Icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,14 +23,19 @@ export function Dock({ children }: { children: ReactNode }) {
 /** A full page over the sections, such as a quote: its title and a big Close button that goes back. */
 export function Page({ title, children, testID }: { title: string; children: ReactNode; testID?: string }) {
   const [dock, setDock] = useState<ReactNode>(null);
+  // The phone's back button steps back one level (an opened row, an edit screen) before it leaves the page.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => runBackStep());
+    return () => sub.remove();
+  }, []);
   return (
     <DockContext.Provider value={setDock}>
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']} testID={testID}>
       <View style={styles.head}>
         <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/jobs'))}
+          onPress={() => { if (!runBackStep()) router.canGoBack() ? router.back() : router.replace('/jobs'); }}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel="Back"
           testID={testID ? `${testID}-close` : undefined}
           style={({ pressed }) => [styles.close, pressed && styles.pressed]}
         >

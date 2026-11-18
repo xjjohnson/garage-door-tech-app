@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useBackStep } from '../lib/backStep';
 import { StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { Action } from './Buttons';
@@ -32,6 +33,7 @@ export function PricelistEditor({ client, canEdit }: { client: OdooClient; canEd
   const [optionOn, setOptionOn] = useState<boolean | null>(null);
   const [lists, setLists] = useState<Pricelist[] | null>(null);
   const [open, setOpen] = useState<Pricelist | null>(null);
+  useBackStep(() => setOpen(null), open !== null);
   const [rules, setRules] = useState<PriceRule[] | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [found, setFound] = useState<{ id: number; name: string }[]>([]);
@@ -130,7 +132,6 @@ export function PricelistEditor({ client, canEdit }: { client: OdooClient; canEd
         </>
       ) : (
         <>
-          <Action label="‹ All pricelists" onPress={() => setOpen(null)} testID="pricelist-back" />
           <Title>{open.name}</Title>
           {!rules ? <Note>Reading rules…</Note> : null}
           {rules && rules.length === 0 ? <Note>No rules yet: prices follow the parts' own prices.</Note> : null}

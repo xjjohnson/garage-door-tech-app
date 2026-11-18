@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useBackStep } from '../lib/backStep';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
@@ -217,10 +218,10 @@ function OrderDetail({ client, po, busy, msg, run, onBack, reload }: { client: O
       reload();
       return `${po.name} cancelled.`;
     });
+  useBackStep(onBack);
   const total = po.lines.reduce((n, l) => n + Math.round((toNum(qty[l.id] ?? '') ?? l.qty) * (toCents(price[l.id] ?? '') ?? l.priceCents)), 0);
   return (
     <View style={styles.stack} testID="po-detail">
-      <Action label="‹ All orders" onPress={onBack} testID="po-back" />
       <Title>{`${po.name} · ${po.vendor}`}</Title>
       <Meta>{[po.forWhat, po.orderedBy ? `ordered by ${po.orderedBy}` : ''].filter(Boolean).join(' · ')}</Meta>
       <Meta>{po.next}</Meta>
