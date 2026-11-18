@@ -6,6 +6,7 @@ import { DAY_COLORS, MapData, mapHtml, MapPin, parseMapMessage, setDataScript } 
 import type { OdooClient, OdooTask, OdooUser } from '../lib/odoo';
 import { isLive, seenText, TechPosition, techPositions } from '../lib/odooLocation';
 import { listPlaces, placeOverview, PlaceSummary } from '../lib/odooWarehouse';
+import { devNow } from '../lib/devFlags';
 import { addDays, formatTime, startOfDay } from '../lib/schedule';
 import { useGeocode } from '../lib/useGeocode';
 import { colors, radius } from '../theme';
@@ -59,7 +60,7 @@ export function whoIsWorking(techs: OdooUser[], open: { name: string; since: num
   });
 }
 
-export function WhoIsWorking({ client, now = Date.now }: { client: OdooClient; now?: () => number }) {
+export function WhoIsWorking({ client, now = devNow }: { client: OdooClient; now?: () => number }) {
   const { data, error } = useRead(client, async () => {
     const [techs, rows, positions] = await Promise.all([
       client.techs(),
@@ -88,7 +89,7 @@ export function WhoIsWorking({ client, now = Date.now }: { client: OdooClient; n
 
 // ---- Time off ----
 
-export function TimeOff({ client, now = Date.now }: { client: OdooClient; now?: () => number }) {
+export function TimeOff({ client, now = devNow }: { client: OdooClient; now?: () => number }) {
   const { data, error } = useRead(client, async () => {
     const from = startOfDay(now());
     const iso = (ms: number) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
@@ -138,7 +139,7 @@ export function TruckAlerts({ client }: { client: OdooClient }) {
 
 // ---- Follow-ups due ----
 
-export function FollowUpsDue({ client, now = Date.now }: { client: OdooClient; now?: () => number }) {
+export function FollowUpsDue({ client, now = devNow }: { client: OdooClient; now?: () => number }) {
   const { data, error } = useRead(client, async () => {
     const today = new Date(now()).toISOString().slice(0, 10);
     return (await client.call('mail.activity', 'search_read', [[['res_model', '=', 'res.partner'], ['date_deadline', '<=', today]]], { fields: ['res_name', 'summary', 'date_deadline', 'user_id'], order: 'date_deadline asc', limit: 50 })) as Record<string, unknown>[];
@@ -187,7 +188,7 @@ export function buildPins(jobs: OdooTask[], points: Record<string, { lat: number
   return pins;
 }
 
-export function DispatchMap({ client, now = Date.now }: { client: OdooClient; now?: () => number }) {
+export function DispatchMap({ client, now = devNow }: { client: OdooClient; now?: () => number }) {
   const { data, error } = useRead(client, async () => {
     const today = startOfDay(now());
     const [jobs, techs, positions] = await Promise.all([client.jobsBetween(today, addDays(today, 1)), client.techs(), techPositions(client).catch(() => [] as TechPosition[])]);

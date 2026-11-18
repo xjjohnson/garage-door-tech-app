@@ -37,6 +37,6 @@ export function useOwner(): { owner: boolean; ready: boolean } {
   const { status, client } = useOdoo();
   const { access, ready } = useDepartments();
   if (status === 'loading' || status === 'signingIn') return { owner: false, ready: false };
-  if (!client) return { owner: rolePreview() !== 'tech', ready: true };
+  if (!client) return { owner: (rolePreview() ?? 'owner') === 'owner', ready: true };
   return { owner: access.owner, ready };
 }

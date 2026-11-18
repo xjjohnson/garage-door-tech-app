@@ -246,7 +246,83 @@ describe('network, storage, call trace, flags and role preview', () => {
     expect(screen.getByTestId('dev-storage-waiting')).toHaveTextContent('No photos waiting to upload');
     await fireEvent.press(screen.getByTestId('dev-calls-toggle'));
     expect(screen.getByTestId('dev-calls')).toBeTruthy();
-    expect(screen.getByTestId('dev-as-tech')).toBeTruthy();
+    expect(screen.getByTestId('dev-role')).toBeTruthy();
     expect(screen.getByTestId('dev-flag-callTrace')).toBeTruthy();
+  });
+});
+
+describe('testing tools (0.6.8)', () => {
+  it('each role preview opens only its own area, and never calls Odoo', async () => {
+    const { previewAccess, departmentAccess } = require('../lib/odooWarehouse');
+    expect(previewAccess('buyer')).toMatchObject({ purchasing: true, warehouse: false, owner: false, dispatch: false });
+    expect(previewAccess('dispatcher')).toMatchObject({ dispatch: true, purchasing: false });
+    expect(previewAccess('tech')).toMatchObject({ owner: false, dispatch: false, office: false, sales: false, warehouse: false, purchasing: false });
+    expect(previewAccess('owner').owner).toBe(true);
+    const calls: string[] = [];
+    const client = { session: { uid: 1 }, call: async (m: string) => { calls.push(m); return true; } } as never;
+    setRolePreview('warehouse');
+    expect((await departmentAccess(client)).warehouse).toBe(true);
+    expect(await isOwner(client)).toBe(false);
+    setRolePreview('owner');
+    expect(await isOwner(client)).toBe(true);
+    expect(calls).toEqual([]);
+    setRolePreview(null);
+  });
+
+  it('pretend time moves now to the chosen time and back', () => {
+    const { setPretendTime, devNow, pretendTime } = require('../lib/devFlags');
+    const real = new Date(2026, 10, 18, 15, 0).getTime();
+    setPretendTime('07:30', real);
+    const d = new Date(real + (devNow() - Date.now()));
+    expect(d.getHours()).toBe(7);
+    expect(d.getMinutes()).toBe(30);
+    expect(pretendTime()).not.toBeNull();
+    setPretendTime('99:99');
+    expect(pretendTime()).not.toBeNull();
+    setPretendTime(null);
+    expect(pretendTime()).toBeNull();
+  });
+
+  it('flaky signal drops every 4th call and normal drops none', () => {
+    const { setWeakSignal, flakyDrop } = require('../lib/devFlags');
+    setWeakSignal('flaky');
+    expect([1, 2, 3, 4, 5, 6, 7, 8].map(() => flakyDrop())).toEqual([false, false, false, true, false, false, false, true]);
+    setWeakSignal('normal');
+    expect(flakyDrop()).toBe(false);
+  });
+
+  it('ticks stay per release, a second tap clears, and the changelog points out what is new', async () => {
+    await AsyncStorage.clear();
+    const { setTick, loadTicks, doneCount } = require('../lib/testChecklist');
+    const { newerThan, RELEASE_NOTES } = require('../data/releaseNotes');
+    let t = await setTick('0.6.8', 1, 'pass');
+    expect(doneCount(t, 6)).toBe(1);
+    t = await setTick('0.6.8', 1, 'pass');
+    expect(await loadTicks('0.6.8')).toEqual({});
+    expect(await loadTicks('0.6.7')).toEqual({});
+    expect(newerThan('0.6.6', RELEASE_NOTES).map((n: { release: string }) => n.release)).toEqual(['0.6.8', '0.6.7']);
+    expect(newerThan(null, RELEASE_NOTES)).toEqual([]);
+  });
+
+  it('the Developer screen shows the checklist, and Problem shares the log', async () => {
+    await AsyncStorage.clear();
+    await renderApp('/developer');
+    for (let i = 0; i < 6; i++) await act(async () => undefined);
+    expect(screen.getByTestId('dev-role')).toBeTruthy();
+    expect(screen.getByTestId('dev-signal')).toBeTruthy();
+    expect(screen.getByTestId('dev-test-item-0')).toBeTruthy();
+    expect(screen.getByTestId('dev-test-count')).toHaveTextContent(/^0 of \d+ done/);
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('dev-test-pass-0'));
+    });
+    expect(screen.getByTestId('dev-test-count')).toHaveTextContent(/^1 of \d+ done/);
+  });
+
+  it('shows a Test mode label while a switch is on', async () => {
+    const { testModeLabels } = require('../components/TestModeBanner');
+    expect(testModeLabels()).toEqual([]);
+    setRolePreview('buyer');
+    expect(testModeLabels()).toEqual(['Viewing as Buyer']);
+    setRolePreview(null);
   });
 });

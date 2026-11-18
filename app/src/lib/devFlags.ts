@@ -20,14 +20,73 @@ export function onDevFlags(l: () => void): () => void {
   return () => listeners.delete(l);
 }
 
-let preview: 'tech' | null = null;
+/** The roles Developer > Look at the app as can show. */
+export type Preview = 'owner' | 'dispatcher' | 'office' | 'sales' | 'warehouse' | 'buyer' | 'tech';
+export const PREVIEWS: { id: Preview; label: string }[] = [
+  { id: 'owner', label: 'Owner' },
+  { id: 'dispatcher', label: 'Dispatcher' },
+  { id: 'office', label: 'Office' },
+  { id: 'sales', label: 'Sales' },
+  { id: 'warehouse', label: 'Warehouse' },
+  { id: 'buyer', label: 'Buyer' },
+  { id: 'tech', label: 'Tech' },
+];
 
-/** Looking at the app as a tech: owner-only screens and rows hide. Only the app's view changes; Odoo and its data are never touched. Memory only, so a restart clears it. */
-export function rolePreview(): 'tech' | null {
+let preview: Preview | null = null;
+
+/** Looking at the app as another role: only the areas that role opens show. Only the app's view changes; Odoo and its data are never touched. Memory only, so a restart clears it. */
+export function rolePreview(): Preview | null {
   return preview;
 }
 
-export function setRolePreview(p: 'tech' | null) {
+export function setRolePreview(p: Preview | null) {
   preview = p;
   listeners.forEach((l) => l());
+}
+
+/** Weak-signal test: slow makes every Odoo call wait 5 seconds first; flaky makes every 4th call fail as if the signal dropped. Memory only. */
+export type Signal = 'normal' | 'slow' | 'flaky';
+export const SLOW_MS = 5000;
+let signal: Signal = 'normal';
+let flakyCount = 0;
+
+export function weakSignal(): Signal {
+  return signal;
+}
+
+export function setWeakSignal(s: Signal) {
+  signal = s;
+  flakyCount = 0;
+  listeners.forEach((l) => l());
+}
+
+/** True when this call should fail under the flaky setting. */
+export function flakyDrop(): boolean {
+  if (signal !== 'flaky') return false;
+  flakyCount += 1;
+  return flakyCount % 4 === 0;
+}
+
+/** Pretend time: the phone's clock moved to a chosen time today, for the screens that ask devNow(). Never changes what is saved or sent. Memory only. */
+let timeShift = 0;
+
+export function devNow(): number {
+  return Date.now() + timeShift;
+}
+
+/** Move "now" to hh:mm today, or null to go back to the real clock. */
+export function setPretendTime(hhmm: string | null, real = Date.now()) {
+  if (hhmm === null) timeShift = 0;
+  else {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+    if (!m || +m[1] > 23 || +m[2] > 59) return;
+    const d = new Date(real);
+    d.setHours(+m[1], +m[2], 0, 0);
+    timeShift = d.getTime() - real;
+  }
+  listeners.forEach((l) => l());
+}
+
+export function pretendTime(): number | null {
+  return timeShift === 0 ? null : devNow();
 }

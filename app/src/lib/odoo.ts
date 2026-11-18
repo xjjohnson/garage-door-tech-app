@@ -12,7 +12,7 @@ import { noteCall } from './noteCall';
 import { addressParts } from './geocode';
 import type { CustomerFields } from './customers';
 import type { OdooPartner } from './customerSync';
-import { pretendOffline } from './devFlags';
+import { flakyDrop, pretendOffline, SLOW_MS, weakSignal } from './devFlags';
 import { log } from './log';
 import { fillRegion, regionVals } from './odooRegion';
 import { Appointment } from './schedule';
@@ -134,6 +134,8 @@ async function rpcOnce(fetchFn: Fetch, url: string, service: string, method: str
   let res;
   try {
     if (pretendOffline()) throw new Error('Pretend offline is on (Developer screen).');
+    if (weakSignal() === 'slow') await new Promise((r) => setTimeout(r, SLOW_MS));
+    if (flakyDrop()) throw new Error('Weak signal test: this call was dropped (Developer screen).');
     res = await fetchFn(`${url}/jsonrpc`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
