@@ -1,4 +1,5 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { useBackStep } from '../lib/backStep';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Dock } from '../components/Page';
@@ -156,11 +157,9 @@ interface TabProps {
 
 /** The edit screen every tab shares: its fields, then one Save to Odoo button. */
 function EditShell({ title, canEdit, busy, msg, onSave, onArchive, onBack, children, archiveLabel }: { title: string; canEdit: boolean; busy: boolean; msg: string; onSave: () => void; onArchive?: () => void; onBack: () => void; children: ReactNode; archiveLabel: string }) {
+  useBackStep(onBack);
   return (
     <View style={styles.stack} testID="manage-edit">
-      <Pressable onPress={onBack} accessibilityRole="button" testID="manage-back" style={styles.back}>
-        <Text style={styles.buttonText}>‹ Back to the list</Text>
-      </Pressable>
       <Text style={styles.title}>{title}</Text>
       {children}
       {canEdit ? (

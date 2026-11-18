@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act } from 'react';
+import { runBackStep } from '../lib/backStep';
 import { ManagementScreen } from '../screens/ManagementScreen';
 
 const calls: [string, string, unknown[]][] = [];
@@ -31,17 +33,20 @@ const mockClient = {
 };
 jest.mock('../lib/useOdoo', () => ({ useOdoo: () => ({ status: 'signedIn', client: mockClient }) }));
 
+const goBack = () => act(async () => { runBackStep(); });
+
 describe('Management screen', () => {
   it('opens as a grouped list and each row opens its own page with a way back', async () => {
     await render(<ManagementScreen />);
     expect(await screen.findByText('Jobs and scheduling')).toBeTruthy();
     for (const g of ['Parts and prices', 'Team', 'Customers and messages', 'Business']) expect(screen.getByText(g)).toBeTruthy();
     // Nothing is open until a row is tapped.
-    expect(screen.queryByTestId('manage-back')).toBeNull();
+    expect(screen.getByTestId('manage-menu')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('manage-tab-techs'));
-    expect(await screen.findByTestId('manage-back')).toBeTruthy();
+    expect(await screen.findByTestId('manage-tech-4')).toBeTruthy();
     expect(screen.queryByTestId('manage-menu')).toBeNull();
-    await fireEvent.press(screen.getByTestId('manage-back'));
+    // One back control only: the page header's, which steps back to the list.
+    await goBack();
     expect(await screen.findByTestId('manage-menu')).toBeTruthy();
   });
 
@@ -65,7 +70,7 @@ describe('Management screen', () => {
     await fireEvent.changeText(await screen.findByTestId('manage-tech-phone'), '512');
     await fireEvent.press(await screen.findByTestId('manage-save'));
     await waitFor(() => expect(calls.some((c) => c[0] === 'fsm.person' && c[1] === 'write')).toBe(true));
-    await fireEvent.press(await screen.findByTestId('manage-back'));
+    await goBack();
     await fireEvent.press(await screen.findByTestId('manage-tab-trucks'));
     await fireEvent.press(await screen.findByTestId('manage-truck-6'));
     await fireEvent.changeText(await screen.findByTestId('manage-truck-name'), 'Truck 2');

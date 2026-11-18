@@ -1,5 +1,6 @@
 import { ReactNode, useEffect } from 'react';
-import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { useBackStep } from '../lib/backStep';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { colors, radius, shadow } from '../theme';
 
@@ -52,20 +53,11 @@ export function SectionMenu<T extends string>({ groups, onPick, testID, rowTestI
   );
 }
 
-/** One opened page of a grouped list: a back row with the area's name, then the page. The phone's back button goes back to the list too. */
-export function SectionPage({ area, title, onBack, testID, children }: { area: string; title: string; onBack: () => void; testID?: string; children: ReactNode }) {
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      onBack();
-      return true;
-    });
-    return () => sub.remove();
-  }, [onBack]);
+/** One opened page of a grouped list: its title, then the page. Going back is the page header's "<" or the phone's back button, which return to the list. */
+export function SectionPage({ title, onBack, children }: { area?: string; title: string; onBack: () => void; testID?: string; children: ReactNode }) {
+  useBackStep(onBack);
   return (
     <View style={styles.stack}>
-      <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={`Back to ${area}`} testID={testID} style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
-        <Text style={styles.backText}>‹ {area}</Text>
-      </Pressable>
       <Text style={styles.pageTitle} accessibilityRole="header">
         {title}
       </Text>
@@ -87,7 +79,5 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 26, color: colors.muted },
   badge: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: '#C62828', alignItems: 'center', justifyContent: 'center' },
   badgeText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
-  back: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line },
-  backText: { fontSize: 16, fontWeight: '800', color: colors.selected },
   pageTitle: { fontSize: 22, fontWeight: '800', color: colors.text, paddingHorizontal: 4 },
 });

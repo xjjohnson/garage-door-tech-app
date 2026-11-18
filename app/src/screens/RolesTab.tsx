@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useBackStep } from '../lib/backStep';
 import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Text } from '../components/AppText';
 import type { OdooClient } from '../lib/odoo';
@@ -22,6 +23,7 @@ export function RolesTab({ client }: { client: OdooClient }) {
   const [links, setLinks] = useState<Links | null>(null);
   const [linkMsg, setLinkMsg] = useState('');
   const [adding, setAdding] = useState(false);
+  useBackStep(() => { setAdding(false); setOpen(null); setMsg(''); setJustMade(false); }, adding || open !== null);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [justMade, setJustMade] = useState(false);
@@ -112,9 +114,6 @@ export function RolesTab({ client }: { client: OdooClient }) {
     const ready = newName.trim() !== '' && looksLikeEmail(newEmail);
     return (
       <View style={styles.stack} testID="roles-add">
-        <Pressable onPress={() => { setAdding(false); setMsg(''); }} accessibilityRole="button" testID="roles-add-back" style={styles.back}>
-          <Text style={styles.buttonText}>‹ Back to the list</Text>
-        </Pressable>
         <Text style={styles.title}>Add a person</Text>
         <Text style={styles.note}>Makes a new user in Odoo. Their email is their login.</Text>
         <TextInput value={newName} onChangeText={setNewName} placeholder="Full name" placeholderTextColor={colors.muted} accessibilityLabel="Full name" testID="roles-add-name" style={styles.input} />
@@ -140,9 +139,6 @@ export function RolesTab({ client }: { client: OdooClient }) {
   if (open && want) {
     return (
       <View style={styles.stack} testID="roles-edit">
-        <Pressable onPress={() => { setOpen(null); setMsg(''); setJustMade(false); }} accessibilityRole="button" testID="roles-back" style={styles.back}>
-          <Text style={styles.buttonText}>‹ Back to the list</Text>
-        </Pressable>
         <Text style={styles.title}>{open.name}</Text>
         {justMade ? (
           <>
