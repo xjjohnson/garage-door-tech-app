@@ -146,9 +146,9 @@ describe('Odoo setup check', () => {
   });
 
   it('is all green when everything is there', async () => {
-    const r = await runSetupCheck(fake({ uid: 2 }, { 'res.users': true, 'sale.order.template': 3, 'stock.location': 2, 'ir.mail_server': 1, 'fsm.recurring': { location_id: {} }, agreement: { partner_id: {} }, 'survey.survey': {}, 'hr.attendance': {}, 'fsm.equipment': {}, 'purchase.order': {}, 'stock.move.line': {}, 'product.pricelist.item': {} }));
+    const r = await runSetupCheck(fake({ uid: 2 }, { 'res.users': true, 'sale.order.template': 3, 'stock.location': 2, 'ir.mail_server': 1, 'fsm.recurring': { location_id: {} }, agreement: { partner_id: {} }, 'survey.survey': {}, 'hr.attendance': {}, 'hr.leave': {}, 'fsm.equipment': {}, 'purchase.order': {}, 'stock.move.line': {}, 'product.pricelist.item': {} }));
     expect(r.map((x) => [x.id, x.state])).toEqual([
-      ['signin', 'ok'], ['fsm', 'ok'], ['worker', 'ok'], ['sales', 'ok'], ['discounts', 'ok'], ['templates', 'ok'], ['invoicing', 'ok'], ['recurring', 'ok'], ['agreements', 'ok'], ['surveys', 'ok'], ['equipment', 'ok'], ['attendance', 'ok'], ['truck', 'ok'], ['purchase', 'ok'], ['warehouse', 'ok'], ['pricelists', 'ok'], ['email', 'ok'],
+      ['signin', 'ok'], ['fsm', 'ok'], ['worker', 'ok'], ['sales', 'ok'], ['discounts', 'ok'], ['templates', 'ok'], ['invoicing', 'ok'], ['recurring', 'ok'], ['agreements', 'ok'], ['surveys', 'ok'], ['equipment', 'ok'], ['attendance', 'ok'], ['timeoff', 'ok'], ['dispatcher', 'ok'], ['truck', 'ok'], ['purchase', 'ok'], ['warehouse', 'ok'], ['pricelists', 'ok'], ['email', 'ok'],
     ]);
     expect(setupSummary(r)).toBe('Odoo is ready for this version.');
   });
@@ -167,9 +167,12 @@ describe('Odoo setup check', () => {
     expect(by.surveys.state).toBe('warn');
     expect(by.equipment.state).toBe('warn');
     expect(by.attendance.state).toBe('warn');
+    expect(by.timeoff.state).toBe('warn');
+    expect(by.timeoff.fix).toMatch(/Time Off/);
+    expect(by.dispatcher.state).toBe('warn');
     expect(by.discounts.state).toBe('warn');
     expect(by.pricelists.fix).toMatch(/Pricelists/);
-    expect(setupSummary(r)).toBe('2 missing, 12 to look at.');
+    expect(setupSummary(r)).toBe('2 missing, 14 to look at.');
   });
 
   it('warns when Odoo Sales has Discounts turned off', async () => {

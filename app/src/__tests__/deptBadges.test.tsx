@@ -39,11 +39,25 @@ describe('red numbers (plain logic)', () => {
   });
 
   it('adds up what each role owns, plus parts ready for a tech', () => {
-    const b = { purchasing: { toOrder: 4, drafts: 2, late: 1 }, warehouse: { receive: 3 }, ready: 1 };
+    const b = { purchasing: { toOrder: 4, drafts: 2, late: 1 }, warehouse: { receive: 3 }, dispatch: { unassigned: 2 }, ready: 1 };
     expect(purchasingTotal(b)).toBe(7);
     expect(toolsTotal(b, { warehouse: true, purchasing: true })).toBe(11);
     expect(toolsTotal(b, { warehouse: true, purchasing: false })).toBe(4);
     expect(toolsTotal(b, { warehouse: false, purchasing: false })).toBe(1);
+    expect(toolsTotal(b, { warehouse: false, purchasing: false, dispatch: true })).toBe(3);
+  });
+
+  it('counts the jobs nobody has, only for a dispatcher', async () => {
+    const client = {
+      session: { kind: 'oca' },
+      unassignedTasks: async () => [{ id: 1 }, { id: 2 }, { id: 3 }],
+      call: async () => [],
+    } as unknown as OdooClient;
+    const b = await computeBadges(client, { warehouse: false, purchasing: false, dispatch: true }, 0);
+    expect(b.dispatch.unassigned).toBe(3);
+    expect((await computeBadges(client, { warehouse: false, purchasing: false }, 0)).dispatch.unassigned).toBe(0);
+    const failing = { ...client, unassignedTasks: async () => { throw new Error('no access'); } } as unknown as OdooClient;
+    expect((await computeBadges(failing, { warehouse: false, purchasing: false, dispatch: true }, 0)).dispatch.unassigned).toBe(0);
   });
 
   it('shares one answer through the store', () => {

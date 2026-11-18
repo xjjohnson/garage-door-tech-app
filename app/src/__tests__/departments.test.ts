@@ -50,7 +50,7 @@ beforeEach(() => AsyncStorage.clear());
 describe('who sees which area', () => {
   it('shows everything to the owner', async () => {
     const f = fake({ 'res.users.has_group': groups(['base.group_system']) });
-    expect(await departmentAccess(f.client)).toEqual({ warehouse: true, purchasing: true, pricing: true, owner: true });
+    expect(await departmentAccess(f.client)).toEqual({ warehouse: true, purchasing: true, pricing: true, dispatch: true, owner: true });
   });
 
   it('keeps the warehouse manager and the buyer separate', async () => {
@@ -63,6 +63,13 @@ describe('who sees which area', () => {
     expect(both).toMatchObject({ warehouse: true, purchasing: true });
   });
 
+  it('opens Dispatch for a Field Service dispatcher and not for the other roles', async () => {
+    const d = await departmentAccess(fake({ 'res.users.has_group': groups(['fieldservice.group_fsm_dispatcher']) }).client);
+    expect(d).toMatchObject({ dispatch: true, warehouse: false, purchasing: false, owner: false });
+    const wh = await departmentAccess(fake({ 'res.users.has_group': groups(['stock.group_stock_manager']) }).client);
+    expect(wh.dispatch).toBe(false);
+  });
+
   it('lets only a purchase manager who is also a sales manager change cost and pricelists', async () => {
     const half = await departmentAccess(fake({ 'res.users.has_group': groups(['purchase.group_purchase_manager']) }).client);
     expect(half).toMatchObject({ purchasing: true, pricing: false });
@@ -72,7 +79,7 @@ describe('who sees which area', () => {
 
   it('shows nothing when Odoo cannot answer', async () => {
     const r = await departmentAccess(fake({}).client);
-    expect(r).toEqual({ warehouse: false, purchasing: false, pricing: false, owner: false });
+    expect(r).toEqual({ warehouse: false, purchasing: false, pricing: false, dispatch: false, owner: false });
   });
 });
 

@@ -104,6 +104,7 @@ export default function RootLayout() {
                               <Stack.Screen name="stock" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="end-of-day" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="scorecard" options={{ presentation: 'modal' }} />
+                              <Stack.Screen name="dispatch" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="warehouse" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="purchasing" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="photos/[id]" options={{ presentation: 'modal' }} />

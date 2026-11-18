@@ -48,7 +48,7 @@ const endOf = (t: OdooTask) => (t.start ?? 0) + (t.minutes ?? 60) * 60000;
  * a lane per worker with their jobs on the chosen day. Tap Assign, or a job
  * in a lane, to give it to a worker at a time; Odoo is updated straight away.
  */
-export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
+export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => number; /** Which part to draw: the whole board (Jobs > Team), or one page of the Dispatch area. */ part?: 'all' | 'unassigned' | 'board' }) {
   const { client } = useOdoo();
   const { business } = useInvoices();
   const [day, setDay] = useState(() => startOfDay(now()));
@@ -157,6 +157,7 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
       ) : null}
       {!client.canSchedule ? <Text style={styles.note}>This Odoo has no planned start on its jobs, so jobs can be given to a worker but not a time.</Text> : null}
 
+      {part !== 'board' ? (
       <View style={styles.unassigned} testID="dispatch-unassigned">
         <View style={styles.unHead}>
           <Icon name="warn" size={22} color={colors.warn} />
@@ -177,8 +178,9 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
         ))}
         {unassigned.length > SHOWN ? <Action label={showAll ? 'Show fewer' : `Show all ${unassigned.length}`} onPress={() => setShowAll((v) => !v)} testID="dispatch-show-all" /> : null}
       </View>
+      ) : null}
 
-      {lanes.map(({ w, jobs, freeAt }) => (
+      {(part !== 'unassigned' ? lanes : []).map(({ w, jobs, freeAt }) => (
         <View key={w.id} style={styles.lane} testID={`dispatch-lane-${w.id}`}>
           <View style={styles.laneHead}>
             <Text style={styles.avatar}>{w.name.trim().split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() ?? '').join('')}</Text>
@@ -204,7 +206,7 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
           ) : null}
         </View>
       ))}
-      {techs.length === 0 && !busy ? <Text style={styles.note}>No Field Service workers in Odoo yet. In Odoo, tick "Is a FS Worker" on each tech's contact.</Text> : null}
+      {part !== 'unassigned' && techs.length === 0 && !busy ? <Text style={styles.note}>No Field Service workers in Odoo yet. In Odoo, tick "Is a FS Worker" on each tech's contact.</Text> : null}
 
       {picking ? <AssignSheet task={picking} day={day} techs={techs} me={me} canTime={client.canSchedule} lanes={lanes} now={t} onCancel={() => setPicking(null)} onSave={save} /> : null}
     </View>

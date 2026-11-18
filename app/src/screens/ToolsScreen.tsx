@@ -61,10 +61,11 @@ export function ToolsScreen() {
         {owner ? <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last /> : null}
       </RowGroup>
 
-      {access.warehouse || access.purchasing ? (
+      {access.warehouse || access.purchasing || access.dispatch ? (
         <>
           <Caption>Departments</Caption>
           <RowGroup>
+            {access.dispatch ? <IconRow icon="cal" label="Dispatch" detail="Give out jobs, see each tech's day" href="/dispatch" testID="tools-dispatch" badge={badges.dispatch.unassigned > 0 ? `${badges.dispatch.unassigned} to assign` : undefined} warn={badges.dispatch.unassigned > 0} last={!access.warehouse && !access.purchasing} /> : null}
             {access.warehouse ? <IconRow icon="truck" label="Warehouse" detail="Count, move parts, receive, parts on jobs" href="/warehouse" testID="tools-warehouse" badge={badges.warehouse.receive > 0 ? `${badges.warehouse.receive} to receive` : undefined} warn={badges.warehouse.receive > 0} last={!access.purchasing} /> : null}
             {access.purchasing ? <IconRow icon="tag" label="Purchasing" detail="What to order, purchase orders, cost and prices" href="/purchasing" testID="tools-purchasing" badge={buying > 0 ? `${buying} to do` : undefined} warn={buying > 0} last /> : null}
           </RowGroup>

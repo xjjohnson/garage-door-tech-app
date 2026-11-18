@@ -13,27 +13,30 @@ export interface Badges {
   purchasing: { toOrder: number; drafts: number; late: number };
   /** Warehouse: receipts waiting to come in. */
   warehouse: { receive: number };
+  /** Dispatch: open jobs nobody is assigned to. */
+  dispatch: { unassigned: number };
   /** A tech's own job parts that are ready to pick up at the warehouse. */
   ready: number;
 }
 
-export const NO_BADGES: Badges = { purchasing: { toOrder: 0, drafts: 0, late: 0 }, warehouse: { receive: 0 }, ready: 0 };
+export const NO_BADGES: Badges = { purchasing: { toOrder: 0, drafts: 0, late: 0 }, warehouse: { receive: 0 }, dispatch: { unassigned: 0 }, ready: 0 };
 
 /** Everything a buyer has waiting, as one number for the Purchasing row. */
 export const purchasingTotal = (b: Badges): number => b.purchasing.toOrder + b.purchasing.drafts + b.purchasing.late;
 
 /** What the department rows and the More tab show: the sum of what the person's roles own, plus parts ready for them. */
-export function toolsTotal(b: Badges, access: Pick<Access, 'warehouse' | 'purchasing'>): number {
-  return (access.purchasing ? purchasingTotal(b) : 0) + (access.warehouse ? b.warehouse.receive : 0) + b.ready;
+export function toolsTotal(b: Badges, access: Pick<Access, 'warehouse' | 'purchasing'> & { dispatch?: boolean }): number {
+  return (access.purchasing ? purchasingTotal(b) : 0) + (access.warehouse ? b.warehouse.receive : 0) + (access.dispatch ? b.dispatch.unassigned : 0) + b.ready;
 }
 
 /** Counts from Odoo for the areas this person can open. A count Odoo can't answer stays 0, never an error. */
-export async function computeBadges(client: OdooClient, access: Pick<Access, 'warehouse' | 'purchasing'>, ready: number, now = Date.now()): Promise<Badges> {
+export async function computeBadges(client: OdooClient, access: Pick<Access, 'warehouse' | 'purchasing'> & { dispatch?: boolean }, ready: number, now = Date.now()): Promise<Badges> {
   const safe = async <T>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
-  const [orders, vendors, receipts] = await Promise.all([
+  const [orders, vendors, receipts, unassigned] = await Promise.all([
     access.purchasing ? safe(listPurchases(client, now), []) : Promise.resolve([]),
     access.purchasing ? safe(toOrder(client), []) : Promise.resolve([]),
     access.warehouse ? safe(openReceipts(client, now), []) : Promise.resolve([]),
+    access.dispatch ? safe(client.unassignedTasks(), []) : Promise.resolve([]),
   ]);
   return {
     purchasing: {
@@ -42,6 +45,7 @@ export async function computeBadges(client: OdooClient, access: Pick<Access, 'wa
       late: orders.filter((o) => o.late).length,
     },
     warehouse: { receive: receipts.length },
+    dispatch: { unassigned: unassigned.length },
     ready,
   };
 }
