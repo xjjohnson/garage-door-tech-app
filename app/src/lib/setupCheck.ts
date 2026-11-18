@@ -147,6 +147,17 @@ export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[
       : { id: 'attendance', label: 'Attendance (time clock)', state: 'warn', detail: 'Attendances app not found.', fix: 'In Odoo, Apps > install Attendances so the time clock saves there.' },
   );
 
+  // The Dispatch area: who is out (Time Off) and the Dispatcher group. Only reads; nothing is turned on for you.
+  const [timeOff, dispatcher] = await Promise.all([hasModel(c, 'hr.leave'), hasGroup(c, s.uid, 'fieldservice.group_fsm_dispatcher')]);
+  out.push(
+    timeOff
+      ? { id: 'timeoff', label: 'Time Off (who is out)', state: 'ok', detail: 'Time Off app found.' }
+      : { id: 'timeoff', label: 'Time Off (who is out)', state: 'warn', detail: 'Time Off app not found.', fix: 'In Odoo, Apps > install Time Off so Dispatch can show who is out. Dispatch works without it.' },
+    dispatcher === null
+      ? { id: 'dispatcher', label: 'Dispatcher role', state: 'warn', detail: "Can't check the Dispatcher group.", fix: 'In Odoo, Settings > Users, give each dispatcher the Field Service Dispatcher access. The owner already has Dispatch.' }
+      : { id: 'dispatcher', label: 'Dispatcher role', state: 'ok', detail: dispatcher ? 'You are in the Field Service Dispatcher group.' : 'Dispatcher group found. You are not in it; the owner still sees Dispatch.' },
+  );
+
   const trucks = await count(c, 'stock.location', [['usage', '=', 'internal'], ['name', 'ilike', 'truck']]);
   out.push(
     trucks === null

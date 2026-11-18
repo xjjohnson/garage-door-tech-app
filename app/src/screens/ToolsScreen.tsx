@@ -12,7 +12,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useStock } from '../lib/useStock';
 import { useBadges } from '../lib/useBadges';
-import { purchasingTotal } from '../lib/deptBadges';
+import { dispatchTotal, purchasingTotal } from '../lib/deptBadges';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, openShift, shiftMs } from '../lib/worklog';
 import { colors } from '../theme';
@@ -61,10 +61,11 @@ export function ToolsScreen() {
         {owner ? <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last /> : null}
       </RowGroup>
 
-      {access.warehouse || access.purchasing ? (
+      {access.warehouse || access.purchasing || access.dispatch ? (
         <>
           <Caption>Departments</Caption>
           <RowGroup>
+            {access.dispatch ? <IconRow icon="cal" label="Dispatch" detail="Give out jobs, see each tech's day" href="/dispatch" testID="tools-dispatch" badge={dispatchTotal(badges) > 0 ? `${dispatchTotal(badges)} to look at` : undefined} warn={dispatchTotal(badges) > 0} last={!access.warehouse && !access.purchasing} /> : null}
             {access.warehouse ? <IconRow icon="truck" label="Warehouse" detail="Count, move parts, receive, parts on jobs" href="/warehouse" testID="tools-warehouse" badge={badges.warehouse.receive > 0 ? `${badges.warehouse.receive} to receive` : undefined} warn={badges.warehouse.receive > 0} last={!access.purchasing} /> : null}
             {access.purchasing ? <IconRow icon="tag" label="Purchasing" detail="What to order, purchase orders, cost and prices" href="/purchasing" testID="tools-purchasing" badge={buying > 0 ? `${buying} to do` : undefined} warn={buying > 0} last /> : null}
           </RowGroup>

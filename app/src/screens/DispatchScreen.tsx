@@ -6,7 +6,8 @@ import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
 import { Icon } from '../components/Icon';
 import { smsLink } from '../lib/jobSteps';
-import { OdooError, OdooTask, OdooUser } from '../lib/odoo';
+import { OdooClient, OdooError, OdooTask, OdooUser } from '../lib/odoo';
+import { doubleBooked, lateJobs } from '../lib/dispatchAlerts';
 import { addDays, dayLabel, formatTime, slotsFor, startOfDay } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
@@ -40,6 +41,30 @@ export function bookedText(t: Pick<OdooTask, 'customer' | 'name'>, tech: string,
   return `${hi}, it's ${business || 'Johnsons'}. ${first(tech) || 'Our tech'} is booked to come ${when} at ${formatTime(start)} for ${t.name}. Reply here if that time doesn't work.`;
 }
 
+/** Which part of the board a page draws: all of it (Jobs > Team), or one page of the Dispatch area. */
+export type Part = 'all' | 'unassigned' | 'board' | 'notime' | 'late' | 'double' | 'week' | 'upcoming' | 'waiting';
+
+/** The pages that are a plain list of jobs, each with a Change button. */
+const LISTS: Part[] = ['notime', 'late', 'double', 'week', 'upcoming', 'waiting'];
+const EMPTY: Record<string, string> = {
+  notime: 'Every job with a tech has a start time.',
+  late: 'No one is running late.',
+  double: 'No one is double booked.',
+  week: 'Nothing is planned this week.',
+  upcoming: 'Nothing is planned in the next two weeks.',
+  waiting: 'Every open job has a date.',
+};
+
+/** The jobs a list page shows. Late and double booked come from the day's board instead. */
+function listFor(client: OdooClient, part: Part, now: number): Promise<OdooTask[]> {
+  const today = startOfDay(now);
+  if (part === 'notime') return client.jobsWithoutTime();
+  if (part === 'waiting') return client.jobsWithoutDate();
+  if (part === 'week') return client.jobsPlannedBetween(today, addDays(today, 7));
+  if (part === 'upcoming') return client.jobsPlannedBetween(addDays(today, 1), addDays(today, 15));
+  return Promise.resolve([]);
+}
+
 const SHOWN = 5;
 const endOf = (t: OdooTask) => (t.start ?? 0) + (t.minutes ?? 60) * 60000;
 
@@ -48,12 +73,13 @@ const endOf = (t: OdooTask) => (t.start ?? 0) + (t.minutes ?? 60) * 60000;
  * a lane per worker with their jobs on the chosen day. Tap Assign, or a job
  * in a lane, to give it to a worker at a time; Odoo is updated straight away.
  */
-export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
+export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => number; /** Which part to draw: the whole board (Jobs > Team), or one page of the Dispatch area. */ part?: Part }) {
   const { client } = useOdoo();
   const { business } = useInvoices();
   const [day, setDay] = useState(() => startOfDay(now()));
   const [open, setOpen] = useState<OdooTask[] | null>(null);
   const [dayJobs, setDayJobs] = useState<OdooTask[]>([]);
+  const [fetched, setFetched] = useState<OdooTask[]>([]);
   const [techs, setTechs] = useState<OdooUser[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,8 +96,9 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
     setBusy(true);
     setError(null);
     try {
-      const [u, d, w] = await Promise.all([client.unassignedTasks(), client.jobsBetween(day, addDays(day, 1)), client.techs()]);
+      const [u, d, w, nt] = await Promise.all([client.unassignedTasks(), client.jobsBetween(day, addDays(day, 1)), client.techs(), listFor(client, part, now())]);
       if (n !== asked.current) return;
+      setFetched(nt);
       setOpen(u);
       setDayJobs(d);
       setTechs(w);
@@ -80,7 +107,7 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
     } finally {
       if (n === asked.current) setBusy(false);
     }
-  }, [client, day]);
+  }, [client, day, part]);
 
   useEffect(() => {
     load();
@@ -126,6 +153,7 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
 
   return (
     <View style={styles.stack} testID="dispatch">
+      {LISTS.includes(part) ? null : (
       <View style={styles.dayRow}>
         <Pressable onPress={() => setDay((d) => addDays(d, -1))} accessibilityRole="button" accessibilityLabel="Day before" testID="dispatch-prev" style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
           <Icon name="back" size={20} color={colors.text} />
@@ -150,6 +178,7 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
           <Icon name="sync" size={20} color={colors.selected} />
         </Pressable>
       </View>
+      )}
       {error ? (
         <Text style={styles.error} testID="dispatch-error">
           {error}
@@ -157,6 +186,7 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
       ) : null}
       {!client.canSchedule ? <Text style={styles.note}>This Odoo has no planned start on its jobs, so jobs can be given to a worker but not a time.</Text> : null}
 
+      {part === 'all' || part === 'unassigned' ? (
       <View style={styles.unassigned} testID="dispatch-unassigned">
         <View style={styles.unHead}>
           <Icon name="warn" size={22} color={colors.warn} />
@@ -177,8 +207,32 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
         ))}
         {unassigned.length > SHOWN ? <Action label={showAll ? 'Show fewer' : `Show all ${unassigned.length}`} onPress={() => setShowAll((v) => !v)} testID="dispatch-show-all" /> : null}
       </View>
+      ) : null}
 
-      {lanes.map(({ w, jobs, freeAt }) => (
+      {LISTS.includes(part) ? (
+        <View style={styles.unassigned} testID={`dispatch-alerts-${part}`}>
+          {(() => {
+            const list = part === 'late' ? lateJobs(dayJobs, t) : part === 'double' ? doubleBooked(dayJobs) : fetched;
+            if (list.length === 0) return <Text style={styles.cardSub}>{EMPTY[part]}</Text>;
+            return list.map((task) => (
+              <View key={task.id} style={styles.card} testID={`dispatch-alert-${task.id}`}>
+                <View style={styles.grow}>
+                  <Text style={styles.cardTitle}>
+                    {task.customer || task.name}
+                    {task.customer ? ` · ${task.name}` : ''}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {[techs.find((w) => task.assignees.includes(w.id))?.name ?? (task.assignees.length ? undefined : 'No tech yet'), task.start ? `${dayLabel(task.start, t)} ${formatTime(task.start)}` : 'No time', task.address].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                <Action label="Change" primary onPress={() => setPicking(task)} testID={`dispatch-change-${task.id}`} />
+              </View>
+            ));
+          })()}
+        </View>
+      ) : null}
+
+      {(part === 'all' || part === 'board' ? lanes : []).map(({ w, jobs, freeAt }) => (
         <View key={w.id} style={styles.lane} testID={`dispatch-lane-${w.id}`}>
           <View style={styles.laneHead}>
             <Text style={styles.avatar}>{w.name.trim().split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() ?? '').join('')}</Text>
@@ -204,7 +258,7 @@ export function DispatchScreen({ now = Date.now }: { now?: () => number }) {
           ) : null}
         </View>
       ))}
-      {techs.length === 0 && !busy ? <Text style={styles.note}>No Field Service workers in Odoo yet. In Odoo, tick "Is a FS Worker" on each tech's contact.</Text> : null}
+      {(part === 'all' || part === 'board') && techs.length === 0 && !busy ? <Text style={styles.note}>No Field Service workers in Odoo yet. In Odoo, tick "Is a FS Worker" on each tech's contact.</Text> : null}
 
       {picking ? <AssignSheet task={picking} day={day} techs={techs} me={me} canTime={client.canSchedule} lanes={lanes} now={t} onCancel={() => setPicking(null)} onSave={save} /> : null}
     </View>
