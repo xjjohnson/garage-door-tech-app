@@ -32,8 +32,22 @@ const mockClient = {
 jest.mock('../lib/useOdoo', () => ({ useOdoo: () => ({ status: 'signedIn', client: mockClient }) }));
 
 describe('Management screen', () => {
+  it('opens as a grouped list and each row opens its own page with a way back', async () => {
+    await render(<ManagementScreen />);
+    expect(await screen.findByText('Jobs and scheduling')).toBeTruthy();
+    for (const g of ['Parts and prices', 'Team', 'Customers and messages', 'Business']) expect(screen.getByText(g)).toBeTruthy();
+    // Nothing is open until a row is tapped.
+    expect(screen.queryByTestId('manage-back')).toBeNull();
+    await fireEvent.press(screen.getByTestId('manage-tab-techs'));
+    expect(await screen.findByTestId('manage-back')).toBeTruthy();
+    expect(screen.queryByTestId('manage-menu')).toBeNull();
+    await fireEvent.press(screen.getByTestId('manage-back'));
+    expect(await screen.findByTestId('manage-menu')).toBeTruthy();
+  });
+
   it('edits a job type and saves it to Odoo', async () => {
     await render(<ManagementScreen />);
+    await fireEvent.press(await screen.findByTestId('manage-tab-jobTypes'));
     await fireEvent.press(await screen.findByTestId('manage-jt-7'));
     await fireEvent.changeText(await screen.findByTestId('manage-jt-name'), 'Opener repair');
     await fireEvent.press(await screen.findByTestId('manage-jt-type-3'));
@@ -51,6 +65,7 @@ describe('Management screen', () => {
     await fireEvent.changeText(await screen.findByTestId('manage-tech-phone'), '512');
     await fireEvent.press(await screen.findByTestId('manage-save'));
     await waitFor(() => expect(calls.some((c) => c[0] === 'fsm.person' && c[1] === 'write')).toBe(true));
+    await fireEvent.press(await screen.findByTestId('manage-back'));
     await fireEvent.press(await screen.findByTestId('manage-tab-trucks'));
     await fireEvent.press(await screen.findByTestId('manage-truck-6'));
     await fireEvent.changeText(await screen.findByTestId('manage-truck-name'), 'Truck 2');

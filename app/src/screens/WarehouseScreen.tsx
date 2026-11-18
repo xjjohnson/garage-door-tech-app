@@ -5,6 +5,8 @@ import { BarcodeScanner } from '../components/BarcodeScanner';
 import { Action } from '../components/Buttons';
 import { Card, dateText, Message, Meta, Note, NumBox, Row, TextBox, Title, toNum, useRun } from '../components/Dept';
 import { ChipRow } from '../components/controls';
+import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
+import { useBadges } from '../lib/useBadges';
 import { OdooClient } from '../lib/odoo';
 import { findProductByCode } from '../lib/odooStock';
 import {
@@ -35,14 +37,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { colors } from '../theme';
 
 type Tab = 'overview' | 'count' | 'move' | 'receive' | 'jobs' | 'log';
-const TABS = [
-  { label: 'Overview', value: 'overview' as Tab },
-  { label: 'Count', value: 'count' as Tab },
-  { label: 'Move parts', value: 'move' as Tab },
-  { label: 'Receive', value: 'receive' as Tab },
-  { label: 'Parts on jobs', value: 'jobs' as Tab },
-  { label: 'History', value: 'log' as Tab },
-];
+const LABELS: Record<Tab, string> = { overview: 'Overview', count: 'Count', move: 'Move parts', receive: 'Receive', jobs: 'Parts on jobs', log: 'History' };
 
 const DAY = 86400000;
 
@@ -55,7 +50,9 @@ const DAY = 86400000;
 export function WarehouseScreen() {
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab | null>(null);
+  const back = useCallback(() => setTab(null), []);
+  const badges = useBadges();
   const [places, setPlaces] = useState<Place[] | null>(null);
   const [countAt, setCountAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,21 +79,48 @@ export function WarehouseScreen() {
       </Card>
     );
   }
+  const groups: MenuGroup<Tab>[] = [
+    {
+      title: 'Right now',
+      items: [
+        { id: 'overview', label: 'Overview', detail: 'The warehouse and every truck at a glance' },
+        { id: 'receive', label: 'Receive', detail: 'Purchase orders on their way in', badge: badges.warehouse.receive },
+      ],
+    },
+    {
+      title: 'Count and move',
+      items: [
+        { id: 'count', label: 'Count', detail: 'The warehouse or any truck' },
+        { id: 'move', label: 'Move parts', detail: 'Between the warehouse and trucks' },
+      ],
+    },
+    {
+      title: 'Records',
+      items: [
+        { id: 'jobs', label: 'Parts on jobs', detail: 'What each job used' },
+        { id: 'log', label: 'History', detail: 'Who changed what' },
+      ],
+    },
+  ];
   const goCount = (id: number) => {
     setCountAt(id);
     setTab('count');
   };
   return (
     <View style={styles.stack} testID="warehouse">
-      <ChipRow scroll options={TABS} value={tab} onChange={setTab} testID="warehouse-tabs" compact />
-      {error ? <Text style={styles.bad}>{error}</Text> : null}
-      {!places ? <Note>Reading Odoo…</Note> : null}
-      {places && tab === 'overview' ? <Overview client={client} places={places} onCount={goCount} /> : null}
-      {places && tab === 'count' ? <Count client={client} places={places} start={countAt} by={client.session.name} /> : null}
-      {places && tab === 'move' ? <Move client={client} places={places} /> : null}
-      {tab === 'receive' ? <Receive client={client} /> : null}
-      {tab === 'jobs' ? <PartsOnJobs client={client} /> : null}
-      {tab === 'log' ? <History client={client} /> : null}
+      {tab === null ? <SectionMenu groups={groups} onPick={setTab} testID="warehouse-tabs" rowTestID={(id) => `warehouse-tab-${id}`} /> : null}
+      {tab !== null ? (
+        <SectionPage area="Warehouse" title={LABELS[tab]} onBack={back} testID="warehouse-back">
+        {error ? <Text style={styles.bad}>{error}</Text> : null}
+        {!places ? <Note>Reading Odoo…</Note> : null}
+        {places && tab === 'overview' ? <Overview client={client} places={places} onCount={goCount} /> : null}
+        {places && tab === 'count' ? <Count client={client} places={places} start={countAt} by={client.session.name} /> : null}
+        {places && tab === 'move' ? <Move client={client} places={places} /> : null}
+        {tab === 'receive' ? <Receive client={client} /> : null}
+        {tab === 'jobs' ? <PartsOnJobs client={client} /> : null}
+        {tab === 'log' ? <History client={client} /> : null}
+        </SectionPage>
+      ) : null}
     </View>
   );
 }

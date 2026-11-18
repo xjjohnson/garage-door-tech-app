@@ -1,7 +1,8 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Dock } from '../components/Page';
+import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
 import type { OdooClient } from '../lib/odoo';
 import {
   archiveJobType,
@@ -51,21 +52,45 @@ import { useCustomerTypes } from '../lib/useInvoices';
 import { TextsTab } from './TextsTab';
 
 type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business';
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'jobTypes', label: 'Job types' },
-  { id: 'templates', label: 'Templates' },
-  { id: 'parts', label: 'Parts' },
-  { id: 'techs', label: 'Techs' },
-  { id: 'roles', label: 'Team roles' },
-  { id: 'trucks', label: 'Trucks' },
-  { id: 'customerTypes', label: 'Customer types' },
-  { id: 'plans', label: 'Maintenance plans' },
-  { id: 'discounts', label: 'Discounts' },
-  { id: 'pricelists', label: 'Pricelists' },
-  { id: 'texts', label: 'Texts' },
-  { id: 'checklists', label: 'Checklists' },
-  { id: 'business', label: 'Your business' },
+const GROUPS: MenuGroup<Tab>[] = [
+  {
+    title: 'Jobs and scheduling',
+    items: [
+      { id: 'jobTypes', label: 'Job types', detail: 'Visit lengths and instructions' },
+      { id: 'templates', label: 'Templates', detail: 'Quotation templates' },
+      { id: 'plans', label: 'Maintenance plans', detail: 'Yearly tune-up plans' },
+      { id: 'checklists', label: 'Checklists', detail: 'Inspection items' },
+    ],
+  },
+  {
+    title: 'Parts and prices',
+    items: [
+      { id: 'parts', label: 'Parts', detail: 'Products and stock rules' },
+      { id: 'pricelists', label: 'Pricelists', detail: 'Prices by customer type' },
+      { id: 'discounts', label: 'Discounts', detail: 'Quick discount buttons' },
+    ],
+  },
+  {
+    title: 'Team',
+    items: [
+      { id: 'techs', label: 'Techs', detail: 'People and their schedules' },
+      { id: 'roles', label: 'Team roles', detail: 'Who can do what' },
+      { id: 'trucks', label: 'Trucks', detail: 'Vehicles and truck stock places' },
+    ],
+  },
+  {
+    title: 'Customers and messages',
+    items: [
+      { id: 'customerTypes', label: 'Customer types', detail: 'Types and their plans' },
+      { id: 'texts', label: 'Texts', detail: 'On my way, ETA, review, confirm' },
+    ],
+  },
+  {
+    title: 'Business',
+    items: [{ id: 'business', label: 'Your business', detail: 'Name, payment handles, review link' }],
+  },
 ];
+const LABELS = Object.fromEntries(GROUPS.flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<Tab, string>;
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -78,7 +103,8 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export function ManagementScreen() {
   const { client, status } = useOdoo();
   const signedIn = status === 'signedIn' && !!client;
-  const [tab, setTab] = useState<Tab>('jobTypes');
+  const [tab, setTab] = useState<Tab | null>(null);
+  const back = useCallback(() => setTab(null), []);
   const [owner, setOwner] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
@@ -92,29 +118,27 @@ export function ManagementScreen() {
   if (!signedIn || !client) return <Text style={styles.note} testID="manage-signin">Sign in to Odoo to manage these lists. They are kept in Odoo, not on this phone.</Text>;
   return (
     <View style={styles.stack} testID="manage">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} accessibilityRole="tablist" style={styles.tabScroll}>
-        {TABS.map((t) => (
-          <Pressable key={t.id} onPress={() => setTab(t.id)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.id }} testID={`manage-tab-${t.id}`} style={[styles.tab, tab === t.id && styles.tabOn]}>
-            <Text style={[styles.tabText, tab === t.id && styles.tabTextOn]}>{t.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {tab === null ? <SectionMenu groups={GROUPS} onPick={setTab} testID="manage-menu" rowTestID={(id) => `manage-tab-${id}`} /> : null}
       <Text style={styles.note} testID="manage-who">
         {owner === true ? 'Changes save straight to Odoo and every phone picks them up.' : owner === false ? 'Only the owner can change these. Ask the owner to make a change.' : 'Checking with Odoo...'}
       </Text>
-      {tab === 'jobTypes' ? <JobTypes client={client} canEdit={owner === true} /> : null}
-      {tab === 'templates' ? <Templates client={client} canEdit={owner === true} /> : null}
-      {tab === 'parts' ? <Parts client={client} canEdit={owner === true} /> : null}
-      {tab === 'techs' ? <Techs client={client} canEdit={owner === true} /> : null}
-      {tab === 'trucks' ? <Trucks client={client} canEdit={owner === true} /> : null}
-      {tab === 'roles' ? <RolesTab client={client} /> : null}
-      {tab === 'customerTypes' ? <CustomerTypesTab client={client} canEdit={owner === true} /> : null}
-      {tab === 'plans' ? <Plans client={client} canEdit={owner === true} /> : null}
-      {tab === 'discounts' ? <DiscountsTab canEdit={owner === true} /> : null}
-      {tab === 'pricelists' ? <PricelistEditor client={client} canEdit={owner === true} /> : null}
-      {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
-      {tab === 'checklists' ? <ChecklistsScreen /> : null}
-      {tab === 'business' ? <BusinessScreen /> : null}
+      {tab !== null ? (
+        <SectionPage area="Management" title={LABELS[tab]} onBack={back} testID="manage-back">
+          {tab === 'jobTypes' ? <JobTypes client={client} canEdit={owner === true} /> : null}
+          {tab === 'templates' ? <Templates client={client} canEdit={owner === true} /> : null}
+          {tab === 'parts' ? <Parts client={client} canEdit={owner === true} /> : null}
+          {tab === 'techs' ? <Techs client={client} canEdit={owner === true} /> : null}
+          {tab === 'trucks' ? <Trucks client={client} canEdit={owner === true} /> : null}
+          {tab === 'roles' ? <RolesTab client={client} /> : null}
+          {tab === 'customerTypes' ? <CustomerTypesTab client={client} canEdit={owner === true} /> : null}
+          {tab === 'plans' ? <Plans client={client} canEdit={owner === true} /> : null}
+          {tab === 'discounts' ? <DiscountsTab canEdit={owner === true} /> : null}
+          {tab === 'pricelists' ? <PricelistEditor client={client} canEdit={owner === true} /> : null}
+          {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
+          {tab === 'checklists' ? <ChecklistsScreen /> : null}
+          {tab === 'business' ? <BusinessScreen /> : null}
+        </SectionPage>
+      ) : null}
     </View>
   );
 }
