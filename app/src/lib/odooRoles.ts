@@ -122,6 +122,41 @@ export async function saveRoles(c: Client, personId: number, want: Roles): Promi
   return got;
 }
 
+/** Whether this looks like an email address, which Odoo uses as the login. */
+export const looksLikeEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+/**
+ * Makes a new Odoo user (an internal user, not a portal one) with these roles.
+ * Only an Odoo administrator may; Odoo refuses anyone else. The login is the
+ * email address. No password is set and nothing is emailed: the owner sends
+ * Odoo's own invitation when ready (see `sendInvite`). Roles go through
+ * `saveRoles`, so they are read back and a refusal is reported.
+ */
+export async function createPerson(c: Client, input: { name: string; email: string; roles: Roles }): Promise<Person> {
+  if (!(await canChangeRoles(c))) throw new Error('Only an Odoo administrator can add people.');
+  const name = input.name.trim();
+  const email = input.email.trim();
+  if (!name) throw new Error('Type their name.');
+  if (!looksLikeEmail(email)) throw new Error('Type their email address. It is their login.');
+  const taken = (await c.call('res.users', 'search_count', [[['login', '=ilike', email]]], { context: { active_test: false } })) as number;
+  if (taken) throw new Error(`Odoo already has a user with the login ${email}. Find them in the list, or in Odoo's Settings, Users if they are archived.`);
+  const id = (await c.call('res.users', 'create', [{ name, login: email, email }])) as number;
+  if (typeof id !== 'number') throw new Error('Odoo did not make the user. Check Settings, Users.');
+  try {
+    await saveRoles(c, id, input.roles);
+  } catch (e) {
+    throw new Error(`${name} was made in Odoo, but their roles were not saved: ${e instanceof Error ? e.message : String(e)} Open them in the list to try again.`);
+  }
+  const person = (await listPeople(c)).find((p) => p.id === id);
+  return person ?? { id, name, login: email, admin: false, roles: input.roles };
+}
+
+/** Sends Odoo's own invitation email (a link to set a password), the same as Send Password Reset Instructions on the user in Odoo. */
+export async function sendInvite(c: Client, personId: number): Promise<void> {
+  if (!(await canChangeRoles(c))) throw new Error('Only an Odoo administrator can send invitations.');
+  await c.call('res.users', 'action_reset_password', [[personId]]);
+}
+
 /* ----------------------------------------------- Employee and worker links */
 
 export type LinkState = 'linked' | 'missing' | 'unavailable';
