@@ -55,7 +55,7 @@ describe('setting a plan up in Odoo', () => {
     const set = c.calls.find((x) => x.model === 'fsm.frequency.set' && x.method === 'create')!;
     expect(set.args[0]).toMatchObject({ buffer_early: 30, fsm_frequency_ids: [[0, 0, { interval_type: 'monthly', interval: 6 }]] });
     const repeat = c.calls.find((x) => x.model === 'fsm.recurring' && x.method === 'create')!;
-    expect(repeat.args[0]).toMatchObject({ fsm_frequency_set_id: 40, fsm_order_template_id: 9, start_date: '2027-05-17 00:00:00', end_date: '2027-11-17 00:00:00' });
+    expect(repeat.args[0]).toMatchObject({ fsm_frequency_set_id: 40, fsm_order_template_id: 9, start_date: '2027-05-17 00:00:00', end_date: '2027-11-18 00:00:00' });
     const agr = c.calls.find((x) => x.model === 'agreement' && x.method === 'create')!;
     expect(agr.args[0]).toMatchObject({ name: 'Twice-a-year service', start_date: '2026-11-17', end_date: '2027-11-17' });
     expect(JSON.stringify(agr.args[0])).not.toContain('johnsons-plan:');

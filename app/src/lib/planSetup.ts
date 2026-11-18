@@ -41,6 +41,9 @@ export function addMonths(ms: number, months: number): number {
 /** The end of the plan's term, or undefined for an ongoing plan. */
 export const planEnd = (p: Pick<TicketPlan, 'termMonths'>, start: number): number | undefined => (p.termMonths > 0 ? addMonths(start, p.termMonths) : undefined);
 
+/** The repeat runs a day past the term's end, so a last visit due on that very date (the same moment as the end) is still made. */
+export const DAY = 24 * 60 * 60 * 1000;
+
 const fieldsOf = async (c: Client, model: string): Promise<string[]> => {
   try {
     return Object.keys((await c.call(model, 'fields_get', [], { attributes: ['type'] })) as Record<string, unknown>);
@@ -85,7 +88,7 @@ export async function setUpPlan(c: Client, partnerId: number, who: { customer: s
     const end = planEnd(plan, now);
     if (support.repeats && !done.repeatId) {
       const every = await planFrequencySet(c, plan);
-      done.repeatId = await createRepeat(c, partnerId, { customer: who.customer, address: who.address, every, start: addMonths(now, plan.everyMonths), what: plan.name, templateId: plan.jobTypeId, end });
+      done.repeatId = await createRepeat(c, partnerId, { customer: who.customer, address: who.address, every, start: addMonths(now, plan.everyMonths), what: plan.name, templateId: plan.jobTypeId, end: end === undefined ? undefined : end + DAY });
     }
     if (support.agreements && !done.agreementId) {
       done.agreementId = await createAgreement(c, partnerId, { name: plan.name, notes: planNotesText(plan), start: now, end, repeatId: done.repeatId });
