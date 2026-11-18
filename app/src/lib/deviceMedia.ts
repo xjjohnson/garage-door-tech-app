@@ -14,6 +14,8 @@ export interface DeviceMedia {
   shareBase64Pdf?(base64: string, name: string): Promise<void>;
   /** Saves a PDF (base64) into a folder the person picks, e.g. Downloads; resolves false when they back out. */
   savePdf?(base64: string, name: string): Promise<boolean>;
+  /** Opens a PDF (as base64) in the phone's PDF viewer, where it can be saved or shared. No folder to pick. */
+  openPdf?(base64: string, name: string): Promise<void>;
   /** Opens the share sheet for photo files. */
   sharePhoto(uri: string): Promise<void>;
   /** A saved photo as a data URL, to put in a PDF; null if it can't be read. */
@@ -97,6 +99,13 @@ export function deviceMedia(): DeviceMedia | null {
       f.create();
       f.write(base64, { encoding: 'base64' });
       await sharing.shareAsync(f.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: name });
+    },
+    async openPdf(base64, name) {
+      const f = new fs.File(fs.Paths.cache, name);
+      if (f.exists) f.delete();
+      f.create();
+      f.write(base64, { encoding: 'base64' });
+      await f.preview({ mimeType: 'application/pdf', title: name });
     },
     async savePdf(base64, name) {
       let dir;

@@ -86,7 +86,7 @@ export function OdooEquipmentSync() {
         try {
           const loc = await orderLocation(client, job!.odooJob!.id);
           if (!loc) continue;
-          const n = await sendEquipment(client, loc, items, ready);
+          const n = await sendEquipment(client, loc, items, ready, job!.odooJob!.id);
           log.info('odoo', `${n} door/opener record(s) on location ${loc} (invoice ${invoiceNo(inv)})`);
           done[inv.id] = equipmentKey(items);
         } catch (e) {

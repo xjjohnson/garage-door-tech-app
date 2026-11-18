@@ -233,6 +233,8 @@ export interface Repair {
   taxable: boolean;
   /** The Odoo product it was picked from, when it was added from the price book. */
   productId?: number;
+  /** How many, when more than one; `price` is for one. */
+  qty?: number;
   /** The checklist item it came from, so the quote can show that item's photos. */
   item?: AnswerKey;
   /** The customer said no to this add-on; it stays listed but off the quote. */
@@ -378,9 +380,18 @@ export function repairFromFlag(f: Pick<Flag, 'label' | 'action'> & { key?: Answe
   return { id: uid('r', now, n), label: f.action.trim() || `${f.label}: repair`, price: '', taxable: true, ...(f.key ? { item: f.key } : {}) };
 }
 
+/** A repair made from a price-book part: its name, price for one, tax, and how many. */
+export function repairFromPart(part: { id: number; name: string; cents: number; kind: 'service' | 'material' }, qty: number, now: number, n: number, item?: AnswerKey): Repair {
+  const dollars = part.cents % 100 === 0 ? String(part.cents / 100) : (part.cents / 100).toFixed(2);
+  return { id: uid('r', now, n), label: part.name, price: dollars, taxable: part.kind !== 'service', productId: part.id, ...(qty > 1 ? { qty: Math.floor(qty) } : {}), ...(item ? { item } : {}) };
+}
+
 /** The job's repairs as quote lines, then any typed on the quote; ones with no name or price are left off. */
 export function repairLines(insp: Inspection | undefined, typed: Repair[] = []): QuoteLine[] {
-  return [...(insp?.repairs ?? []), ...typed].filter((r) => !r.declined && r.label.trim() !== '' && cents(r.price) > 0).map((r) => ({ label: r.label.trim(), cents: cents(r.price), taxable: r.taxable, ...(r.productId ? { productId: r.productId } : {}) }));
+  return [...(insp?.repairs ?? []), ...typed].filter((r) => !r.declined && r.label.trim() !== '' && cents(r.price) > 0).map((r) => {
+    const qty = r.qty && r.qty > 1 ? Math.floor(r.qty) : 1;
+    return { label: r.label.trim(), cents: cents(r.price) * qty, taxable: r.taxable, ...(qty > 1 ? { qty } : {}), ...(r.productId ? { productId: r.productId } : {}) };
+  });
 }
 
 /** The quote with the repairs added to every option that can be priced, totals and tax worked out again. */
@@ -507,7 +518,7 @@ export function parseRepairs(v: unknown): Repair[] {
   return v.flatMap((r): Repair[] => {
     const x = r as Record<string, unknown> | null;
     if (!x || typeof x.id !== 'string') return [];
-    return [{ id: x.id, label: str(x.label), price: str(x.price), taxable: x.taxable !== false, ...(typeof x.productId === 'number' ? { productId: x.productId } : {}), ...(str(x.item) ? { item: str(x.item) } : {}), ...(x.declined === true ? { declined: true } : {}) }];
+    return [{ id: x.id, label: str(x.label), price: str(x.price), taxable: x.taxable !== false, ...(typeof x.productId === 'number' ? { productId: x.productId } : {}), ...(typeof x.qty === 'number' && x.qty > 1 ? { qty: Math.floor(x.qty) } : {}), ...(str(x.item) ? { item: str(x.item) } : {}), ...(x.declined === true ? { declined: true } : {}) }];
   });
 }
 

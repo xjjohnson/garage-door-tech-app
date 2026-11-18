@@ -5,6 +5,7 @@
  * as set by whoever dispatches, come back to the phone's visit. Kept free of
  * React; the client is passed in, so tests use a fake.
  */
+import { vehicleVals } from './odooVehicle';
 import type { OdooPartner } from './customerSync';
 import type { CustomerFields } from './customers';
 import { phoneKey } from './customers';
@@ -133,12 +134,14 @@ export async function locationFor(c: Client, partnerId: number, job: Pick<JobFor
   return (await c.call('fsm.location', 'create', [{ name, owner_id: partnerId, ...(at.street ? { street: at.street } : {}), ...(at.city ? { city: at.city } : {}), ...(at.zip ? { zip: at.zip } : {}), ...(at.street ? await regionVals(c, job.address) : {}) }])) as number;
 }
 
-const visitVals = (c: Client, visit: Pick<Appointment, 'start' | 'minutes'> | undefined): Record<string, unknown> => {
+const visitVals = (c: Client, visit: Pick<Appointment, 'start' | 'minutes' | 'windowMinutes'> | undefined): Record<string, unknown> => {
   if (!visit) return {};
   if (c.session.kind === 'oca') {
     return {
       ...(has(c, 'scheduled_date_start') ? { scheduled_date_start: toOdooTime(visit.start) } : {}),
       ...(has(c, 'scheduled_duration') ? { scheduled_duration: visit.minutes / 60 } : {}),
+      // The arrival window the customer was given: Odoo's Earliest and Latest Request Date.
+      ...(visit.windowMinutes && visit.windowMinutes > 0 && has(c, 'request_early') && has(c, 'request_late') ? { request_early: toOdooTime(visit.start), request_late: toOdooTime(visit.start + visit.windowMinutes * 60_000) } : {}),
     };
   }
   return has(c, 'planned_date_begin') ? { planned_date_begin: toOdooTime(visit.start) } : {};
@@ -151,7 +154,7 @@ const describe = (job: JobForOdoo) => [job.what, job.notes.trim(), jobMarker(job
  * this user (it's on their schedule) when they're a worker; one without stays
  * unassigned, for whoever dispatches.
  */
-export async function createOdooJob(c: Client, partnerId: number, job: JobForOdoo, visit?: Pick<Appointment, 'start' | 'minutes'>): Promise<OdooJobRef> {
+export async function createOdooJob(c: Client, partnerId: number, job: JobForOdoo, visit?: Pick<Appointment, 'start' | 'minutes' | 'windowMinutes'>): Promise<OdooJobRef> {
   const s = c.session;
   const found = await findOdooJob(c, job.jobId);
   if (found) return found;
@@ -160,7 +163,10 @@ export async function createOdooJob(c: Client, partnerId: number, job: JobForOdo
     const template = await templateNamed(c, job.what);
     const vals: Record<string, unknown> = { location_id, ...(template ? templateVals(c, template, !!visit) : {}), ...visitVals(c, visit) };
     if (has(c, 'description') && describe(job)) vals.description = describe(job);
-    if (visit && s.me) vals.person_id = s.me;
+    if (visit && s.me) {
+      vals.person_id = s.me;
+      Object.assign(vals, await vehicleVals(c, s.me));
+    }
     const id = (await c.call('fsm.order', 'create', [vals])) as number;
     const [row] = (await c.call('fsm.order', 'read', [[id]], { fields: ['name'] })) as { name?: string }[];
     return { model: 'fsm.order', id, name: row?.name || `#${id}` };
@@ -201,7 +207,7 @@ export async function partnerFor(c: Pick<OdooClient, 'partners' | 'createPartner
 }
 
 /** Sends a changed visit time to the Odoo job. */
-export async function writeVisit(c: Client, ref: OdooJobRef, visit: Pick<Appointment, 'start' | 'minutes'>): Promise<void> {
+export async function writeVisit(c: Client, ref: OdooJobRef, visit: Pick<Appointment, 'start' | 'minutes' | 'windowMinutes'>): Promise<void> {
   const vals = visitVals(c, visit);
   if (Object.keys(vals).length) await c.call(ref.model, 'write', [[ref.id], vals]);
 }

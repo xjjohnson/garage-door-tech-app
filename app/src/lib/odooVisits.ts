@@ -4,6 +4,7 @@
  * becomes its own order; marking a visit done or cancelled on the phone
  * finishes or cancels that order. Kept free of React; the client is passed in.
  */
+import { vehicleVals } from './odooVehicle';
 import type { OdooClient } from './odoo';
 import { addressParts } from './geocode';
 import { createOdooJob, jobMarker, myId, OdooJobRef, readJobStates, squashStreet, writeVisit } from './odooJobs';
@@ -71,10 +72,10 @@ export async function findOpenOrderAt(c: Client, partnerId: number, a: Pick<Appo
 }
 
 /** Puts the visit's time and me on an existing order, and the visit's marker in its description so a retry finds it. */
-async function attachVisit(c: Client, ref: OdooJobRef, a: Pick<Appointment, 'id' | 'start' | 'minutes'>): Promise<void> {
+async function attachVisit(c: Client, ref: OdooJobRef, a: Pick<Appointment, 'id' | 'start' | 'minutes' | 'windowMinutes'>): Promise<void> {
   await writeVisit(c, ref, a);
   const me = myId(c);
-  const vals: Record<string, unknown> = me ? { person_id: me } : {};
+  const vals: Record<string, unknown> = me ? { person_id: me, ...(await vehicleVals(c, me)) } : {};
   if (c.session.fields.includes('description')) {
     const [row] = (await c.call(ref.model, 'read', [[ref.id]], { fields: ['description'] })) as { description?: unknown }[];
     const text = typeof row?.description === 'string' ? row.description : '';
@@ -84,7 +85,7 @@ async function attachVisit(c: Client, ref: OdooJobRef, a: Pick<Appointment, 'id'
 }
 
 /** The Odoo job a visit with no job becomes: an open order at the same house when there is one, else a new order. */
-export async function createVisitOrder(c: Client, partnerId: number, a: Pick<Appointment, 'id' | 'name' | 'address' | 'phone' | 'what' | 'start' | 'minutes'>): Promise<OdooJobRef> {
+export async function createVisitOrder(c: Client, partnerId: number, a: Pick<Appointment, 'id' | 'name' | 'address' | 'phone' | 'what' | 'start' | 'minutes' | 'windowMinutes'>): Promise<OdooJobRef> {
   const existing = await findOpenOrderAt(c, partnerId, a);
   if (existing) {
     await attachVisit(c, existing, a);

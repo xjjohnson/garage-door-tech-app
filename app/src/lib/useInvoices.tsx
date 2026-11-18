@@ -1,3 +1,4 @@
+import { typesFor } from './customerTypes';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { OdooInvoiceState } from './odooSales';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -148,4 +149,10 @@ export function useInvoices(): InvoicesApi {
   const api = useContext(InvoicesContext);
   if (!api) throw new Error('useInvoices needs an InvoicesProvider above it');
   return api;
+}
+
+/** The customer types to offer, from the business details; the standard two when there is no provider above (or nothing set). */
+export function useCustomerTypes(): string[] {
+  const api = useContext(InvoicesContext);
+  return typesFor(api?.business ?? {});
 }

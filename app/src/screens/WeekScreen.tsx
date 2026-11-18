@@ -8,7 +8,7 @@ import { VisitCard } from '../components/VisitCard';
 import { balance } from '../lib/invoices';
 import { cleanNotes } from '../lib/odooJobs';
 import { formatMoney } from '../lib/prices';
-import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay } from '../lib/schedule';
+import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay, windowLabel } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useVisits } from '../lib/useVisits';
 import { useGeocode } from '../lib/useGeocode';
@@ -53,7 +53,7 @@ export function WeekScreen({ now = Date.now }: { now?: () => number }) {
       {visits.map((a) => (
         <VisitCard
           key={a.id}
-          top={formatTime(a.start).toUpperCase()}
+          top={windowLabel(a).toUpperCase()}
           chip={a.status === 'done' ? 'Done' : 'Scheduled'}
           name={a.name}
           address={a.address}

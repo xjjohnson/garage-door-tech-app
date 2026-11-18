@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
-import { categoryLevel, PriceBookItem, searchItems } from '../lib/priceBook';
+import { categoryLevel, groupVariants, PriceBookItem, searchItems } from '../lib/priceBook';
 import { formatMoney } from '../lib/prices';
 import { colors, touch, type } from '../theme';
 
@@ -26,7 +26,8 @@ export function PriceBookPicker({ visible, items, title = 'Add from the price bo
   const row = (i: PriceBookItem) => (
     <Pressable key={i.id} onPress={() => { setQ(''); setPath([]); onPick(i); }} accessibilityRole="button" testID={`pb-pick-${i.id}`} style={({ pressed }) => [styles.pick, pressed && styles.pressed]}>
       <View style={styles.grow}>
-        <Text style={styles.body}>{i.name}</Text>
+        {i.variant && i.baseName ? <Text style={styles.meta}>{i.baseName}</Text> : null}
+        <Text style={styles.body}>{i.variant ?? i.name}</Text>
         {i.code ? <Text style={styles.meta}>{i.code}</Text> : null}
       </View>
       <Text style={styles.body}>{formatMoney(i.cents)}</Text>
@@ -60,7 +61,7 @@ export function PriceBookPicker({ visible, items, title = 'Add from the price bo
                     <Text style={styles.meta}>{f.count}</Text>
                   </Pressable>
                 ))}
-                {level.items.map(row)}
+                {groupVariants(level.items).map((g, n) => ('heading' in g ? <Text key={`h-${g.heading}-${n}`} style={styles.heading}>{g.heading}</Text> : row(g.item)))}
               </>
             )}
           </ScrollView>
@@ -84,4 +85,5 @@ const styles = StyleSheet.create({
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: 15, fontWeight: '700', color: colors.muted },
   pressed: { backgroundColor: colors.info },
+  heading: { fontSize: 15, fontWeight: '800', color: colors.muted, marginTop: 6 },
 });

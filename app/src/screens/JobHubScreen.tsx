@@ -17,7 +17,7 @@ import { Job, jobName, phoneLink } from '../lib/jobs';
 import { jobInvoice, jobSteps, nextStep, onSiteFor, smsLink, StepId } from '../lib/jobSteps';
 import { log } from '../lib/log';
 import { formatMoney } from '../lib/prices';
-import { dayLabel, formatTime, mapsLink, onMyWayText } from '../lib/schedule';
+import { dayLabel, formatTime, mapsLink, onMyWayText, windowLabel } from '../lib/schedule';
 import { useSchedule } from '../lib/useSchedule';
 import { currentTotals, signedNow, subtotal } from '../lib/ticket';
 import { useInvoices } from '../lib/useInvoices';
@@ -182,7 +182,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
 
       <NavRow
         label="Visit"
-        detail={visit ? `${dayLabel(visit.start, now())} ${formatTime(visit.start)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''} · change` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
+        detail={visit ? `${dayLabel(visit.start, now())} ${windowLabel(visit)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''} · change` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
         href={{ pathname: '/schedule', params: { job: job.id } }}
         testID="job-visit"
       />

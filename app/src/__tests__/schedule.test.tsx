@@ -102,7 +102,7 @@ describe('schedule screen', () => {
     await fireEvent.press(within(sheet).getByText('Tune-up'));
     await fireEvent.press(within(screen.getByTestId('book-day')).getByText('Tomorrow'));
     await fireEvent.press(within(screen.getByTestId('book-time')).getByText('9:00 am'));
-    expect(screen.getByTestId('book-save')).toHaveTextContent('Book Tomorrow 9:00 am');
+    expect(screen.getByTestId('book-save')).toHaveTextContent('Book Tomorrow 9:00 am to 12:00 pm');
     await fireEvent.press(screen.getByTestId('book-save'));
     await settle(3);
 
@@ -118,6 +118,7 @@ describe('schedule screen', () => {
     expect(open).toHaveBeenLastCalledWith(expect.stringMatching(/^sms:5551234567\?body=Hi%20Pat.*30%20minutes/));
     await fireEvent.press(screen.getByTestId(`visit-maps-${a.id}`));
     expect(open).toHaveBeenLastCalledWith(expect.stringContaining('query=1%20Oak%20St'));
+    await fireEvent.press(screen.getByTestId(`visit-more-${a.id}`));
     await fireEvent.press(screen.getByTestId(`visit-done-${a.id}`));
     await settle(3);
     expect(parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY))[0].status).toBe('done');
@@ -134,6 +135,7 @@ describe('schedule screen', () => {
     expect(screen.getByTestId('month-title')).toBeTruthy();
     await fireEvent.press(screen.getByTestId(`cal-${new Date(tomorrow).getDate()}`));
     expect(screen.getByTestId('schedule-day')).toHaveTextContent('Tomorrow: 1 booked');
+    await fireEvent.press(screen.getByTestId('visit-more-a'));
     await fireEvent.press(screen.getByTestId('visit-reschedule-a'));
     expect(screen.getByTestId('book-sheet')).toBeTruthy();
     expect(screen.queryByTestId('book-clash')).toBeNull();
@@ -144,6 +146,26 @@ describe('schedule screen', () => {
     const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(saved).toHaveLength(1);
     expect(saved[0].start).toBe(at(addDays(tomorrow, 1), 14));
+  });
+
+  it('keeps Done, Reschedule and Cancel in a More menu, and asks before cancelling', async () => {
+    await AsyncStorage.clear();
+    const tomorrow = addDays(startOfDay(Date.now()), 1);
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt('a', at(tomorrow, 9))]));
+    await renderApp('/schedule');
+    await settle();
+    await fireEvent.press(screen.getByTestId(`cal-${new Date(tomorrow).getDate()}`));
+    expect(screen.queryByTestId('visit-cancel-a')).toBeNull();
+    await fireEvent.press(screen.getByTestId('visit-more-a'));
+    await fireEvent.press(screen.getByTestId('visit-cancel-a'));
+    expect(screen.getByText('Cancel this visit?')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('visit-keep-a'));
+    await settle(2);
+    expect(parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY))[0].status).toBe('booked');
+    await fireEvent.press(screen.getByTestId('visit-cancel-a'));
+    await fireEvent.press(screen.getByTestId('visit-cancel-yes-a'));
+    await settle(3);
+    expect(parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY))[0].status).toBe('cancelled');
   });
 
   it('finds the open stretches between visits and books one with a tap', async () => {

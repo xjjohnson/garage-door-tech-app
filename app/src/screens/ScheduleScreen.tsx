@@ -15,7 +15,7 @@ import { formatMiles } from '../lib/geocode';
 import { nearDays } from '../lib/routeDays';
 import { useGeocode } from '../lib/useGeocode';
 import { phoneLink } from '../lib/jobs';
-import { addDays, Appointment, dayLabel, formatTime, freeGaps, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming } from '../lib/schedule';
+import { addDays, Appointment, dayLabel, formatTime, freeGaps, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming, windowLabel } from '../lib/schedule';
 import { useFsmTemplates } from '../lib/useFsmTemplates';
 import { useCustomers } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
@@ -25,6 +25,9 @@ import { useVisits } from '../lib/useVisits';
 import { colors, radius, shadow, touch, type } from '../theme';
 
 const WHAT_FALLBACK = ['Broken spring', 'Tune-up', 'Opener', 'Off track', 'Cables', 'Estimate', 'Other'];
+/** The arrival window given to the customer; 3 hours unless changed. 0 is the exact time. */
+const DEFAULT_WINDOW = 180;
+const WINDOWS: ChipOption<number>[] = [0, 60, 120, 180, 240].map((m) => ({ label: m === 0 ? 'Exact time' : `${m / 60} hr`, value: m }));
 const LENGTHS: ChipOption<number>[] = [30, 60, 90, 120].map((m) => ({ label: m < 60 ? `${m} min` : `${m / 60} hr`.replace('1.5 hr', '1½ hr'), value: m }));
 
 /** The next booked visit or two, at the top of Jobs. */
@@ -37,7 +40,7 @@ export function NextVisits({ now = Date.now }: { now?: () => number }) {
       <Text style={styles.buttonText}>Schedule</Text>
       {next.map((a) => (
         <Text key={a.id} style={styles.meta} numberOfLines={1}>
-          {dayLabel(a.start, t)} {formatTime(a.start)} · {a.name || a.address}
+          {dayLabel(a.start, t)} {windowLabel(a)} · {a.name || a.address}
         </Text>
       ))}
       {next.length === 0 ? <Text style={styles.meta}>Nothing booked</Text> : null}
@@ -156,13 +159,15 @@ function blank(day: number, who: Partial<NewAppointment> = {}): NewAppointment {
 
 function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onReschedule: () => void; clash: boolean }) {
   const [eta, setEta] = useState(false);
+  const [more, setMore] = useState(false);
+  const [sure, setSure] = useState(false);
   const maps = mapsLink(a.address);
   const tel = phoneLink(a.phone);
   const off = a.status !== 'booked';
   return (
     <View style={[styles.item, off && styles.itemOff, clash && styles.clash]} testID={`visit-${a.id}`}>
       <Text style={styles.time}>
-        {formatTime(a.start)} · {a.minutes} min{a.status === 'done' ? ' · DONE' : a.status === 'cancelled' ? ' · CANCELLED' : ''}
+        {windowLabel(a)} · {a.minutes} min{a.status === 'done' ? ' · DONE' : a.status === 'cancelled' ? ' · CANCELLED' : ''}
       </Text>
       <Text style={styles.name}>{a.name || 'Customer'}</Text>
       {a.what ? <Text style={styles.detail}>{a.what}</Text> : null}
@@ -170,10 +175,6 @@ function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appoint
       {clash ? <Text style={styles.warn}>Overlaps another visit</Text> : null}
       {!off ? (
         <>
-          <View style={styles.row}>
-            {maps ? <Action label="Directions" grow onPress={() => Linking.openURL(maps).catch(() => undefined)} testID={`visit-maps-${a.id}`} /> : null}
-            {tel ? <Action label="Call" grow onPress={() => Linking.openURL(tel).catch(() => undefined)} testID={`visit-call-${a.id}`} /> : null}
-          </View>
           {textLink(a.phone, '') ? (
             eta ? (
               <EtaPicker
@@ -184,18 +185,33 @@ function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appoint
                 }}
               />
             ) : (
-              <View style={styles.row}>
-                <Action label="On my way" grow primary onPress={() => setEta(true)} testID={`visit-omw-${a.id}`} />
-                <Action label="Remind" grow onPress={() => Linking.openURL(textLink(a.phone, reminderText(a, business.name, now))!).catch(() => undefined)} testID={`visit-remind-${a.id}`} />
-              </View>
+              <Action label="On my way" grow primary onPress={() => setEta(true)} testID={`visit-omw-${a.id}`} />
             )
           ) : null}
           <View style={styles.row}>
-            <Action label="Done" grow onPress={() => onStatus('done')} testID={`visit-done-${a.id}`} />
-            <Action label="Reschedule" grow onPress={onReschedule} testID={`visit-reschedule-${a.id}`} />
-            <Action label="Cancel" grow onPress={() => onStatus('cancelled')} testID={`visit-cancel-${a.id}`} />
+            {maps ? <IconAction icon="📍" label="Directions" onPress={() => Linking.openURL(maps).catch(() => undefined)} testID={`visit-maps-${a.id}`} /> : null}
+            {tel ? <IconAction icon="📞" label="Call" onPress={() => Linking.openURL(tel).catch(() => undefined)} testID={`visit-call-${a.id}`} /> : null}
+            {textLink(a.phone, '') ? <IconAction icon="💬" label="Remind" onPress={() => Linking.openURL(textLink(a.phone, reminderText(a, business.name, now))!).catch(() => undefined)} testID={`visit-remind-${a.id}`} /> : null}
+            {a.customerId ? <IconAction icon="👤" label="History" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: a.customerId! } })} testID={`visit-customer-${a.id}`} /> : null}
+            <IconAction icon="⋯" label="More" on={more} onPress={() => { setMore(!more); setSure(false); }} testID={`visit-more-${a.id}`} />
           </View>
-          {a.customerId ? <Action label="Customer history" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: a.customerId! } })} testID={`visit-customer-${a.id}`} /> : null}
+          {more ? (
+            <View style={styles.menu} testID={`visit-menu-${a.id}`}>
+              <MenuItem label="Mark done" onPress={() => { setMore(false); onStatus('done'); }} testID={`visit-done-${a.id}`} />
+              <MenuItem label="Reschedule" onPress={() => { setMore(false); onReschedule(); }} testID={`visit-reschedule-${a.id}`} />
+              {sure ? (
+                <View style={styles.sure}>
+                  <Text style={styles.detail}>Cancel this visit?</Text>
+                  <View style={styles.row}>
+                    <Action label="Keep it" grow onPress={() => setSure(false)} testID={`visit-keep-${a.id}`} />
+                    <Action label="Yes, cancel" grow onPress={() => { setMore(false); setSure(false); onStatus('cancelled'); }} testID={`visit-cancel-yes-${a.id}`} />
+                  </View>
+                </View>
+              ) : (
+                <MenuItem label="Cancel visit" danger onPress={() => setSure(true)} testID={`visit-cancel-${a.id}`} />
+              )}
+            </View>
+          ) : null}
         </>
       ) : (
         <Action label="Book again" onPress={() => onStatus('booked')} testID={`visit-rebook-${a.id}`} />
@@ -224,10 +240,11 @@ function BookSheet({
   onSave: (a: NewAppointment) => void;
   onCancel: () => void;
 }) {
-  const [a, setA] = useState<NewAppointment | null>(value);
+  const withWindow = (v: NewAppointment | null) => (v ? { ...v, windowMinutes: v.windowMinutes ?? DEFAULT_WINDOW } : null);
+  const [a, setA] = useState<NewAppointment | null>(withWindow(value));
   const templates = useFsmTemplates();
   const what = templates.length ? templates.map((t) => t.name) : WHAT_FALLBACK;
-  useEffect(() => setA(value), [value]);
+  useEffect(() => setA(withWindow(value)), [value]);
   if (!a) return null;
   const set = (patch: Partial<NewAppointment>) => setA((p) => (p ? { ...p, ...patch } : p));
   const day = startOfDay(a.start);
@@ -280,6 +297,8 @@ function BookSheet({
                 );
               })}
             </View>
+            <SectionTitle>Arrival window</SectionTitle>
+            <ChipRow options={WINDOWS} value={a.windowMinutes ?? DEFAULT_WINDOW} onChange={(windowMinutes) => set({ windowMinutes })} scroll testID="book-window" />
             <SectionTitle>How long</SectionTitle>
             <ChipRow options={LENGTHS} value={a.minutes} onChange={(minutes) => set({ minutes })} testID="book-length" />
             {clashes.length > 0 ? (
@@ -296,7 +315,7 @@ function BookSheet({
             style={({ pressed }) => [styles.save, !canSave && styles.saveOff, pressed && styles.pressed]}
           >
             <Text style={styles.saveText}>
-              {editing ? 'Move to' : 'Book'} {dayLabel(a.start, today)} {formatTime(a.start)}
+              {editing ? 'Move to' : 'Book'} {dayLabel(a.start, today)} {windowLabel(a)}
             </Text>
           </Pressable>
         </View>
@@ -351,6 +370,24 @@ function Field({ label, value, onChange, placeholder, phone, autofill, testID }:
   );
 }
 
+/** A small icon button with a short label under it, for the row of quick actions on a visit. */
+function IconAction({ icon, label, onPress, on, testID }: { icon: string; label: string; onPress: () => void; on?: boolean; testID?: string }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} testID={testID} style={({ pressed }) => [styles.icon, on && styles.iconOn, pressed && styles.pressed]}>
+      <Text style={styles.iconGlyph}>{icon}</Text>
+      <Text style={styles.iconLabel} numberOfLines={1}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function MenuItem({ label, onPress, danger, testID }: { label: string; onPress: () => void; danger?: boolean; testID?: string }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+      <Text style={[styles.menuText, danger && styles.menuDanger]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function Action({ label, onPress, primary, grow, testID }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; testID?: string }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, grow && styles.grow, primary && styles.primary, pressed && styles.pressed]}>
@@ -374,6 +411,15 @@ const styles = StyleSheet.create({
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   warn: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   row: { flexDirection: 'row', gap: 8 },
+  icon: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  iconOn: { backgroundColor: colors.info },
+  iconGlyph: { fontSize: 20 },
+  iconLabel: { fontSize: 13, fontWeight: '700', color: colors.text },
+  menu: { borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 12 },
+  menuItem: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.line },
+  menuText: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  menuDanger: { color: colors.stop },
+  sure: { gap: 8, paddingVertical: 10 },
   grow: { flex: 1 },
   left: { alignItems: 'flex-start', paddingVertical: 8 },
   button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },

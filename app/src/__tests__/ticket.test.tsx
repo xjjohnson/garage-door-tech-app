@@ -124,6 +124,7 @@ describe('Ticket (logic)', () => {
       partner_id: 5,
       client_order_ref: 'Job ticket · 12 Oak St',
       partner_shipping_id: 5,
+      note: false,
       order_line: [
         [0, 0, { product_id: 1, name: 'Chamberlain belt drive', product_uom_qty: 1, price_unit: 229 }],
         [0, 0, { product_id: 9, name: 'Haul away', product_uom_qty: 1, price_unit: 50 }],
