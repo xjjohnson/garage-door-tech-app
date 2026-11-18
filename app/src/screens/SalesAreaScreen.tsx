@@ -8,7 +8,7 @@ import { callLink, textLink } from '../lib/deptActions';
 import type { DeptLimits } from '../lib/deptLimits';
 import type { OdooClient } from '../lib/odoo';
 import { dateText } from '../components/Dept';
-import { DAY_MS, flaggedRepairs, followUpsDue, lostByReason, lostQuotes, monthsAgo, notSeen, plansAboutToRenew, quotesQuiet, quotesWaiting, readVisits, wonThisMonth } from '../lib/odooOffice';
+import { DAY_MS, flaggedRepairs, followUpsDue, lostByReason, lostQuotes, notSeenPlaces, plansAboutToRenew, quotesQuiet, quotesWaiting, wonThisMonth } from '../lib/odooOffice';
 import { formatMoney } from '../lib/prices';
 import { useBadges } from '../lib/useBadges';
 import { useLimits } from '../lib/useLimits';
@@ -67,8 +67,7 @@ function Renewals({ client, limits, now }: { client: OdooClient; limits: DeptLim
 function NotSeen({ client, limits, now }: { client: OdooClient; limits: DeptLimits; now: () => number }) {
   const { data, error } = usePageRows(async () => {
     const t = now();
-    const visits = await readVisits(client, monthsAgo(t, limits.notSeenMonths + 24));
-    const list = notSeen(visits, monthsAgo(t, limits.notSeenMonths)).slice(0, 60);
+    const list = (await notSeenPlaces(client, limits, t)).slice(0, 60);
     const phones = new Map<number, string>();
     if (list.length) {
       const r = (await client.call('fsm.location', 'read', [list.map((v) => v.place)], { fields: ['phone'] }).catch(() => [])) as { id: number; phone?: unknown }[];

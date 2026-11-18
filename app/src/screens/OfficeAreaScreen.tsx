@@ -2,11 +2,12 @@ import { DeptArea } from '../components/DeptArea';
 import type { MenuGroup } from '../components/SectionMenu';
 import { useBadges } from '../lib/useBadges';
 import { useLimits } from '../lib/useLimits';
-import { overdueInvoices, ordersToInvoice, quotesWaiting, unpaidInvoices } from '../lib/odooOffice';
+import { overdueInvoices, ordersToInvoice, quotesWaiting, sentNotOpened, unpaidInvoices } from '../lib/odooOffice';
+import { ClosedNoOrder, PaymentsToRecord, TermsPage } from './OfficeExtras';
 import { CameBack, ComplaintsList, LogComplaint, WarrantyList } from './CarePages';
 import { invoiceTotal, MoneyList } from './MoneyPages';
 
-export type OfficeTab = 'notinvoiced' | 'overdue' | 'quotes' | 'unpaid' | 'cameback' | 'complaints' | 'newcomplaint' | 'warranty';
+export type OfficeTab = 'notinvoiced' | 'overdue' | 'quotes' | 'unpaid' | 'cameback' | 'complaints' | 'newcomplaint' | 'warranty' | 'payments' | 'noorder' | 'notopened' | 'terms';
 const LABELS: Record<OfficeTab, string> = {
   notinvoiced: 'Done, not invoiced',
   overdue: 'Invoices overdue',
@@ -16,6 +17,10 @@ const LABELS: Record<OfficeTab, string> = {
   complaints: 'Open complaints',
   newcomplaint: 'Log a complaint',
   warranty: 'Warranty',
+  payments: 'Payments to record',
+  noorder: 'Closed jobs, no order',
+  notopened: 'Invoices sent, not opened',
+  terms: 'Terms and Conditions',
 };
 
 /**
@@ -31,10 +36,18 @@ export function OfficeAreaScreen({ initial, now = Date.now }: { initial?: Office
       items: [
         { id: 'notinvoiced', label: LABELS.notinvoiced, detail: 'Approved orders with nothing billed yet', badge: b.notInvoiced },
         { id: 'overdue', label: LABELS.overdue, detail: 'Past the due date', badge: b.overdue },
+        { id: 'payments', label: LABELS.payments, detail: 'Taken on this phone, not in Odoo yet' },
         { id: 'quotes', label: LABELS.quotes, detail: 'Sent, no answer yet' },
       ],
     },
-    { title: 'Money in', items: [{ id: 'unpaid', label: LABELS.unpaid, detail: 'Everything customers still owe' }] },
+    {
+      title: 'Money in',
+      items: [
+        { id: 'unpaid', label: LABELS.unpaid, detail: 'Everything customers still owe' },
+        { id: 'notopened', label: LABELS.notopened, detail: 'Emailed, never opened' },
+        { id: 'noorder', label: LABELS.noorder, detail: 'Done, with nothing to bill from' },
+      ],
+    },
     {
       title: 'Customers',
       items: [
@@ -44,6 +57,7 @@ export function OfficeAreaScreen({ initial, now = Date.now }: { initial?: Office
         { id: 'warranty', label: LABELS.warranty, detail: 'Who is covered, and for how long' },
       ],
     },
+    { title: 'Quotes', items: [{ id: 'terms', label: LABELS.terms, detail: 'The wording at the bottom of a quote' }] },
   ];
   return (
     <DeptArea<OfficeTab>
@@ -72,6 +86,14 @@ export function OfficeAreaScreen({ initial, now = Date.now }: { initial?: Office
             return <LogComplaint client={client} now={now} />;
           case 'warranty':
             return <WarrantyList client={client} now={now} />;
+          case 'payments':
+            return <PaymentsToRecord />;
+          case 'noorder':
+            return <ClosedNoOrder client={client} limits={limits} now={now} />;
+          case 'notopened':
+            return <MoneyList client={client} invoice load={() => sentNotOpened(client, now())} empty="Every emailed invoice was opened." testID="notopened" header={invoiceTotal} />;
+          case 'terms':
+            return <TermsPage client={client} />;
         }
       }}
     />

@@ -6,6 +6,7 @@
  * the few writes (mark a quote lost, log a complaint) are one record each.
  * Money is cents. Kept free of React.
  */
+import { myCompany as myCompanyId } from './odooSettings';
 import type { DeptLimits } from './deptLimits';
 import type { OdooClient } from './odoo';
 import { odooTime, toOdooTime } from './odoo';
@@ -271,16 +272,28 @@ export function callbacks(visits: JobVisit[], days: number): Callback[] {
   return out.sort((a, b) => b.again.at - a.again.at);
 }
 
-/** Field Service jobs (done or planned) since a date, as visits. */
-export async function readVisits(c: Client, since: number): Promise<JobVisit[]> {
+/** Field Service jobs (done or planned) in a date range, as visits, newest first. */
+export async function readVisits(c: Client, since: number, until?: number, limit = 3000): Promise<JobVisit[]> {
   const fields = c.session.fields ?? [];
   const when = fields.includes('date_end') ? 'date_end' : fields.includes('scheduled_date_start') ? 'scheduled_date_start' : 'create_date';
-  const r = await rows(c, 'fsm.order', [[when, '>=', toOdooTime(since)]], ['name', 'location_id', 'person_id', when], { order: `${when} desc`, limit: 3000 });
+  const domain: unknown[] = [[when, '>=', toOdooTime(since)], ...(until !== undefined ? [[when, '<', toOdooTime(until)]] : [])];
+  const r = await rows(c, 'fsm.order', domain, ['name', 'location_id', 'person_id', when], { order: `${when} desc`, limit });
   return r.flatMap((x): JobVisit[] => {
     const l = m2o(x.location_id);
     const at = odooTime(x[when]);
     return l && at !== undefined ? [{ id: x.id as number, name: str(x.name), place: l.id, placeName: l.name, tech: m2o(x.person_id)?.name ?? '', at }] : [];
   });
+}
+
+/**
+ * Customers (places) whose latest job is older than the limit. Looks at who WAS seen recently
+ * first, then at older jobs only, so a busy year never pushes the quiet customers out of the read.
+ */
+export async function notSeenPlaces(c: Client, limits: DeptLimits, now: number): Promise<JobVisit[]> {
+  const cutoff = monthsAgo(now, limits.notSeenMonths);
+  const [recent, old] = await Promise.all([readVisits(c, cutoff, undefined, 10000), readVisits(c, monthsAgo(now, limits.notSeenMonths + 36), cutoff, 5000)]);
+  const seen = new Set(recent.map((v) => v.place));
+  return notSeen(old, cutoff).filter((v) => !seen.has(v.place));
 }
 
 /** Customers whose newest visit is older than `cutoff`, oldest last visit first. */
@@ -358,7 +371,9 @@ export async function plansAboutToRenew(c: Client, limits: DeptLimits, now: numb
   const today = dayOf(now);
   const until = dayOf(now + limits.planRenewDays * DAY_MS);
   // Plans the app set up say "Maintenance plan: <name>." at the start of their description.
-  const base = [['end_date', '>=', today], ['end_date', '<=', until], ['description', 'ilike', 'Maintenance plan']];
+  const have = await c.call('agreement', 'fields_get', [], { attributes: ['type'] }).then((f) => Object.keys((f ?? {}) as object), () => [] as string[]);
+  // Without a description field, the plan's name is what is left to go by.
+  const base = [['end_date', '>=', today], ['end_date', '<=', until], [have.includes('description') ? 'description' : 'name', 'ilike', 'Maintenance plan']];
   let r: Row[];
   try {
     r = await rows(c, 'agreement', [...base, ['is_template', '=', false]], ['name', 'partner_id', 'end_date'], { order: 'end_date asc' });
@@ -370,4 +385,86 @@ export async function plansAboutToRenew(c: Client, limits: DeptLimits, now: numb
     const p = m2o(x.partner_id);
     return e !== undefined && p ? [{ id: x.id as number, name: str(x.name), customer: p.name, partnerId: p.id, endsAt: e }] : [];
   });
+}
+
+
+// ---- Closed jobs with no order ----
+
+export interface ClosedJob {
+  id: number;
+  name: string;
+  place: string;
+  tech: string;
+  at?: number;
+}
+
+export const SALE_LINK_MISSING = 'This Odoo has no link from jobs to sales orders (Field Service Sale is not installed), so closed jobs cannot be matched to orders.';
+
+/** The field that ties a job to its sales order, or undefined when Field Service Sale is not there. */
+export async function saleLinkField(c: Client): Promise<string | undefined> {
+  const f = (await c.call('fsm.order', 'fields_get', [], { attributes: ['type'] }).catch(() => ({}))) as Record<string, unknown>;
+  return ['sale_id', 'sale_order_id'].find((k) => k in f);
+}
+
+/** Jobs closed within the look-back that have no sales order at all, newest first. */
+export async function closedWithoutOrder(c: Client, limits: DeptLimits, now: number): Promise<ClosedJob[]> {
+  const link = await saleLinkField(c);
+  if (!link) throw new Error(SALE_LINK_MISSING);
+  const stages = (await c.call('fsm.stage', 'search', [[['is_closed', '=', true]]])) as number[];
+  if (!stages.length) return [];
+  const when = (c.session.fields ?? []).includes('date_end') ? 'date_end' : 'write_date';
+  const r = await rows(c, 'fsm.order', [['stage_id', 'in', stages], [link, '=', false], [when, '>=', toOdooTime(now - limits.invoiceLookbackDays * DAY_MS)]], ['name', 'location_id', 'person_id', when], { order: `${when} desc`, limit: 200 });
+  return r.map((x) => ({ id: x.id as number, name: str(x.name), place: m2o(x.location_id)?.name ?? '', tech: m2o(x.person_id)?.name ?? '', ...(odooTime(x[when]) !== undefined ? { at: odooTime(x[when]) } : {}) }));
+}
+
+// ---- Invoices sent, not opened ----
+
+export const NO_TRACKING = "This Odoo's email does not record when a customer opens a message (it needs the Mail Tracking add-on), so this list cannot be built.";
+
+/** Tracking rows to one answer per invoice: true when any recipient opened any message about it. */
+export function openedByInvoice(tracks: { messageId: number; state: string }[], messageInvoice: Map<number, number>): Map<number, boolean> {
+  const out = new Map<number, boolean>();
+  for (const t of tracks) {
+    const inv = messageInvoice.get(t.messageId);
+    if (inv === undefined) continue;
+    out.set(inv, (out.get(inv) ?? false) || t.state === 'opened');
+  }
+  return out;
+}
+
+/** Posted invoices still owing money whose emails were sent but never opened. */
+export async function sentNotOpened(c: Client, now: number): Promise<MoneyRow[]> {
+  const f = (await c.call('mail.tracking.email', 'fields_get', [], { attributes: ['type'] }).catch(() => null)) as Record<string, unknown> | null;
+  if (!f || !('state' in f) || !('mail_message_id' in f)) throw new Error(NO_TRACKING);
+  const tr = await rows(c, 'mail.tracking.email', [['mail_message_id.model', '=', 'account.move']], ['mail_message_id', 'state'], { order: 'id desc', limit: 800 });
+  const tracks = tr.flatMap((t) => {
+    const m = m2o(t.mail_message_id);
+    return m ? [{ messageId: m.id, state: str(t.state) }] : [];
+  });
+  const ids = [...new Set(tracks.map((t) => t.messageId))];
+  if (!ids.length) return [];
+  const msgs = await rows(c, 'mail.message', [['id', 'in', ids]], ['res_id'], { limit: 800 });
+  const messageInvoice = new Map(msgs.map((m) => [m.id as number, m.res_id as number]));
+  const opened = openedByInvoice(tracks, messageInvoice);
+  const unopened = [...opened.entries()].filter(([, o]) => !o).map(([inv]) => inv);
+  if (!unopened.length) return [];
+  const r = await rows(c, 'account.move', [...OWED, ['id', 'in', unopened]], INVOICE_FIELDS, { order: 'invoice_date_due asc', limit: 200 });
+  return withPhones(c, r.map((x) => toInvoiceRow(x, now)));
+}
+
+// ---- Terms and Conditions (the text on quotes) ----
+
+export interface Terms {
+  /** 'plain' text is edited here; 'html' means the customer sees a link to the website's terms page. */
+  type: 'plain' | 'html';
+  text: string;
+}
+
+export async function readTerms(c: Client): Promise<Terms> {
+  const [co] = (await c.call('res.company', 'read', [[await myCompanyId(c)]], { fields: ['terms_type', 'invoice_terms'] })) as Row[];
+  return { type: str(co?.terms_type) === 'html' ? 'html' : 'plain', text: str(co?.invoice_terms) };
+}
+
+export async function saveTerms(c: Client, text: string): Promise<void> {
+  await c.call('res.company', 'write', [[await myCompanyId(c)], { invoice_terms: text.trim() || false }]);
 }
