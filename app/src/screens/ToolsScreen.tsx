@@ -12,7 +12,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useStock } from '../lib/useStock';
 import { useBadges } from '../lib/useBadges';
-import { dispatchTotal, purchasingTotal } from '../lib/deptBadges';
+import { dispatchTotal, officeTotal, overviewTotal, purchasingTotal, salesTotal } from '../lib/deptBadges';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, openShift, shiftMs } from '../lib/worklog';
 import { colors } from '../theme';
@@ -61,10 +61,13 @@ export function ToolsScreen() {
         {owner ? <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last /> : null}
       </RowGroup>
 
-      {access.warehouse || access.purchasing || access.dispatch ? (
+      {access.warehouse || access.purchasing || access.dispatch || access.office || access.sales || access.owner ? (
         <>
           <Caption>Departments</Caption>
           <RowGroup>
+            {access.owner ? <IconRow icon="chart" label="Owner overview" detail="Everything that needs you, in one list" href="/overview" testID="tools-overview" badge={overviewTotal(badges) > 0 ? `${overviewTotal(badges)} to look at` : undefined} warn={overviewTotal(badges) > 0} /> : null}
+            {access.office ? <IconRow icon="tag" label="Office" detail="Invoices, payments, quotes, customers, warranty" href="/office" testID="tools-office" badge={officeTotal(badges) > 0 ? `${officeTotal(badges)} to look at` : undefined} warn={officeTotal(badges) > 0} /> : null}
+            {access.sales ? <IconRow icon="star" label="Sales" detail="Quotes, follow-ups, renewals, repairs not sold" href="/sales-area" testID="tools-sales" badge={salesTotal(badges) > 0 ? `${salesTotal(badges)} to look at` : undefined} warn={salesTotal(badges) > 0} /> : null}
             {access.dispatch ? <IconRow icon="cal" label="Dispatch" detail="Give out jobs, see each tech's day" href="/dispatch" testID="tools-dispatch" badge={dispatchTotal(badges) > 0 ? `${dispatchTotal(badges)} to look at` : undefined} warn={dispatchTotal(badges) > 0} last={!access.warehouse && !access.purchasing} /> : null}
             {access.warehouse ? <IconRow icon="truck" label="Warehouse" detail="Count, move parts, receive, parts on jobs" href="/warehouse" testID="tools-warehouse" badge={badges.warehouse.receive > 0 ? `${badges.warehouse.receive} to receive` : undefined} warn={badges.warehouse.receive > 0} last={!access.purchasing} /> : null}
             {access.purchasing ? <IconRow icon="tag" label="Purchasing" detail="What to order, purchase orders, cost and prices" href="/purchasing" testID="tools-purchasing" badge={buying > 0 ? `${buying} to do` : undefined} warn={buying > 0} last /> : null}

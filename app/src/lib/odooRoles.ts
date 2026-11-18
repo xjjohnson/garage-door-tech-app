@@ -10,11 +10,13 @@ import type { OdooClient } from './odoo';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
 
-export type RoleId = 'owner' | 'dispatch' | 'warehouse' | 'buyer';
+export type RoleId = 'owner' | 'dispatch' | 'office' | 'sales' | 'warehouse' | 'buyer';
 
 export const ROLE_INFO: { id: RoleId; label: string; detail: string; add: string; remove: string[] }[] = [
   { id: 'owner', label: 'Owner', detail: 'Management, business numbers, scorecard, Developer', add: 'fieldservice.group_fsm_manager', remove: ['fieldservice.group_fsm_manager'] },
   { id: 'dispatch', label: 'Dispatcher', detail: 'Dispatch: give out jobs, see each tech\'s day (the owner has this too)', add: 'fieldservice.group_fsm_dispatcher', remove: ['fieldservice.group_fsm_dispatcher'] },
+  { id: 'office', label: 'Office', detail: 'Office: invoices, payments, quotes, customers. Gives Odoo Billing Administrator, which can do more in Odoo than a tech can.', add: 'account.group_account_manager', remove: ['account.group_account_manager'] },
+  { id: 'sales', label: 'Sales', detail: 'Sales: quotes, follow-ups, renewals. Gives Odoo Sales Administrator, which can do more in Odoo than a tech can.', add: 'sales_team.group_sale_manager', remove: ['sales_team.group_sale_manager'] },
   { id: 'warehouse', label: 'Warehouse manager', detail: 'Warehouse: counts, moves, receiving', add: 'stock.group_stock_manager', remove: ['stock.group_stock_manager'] },
   { id: 'buyer', label: 'Buyer', detail: 'Purchasing: what to order and purchase orders', add: 'purchase.group_purchase_user', remove: ['purchase.group_purchase_user', 'purchase.group_purchase_manager'] },
 ];
@@ -60,6 +62,8 @@ function rolesOf(held: Set<number>, ids: Record<string, number>): Roles {
   return {
     owner: has('fieldservice.group_fsm_manager'),
     dispatch: has('fieldservice.group_fsm_dispatcher'),
+    office: has('account.group_account_manager'),
+    sales: has('sales_team.group_sale_manager'),
     warehouse: has('stock.group_stock_manager'),
     buyer: has('purchase.group_purchase_user') || has('purchase.group_purchase_manager'),
   };

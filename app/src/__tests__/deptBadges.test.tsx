@@ -39,7 +39,7 @@ describe('red numbers (plain logic)', () => {
   });
 
   it('adds up what each role owns, plus parts ready for a tech', () => {
-    const b = { purchasing: { toOrder: 4, drafts: 2, late: 1 }, warehouse: { receive: 3 }, dispatch: { unassigned: 2, noTime: 1, late: 0, double: 0, upcoming: 5, waiting: 5 }, ready: 1 };
+    const b = { purchasing: { toOrder: 4, drafts: 2, late: 1 }, warehouse: { receive: 3 }, dispatch: { unassigned: 2, noTime: 1, late: 0, double: 0, upcoming: 5, waiting: 5 }, office: NO_BADGES.office, sales: NO_BADGES.sales, ready: 1 };
     expect(purchasingTotal(b)).toBe(7);
     expect(toolsTotal(b, { warehouse: true, purchasing: true })).toBe(11);
     expect(toolsTotal(b, { warehouse: true, purchasing: false })).toBe(4);

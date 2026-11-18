@@ -27,7 +27,7 @@ function fake(opts: { actingGroups: number[]; people: Record<number, number[]>; 
   };
   return { client, calls, people };
 }
-const none = { owner: false, dispatch: false, warehouse: false, buyer: false };
+const none = { owner: false, dispatch: false, office: false, sales: false, warehouse: false, buyer: false };
 
 describe('team roles', () => {
   it('lists who holds which role', async () => {
