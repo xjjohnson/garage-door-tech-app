@@ -196,4 +196,17 @@ describe('Price book screen', () => {
     expect(screen.getByTestId('price-book-updated')).toHaveTextContent(/Updated Nov 10/);
     expect(screen.queryByTestId('price-book-refresh')).toBeNull();
   });
+  it('has an In stock tab with what is on the truck and how many', async () => {
+    await AsyncStorage.clear();
+    const at = new Date(2026, 10, 10, 9).getTime();
+    const { items } = await fetchPriceBook({ session, call: fakeOdoo().call }, at);
+    await AsyncStorage.setItem(PRICE_BOOK_STORAGE_KEY, JSON.stringify({ items, frequent: [], fetchedAt: at }));
+    await AsyncStorage.setItem('stock/v1', JSON.stringify({ items: [{ id: 's1', name: 'Genie 2028', sku: '', category: 'openers', onHand: 3, min: 0, par: 0, supplier: '', costCents: 0, updatedAt: 1, odooId: 1 }, { id: 's2', name: 'Roller', sku: '', category: 'parts', onHand: 0, min: 0, par: 0, supplier: '', costCents: 0, updatedAt: 1, odooId: 6 }], suppliers: [] }));
+    await renderApp('/price-book');
+    await settle();
+    await fireEvent.press(within(screen.getByTestId('price-book-tabs')).getByText('In stock (1)'));
+    await settle();
+    expect(screen.getByTestId('price-book-item-1')).toHaveTextContent(/3 on truck/);
+    expect(screen.queryByTestId('price-book-item-6')).toBeNull();
+  });
 });
