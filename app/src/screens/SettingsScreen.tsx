@@ -97,15 +97,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         <>
       <Caption>Setup (owner)</Caption>
       <RowGroup>
-        <IconRow icon="gear" label="Management" detail="Owner: job types, quote templates, parts, prices and checklists, saved to Odoo" href="/management" testID="settings-management" />
-        <IconRow
-          icon="users"
-          label="Your business"
-          detail={business.name ? `${business.name}: name, payment handles and review link` : 'Name, payment handles and review link for invoices'}
-          href="/business"
-          testID="settings-business"
-          last
-        />
+        <IconRow icon="gear" label="Management" detail={business.name ? `${business.name}, job types, quote templates, parts, prices, texts and checklists, saved to Odoo` : 'Your business, job types, quote templates, parts, prices, texts and checklists, saved to Odoo'} href="/management" testID="settings-management" last />
       </RowGroup>
         </>
       ) : null}
@@ -123,12 +115,12 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         <IconRow icon="book" label="Back up or restore" detail="Save everything to a file, or read one back" href="/backup" testID="settings-backup" last />
       </RowGroup>
 
-      <Caption>About</Caption>
+      <Caption>About this app</Caption>
       <Pressable onPress={tapVersion} accessibilityRole="text" style={styles.card} testID="settings-version">
         <Text style={styles.value} testID="build-info">
           {buildInfo}
         </Text>
-        <Text style={styles.meta}>Update channel: {channel ?? 'none (development)'}</Text>
+        {owner ? <Text style={styles.meta}>Update channel: {channel ?? 'none (development)'}</Text> : null}
       </Pressable>
       <Action label={checking ? 'Checking...' : 'Check for update'} disabled={checking} onPress={check} testID="settings-check-update" />
       {result ? (

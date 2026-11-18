@@ -13,7 +13,7 @@ import { colors, radius, touch, type } from '../theme';
  * right away, which also takes in what was deleted in Odoo. Shown when signed
  * in to Odoo.
  */
-export function SyncNowButton({ testID = 'sync-now' }: { testID?: string }) {
+export function SyncNowButton({ testID = 'sync-now', label = 'Sync now' }: { testID?: string; label?: string }) {
   const { status, client } = useOdoo();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -32,7 +32,7 @@ export function SyncNowButton({ testID = 'sync-now' }: { testID?: string }) {
   return (
     <View style={styles.row}>
       <Pressable onPress={go} disabled={busy} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, busy && styles.off, pressed && styles.pressed]}>
-        <Text style={styles.text}>{busy ? 'Syncing...' : 'Sync now'}</Text>
+        <Text style={styles.text}>{busy ? 'Syncing...' : label}</Text>
       </Pressable>
       {done ? (
         <Text style={styles.ok} testID={`${testID}-done`}>

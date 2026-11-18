@@ -4,7 +4,7 @@ import { ScheduleScreen } from '../screens/ScheduleScreen';
 
 /**
  * /schedule: booked visits by day. /schedule?book=<customer id> opens booking
- * for that customer; /schedule?job=<job id> books (or moves) that job's visit.
+ * for that customer (book=new opens it for anyone); /schedule?job=<job id> books (or moves) that job's visit.
  */
 export default function ScheduleRoute() {
   const { book, job } = useLocalSearchParams<{ book?: string; job?: string }>();
