@@ -4,6 +4,7 @@ import { Pressable, Share, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow as HubRow } from '../components/Buttons';
 import { PartPickerSheet } from '../components/PartPickerSheet';
+import { addRepairs, EMPTY_TICKET, newLineId, repairsOnTicket } from '../lib/ticket';
 import { PriceBookItem } from '../lib/priceBook';
 import { cents, formatMoney } from '../lib/prices';
 import { ChipRow, MeasureField, SectionTitle } from '../components/controls';
@@ -36,7 +37,6 @@ import {
   SCALES,
   sections,
   setAnswer,
-  suggestedRepairs,
   summary, checklistVersion, subscribeChecklist } from '../lib/inspection';
 import { lastAnswer, previousInspection } from '../lib/lastInspection';
 import { inspectionReportHtml } from '../lib/reportFiles';
@@ -73,7 +73,7 @@ type Page = 'hub' | 'finish' | string;
  * the suggested repairs on to the ticket.
  */
 export function InspectionScreen({ job }: { job: Job }) {
-  const { jobs, setInspection } = useJobs();
+  const { jobs, setInspection, setTicket } = useJobs();
   // Redraw when the checklist changes (Odoo's surveys arrive).
   useSyncExternalStore(subscribeChecklist, checklistVersion);
   const attachments = useAttachments();
@@ -88,6 +88,9 @@ export function InspectionScreen({ job }: { job: Job }) {
   const [note, setNote] = useState<string | null>(null);
   /** A remove that would lose answers waits for a second tap. */
   const [armed, setArmed] = useState<string | null>(null);
+  /** Suggested repairs the tech unticked on Finish; everything starts ticked. */
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const [added, setAdded] = useState<number | null>(null);
 
   const insp: Inspection = job.inspection ?? EMPTY_INSPECTION(job.savedAt);
   const save = (fn: (i: Inspection) => Inspection) => setInspection(job.id, { ...fn(insp), at: Date.now() });
@@ -274,8 +277,14 @@ export function InspectionScreen({ job }: { job: Job }) {
 
   // Finish.
   if (here === 'finish') {
-    const held = suggestedRepairs(insp);
-    const onTicket = insp.holdRepairs === false || insp.holdRepairs === undefined;
+    const onTicketIds = repairsOnTicket(job.ticket ?? EMPTY_TICKET);
+    const priced = insp.repairs.filter((r) => !r.declined && cents(r.price) > 0 && r.label.trim() !== '');
+    const waiting = priced.filter((r) => !onTicketIds.has(r.id));
+    const chosen = waiting.filter((r) => !skipped.includes(r.id));
+    const addChosen = () => {
+      setTicket(job.id, (t) => addRepairs(t, chosen, () => newLineId(Date.now())));
+      setAdded(chosen.length);
+    };
     return (
       <View style={styles.stack} testID="inspection-finish">
         {backToList}
@@ -308,12 +317,28 @@ export function InspectionScreen({ job }: { job: Job }) {
         ) : null}
         {insp.sent && signature ? <Action label={busy === 'odoo' ? 'Saving...' : 'Save to Odoo again'} disabled={!!busy} onPress={sendToOdoo} testID="inspection-odoo" /> : null}
 
-        <SectionTitle>Then</SectionTitle>
-        {held.length > 0 && !onTicket ? (
-          <Action label={`Send suggested repairs to the ticket (${held.length})`} primary onPress={() => { save((i) => ({ ...i, holdRepairs: false })); router.push({ pathname: '/quote/[id]', params: { id: job.id } }); }} testID="inspection-send-repairs" />
+        <SectionTitle>Suggested repairs</SectionTitle>
+        {priced.length === 0 ? <Text style={styles.note}>No priced repairs were suggested on this report.</Text> : null}
+        {priced.length > 0 ? (
+          <Text style={styles.note}>
+            {waiting.length > 0 ? 'Tick the repairs to put on the ticket. They stay off it until you add them.' : 'All of the suggested repairs are on the ticket.'}
+          </Text>
         ) : null}
-        {held.length > 0 && onTicket ? <Text style={styles.note}>The suggested repairs are on the ticket.</Text> : null}
-        <Action label="Open the quote" onPress={() => router.push({ pathname: '/quote/[id]', params: { id: job.id } })} testID="inspection-quote" />
+        {priced.map((r) => {
+          const on = onTicketIds.has(r.id);
+          const total = formatMoney(cents(r.price) * (r.qty && r.qty > 1 ? r.qty : 1));
+          const label = `${r.qty && r.qty > 1 ? `${r.qty} × ` : ''}${r.label} · ${total}${on ? ' · on the ticket' : ''}`;
+          return on ? (
+            <Text key={r.id} style={styles.note} testID={`finish-repair-${r.id}`}>{`✓ ${label}`}</Text>
+          ) : (
+            <Toggle key={r.id} label={label} on={!skipped.includes(r.id)} onPress={() => setSkipped((x) => (x.includes(r.id) ? x.filter((y) => y !== r.id) : [...x, r.id]))} testID={`finish-repair-${r.id}`} />
+          );
+        })}
+        {waiting.length > 0 ? <Action label={chosen.length > 0 ? `Add selected to the ticket (${chosen.length})` : 'Add selected to the ticket'} primary disabled={chosen.length === 0} onPress={addChosen} testID="inspection-send-repairs" /> : null}
+        {added ? <Text style={styles.done} testID="inspection-repairs-added" accessibilityLiveRegion="polite">{`Added ${added} ${added === 1 ? 'repair' : 'repairs'} to the ticket.`}</Text> : null}
+
+        <SectionTitle>Then</SectionTitle>
+        <Action label="Open the ticket" onPress={() => router.push({ pathname: '/ticket/[id]', params: { id: job.id } })} testID="inspection-ticket" />
         {media ? <Action label={busy === 'pdf' ? 'Making the PDF...' : 'Send report'} disabled={!!busy} onPress={sharePdf} testID="inspection-pdf" /> : null}
         {media ? <Action label={busy === 'view' ? 'Making the PDF...' : 'View or download PDF'} disabled={!!busy} onPress={viewPdf} testID="inspection-pdf-view" /> : null}
         <Action label="Text a summary" onPress={() => Share.share({ message: inspectionText(insp, job.customer) }).catch(() => undefined)} testID="inspection-share" />
