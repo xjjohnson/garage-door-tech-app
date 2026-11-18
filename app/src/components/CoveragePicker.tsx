@@ -4,6 +4,7 @@ import { ChipOption, ChipRow } from './controls';
 import { FollowUpSettings, partWarranties, warrantyFor } from '../lib/followups';
 import { DAY } from '../lib/followups';
 import { Invoice, trackKey } from '../lib/invoices';
+import { trackedKeys } from '../lib/odooEquipment';
 import { formatMoney } from '../lib/prices';
 import { colors, type } from '../theme';
 
@@ -36,7 +37,7 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
   const parts = partsMonths(invoice, settings);
   const labor = laborDays(invoice, settings);
   const covered = parts > 0 || labor > 0;
-  const tracked = invoice.warranty?.tracked ?? [];
+  const tracked = trackedKeys(invoice);
   const toggle = (key: string) => onChange({ warranty: { tracked: tracked.includes(key) ? tracked.filter((k) => k !== key) : [...tracked, key] } });
   const lines = partWarranties(invoice, settings, trackKey);
   const same = { label: 'Same as job', value: -1 };
