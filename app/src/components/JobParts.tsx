@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { ChipRow } from './controls';
@@ -17,11 +17,11 @@ import { BarcodeScanner } from './BarcodeScanner';
  * On the job hub: parts used on this job. Each one comes off the truck count
  * (and so off the truck in Odoo, which syncs a few seconds later). Scan the
  * box, or pick from the truck list. A part that isn't on the truck is ordered
- * from the supplier in Odoo, to pick up or have delivered, and goes on the
- * job when it's in.
+ * from the supplier in Odoo, always a pickup, as a draft for the buyer, and goes on the
+ * job once the warehouse has it and the tech picks it up.
  */
 export function JobParts({ jobId }: { jobId: string }) {
-  const { items, used, purchases, suppliers, takeParts, undoUse, orderForJob, receiveOrder } = useStock();
+  const { items, used, purchases, suppliers, takeParts, undoUse, orderForJob, jobOrderState, claimOrder } = useStock();
   const { client } = useOdoo();
   const { jobs, setTicket } = useJobs();
   const [scanning, setScanning] = useState(false);
@@ -30,9 +30,23 @@ export function JobParts({ jobId }: { jobId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   useTruckSync();
+  const [where, setWhere] = useState<Record<string, 'buyer' | 'ordered' | 'ready' | 'gone'>>({});
   const mine = (used ?? []).filter((u) => u.jobId === jobId);
   const waiting = openPurchases(purchases).filter((p) => p.jobId === jobId);
   const job = jobs.find((j) => j.id === jobId);
+  const waitingKey = waiting.map((p) => p.id).join(',');
+  // Where each part order stands in Odoo: with the buyer, ordered, or received by the warehouse.
+  useEffect(() => {
+    if (!client || !waitingKey) return;
+    let live = true;
+    for (const id of waitingKey.split(',')) {
+      jobOrderState(client, id).then((st) => live && setWhere((w) => ({ ...w, [id]: st })), () => undefined);
+    }
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, waitingKey]);
   const customer = job?.customer ?? '';
   const fromTicket = ticketParts(job?.ticket, items, used ?? [], jobId, purchases);
   const missing = unaccountedParts(job?.ticket, items, jobId, purchases).filter((p) => p.why === 'not-on-truck');
@@ -112,19 +126,27 @@ export function JobParts({ jobId }: { jobId: string }) {
           <Text style={styles.body}>
             {po.lines.map((l) => `${l.qty} x ${items.find((i) => i.id === l.itemId)?.name ?? 'part'}`).join(', ')}
           </Text>
-          <Text style={styles.note}>
-            {po.name} · {po.pickup ? `pick up at ${po.supplier}` : `${po.supplier} delivers`}
-            {po.emailed ? ' · emailed' : ' · not emailed, call or text them'}
+          <Text style={styles.note} testID={`job-po-status-${po.name}`}>
+            {po.name} ·{' '}
+            {where[po.id] === 'ready'
+              ? `ready for you at the warehouse`
+              : where[po.id] === 'ordered'
+                ? `ordered from ${po.supplier}, waiting for the warehouse to receive it`
+                : po.draft || where[po.id] === 'buyer'
+                  ? 'with the buyer to review and send'
+                  : `pick up at ${po.supplier} when it is in`}
           </Text>
-          <Button
-            label={busy === po.id ? 'Receiving…' : 'Got it, put it on this job'}
-            onPress={() =>
-              !busy &&
-              client &&
-              run(po.id, async () => ((await receiveOrder(client, po.id)) ? `${po.name} received in Odoo and put on this job.` : `Odoo wants ${po.name} finished there (a backorder or a missing quantity). Validate the receipt in Odoo.`))
-            }
-            testID={`job-po-received-${po.name}`}
-          />
+          {where[po.id] === 'ready' ? (
+            <Button
+              label={busy === po.id ? 'Putting it on the job…' : 'Got it, put it on this job'}
+              onPress={() =>
+                !busy &&
+                client &&
+                run(po.id, async () => ((await claimOrder(client, po.id)) ? `${po.name} is on your truck and on this job.` : `Odoo wants ${po.name} finished there. Ask the warehouse.`))
+              }
+              testID={`job-po-received-${po.name}`}
+            />
+          ) : null}
         </View>
       ))}
       {note ? (
@@ -163,8 +185,8 @@ export function JobParts({ jobId }: { jobId: string }) {
           onSend={(o) => {
             setOrdering(false);
             run('order', async () => {
-              const po = await orderForJob(client, { ...o, jobId, jobName: customer });
-              return `${po.name} sent to ${po.supplier}${po.emailed ? ' by email' : ". Odoo couldn't email it, so call or text them"}. ${o.pickup ? 'Pick it up' : "It's coming"}, then tap "Got it" to put it on this job.`;
+              const po = await orderForJob(client, { ...o, pickup: true, jobId, jobName: customer, ...(job?.odooJob?.model === 'fsm.order' ? { forOrderId: job.odooJob.id } : {}) });
+              return `${po.name} is a draft for the buyer to review and send to ${po.supplier}${po.unpriced ? '. It has no price yet, so the buyer will add one' : ''}. When the warehouse has it, it shows here as ready for you.`;
             });
           }}
         />
@@ -180,7 +202,7 @@ interface PartOrder {
   pickup: boolean;
 }
 
-/** Finds the part in Odoo (or makes it), then how many, who from, and pickup or delivery. Sending is the last tap. */
+/** Finds the part in Odoo (or makes it), then how many and who from. The last tap only makes a draft for the buyer; parts are always picked up. */
 function OrderSheet({ initial = '', vendors = [], search, make, onSend, onClose }: { initial?: string; vendors?: string[]; search: (q: string) => Promise<StockProduct[]>; make: (name: string) => Promise<StockProduct>; onSend: (o: PartOrder) => void; onClose: () => void }) {
   const [q, setQ] = useState(initial);
   const [found, setFound] = useState<StockProduct[] | null>(null);
@@ -189,7 +211,6 @@ function OrderSheet({ initial = '', vendors = [], search, make, onSend, onClose 
   const [product, setProduct] = useState<StockProduct | null>(null);
   const [qty, setQty] = useState(1);
   const [supplier, setSupplier] = useState('');
-  const [pickup, setPickup] = useState(true);
 
   const look = async (fn: () => Promise<void>) => {
     setLooking(true);
@@ -260,19 +281,15 @@ function OrderSheet({ initial = '', vendors = [], search, make, onSend, onClose 
                 </View>
                 {vendors.length > 0 ? <ChipRow options={vendors.map((v) => ({ label: v, value: v }))} value={supplier} onChange={setSupplier} scroll testID="job-order-vendors" /> : null}
                 <TextInput value={supplier} onChangeText={setSupplier} placeholder="Vendor (pick one above or type)" placeholderTextColor={colors.muted} accessibilityLabel="Supplier" testID="job-order-supplier" style={styles.input} />
-                <View style={styles.row}>
-                  <Choice label="I'll pick it up" on={pickup} onPress={() => setPickup(true)} testID="job-order-pickup" />
-                  <Choice label="Have it delivered" on={!pickup} onPress={() => setPickup(false)} testID="job-order-delivery" />
-                </View>
-                <Text style={styles.note}>Makes a purchase order in Odoo for this job and emails it to {supplier.trim() || 'the supplier'}. It comes in on your truck.</Text>
+                <Text style={styles.note}>Makes a draft purchase order in Odoo for this job. The buyer reviews it and sends it to {supplier.trim() || 'the supplier'}. You pick it up when the warehouse has it.</Text>
                 <Pressable
-                  onPress={() => supplier.trim() && onSend({ product, qty, supplier: supplier.trim(), pickup })}
+                  onPress={() => supplier.trim() && onSend({ product, qty, supplier: supplier.trim(), pickup: true })}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: !supplier.trim() }}
                   testID="job-order-send"
                   style={({ pressed }) => [styles.button, styles.primary, !supplier.trim() && styles.disabled, pressed && styles.pressed]}
                 >
-                  {({ pressed }) => <Text style={[styles.buttonText, !pressed && styles.primaryText]}>{supplier.trim() ? `Send PO to ${supplier.trim()}` : 'Add the supplier first'}</Text>}
+                  {({ pressed }) => <Text style={[styles.buttonText, !pressed && styles.primaryText]}>{supplier.trim() ? 'Order it for the buyer to review' : 'Add the supplier first'}</Text>}
                 </Pressable>
                 <Button label="Different part" onPress={() => setProduct(null)} testID="job-order-back" />
               </>
@@ -282,14 +299,6 @@ function OrderSheet({ initial = '', vendors = [], search, make, onSend, onClose 
         </View>
       </KeyboardBackdrop>
     </Modal>
-  );
-}
-
-function Choice({ label, on, onPress, testID }: { label: string; on: boolean; onPress: () => void; testID: string }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected: on }} testID={testID} style={({ pressed }) => [styles.button, on && styles.primary, pressed && styles.pressed]}>
-      {({ pressed }) => <Text style={[styles.buttonText, on && !pressed && styles.primaryText]}>{label}</Text>}
-    </Pressable>
   );
 }
 

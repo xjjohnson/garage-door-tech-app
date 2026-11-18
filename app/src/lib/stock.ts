@@ -9,9 +9,17 @@ import { textLink } from './followups';
 
 export const STOCK_STORAGE_KEY = 'stock/v1';
 
-export type StockCategory = 'springs' | 'parts' | 'openers' | 'other';
-export const STOCK_CATEGORIES: StockCategory[] = ['springs', 'parts', 'openers', 'other'];
-export const CATEGORY_LABEL: Record<StockCategory, string> = { springs: 'Springs', parts: 'Parts', openers: 'Openers and remotes', other: 'Other' };
+/** An Odoo product category's name ("Springs", "Openers"); "Other" for a part Odoo has no category for yet. */
+export type StockCategory = string;
+export const OTHER_CATEGORY = 'Other';
+/** Phones that saved the old fixed labels keep them, shown as names. */
+const LEGACY_CATEGORY: Record<string, string> = { springs: 'Springs', parts: 'Parts', openers: 'Openers and remotes', other: OTHER_CATEGORY };
+export const categoryName = (c: unknown): StockCategory => (typeof c === 'string' && c.trim() ? LEGACY_CATEGORY[c] ?? c.trim() : OTHER_CATEGORY);
+/** The category groups to show: those in use, A to Z, with Other last. */
+export function categoriesOf(items: Pick<StockItem, 'category'>[], extra: string[] = []): StockCategory[] {
+  const all = new Set([...items.map((i) => categoryName(i.category)), ...extra.map(categoryName)]);
+  return [...all].sort((a, b) => (a === OTHER_CATEGORY ? 1 : 0) - (b === OTHER_CATEGORY ? 1 : 0) || a.localeCompare(b));
+}
 
 export interface StockItem {
   id: string;
@@ -249,7 +257,7 @@ export function parseStock(raw: string | null | unknown): StockStore {
         id: i.id,
         name: i.name,
         sku: s0(i.sku),
-        category: STOCK_CATEGORIES.includes(i.category as StockCategory) ? (i.category as StockCategory) : 'other',
+        category: categoryName(i.category),
         onHand: n0(i.onHand),
         min: n0(i.min),
         par: n0(i.par),
@@ -356,10 +364,3 @@ export function holdBack(used: PartUse[] = []): Map<string, number> {
   return m;
 }
 
-/** A guess at the category from a product name, for parts that come from Odoo. */
-export function guessCategory(name: string): StockCategory {
-  const n = name.toLowerCase();
-  if (/spring/.test(n)) return 'springs';
-  if (/opener|remote|sensor|keypad|button|transmitter|operator/.test(n)) return 'openers';
-  return 'parts';
-}

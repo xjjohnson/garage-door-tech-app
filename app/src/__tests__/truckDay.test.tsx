@@ -141,7 +141,7 @@ function fakeStockOdoo() {
       case 'purchase.order.line.read':
         return [{ id: 1, product_id: [12, 'Spring'] }];
       case 'purchase.order.search_read':
-        return (args[0] as unknown[][])[0][2] ? [{ id: 300, state: draftState }] : [];
+        return (args[0] as unknown[][])[0][2] ? [{ id: 300, state: draftState, picking_ids: [400] }] : [];
       case 'purchase.order.read':
         return [{ id: 300, name: 'P00012', picking_ids: [400], order_line: [1] }];
       case 'stock.picking.write':
@@ -154,7 +154,7 @@ function fakeStockOdoo() {
       case 'mail.compose.message.action_send_mail':
         return true;
       case 'stock.picking.read':
-        return [{ id: 400, state: pickings[400].state }];
+        return [{ id: 400, state: pickings[400].state, location_dest_id: [pickings[400].dest, 'Place'] }];
       case 'stock.picking.button_validate': {
         const p = pickings[400];
         p.state = 'done';
@@ -211,7 +211,7 @@ describe('truck stock with Odoo Inventory (plain logic)', () => {
     o.quants.push({ id: 50, product: 13, qty: 2 });
     const third = await syncTruck(o.client, second.store, 3000, () => 'new-sensors');
     expect(third.added).toBe(1);
-    expect(third.store.items.find((i) => i.id === 'new-sensors')).toMatchObject({ name: 'Safety sensors (pair)', category: 'openers', onHand: 2, odooId: 13, barcode: '777' });
+    expect(third.store.items.find((i) => i.id === 'new-sensors')).toMatchObject({ name: 'Safety sensors (pair)', category: 'Openers', onHand: 2, odooId: 13, barcode: '777' });
   });
 
   it('sends reorder numbers and suppliers changed on the phone, but never old ones', async () => {
@@ -540,7 +540,7 @@ describe('job part orders and adding parts signed in (StockProvider)', () => {
     return () => api.current!;
   }
 
-  it('orders a part that is not on the truck for a job, and puts it on the job when it comes in', async () => {
+  it('orders a part for a job as a draft for the buyer, then the tech picks it up once the warehouse has it', async () => {
     const o = fakeStockOdoo();
     const stock = await mount({ items: [], suppliers: [], truck: { locationId: 7, name: 'WH/Truck 1', syncedAt: 1, uid: 2 } });
     const [spring] = await searchProducts(o.client, 'torsion');
@@ -548,16 +548,29 @@ describe('job part orders and adding parts signed in (StockProvider)', () => {
     await act(async () => {
       po = await stock().orderForJob(o.client, { product: spring, qty: 2, supplier: 'ABC Supply', pickup: true, jobId: 'j1', jobName: 'Ortega' });
     });
-    expect(po).toMatchObject({ name: 'P00012', jobId: 'j1', pickup: true, lines: [{ qty: 2 }] });
+    expect(po).toMatchObject({ name: 'P00012', jobId: 'j1', pickup: true, draft: true, emailed: false, unpriced: true, lines: [{ qty: 2 }] });
     expect(o.calls.find((c) => c.model === 'purchase.order' && c.method === 'create')?.args[0]).toMatchObject({ origin: 'WH/Truck 1 · Pickup · Job: Ortega' });
+    // Only a draft: nothing confirmed and nothing emailed.
+    expect(o.calls.some((c) => c.method === 'button_confirm' || c.method === 'action_rfq_send')).toBe(false);
     // Listed on the truck at 0 with no reorder, so it never lands on a restock order.
     expect(stock().items).toEqual([expect.objectContaining({ odooId: 12, onHand: 0, syncedOnHand: 0, min: 0, par: 0 })]);
 
+    expect(await stock().jobOrderState(o.client, po.id)).toBe('buyer');
+    // Taking it before the warehouse has it is refused.
+    await expect(stock().claimOrder(o.client, po.id)).rejects.toThrow(/not received/);
+
+    // The buyer confirms; the warehouse has not received it yet.
+    o.setDraftState('purchase');
+    expect(await stock().jobOrderState(o.client, po.id)).toBe('ordered');
+
+    // The warehouse receives it (here straight to the truck's place), and the tech takes it.
+    o.pickings[400].dest = 7;
+    await o.client.call('stock.picking', 'button_validate', [[400]]);
+    expect(await stock().jobOrderState(o.client, po.id)).toBe('ready');
     await act(async () => {
-      expect(await stock().receiveOrder(o.client, po.id)).toBe(true);
+      expect(await stock().claimOrder(o.client, po.id)).toBe(true);
     });
     await settle();
-    // Received onto the truck in Odoo, then taken off it for the job.
     expect(stock().used).toEqual([expect.objectContaining({ jobId: 'j1', qty: 2, itemId: po.lines[0].itemId })]);
     expect(stock().items[0]).toMatchObject({ onHand: 0, syncedOnHand: 2 });
     await act(async () => {
