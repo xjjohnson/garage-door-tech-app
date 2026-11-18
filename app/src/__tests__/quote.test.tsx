@@ -109,7 +109,7 @@ beforeEach(async () => {
 });
 
 describe('quotes in the app', () => {
-  it('asks for prices, then quotes the job and records what the customer picked', async () => {
+  it('shows the Templates screen with no Odoo templates yet', async () => {
     const job = createJob(MATCH, { customer: 'Pat Smith', address: '12 Oak St', phone: '', notes: '' }, { title: '.225 × 2" × 24"' }, 1000, 'j1');
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
     await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify({ ...DEFAULT_PRICE_SHEET, spring: { good: '60', better: '60', best: '60' }, springLabor: '150' }));
@@ -118,16 +118,9 @@ describe('quotes in the app', () => {
     await fireEvent.press(await screen.findByTestId('job-toggle-j1'));
     await fireEvent.press(screen.getByTestId('job-quote-j1'));
 
-    // No Springs templates in Odoo yet: the notice says to make them, with no price sheet to open.
-    expect(screen.getByTestId('quote-no-spring-templates')).toBeTruthy();
+    // No templates in Odoo yet: the screen says so, with no price sheet to open and no Good/Better/Best.
+    expect(screen.getByTestId('quote-no-templates')).toBeTruthy();
     expect(screen.queryByTestId('quote-set-prices')).toBeNull();
-    // 2 × $60 + $150 labor, no tax set.
-    expect(screen.getByTestId('quote-total-good')).toHaveTextContent('$270');
-    await fireEvent.press(screen.getByTestId('quote-accept-good'));
-    expect(screen.getByTestId('quote-accepted-note')).toHaveTextContent(/^Customer picked Good at \$270 on /);
-    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].accepted).toMatchObject({ tier: 'good', total: 27000 });
-
-    await fireEvent.press(screen.getByTestId('quote-sheet-close'));
-    expect(screen.getByTestId('job-accepted-j1')).toHaveTextContent(/Picked Good, \$270/);
+    expect(screen.queryByTestId('quote-total-good')).toBeNull();
   });
 });

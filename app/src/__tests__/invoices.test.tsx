@@ -111,13 +111,13 @@ describe('invoices in the app', () => {
     await AsyncStorage.clear();
     await AsyncStorage.setItem(PRICE_SHEET_STORAGE_KEY, JSON.stringify(SHEET));
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([{ ...job, accepted: { tier: 'good', total: good.total, at: 2000 } }]));
+    await AsyncStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([createInvoice(job, good, [], 3000, 'i1')]));
   });
 
   it('makes an invoice from the picked option and records payments until paid', async () => {
     await AsyncStorage.setItem(BUSINESS_STORAGE_KEY, JSON.stringify(BIZ));
-    const app = await renderApp('/quote/j1');
+    const app = await renderApp('/invoice/i1');
     await settle();
-    await fireEvent.press(screen.getByTestId('quote-make-invoice'));
     expect(app.getPathname()).toMatch(/^\/invoice\//);
     expect(screen.getByTestId('invoice-status')).toHaveTextContent('UNPAID');
     expect(screen.getByTestId('invoice-due')).toHaveTextContent('$368.90');
@@ -151,9 +151,8 @@ describe('invoices in the app', () => {
   });
 
   it('asks for payment handles when there are none, and the quote then opens the invoice', async () => {
-    const app = await renderApp('/quote/j1');
+    const app = await renderApp('/invoice/i1');
     await settle();
-    await fireEvent.press(screen.getByTestId('quote-make-invoice'));
     expect(screen.getByTestId('invoice-no-handles')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('invoice-set-business'));
     expect(app.getPathname()).toBe('/business');
@@ -164,20 +163,14 @@ describe('invoices in the app', () => {
   });
 
   it('lists what is owed and shows it on the job', async () => {
-    await renderApp('/quote/j1');
+    await renderApp('/invoices');
     await settle();
-    await fireEvent.press(screen.getByTestId('quote-make-invoice'));
-    await fireEvent.press(screen.getByTestId('invoice-page-close'));
-    expect(screen.getByTestId('quote-open-invoice')).toHaveTextContent('Open invoice 1001');
-    await fireEvent.press(screen.getByTestId('quote-sheet-close'));
-    await act(async () => router.push('/invoices'));
     expect(screen.getByTestId('invoices-owed')).toHaveTextContent('Owed to you: $368.90 on 1 invoice');
   });
 
   it('voids on a second tap', async () => {
-    await renderApp('/quote/j1');
+    await renderApp('/invoice/i1');
     await settle();
-    await fireEvent.press(screen.getByTestId('quote-make-invoice'));
     await fireEvent.press(screen.getByTestId('invoice-void'));
     expect(screen.getByTestId('invoice-status')).toHaveTextContent('UNPAID');
     await fireEvent.press(screen.getByTestId('invoice-void'));
