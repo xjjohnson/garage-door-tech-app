@@ -60,12 +60,16 @@ export function jobPartsMonths(inv: Invoice, s: FollowUpSettings): number {
  */
 export function partWarranties(inv: Invoice, s: FollowUpSettings, keyOf: (l: Invoice['lines'][number]) => string): { key: string; label: string; part: boolean; months: number; until: number | null }[] {
   const job = jobPartsMonths(inv, s);
+  const laborUntil = warrantyFor(inv, s).laborUntil;
   return inv.lines
     .filter((l) => !l.display && l.cents > 0)
     .map((l) => {
       const key = keyOf(l);
-      const months = inv.warranty?.partMonths?.[key] ?? (l.taxable ? job : 0);
-      return { key, label: l.label, part: l.taxable, months, until: months > 0 ? addMonths(inv.createdAt, months) : null };
+      const own = inv.warranty?.partMonths?.[key];
+      // Labor follows the job's Labor choice (a line can only be switched off); a part has a length of its own.
+      if (!l.taxable) return { key, label: l.label, part: false, months: 0, until: own === 0 ? null : laborUntil };
+      const months = own ?? job;
+      return { key, label: l.label, part: true, months, until: months > 0 ? addMonths(inv.createdAt, months) : null };
     });
 }
 
@@ -76,7 +80,7 @@ export function partWarranties(inv: Invoice, s: FollowUpSettings, keyOf: (l: Inv
  */
 export function warrantyText(inv: Invoice, s: FollowUpSettings, keyOf: (l: Invoice['lines'][number]) => string, fmt: (t: number) => string): string {
   const w = warrantyFor(inv, s);
-  const lines = partWarranties(inv, s, keyOf);
+  const lines = partWarranties(inv, s, keyOf).filter((l) => l.part);
   const covered = lines.filter((l) => l.until);
   const custom = covered.length > 0 && (covered.some((l) => l.months !== covered[0]!.months) || lines.some((l) => l.part && !l.until));
   const parts = custom

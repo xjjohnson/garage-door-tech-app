@@ -63,7 +63,7 @@ export interface OdooInvoiceLine {
   qty: number;
   /** The line's amount before tax, cents. */
   cents: number;
-  /** Odoo put tax on the line, which on these invoices means it is a part (material), not labor. */
+  /** A part (material), not labor: by the Odoo product's type (a service is labor), else by whether Odoo taxed the line. */
   taxable?: boolean;
   /** A section heading or note, not a charge. */
   display?: 'section' | 'note';
@@ -211,18 +211,39 @@ export async function readInvoice(client: OdooClient, id: number, sentPayments: 
   };
 }
 
+/** The Odoo type of each product ('service' for labor, 'consu' for goods); empty when Odoo can't say. */
+async function productTypes(client: OdooClient, ids: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  if (ids.length === 0) return out;
+  try {
+    const rows = (await client.call('product.product', 'read', [[...new Set(ids)]], { fields: ['type'] })) as { id: number; type?: unknown }[];
+    for (const r of rows ?? []) if (typeof r.type === 'string') out.set(r.id, r.type);
+  } catch {
+    // Without product types the tax on the line decides.
+  }
+  return out;
+}
+
+/** Part or labor for one Odoo line: its product's type first, else whether the line was taxed. */
+function partFlag(l: Record<string, unknown>, types: Map<number, string>): { taxable?: boolean } {
+  const type = Array.isArray(l.product_id) ? types.get(Number(l.product_id[0])) : undefined;
+  if (type) return { taxable: type !== 'service' };
+  return Array.isArray(l.tax_ids) ? { taxable: l.tax_ids.length > 0 } : {};
+}
+
 /** The invoice's lines as Odoo has them, in order: product lines plus section headings and notes. */
 async function readLines(client: OdooClient, ids: unknown): Promise<OdooInvoiceLine[] | undefined> {
   if (!Array.isArray(ids) || ids.length === 0) return undefined;
-  const rows = await client.call('account.move.line', 'read', [ids], { fields: ['name', 'quantity', 'price_subtotal', 'display_type', 'sequence', 'tax_ids'] });
+  const rows = await client.call('account.move.line', 'read', [ids], { fields: ['name', 'quantity', 'price_subtotal', 'display_type', 'sequence', 'tax_ids', 'product_id'] });
   if (!Array.isArray(rows)) return undefined;
+  const types = await productTypes(client, (rows as Record<string, unknown>[]).map((l) => (Array.isArray(l.product_id) ? Number(l.product_id[0]) : 0)).filter((x) => x > 0));
   return (rows as Record<string, unknown>[])
     .filter((l) => !l.display_type || l.display_type === 'product' || l.display_type === 'line_section' || l.display_type === 'line_note')
     .sort((a, b) => (Number(a.sequence) || 0) - (Number(b.sequence) || 0))
     .map((l): OdooInvoiceLine => {
       const label = typeof l.name === 'string' ? l.name : '';
       if (l.display_type === 'line_section' || l.display_type === 'line_note') return { label, qty: 1, cents: 0, display: l.display_type === 'line_note' ? 'note' : 'section' };
-      return { label: label.split('\n')[0], qty: typeof l.quantity === 'number' ? l.quantity : 1, cents: toCents(l.price_subtotal), ...(Array.isArray(l.tax_ids) ? { taxable: l.tax_ids.length > 0 } : {}) };
+      return { label: label.split('\n')[0], qty: typeof l.quantity === 'number' ? l.quantity : 1, cents: toCents(l.price_subtotal), ...partFlag(l, types) };
     });
 }
 
