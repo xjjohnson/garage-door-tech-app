@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { EMPTY_BUSINESS, parseBusiness, reviewRequestText } from '../lib/invoices';
 import { fillText, messageText, wording } from '../lib/messageTexts';
+import { windowOf } from '../lib/odoo';
 import { onMyWayText, reminderText } from '../lib/schedule';
 import { TextsTab } from '../screens/TextsTab';
 import * as settingsSync from '../lib/settingsSync';
@@ -33,6 +34,12 @@ describe('pre-written texts', () => {
     const own = { ...mockBiz, textConfirm: '{business}: see you {day} {window}, {first}!' };
     expect(reminderText({ name: 'Pat', start, windowMinutes: 180 }, own, now)).toBe('Johnsons: see you today between 9:00 am and 12:00 pm, Pat!');
     expect(parseBusiness({ textConfirm: 'x' }).textConfirm).toBe('x');
+  });
+
+  it('reads the window from an order: early to late in minutes, 0 when empty, unknown when the fields are missing', () => {
+    expect(windowOf({ request_early: '2026-11-18 15:00:00', request_late: '2026-11-18 18:00:00' })).toBe(180);
+    expect(windowOf({ request_early: false, request_late: false })).toBe(0);
+    expect(windowOf({ name: 'FO1' })).toBeUndefined();
   });
 
   it('keeps the wording through parseBusiness', () => {

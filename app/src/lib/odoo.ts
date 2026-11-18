@@ -651,6 +651,8 @@ export interface OdooTask {
   assignees: number[];
   /** How long it's planned to take, if Odoo says. */
   minutes?: number;
+  /** The arrival window in minutes (Odoo's Earliest to Latest Request Date). 0 when Odoo has none; unset when this Odoo has no such fields. */
+  windowMinutes?: number;
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
@@ -734,6 +736,18 @@ function toTask(r: Record<string, unknown>, partners: Record<string, unknown>[],
   };
 }
 
+/**
+ * The arrival window an order carries: minutes from its Earliest to its Latest
+ * Request Date. 0 when both are empty (no window); undefined when the record
+ * wasn't asked for them, so an Odoo without the fields never clears a window.
+ */
+export function windowOf(r: Record<string, unknown>): number | undefined {
+  if (!('request_early' in r) || !('request_late' in r)) return undefined;
+  const a = odooTime(r.request_early);
+  const b = odooTime(r.request_late);
+  return a !== undefined && b !== undefined && b > a ? Math.round((b - a) / 60_000) : 0;
+}
+
 function orderToTask(r: Record<string, unknown>, locs: Record<string, unknown>[]): OdooTask {
   const lid = Array.isArray(r.location_id) ? (r.location_id[0] as number) : undefined;
   const l = locs.find((x) => x.id === lid) ?? {};
@@ -751,6 +765,7 @@ function orderToTask(r: Record<string, unknown>, locs: Record<string, unknown>[]
     notes: plainText(notes),
     assignees: Array.isArray(r.person_id) ? [r.person_id[0] as number] : [],
     ...(typeof r.scheduled_duration === 'number' && r.scheduled_duration > 0 ? { minutes: Math.round(r.scheduled_duration * 60) } : {}),
+    ...(windowOf(r) !== undefined ? { windowMinutes: windowOf(r) } : {}),
   };
 }
 
@@ -761,6 +776,7 @@ export function taskToAppointment(t: OdooTask, now: number, existing?: Appointme
     id: `odoo-${t.id}`,
     start,
     minutes: existing?.minutes ?? 60,
+    ...(t.windowMinutes ? { windowMinutes: t.windowMinutes } : existing?.windowMinutes && t.windowMinutes === undefined ? { windowMinutes: existing.windowMinutes } : {}),
     ...(existing?.customerId ? { customerId: existing.customerId } : {}),
     ...(existing?.jobId ? { jobId: existing.jobId } : {}),
     name: t.customer || t.name,
