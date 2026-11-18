@@ -117,7 +117,8 @@ export async function isRealOwner(client: OdooClient): Promise<boolean> {
 
 /** Whether to treat the signed-in user as the owner: the real owner, unless Developer > Look as a tech is on. */
 export async function isOwner(client: OdooClient): Promise<boolean> {
-  if (rolePreview() === 'tech') return false;
+  const p = rolePreview();
+  if (p) return p === 'owner';
   return isRealOwner(client);
 }
 

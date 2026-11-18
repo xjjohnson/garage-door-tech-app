@@ -5,13 +5,14 @@ import type { OdooClient } from '../lib/odoo';
 import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { ChipRow, SectionTitle } from '../components/controls';
+import { DevTestTools } from '../components/DevTestTools';
 import { OdooSignInForm } from '../components/OdooSignInForm';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { releaseFrom } from '../lib/buildInfo';
 import { clearLocalCache, CLEAR_CACHE_WARNING } from '../lib/clearCache';
 import { ageLabel, bytesLabel, checkCounts, photoUse, diagnosticsText, filterLog, LogFilter, queueRows, recentProblems, STUCK_MS, storageLabel, UpdateDetails, updateLines } from '../lib/devInfo';
 import { callTrace, clearCallTrace, onCallTrace, slowest } from '../lib/callTrace';
-import { onDevFlags, pretendOffline, rolePreview, setPretendOffline, setRolePreview } from '../lib/devFlags';
+import { onDevFlags, pretendOffline, setPretendOffline } from '../lib/devFlags';
 import { FEATURE_FLAGS, featureOn, loadFeatureFlags, onFeatureFlags, setFeature } from '../lib/featureFlags';
 import { checkNetwork, NetResult } from '../lib/networkCheck';
 import { useAttachments } from '../lib/useAttachments';
@@ -128,7 +129,6 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
   const [beta, setBetaOn] = useState<boolean | null>(null);
   const [needsRestart, setNeedsRestart] = useState(false);
   const [offline, setOffline] = useState(pretendOffline());
-  const [asTech, setAsTech] = useState(rolePreview() === 'tech');
   const [, setFlagTick] = useState(0);
   const [calls, setCalls] = useState(callTrace());
   const [net, setNet] = useState<NetResult[] | null>(null);
@@ -140,7 +140,6 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
     readBeta().then(setBetaOn);
     const off = onDevFlags(() => {
       setOffline(pretendOffline());
-      setAsTech(rolePreview() === 'tech');
     });
     const offSync = onSyncStatus(() => setSync(syncStatus()));
     const offCalls = onCallTrace(() => setCalls(callTrace()));
@@ -418,6 +417,16 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
           {!client ? 'Sign in to run the setup check.' : checking || !counts ? 'Checking Odoo...' : `${counts.ok} ready · ${counts.warn} to look at · ${counts.missing} missing`}
         </Text>
       </View>
+      {setup && client
+        ? setup
+            .filter((r) => r.state !== 'ok')
+            .map((r) => (
+              <View key={r.id} style={styles.card} testID={`dev-setup-fix-${r.id}`}>
+                <Text style={styles.v}>{`${r.state === 'missing' ? 'Missing' : 'Look at'}: ${r.label}`}</Text>
+                {r.fix ? <Text style={styles.meta}>{`How to fix: ${r.fix}`}</Text> : null}
+              </View>
+            ))
+        : null}
       <View style={styles.row}>
         <Action label="Check again" grow disabled={!client || checking} onPress={runSetup} testID="dev-setup-again" />
       </View>
@@ -487,11 +496,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       ) : null}
 
       <SectionTitle>Testing tools</SectionTitle>
-      <View style={styles.switchRow}>
-        <Text style={[styles.label, styles.grow]}>Look at the app as a tech</Text>
-        <Switch value={asTech} onValueChange={(on) => setRolePreview(on ? 'tech' : null)} accessibilityLabel="Look at the app as a tech" testID="dev-as-tech" trackColor={{ true: colors.selected, false: colors.info }} thumbColor={colors.bg} style={styles.switch} />
-      </View>
-      <Text style={styles.meta}>Hides what only the owner sees, so you can check a tech's screens. It only changes what this phone shows: nothing is written to Odoo, and a restart turns it off.</Text>
+      <DevTestTools release={details.release} shareText={share} logText={() => formatLog(logger.entries(), ['Johnsons app log', buildInfo])} />
       {FEATURE_FLAGS.map((f) => (
         <View key={f.id}>
           <View style={styles.switchRow}>

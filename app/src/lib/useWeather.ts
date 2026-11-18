@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Point } from './geocode';
-import { pretendOffline } from './devFlags';
+import { devNow, pretendOffline } from './devFlags';
 import { log } from './log';
 import { fetchHours, Hour, weatherKey, WeatherFetch } from './weather';
 
 const FRESH_MS = 30 * 60 * 1000;
 /** Kept in memory only: a forecast that old is worth nothing, and offline shows none. */
 const cache = new Map<string, { hours: Hour[]; t: number }>();
-const deps: { fetchFn: WeatherFetch; now: () => number } = { fetchFn: (url) => fetch(url), now: () => Date.now() };
+const deps: { fetchFn: WeatherFetch; now: () => number } = { fetchFn: (url) => fetch(url), now: () => devNow() };
 
 /** For tests: a fake Open-Meteo. Returns a reset. */
 export function setWeatherDeps(d: Partial<typeof deps>): () => void {

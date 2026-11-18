@@ -105,9 +105,31 @@ export async function realAccess(client: OdooClient): Promise<Access> {
   return access;
 }
 
-/** The access to act on: the real one, or none while Developer > Look as a tech is on. */
+/** What each role the Developer screen can imitate may open. Fixed here, never read from or written to Odoo. */
+export function previewAccess(p: NonNullable<ReturnType<typeof rolePreview>>): Access {
+  const none = { ...NO_ACCESS };
+  switch (p) {
+    case 'owner':
+      return { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true };
+    case 'dispatcher':
+      return { ...none, dispatch: true };
+    case 'office':
+      return { ...none, office: true };
+    case 'sales':
+      return { ...none, sales: true };
+    case 'warehouse':
+      return { ...none, warehouse: true };
+    case 'buyer':
+      return { ...none, purchasing: true };
+    default:
+      return none;
+  }
+}
+
+/** The access to act on: the real one, or the imitated role's while Developer > Look at the app as is on. */
 export async function departmentAccess(client: OdooClient): Promise<Access> {
-  if (rolePreview() === 'tech') return NO_ACCESS;
+  const p = rolePreview();
+  if (p) return previewAccess(p);
   return realAccess(client);
 }
 
