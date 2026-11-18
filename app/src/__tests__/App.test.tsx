@@ -134,7 +134,7 @@ describe('spring calculator app', () => {
   });
 
   it('keeps the version out of the header, and shows the full build line in Settings', async () => {
-    const app = await renderApp('/springs');
+    const app = await renderApp('/tools');
     expect(screen.queryByTestId('header-version')).toBeNull();
     expect(screen.queryByTestId('build-info')).toBeNull();
     await fireEvent.press(screen.getByTestId('open-settings'));

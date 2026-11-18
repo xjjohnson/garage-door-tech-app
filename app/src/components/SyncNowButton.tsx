@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
 });
 
 /** The Sync now pill that sits in the header on Today: same job as the button, in the 0.9 style. */
-export function SyncPill({ testID = 'sync-now' }: { testID?: string }) {
+export function SyncPill({ testID = 'sync-now', label = 'Sync now' }: { testID?: string; label?: string }) {
   const { status, client } = useOdoo();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -72,7 +72,7 @@ export function SyncPill({ testID = 'sync-now' }: { testID?: string }) {
   return (
     <Pressable onPress={go} disabled={busy} accessibilityRole="button" testID={testID} style={({ pressed }) => [pill.button, busy && styles.off, pressed && pill.pressed]}>
       <Icon name={done && !busy ? 'check' : 'sync'} size={16} color={colors.onHead} />
-      <Text style={pill.text}>{busy ? 'Syncing...' : done ? 'Synced' : 'Sync now'}</Text>
+      <Text style={pill.text}>{busy ? 'Syncing...' : done ? 'Synced' : label}</Text>
     </Pressable>
   );
 }

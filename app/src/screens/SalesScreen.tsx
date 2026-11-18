@@ -11,7 +11,6 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useStats } from '../lib/useStats';
-import { SyncNowButton } from '../components/SyncNowButton';
 import { colors, radius, shadow, type } from '../theme';
 import { InvoicesScreen } from './InvoicesScreen';
 import { OdooListScreen } from './OdooListScreen';
@@ -51,7 +50,6 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
         </View>
       </View>
 
-      <SyncNowButton label="Sync all" testID="sales-sync-all" />
 
       {due > 0 ? <AlertBanner testID="sales-followups" title={`${due} follow-up${due === 1 ? '' : 's'} due`} detail="Invoice and quote reminders" action="Review" onPress={() => router.push('/follow-ups')} /> : null}
       {toInvoice.length > 0 ? (
