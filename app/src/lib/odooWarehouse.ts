@@ -11,8 +11,8 @@
  * - A line Odoo refuses is reported and does not stop the others.
  * Kept free of React; the client is passed in, so tests use a fake server.
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { rolePreview } from './devFlags';
-import { OWNER_GROUPS } from './scorecard';
 import { OdooClient } from './odoo';
 import { readProducts, setTruckQty, StockProduct } from './odooStock';
 
@@ -30,6 +30,9 @@ export const ROLE_GROUPS: Record<Role, string[]> = {
   pricing: ['purchase.group_purchase_manager'],
 };
 
+/** Odoo groups that make someone the owner. */
+export const OWNER_GROUPS = ['base.group_system', 'fieldservice.group_fsm_manager'];
+
 export interface Access {
   warehouse: boolean;
   purchasing: boolean;
@@ -39,30 +42,60 @@ export interface Access {
 }
 export const NO_ACCESS: Access = { warehouse: false, purchasing: false, pricing: false, owner: false };
 
-async function inGroup(client: OdooClient, group: string): Promise<boolean> {
+/** Asks Odoo about one group. `seen.answered` turns true once Odoo has given a real yes or no, so "couldn't reach Odoo" isn't mistaken for "no". */
+async function inGroup(client: OdooClient, group: string, seen: { answered: boolean }): Promise<boolean> {
   try {
-    return (await client.call('res.users', 'has_group', [[client.session.uid], group])) === true;
+    const r = await client.call('res.users', 'has_group', [[client.session.uid], group]);
+    if (typeof r === 'boolean') seen.answered = true;
+    return r === true;
   } catch {
-    // Not a group in this Odoo; it can't be held.
+    // Not a group in this Odoo, or Odoo can't be reached; it can't be held.
     return false;
   }
 }
 
+const cacheKey = (client: OdooClient) => `roles.last.${client.session.url}|${client.session.db}|${client.session.login}`;
+
+async function readCache(client: OdooClient): Promise<Access | null> {
+  try {
+    const raw = await AsyncStorage.getItem(cacheKey(client));
+    const d = raw ? JSON.parse(raw) : null;
+    if (d && ['warehouse', 'purchasing', 'pricing', 'owner'].every((k) => typeof d[k] === 'boolean')) return d as Access;
+  } catch {
+    // No saved role.
+  }
+  return null;
+}
+
 /**
- * Which areas this signed-in Odoo user may open, from their Odoo groups. Odoo
- * still refuses any write the person isn't allowed, so this only decides what
- * to show. Developer > Look as a tech turns everything off.
+ * Which areas this signed-in Odoo user may open, from their Odoo groups,
+ * whatever "Look as a tech" says. When Odoo can't be reached it uses the
+ * role it last saw for this login, so losing signal never locks the owner out;
+ * with none saved yet it shows nothing.
  */
-export async function departmentAccess(client: OdooClient): Promise<Access> {
-  if (rolePreview() === 'tech') return NO_ACCESS;
+export async function realAccess(client: OdooClient): Promise<Access> {
+  const seen = { answered: false };
   const held = async (groups: string[]) => {
-    for (const g of groups) if (await inGroup(client, g)) return true;
+    for (const g of groups) if (await inGroup(client, g, seen)) return true;
     return false;
   };
-  const owner = (await held(OWNER_GROUPS)) || (typeof client.inAnyGroup === 'function' && (await client.inAnyGroup(OWNER_GROUPS)));
-  if (owner) return { warehouse: true, purchasing: true, pricing: true, owner: true };
-  const [warehouse, purchasing, buyManager, salesManager] = await Promise.all([held(ROLE_GROUPS.warehouse), held(ROLE_GROUPS.purchasing), held(ROLE_GROUPS.pricing), inGroup(client, 'sales_team.group_sale_manager')]);
-  return { warehouse, purchasing: purchasing || buyManager, pricing: buyManager && salesManager, owner: false };
+  const owner = (await held(OWNER_GROUPS)) || (typeof client.inAnyGroup === 'function' && (await client.inAnyGroup(OWNER_GROUPS).catch(() => false)));
+  let access: Access;
+  if (owner) {
+    access = { warehouse: true, purchasing: true, pricing: true, owner: true };
+  } else {
+    const [warehouse, purchasing, buyManager, salesManager] = await Promise.all([held(ROLE_GROUPS.warehouse), held(ROLE_GROUPS.purchasing), held(ROLE_GROUPS.pricing), inGroup(client, 'sales_team.group_sale_manager', seen)]);
+    access = { warehouse, purchasing: purchasing || buyManager, pricing: buyManager && salesManager, owner: false };
+  }
+  if (!seen.answered && !owner) return (await readCache(client)) ?? access;
+  if (seen.answered || owner) AsyncStorage.setItem(cacheKey(client), JSON.stringify(access)).catch(() => undefined);
+  return access;
+}
+
+/** The access to act on: the real one, or none while Developer > Look as a tech is on. */
+export async function departmentAccess(client: OdooClient): Promise<Access> {
+  if (rolePreview() === 'tech') return NO_ACCESS;
+  return realAccess(client);
 }
 
 /** Count differences that need a note before they are applied: more than 5 units, or 20 percent of what was expected. */

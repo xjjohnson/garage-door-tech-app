@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { OdooClient } from '../lib/odoo';
 import {
   applyCounts,
@@ -43,6 +44,8 @@ function fake(handlers: Record<string, Handler>, uid = 5) {
 }
 
 const groups = (held: string[]): Handler => (args) => held.includes(args[1] as string);
+
+beforeEach(() => AsyncStorage.clear());
 
 describe('who sees which area', () => {
   it('shows everything to the owner', async () => {
