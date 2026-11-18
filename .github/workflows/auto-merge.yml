@@ -1,36 +1,47 @@
-# Turns on squash auto-merge for ready (non-draft) pull requests to main.
-# GitHub then merges the PR by itself once the required "Tests" check passes
-# (set that under Settings > Branches, see CLAUDE.md). Nothing is merged here
-# directly, so a PR with failing tests never merges.
+# Merges a pull request by itself, but only after its "Android APK" run (the
+# Tests job) has finished and passed. It does not depend on branch rules:
+# nothing merges unless this file sees a green run for that exact commit.
 #
-# A merge to main publishes the update to the beta channel only. Production
-# is sent by hand from the Android APK workflow ("Send the update to").
-#
-# Optional repo secret AUTOMERGE_TOKEN (a personal access token that can
-# write pull requests and contents): merges made with the built-in token
-# don't start the Android APK workflow, so without it the APK and beta
-# update would not build after an auto-merge.
+# After a merge it starts the Android APK workflow on main by hand, because
+# a merge made with the built-in token doesn't start it. That run tests main,
+# builds the APK and publishes the update to the BETA channel only.
+# Production is never sent from here.
 name: Auto-merge
 
 on:
-  pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
-    branches: [main]
+  workflow_run:
+    workflows: ['Android APK']
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
-  enable:
-    name: Enable auto-merge
-    # Same-repo PRs only (fork PRs get no write access), and never drafts.
-    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+  merge:
+    name: Merge after Tests pass
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      PR: ${{ github.event.workflow_run.pull_requests[0].number }}
     steps:
-      - name: Enable squash auto-merge
-        env:
-          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN || secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+      - name: Merge if ready (open, not a draft, same commit, targets main)
+        run: |
+          [ -n "$PR" ] || { echo "No pull request on this run."; exit 0; }
+          info=$(gh pr view "$PR" --json state,isDraft,baseRefName,headRefOid)
+          echo "$info"
+          [ "$(echo "$info" | jq -r .state)" = OPEN ] || exit 0
+          [ "$(echo "$info" | jq -r .isDraft)" = false ] || { echo "Draft: not merging."; exit 0; }
+          [ "$(echo "$info" | jq -r .baseRefName)" = main ] || exit 0
+          [ "$(echo "$info" | jq -r .headRefOid)" = "$SHA" ] || { echo "PR changed since this run: not merging."; exit 0; }
+          gh pr merge "$PR" --squash --match-head-commit "$SHA"
+          # Merges by the built-in token don't start the push workflow: start it.
+          gh workflow run android-apk.yml --ref main
