@@ -68,3 +68,19 @@ describe('part or labor comes from the Odoo product type', () => {
     expect(st.lines!.map((l) => l.taxable)).toEqual([false, true, true]);
   });
 });
+
+import { soldEquipment, TRACK_BY_DEFAULT_FROM, trackedKeys } from '../lib/odooEquipment';
+
+describe('parts are kept as equipment by default', () => {
+  const lines = [{ label: 'CAP2D', cents: 1000, taxable: true, productId: 9 }, { label: 'Install', cents: 500, taxable: false }, { label: 'Tune-up plan', cents: 500, taxable: true }];
+  const mk = (createdAt: number, warranty?: object) => ({ id: 'e1', number: '1', lines, createdAt, warranty, source: 'ticket', tier: 'good' }) as never;
+  const s = { warrantyMonths: { good: 0, better: 0, best: 0 }, laborWarrantyDays: 0 } as never;
+  it('ticks every equipment part on a new invoice and leaves older ones alone', () => {
+    expect(trackedKeys(mk(TRACK_BY_DEFAULT_FROM + 1))).toEqual(['9:CAP2D']);
+    expect(soldEquipment(mk(TRACK_BY_DEFAULT_FROM + 1), s).map((e) => e.name)).toEqual(['CAP2D']);
+    expect(trackedKeys(mk(TRACK_BY_DEFAULT_FROM - 1))).toEqual([]);
+  });
+  it('respects the tech unticking everything', () => {
+    expect(trackedKeys(mk(TRACK_BY_DEFAULT_FROM + 1, { tracked: [] }))).toEqual([]);
+  });
+});

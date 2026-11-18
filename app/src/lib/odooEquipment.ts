@@ -118,13 +118,23 @@ const MAX_PER_LINE = 6;
 export const NOT_EQUIPMENT = /\b(inspection|tune-?\s?up|safety check|service call|trip charge|diagnostic|labor|labour|estimate|maintenance|visit)\b/i;
 export const isTrackable = (label: string) => !NOT_EQUIPMENT.test(label);
 
+/** Invoices made from this moment on keep their parts as equipment unless the tech unticks them; older ones stay as they were. */
+export const TRACK_BY_DEFAULT_FROM = Date.UTC(2026, 10, 18, 5, 0);
+
+/** The lines of an invoice kept as equipment in Odoo: the tech's own choice, else every part on a newer invoice. */
+export function trackedKeys(inv: Pick<Invoice, 'lines' | 'createdAt' | 'warranty'>): string[] {
+  if (inv.warranty?.tracked) return inv.warranty.tracked;
+  if (inv.createdAt < TRACK_BY_DEFAULT_FROM) return [];
+  return inv.lines.filter((l) => !l.display && l.cents > 0 && l.taxable && isTrackable(l.label)).map(trackKey);
+}
+
 /**
  * The equipment an invoice sells: each line the tech ticked under "Track as
  * equipment" on the job's warranty card (one record per unit), with the
  * warranty picked for the job. Nothing is guessed from categories.
  */
 export function soldEquipment(inv: Pick<Invoice, 'id' | 'number' | 'odoo' | 'lines' | 'createdAt' | 'warranty' | 'source' | 'tier'>, settings: FollowUpSettings): EquipmentItem[] {
-  const tracked = inv.warranty?.tracked ?? [];
+  const tracked = trackedKeys(inv);
   if (!tracked.length) return [];
   const warranty = warrantyLines(warrantyFor(inv as Invoice, settings), invoiceNo(inv));
   const out: EquipmentItem[] = [];

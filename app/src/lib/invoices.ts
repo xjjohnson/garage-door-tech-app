@@ -320,14 +320,15 @@ function parseCoverage(x: Record<string, unknown>): Pick<Invoice, 'warranty'> {
   const partsMonths = n(w.partsMonths);
   const laborMonths = n(w.laborMonths);
   const laborDays = n(w.laborDays);
-  const tracked = Array.isArray(w.tracked) ? w.tracked.filter((k): k is string => typeof k === 'string') : [];
+  const tracked = Array.isArray(w.tracked) ? w.tracked.filter((k): k is string => typeof k === 'string') : undefined;
   const pm = w.partMonths && typeof w.partMonths === 'object' && !Array.isArray(w.partMonths) ? Object.entries(w.partMonths as Record<string, unknown>).flatMap(([k, v]): [string, number][] => (n(v) !== undefined ? [[k, n(v)!]] : [])) : [];
   const warranty = {
     ...(pm.length ? { partMonths: Object.fromEntries(pm) } : {}),
     ...(partsMonths !== undefined ? { partsMonths } : {}),
     ...(laborMonths !== undefined ? { laborMonths } : {}),
     ...(laborDays !== undefined ? { laborDays } : {}),
-    ...(tracked.length ? { tracked } : {}),
+    // An empty list is kept: it means the tech unticked everything, which is not the same as never choosing.
+    ...(tracked ? { tracked } : {}),
   };
   return Object.keys(warranty).length ? { warranty } : {};
 }
