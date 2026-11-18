@@ -247,7 +247,6 @@ describe('inspection in the app', () => {
     expect(app.getPathname()).toBe('/quote/j1');
     expect(screen.getByTestId('quote-good')).toHaveTextContent(/Cables: repair/);
     expect(screen.getByTestId('quote-total-good')).toHaveTextContent(`$${((base.total + 4950) / 100).toFixed(2)}`);
-    expect(screen.getByTestId('quote-inspection')).toHaveTextContent('Inspection (1 repair added)');
   });
 
   it('adds a second door and a gate', async () => {

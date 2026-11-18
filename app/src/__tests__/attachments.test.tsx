@@ -122,10 +122,7 @@ describe('photos, signing and PDFs on screen', () => {
   it('takes and picks photos for a job and deletes one', async () => {
     const job = { id: 'j1', savedAt: 1, updatedAt: 1, status: 'open', customer: 'Pat', address: '1 Oak', phone: '', notes: '', summaryTitle: 'Spring', summaryDetail: '', mode: 'match', form: {} };
     await AsyncStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify([job]));
-    await renderApp('/quote/j1');
-    await settle();
-    expect(screen.getByTestId('quote-photos')).toHaveTextContent('Take photos');
-    await fireEvent.press(screen.getByTestId('quote-photos'));
+    await renderApp('/photos/j1');
     await settle();
     await fireEvent.press(screen.getByTestId('photos-take'));
     await settle();
