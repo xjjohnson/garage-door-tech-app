@@ -35,6 +35,7 @@ const mockMedia: jest.Mocked<DeviceMedia> = {
   sharePhoto: jest.fn(async (_uri: string) => undefined),
   photoDataUrl: jest.fn(async (_uri: string) => 'data:image/jpeg;base64,AAAA'),
   pdfBase64: jest.fn(async (_html: string) => 'JVBERi0='),
+  openPdf: jest.fn(async (_base64: string, _name: string) => undefined),
   keepFile: jest.fn(async (uri: string) => uri),
 };
 jest.mock('../lib/deviceMedia', () => ({ deviceMedia: () => mockMedia }));
@@ -241,6 +242,11 @@ describe('inspection in the app', () => {
     expect(html).toContain('Flagged items');
     expect(html).toContain('data:image/jpeg;base64,AAAA');
     expect(name).toMatch(/^Inspection/);
+
+    // View or download opens the report in the phone's PDF viewer, like the invoice.
+    await fireEvent.press(screen.getByTestId('inspection-pdf-view'));
+    await settle();
+    expect(mockMedia.openPdf).toHaveBeenCalledWith('JVBERi0=', expect.stringMatching(/^Inspection/));
 
     await fireEvent.press(screen.getByTestId('inspection-quote'));
     expect(app.getPathname()).toBe('/quote/j1');
