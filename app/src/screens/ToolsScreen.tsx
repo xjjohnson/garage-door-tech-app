@@ -11,6 +11,8 @@ import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useStock } from '../lib/useStock';
+import { useBadges } from '../lib/useBadges';
+import { purchasingTotal } from '../lib/deptBadges';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, openShift, shiftMs } from '../lib/worklog';
 import { colors } from '../theme';
@@ -27,9 +29,12 @@ export function ToolsScreen() {
   const low = items.filter(isLow).length;
   const { access } = useDepartments();
   const { owner } = useOwner();
+  const badges = useBadges();
+  const buying = purchasingTotal(badges);
   return (
     <View style={styles.stack} testID="tools">
       {owner ? <StatsCard /> : null}
+      {badges.ready > 0 ? <AlertBanner testID="parts-ready-alert" title={`${badges.ready} job order${badges.ready === 1 ? '' : 's'} ready at the warehouse`} detail="Pick them up, then tap Got it on the job" action="Jobs" onPress={() => router.push('/jobs')} /> : null}
       {low > 0 ? <AlertBanner testID="stock-alert" title={`Truck stock: ${low} low`} detail="Check what to reorder" action="Review" onPress={() => router.push('/stock')} /> : null}
       <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />
 
@@ -60,8 +65,8 @@ export function ToolsScreen() {
         <>
           <Caption>Departments</Caption>
           <RowGroup>
-            {access.warehouse ? <IconRow icon="truck" label="Warehouse" detail="Count, move parts, receive, parts on jobs" href="/warehouse" testID="tools-warehouse" last={!access.purchasing} /> : null}
-            {access.purchasing ? <IconRow icon="tag" label="Purchasing" detail="What to order, purchase orders, cost and prices" href="/purchasing" testID="tools-purchasing" last /> : null}
+            {access.warehouse ? <IconRow icon="truck" label="Warehouse" detail="Count, move parts, receive, parts on jobs" href="/warehouse" testID="tools-warehouse" badge={badges.warehouse.receive > 0 ? `${badges.warehouse.receive} to receive` : undefined} warn={badges.warehouse.receive > 0} last={!access.purchasing} /> : null}
+            {access.purchasing ? <IconRow icon="tag" label="Purchasing" detail="What to order, purchase orders, cost and prices" href="/purchasing" testID="tools-purchasing" badge={buying > 0 ? `${buying} to do` : undefined} warn={buying > 0} last /> : null}
           </RowGroup>
         </>
       ) : null}

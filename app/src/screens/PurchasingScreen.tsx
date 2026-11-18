@@ -5,6 +5,8 @@ import { Action } from '../components/Buttons';
 import { Card, dateText, Message, Meta, money, Note, NumBox, Row, TextBox, Title, toCents, toNum, useRun } from '../components/Dept';
 import { PricelistEditor } from '../components/PricelistEditor';
 import { ChipRow } from '../components/controls';
+import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
+import { useBadges } from '../lib/useBadges';
 import { OdooClient } from '../lib/odoo';
 import {
   cancelPurchase,
@@ -41,14 +43,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { colors } from '../theme';
 
 type Tab = 'order' | 'orders' | 'vendors' | 'prices' | 'lists' | 'usage';
-const TABS = [
-  { label: 'To order', value: 'order' as Tab },
-  { label: 'Purchase orders', value: 'orders' as Tab },
-  { label: 'Vendors', value: 'vendors' as Tab },
-  { label: 'Cost and price', value: 'prices' as Tab },
-  { label: 'Pricelists', value: 'lists' as Tab },
-  { label: 'Reorder levels', value: 'usage' as Tab },
-];
+const LABELS: Record<Tab, string> = { order: 'To order', orders: 'Purchase orders', vendors: 'Vendors', prices: 'Cost and price', lists: 'Pricelists', usage: 'Reorder levels' };
 
 /**
  * The buyer's area: what is under minimum across the warehouse and every truck,
@@ -59,7 +54,9 @@ const TABS = [
 export function PurchasingScreen() {
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
-  const [tab, setTab] = useState<Tab>('order');
+  const [tab, setTab] = useState<Tab | null>(null);
+  const back = useCallback(() => setTab(null), []);
+  const badges = useBadges().purchasing;
   if (status === 'loading' || status === 'signingIn' || (client && !ready)) return <Note>Checking your Odoo access…</Note>;
   if (!client) return <Note testID="purchasing-signin">Sign in to Odoo to use purchasing. Orders and prices are kept in Odoo.</Note>;
   if (!access.purchasing) {
@@ -70,15 +67,40 @@ export function PurchasingScreen() {
       </Card>
     );
   }
+  const groups: MenuGroup<Tab>[] = [
+    {
+      title: 'Ordering',
+      items: [
+        { id: 'order', label: 'To order', detail: 'Under minimum, counting what is on order', badge: badges.toOrder },
+        { id: 'orders', label: 'Purchase orders', detail: 'Review, confirm and email', badge: badges.drafts + badges.late },
+        { id: 'vendors', label: 'Vendors', detail: 'Contacts and their prices' },
+      ],
+    },
+    {
+      title: 'Cost and price',
+      items: [
+        { id: 'prices', label: 'Cost and price', detail: 'Cost went up review' },
+        { id: 'lists', label: 'Pricelists', detail: 'Prices by customer type' },
+      ],
+    },
+    {
+      title: 'Planning',
+      items: [{ id: 'usage', label: 'Reorder levels', detail: 'Suggested from what jobs used' }],
+    },
+  ];
   return (
     <View style={styles.stack} testID="purchasing">
-      <ChipRow scroll options={TABS} value={tab} onChange={setTab} testID="purchasing-tabs" compact />
-      {tab === 'order' ? <ToOrder client={client} /> : null}
-      {tab === 'orders' ? <Orders client={client} /> : null}
-      {tab === 'vendors' ? <Vendors client={client} /> : null}
-      {tab === 'prices' ? <CostAndPrice client={client} canEdit={access.pricing} /> : null}
-      {tab === 'lists' ? <PricelistEditor client={client} canEdit={access.pricing} /> : null}
-      {tab === 'usage' ? <Usage client={client} /> : null}
+      {tab === null ? <SectionMenu groups={groups} onPick={setTab} testID="purchasing-tabs" rowTestID={(id) => `purchasing-tab-${id}`} /> : null}
+      {tab !== null ? (
+        <SectionPage area="Purchasing" title={LABELS[tab]} onBack={back} testID="purchasing-back">
+        {tab === 'order' ? <ToOrder client={client} /> : null}
+        {tab === 'orders' ? <Orders client={client} /> : null}
+        {tab === 'vendors' ? <Vendors client={client} /> : null}
+        {tab === 'prices' ? <CostAndPrice client={client} canEdit={access.pricing} /> : null}
+        {tab === 'lists' ? <PricelistEditor client={client} canEdit={access.pricing} /> : null}
+        {tab === 'usage' ? <Usage client={client} /> : null}
+        </SectionPage>
+      ) : null}
     </View>
   );
 }

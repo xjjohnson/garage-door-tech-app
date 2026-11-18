@@ -8,6 +8,10 @@ import { useSchedule } from '../../lib/useSchedule';
 import { onDay } from '../../lib/schedule';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/AppText';
+import { CountBadge } from '../../components/SectionMenu';
+import { toolsTotal } from '../../lib/deptBadges';
+import { useBadges } from '../../lib/useBadges';
+import { useDepartments } from '../../lib/useDepartments';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
@@ -31,6 +35,8 @@ export default function TabsLayout() {
   const tool = TOOL_PAGES.find((t) => t.href === pathname);
   const current = tool ?? SECTIONS.find((s) => s.href === pathname) ?? SECTIONS[0];
   const lit = tool ? 'tools' : current.id;
+  const { access } = useDepartments();
+  const moreCount = toolsTotal(useBadges(), access);
   const { appointments } = useSchedule();
   const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
   const subtitle = current.id === 'today' ? `${dateLine(Date.now())} · ${visits === 0 ? 'no visits' : `${visits} visit${visits === 1 ? '' : 's'}`}` : current.subtitle;
@@ -87,7 +93,14 @@ export default function TabsLayout() {
               testID={`section-${s.id}`}
               style={({ pressed }) => [styles.navItem, pressed && !on && styles.navPressed]}
             >
-              <Icon name={ICONS[s.id]} color={on ? colors.selected : colors.muted} />
+              <View>
+                <Icon name={ICONS[s.id]} color={on ? colors.selected : colors.muted} />
+                {s.id === 'tools' && moreCount > 0 ? (
+                  <View style={styles.navBadge} pointerEvents="none">
+                    <CountBadge n={moreCount} testID="tools-tab-badge" />
+                  </View>
+                ) : null}
+              </View>
               <Text style={[styles.navText, on && styles.navTextOn]} numberOfLines={1} adjustsFontSizeToFit>
                 {s.label}
               </Text>
@@ -149,6 +162,7 @@ const styles = StyleSheet.create({
   sheet: { flex: 1, marginTop: -18, backgroundColor: colors.bg, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
   nav: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6, paddingBottom: 4 },
   navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar - 6, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  navBadge: { position: 'absolute', top: -6, right: -16 },
   navPressed: { backgroundColor: colors.info },
   navText: { fontSize: 13, fontWeight: '700', color: colors.muted },
   navTextOn: { color: colors.selected, fontWeight: '800' },

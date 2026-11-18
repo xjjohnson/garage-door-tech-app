@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen } from '@testing-library/react-native';
+import { NO_BADGES, setBadges } from '../lib/deptBadges';
 import { loadProfile, teamHours } from '../lib/odooProfile';
 import { STOCK_STORAGE_KEY } from '../lib/stock';
 import { renderApp } from '../testing/renderApp';
@@ -35,6 +36,17 @@ describe('Tools page layout', () => {
     expect(screen.getByTestId('stock-alert')).toHaveTextContent(/Truck stock: 1 low/);
     await fireEvent.press(screen.getByLabelText('Review: Truck stock: 1 low'));
     expect(app.getPathname()).toBe('/stock');
+  });
+
+  it('shows a banner and a red number on the More tab when job parts are ready at the warehouse', async () => {
+    await renderApp('/tools');
+    await settle();
+    expect(screen.queryByTestId('parts-ready-alert')).toBeNull();
+    expect(screen.queryByTestId('tools-tab-badge')).toBeNull();
+    await act(async () => setBadges({ ...NO_BADGES, ready: 2 }));
+    expect(screen.getByTestId('parts-ready-alert')).toHaveTextContent(/2 job orders ready at the warehouse/);
+    expect(screen.getByTestId('tools-tab-badge')).toHaveTextContent('2');
+    await act(async () => setBadges(NO_BADGES));
   });
 
   it('Settings account card goes to Odoo sign-in when signed out', async () => {

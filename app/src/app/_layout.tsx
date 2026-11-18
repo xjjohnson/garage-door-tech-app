@@ -11,6 +11,7 @@ import { OdooJobSync } from '../components/OdooJobSync';
 import { OdooNotesSync } from '../components/OdooNotesSync';
 import { OdooPhotoSync } from '../components/OdooPhotoSync';
 import { OdooFollowUpSync } from '../components/OdooFollowUpSync';
+import { DeptBadgeSync } from '../components/DeptBadgeSync';
 import { OdooSettingsSync } from '../components/OdooSettingsSync';
 import { OdooPartsUsedSync } from '../components/OdooPartsUsedSync';
 import { OdooRefreshSync } from '../components/OdooRefreshSync';
@@ -76,6 +77,7 @@ export default function RootLayout() {
                             <OdooPhotoSync />
                             <OdooNotesSync />
                             <OdooFollowUpSync />
+                            <DeptBadgeSync />
                             <OdooSettingsSync />
                             <OdooReportSync />
                             <OdooChecklistSync />
