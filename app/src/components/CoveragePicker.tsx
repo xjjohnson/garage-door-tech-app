@@ -57,12 +57,12 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
           <Text style={styles.label}>What is covered</Text>
           <Text style={styles.hint}>Every line sold is listed, marked Part or Labor. Tap a line to turn its warranty on or off, or pick a different length for it.</Text>
           {lines.map((l, i) => {
-            const on = l.months > 0;
+            const on = l.until !== null;
             const own = invoice.warranty?.partMonths?.[l.key] !== undefined;
             const key = l.key;
             return (
               <View key={`${key}-${i}`} style={styles.lineBox}>
-                <Pressable onPress={() => (on ? setPart(key, 0) : own ? clearPart(key) : setPart(key, parts > 0 ? parts : 12))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} testID={`cover-${i}`} style={[styles.line, on && styles.lineOn]}>
+                <Pressable onPress={() => (on ? setPart(key, 0) : own || !l.part ? clearPart(key) : setPart(key, parts > 0 ? parts : 12))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} testID={`cover-${i}`} style={[styles.line, on && styles.lineOn]}>
                   <View style={styles.lineName}>
                     <View style={[styles.badge, l.part ? styles.badgePart : styles.badgeLabor]} testID={`cover-kind-${i}`}>
                       <Text style={[styles.badgeText, l.part ? styles.badgePartText : styles.badgeLaborText]}>{l.part ? 'Part' : 'Labor'}</Text>
@@ -72,10 +72,10 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
                       {l.label}
                     </Text>
                   </View>
-                  <Text style={[styles.lineText, on && styles.lineTextOn]}>{on ? yearsLabel(l.months) : 'Not covered'}</Text>
+                  <Text style={[styles.lineText, on && styles.lineTextOn]}>{on ? (l.part ? yearsLabel(l.months) : daysLabel(labor)) : 'Not covered'}</Text>
                 </Pressable>
-                {on ? <ChipRow options={[same, ...MONTHS.filter((m) => m > 0).map((m) => ({ label: yearsLabel(m), value: m }))]} value={own ? l.months : -1} onChange={(m) => (m < 0 ? clearPart(key) : setPart(key, m))} scroll testID={`cover-length-${i}`} /> : null}
-                {on ? (
+                {on && l.part ? <ChipRow options={[same, ...MONTHS.filter((m) => m > 0).map((m) => ({ label: yearsLabel(m), value: m }))]} value={own ? l.months : -1} onChange={(m) => (m < 0 ? clearPart(key) : setPart(key, m))} scroll testID={`cover-length-${i}`} /> : null}
+                {on && l.part ? (
                   <Pressable onPress={() => toggle(key)} accessibilityRole="checkbox" accessibilityState={{ checked: tracked.includes(key) }} testID={`track-${i}`} style={styles.trackRow}>
                     <Text style={styles.hint}>{tracked.includes(key) ? '✓ ' : ''}Keep on the house's equipment in Odoo</Text>
                   </Pressable>

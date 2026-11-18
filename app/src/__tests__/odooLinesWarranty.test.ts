@@ -27,3 +27,18 @@ describe('Odoo says which lines are taxed', () => {
     expect(out.lines.map((l) => l.taxable)).toEqual([true, false]);
   });
 });
+
+describe('labor lines follow the job labor warranty', () => {
+  const inv = { id: 'i3', createdAt: Date.UTC(2026, 10, 17), source: 'ticket', tier: 'good', warranty: { partsMonths: 24, laborDays: 30, partMonths: { ':Install': 24 } }, lines: [{ label: 'CAP2D', cents: 1000, taxable: true }, { label: 'Install', cents: 500, taxable: false }] } as unknown as Invoice;
+  const s = { warrantyMonths: { good: 0, better: 0, best: 0 }, laborWarrantyDays: 0 } as never;
+  it('uses the labor days, not a parts length, and a part keeps its years', () => {
+    const [part, labor] = partWarranties(inv, s, trackKey);
+    expect(part!.months).toBe(24);
+    expect(labor!.part).toBe(false);
+    expect(labor!.until).toBe(Date.UTC(2026, 10, 17) + 30 * 86400000);
+  });
+  it('can be switched off on its own', () => {
+    const off = { ...inv, warranty: { ...inv.warranty, partMonths: { ':Install': 0 } } } as Invoice;
+    expect(partWarranties(off, s, trackKey)[1]!.until).toBeNull();
+  });
+});
