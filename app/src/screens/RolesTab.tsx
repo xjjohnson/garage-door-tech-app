@@ -6,7 +6,7 @@ import { canChangeRoles, createPerson, LinkState, Links, linkEmployee, linkStatu
 import { colors, touch, type } from '../theme';
 
 /**
- * Management > Team roles: who is an owner, warehouse manager or buyer. Each
+ * Management > Team roles: who is an owner, dispatcher, warehouse manager or buyer. Each
  * role is an Odoo group on the person's user, so this reads and writes Odoo
  * and nothing is kept on the phone. Only an Odoo administrator can change
  * roles; everyone else sees the list.
@@ -186,7 +186,7 @@ export function RolesTab({ client }: { client: OdooClient }) {
   return (
     <View style={styles.stack} testID="roles-list">
       {admin ? (
-        <Pressable onPress={() => { setAdding(true); setWant({ owner: false, warehouse: false, buyer: false }); setMsg(''); }} accessibilityRole="button" testID="roles-add-person" style={styles.primary}>
+        <Pressable onPress={() => { setAdding(true); setWant({ owner: false, dispatch: false, warehouse: false, buyer: false }); setMsg(''); }} accessibilityRole="button" testID="roles-add-person" style={styles.primary}>
           <Text style={styles.primaryText}>Add person</Text>
         </Pressable>
       ) : null}

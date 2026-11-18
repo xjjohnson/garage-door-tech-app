@@ -1,6 +1,6 @@
 import { canChangeRoles, listPeople, saveRoles } from '../lib/odooRoles';
 
-const GROUPS: Record<string, number> = { 'base.group_system': 1, 'fieldservice.group_fsm_manager': 2, 'stock.group_stock_manager': 3, 'purchase.group_purchase_user': 4, 'purchase.group_purchase_manager': 5 };
+const GROUPS: Record<string, number> = { 'base.group_system': 1, 'fieldservice.group_fsm_manager': 2, 'stock.group_stock_manager': 3, 'purchase.group_purchase_user': 4, 'purchase.group_purchase_manager': 5, 'fieldservice.group_fsm_dispatcher': 6 };
 type Call = [string, string, unknown[], Record<string, unknown>?];
 
 function fake(opts: { actingGroups: number[]; people: Record<number, number[]>; refuseWrite?: boolean }) {
@@ -27,7 +27,7 @@ function fake(opts: { actingGroups: number[]; people: Record<number, number[]>; 
   };
   return { client, calls, people };
 }
-const none = { owner: false, warehouse: false, buyer: false };
+const none = { owner: false, dispatch: false, warehouse: false, buyer: false };
 
 describe('team roles', () => {
   it('lists who holds which role', async () => {
@@ -48,12 +48,20 @@ describe('team roles', () => {
 
   it('adds and removes only the role groups, never the Administrator group', async () => {
     const { client, calls, people } = fake({ actingGroups: [1], people: { 4: [3, 5] } });
-    const r = await saveRoles(client, 4, { owner: true, warehouse: false, buyer: false });
+    const r = await saveRoles(client, 4, { ...none, owner: true });
     expect(r).toEqual({ ...none, owner: true });
     expect(people[4]!.sort()).toEqual([2]);
     const w = calls.find((c) => c[1] === 'write')!;
     expect(JSON.stringify(w[3] ?? w[2])).not.toContain('[4,1]');
     expect(JSON.stringify(w[2])).not.toContain('[3,1]');
+  });
+
+  it('gives and takes away the Dispatcher role like the others', async () => {
+    const { client, people } = fake({ actingGroups: [1], people: { 4: [] } });
+    expect(await saveRoles(client, 4, { ...none, dispatch: true })).toEqual({ ...none, dispatch: true });
+    expect(people[4]).toEqual([6]);
+    expect(await saveRoles(client, 4, none)).toEqual(none);
+    expect(people[4]).toEqual([]);
   });
 
   it('says so when Odoo does not keep a change', async () => {

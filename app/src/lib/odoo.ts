@@ -486,6 +486,15 @@ export class OdooClient {
     return this.readWhere([given, [f, '>=', toOdooTime(from)], [f, '<', toOdooTime(to)], ...this.open()]);
   }
 
+  /** Open jobs that have a tech but no planned start: the dispatcher still has to pick a time. */
+  jobsWithoutTime(): Promise<OdooTask[]> {
+    const f = this.startField;
+    if (!f) return Promise.resolve([]);
+    const s = this.session;
+    const given = s.kind === 'oca' ? ['person_id', '!=', false] : [s.assignField, '!=', false];
+    return this.readWhere([given, [f, '=', false], ...this.open()]);
+  }
+
   /** Gives a job to a tech and, when a time is given and this Odoo has the field, sets when it starts. */
   scheduleJob(taskId: number, techId: number, start?: number): Promise<unknown> {
     const s = this.session;
@@ -649,6 +658,8 @@ export interface OdooTask {
   stage: string;
   notes: string;
   assignees: number[];
+  /** When work actually started on the job (Odoo's Actual Start, which the app fills when the tech taps Arrived), if it has. */
+  arrivedAt?: number;
   /** How long it's planned to take, if Odoo says. */
   minutes?: number;
   /** The arrival window in minutes (Odoo's Earliest to Latest Request Date). 0 when Odoo has none; unset when this Odoo has no such fields. */
@@ -761,6 +772,7 @@ function orderToTask(r: Record<string, unknown>, locs: Record<string, unknown>[]
     phone: str(l.mobile) || str(l.phone),
     address,
     ...(start !== undefined ? { start } : {}),
+    ...(odooTime(r.date_start) !== undefined ? { arrivedAt: odooTime(r.date_start) } : {}),
     stage: Array.isArray(r.stage_id) ? str(r.stage_id[1]) : '',
     notes: plainText(notes),
     assignees: Array.isArray(r.person_id) ? [r.person_id[0] as number] : [],

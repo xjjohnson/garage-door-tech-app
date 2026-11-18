@@ -10,10 +10,11 @@ import type { OdooClient } from './odoo';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
 
-export type RoleId = 'owner' | 'warehouse' | 'buyer';
+export type RoleId = 'owner' | 'dispatch' | 'warehouse' | 'buyer';
 
 export const ROLE_INFO: { id: RoleId; label: string; detail: string; add: string; remove: string[] }[] = [
   { id: 'owner', label: 'Owner', detail: 'Management, business numbers, scorecard, Developer', add: 'fieldservice.group_fsm_manager', remove: ['fieldservice.group_fsm_manager'] },
+  { id: 'dispatch', label: 'Dispatcher', detail: 'Dispatch: give out jobs, see each tech\'s day (the owner has this too)', add: 'fieldservice.group_fsm_dispatcher', remove: ['fieldservice.group_fsm_dispatcher'] },
   { id: 'warehouse', label: 'Warehouse manager', detail: 'Warehouse: counts, moves, receiving', add: 'stock.group_stock_manager', remove: ['stock.group_stock_manager'] },
   { id: 'buyer', label: 'Buyer', detail: 'Purchasing: what to order and purchase orders', add: 'purchase.group_purchase_user', remove: ['purchase.group_purchase_user', 'purchase.group_purchase_manager'] },
 ];
@@ -58,6 +59,7 @@ function rolesOf(held: Set<number>, ids: Record<string, number>): Roles {
   const has = (x: string) => ids[x] !== undefined && held.has(ids[x]!);
   return {
     owner: has('fieldservice.group_fsm_manager'),
+    dispatch: has('fieldservice.group_fsm_dispatcher'),
     warehouse: has('stock.group_stock_manager'),
     buyer: has('purchase.group_purchase_user') || has('purchase.group_purchase_manager'),
   };
@@ -118,7 +120,7 @@ export async function saveRoles(c: Client, personId: number, want: Roles): Promi
   if (cmds.length) await c.call('res.users', 'write', [[personId], { [field]: cmds }]);
   const [after] = (await c.call('res.users', 'read', [[personId]], { fields: [field] })) as Record<string, unknown>[];
   const got = rolesOf(new Set(Array.isArray(after?.[field]) ? (after![field] as number[]) : []), ids);
-  for (const r of ROLE_INFO) if (got[r.id] !== want[r.id]) throw new Error(`Odoo did not keep the ${r.label} change. Check the user in Odoo's Settings, Users.`);
+  for (const r of ROLE_INFO) if (got[r.id] !== want[r.id] && !(r.id === 'dispatch' && got.owner)) throw new Error(`Odoo did not keep the ${r.label} change. Check the user in Odoo's Settings, Users.`);
   return got;
 }
 

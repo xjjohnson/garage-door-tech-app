@@ -14,6 +14,7 @@ const mockClient = {
   },
   unassignedTasks: async () => unassigned,
   jobsBetween: async () => [{ id: 601, name: 'Broken spring', customer: 'Pat Smith', assignees: [40], start: Date.now(), minutes: 60 }],
+  jobsWithoutTime: async () => [{ id: 610, name: 'Gate motor', customer: 'Ann Lee', phone: '', address: '', notes: '', assignees: [40], stage: 'Scheduled' }],
   techs: async () => [{ id: 40, name: 'Sam Ruiz', login: '' }],
 };
 
@@ -35,7 +36,7 @@ describe('Dispatch area', () => {
 
   it('shows the grouped list with a red number for jobs nobody has, and opens each page', async () => {
     held = ['fieldservice.group_fsm_dispatcher'];
-    setBadges({ ...NO_BADGES, dispatch: { unassigned: 3 } });
+    setBadges({ ...NO_BADGES, dispatch: { ...NO_BADGES.dispatch, unassigned: 3 } });
     await render(<DispatchAreaScreen />);
     expect(await screen.findByTestId('dispatch-tabs')).toBeTruthy();
     expect(screen.getByText('Needs you now')).toBeTruthy();
@@ -50,5 +51,14 @@ describe('Dispatch area', () => {
     await fireEvent.press(await screen.findByTestId('dispatch-tab-board'));
     expect(await screen.findByTestId('dispatch-lane-40')).toBeTruthy();
     expect(screen.queryByTestId('dispatch-unassigned')).toBeNull();
+  });
+
+  it('lists jobs with a tech but no time, and opens the same assign sheet', async () => {
+    held = ['fieldservice.group_fsm_dispatcher'];
+    await render(<DispatchAreaScreen />);
+    await fireEvent.press(await screen.findByTestId('dispatch-tab-notime'));
+    expect(await screen.findByTestId('dispatch-alert-610')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('dispatch-change-610'));
+    expect(await screen.findByTestId('dispatch-save')).toBeTruthy();
   });
 });

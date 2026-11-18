@@ -7,8 +7,8 @@ import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { DispatchScreen } from './DispatchScreen';
 
-type Tab = 'unassigned' | 'board';
-const LABELS: Record<Tab, string> = { unassigned: 'Not assigned', board: "Today's board" };
+type Tab = 'unassigned' | 'notime' | 'late' | 'double' | 'board';
+const LABELS: Record<Tab, string> = { unassigned: 'Not assigned', notime: 'No time set', late: 'Running late', double: 'Double booked', board: "Today's board" };
 
 /**
  * The dispatcher's area, as a grouped list like Warehouse and Purchasing.
@@ -36,7 +36,12 @@ export function DispatchAreaScreen() {
   const groups: MenuGroup<Tab>[] = [
     {
       title: 'Needs you now',
-      items: [{ id: 'unassigned', label: 'Not assigned', detail: 'Jobs with no tech yet', badge: badges.dispatch.unassigned }],
+      items: [
+        { id: 'unassigned', label: 'Not assigned', detail: 'Jobs with no tech yet', badge: badges.dispatch.unassigned },
+        { id: 'notime', label: 'No time set', detail: 'A tech, but no start time', badge: badges.dispatch.noTime },
+        { id: 'late', label: 'Running late', detail: 'Start time passed, tech not arrived', badge: badges.dispatch.late },
+        { id: 'double', label: 'Double booked', detail: 'Two jobs at once for one tech', badge: badges.dispatch.double },
+      ],
     },
     {
       title: 'The day',

@@ -1,7 +1,7 @@
 import { createPerson, looksLikeEmail, sendInvite } from '../lib/odooRoles';
 
 const GROUPS: Record<string, number> = { 'base.group_system': 1, 'fieldservice.group_fsm_manager': 2, 'stock.group_stock_manager': 3, 'purchase.group_purchase_user': 4, 'purchase.group_purchase_manager': 5 };
-const none = { owner: false, warehouse: false, buyer: false };
+const none = { owner: false, dispatch: false, warehouse: false, buyer: false };
 
 function fake(opts: { actingGroups: number[]; logins?: string[]; refuseCreate?: string }) {
   const calls: [string, string, unknown[]][] = [];
