@@ -495,6 +495,20 @@ export class OdooClient {
     return this.readWhere([given, [f, '=', false], ...this.open()]);
   }
 
+  /** Open jobs with no planned start at all (with or without a tech): they still have to be booked. */
+  jobsWithoutDate(): Promise<OdooTask[]> {
+    const f = this.startField;
+    if (!f) return Promise.resolve([]);
+    return this.readWhere([[f, '=', false], ...this.open()]);
+  }
+
+  /** Open jobs planned from `from` up to `to`, with or without a tech, soonest first. */
+  jobsPlannedBetween(from: number, to: number): Promise<OdooTask[]> {
+    const f = this.startField;
+    if (!f) return Promise.resolve([]);
+    return this.readWhere([[f, '>=', toOdooTime(from)], [f, '<', toOdooTime(to)], ...this.open()]).then((l) => l.sort((a, b) => (a.start ?? 0) - (b.start ?? 0)));
+  }
+
   /** Gives a job to a tech and, when a time is given and this Odoo has the field, sets when it starts. */
   scheduleJob(taskId: number, techId: number, start?: number): Promise<unknown> {
     const s = this.session;

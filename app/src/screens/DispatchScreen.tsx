@@ -6,7 +6,7 @@ import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
 import { Icon } from '../components/Icon';
 import { smsLink } from '../lib/jobSteps';
-import { OdooError, OdooTask, OdooUser } from '../lib/odoo';
+import { OdooClient, OdooError, OdooTask, OdooUser } from '../lib/odoo';
 import { doubleBooked, lateJobs } from '../lib/dispatchAlerts';
 import { addDays, dayLabel, formatTime, slotsFor, startOfDay } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
@@ -42,7 +42,28 @@ export function bookedText(t: Pick<OdooTask, 'customer' | 'name'>, tech: string,
 }
 
 /** Which part of the board a page draws: all of it (Jobs > Team), or one page of the Dispatch area. */
-export type Part = 'all' | 'unassigned' | 'board' | 'notime' | 'late' | 'double';
+export type Part = 'all' | 'unassigned' | 'board' | 'notime' | 'late' | 'double' | 'week' | 'upcoming' | 'waiting';
+
+/** The pages that are a plain list of jobs, each with a Change button. */
+const LISTS: Part[] = ['notime', 'late', 'double', 'week', 'upcoming', 'waiting'];
+const EMPTY: Record<string, string> = {
+  notime: 'Every job with a tech has a start time.',
+  late: 'No one is running late.',
+  double: 'No one is double booked.',
+  week: 'Nothing is planned this week.',
+  upcoming: 'Nothing is planned in the next two weeks.',
+  waiting: 'Every open job has a date.',
+};
+
+/** The jobs a list page shows. Late and double booked come from the day's board instead. */
+function listFor(client: OdooClient, part: Part, now: number): Promise<OdooTask[]> {
+  const today = startOfDay(now);
+  if (part === 'notime') return client.jobsWithoutTime();
+  if (part === 'waiting') return client.jobsWithoutDate();
+  if (part === 'week') return client.jobsPlannedBetween(today, addDays(today, 7));
+  if (part === 'upcoming') return client.jobsPlannedBetween(addDays(today, 1), addDays(today, 15));
+  return Promise.resolve([]);
+}
 
 const SHOWN = 5;
 const endOf = (t: OdooTask) => (t.start ?? 0) + (t.minutes ?? 60) * 60000;
@@ -58,7 +79,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
   const [day, setDay] = useState(() => startOfDay(now()));
   const [open, setOpen] = useState<OdooTask[] | null>(null);
   const [dayJobs, setDayJobs] = useState<OdooTask[]>([]);
-  const [noTime, setNoTime] = useState<OdooTask[]>([]);
+  const [fetched, setFetched] = useState<OdooTask[]>([]);
   const [techs, setTechs] = useState<OdooUser[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,9 +96,9 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
     setBusy(true);
     setError(null);
     try {
-      const [u, d, w, nt] = await Promise.all([client.unassignedTasks(), client.jobsBetween(day, addDays(day, 1)), client.techs(), part === 'notime' ? client.jobsWithoutTime() : Promise.resolve([] as OdooTask[])]);
+      const [u, d, w, nt] = await Promise.all([client.unassignedTasks(), client.jobsBetween(day, addDays(day, 1)), client.techs(), listFor(client, part, now())]);
       if (n !== asked.current) return;
-      setNoTime(nt);
+      setFetched(nt);
       setOpen(u);
       setDayJobs(d);
       setTechs(w);
@@ -132,7 +153,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
 
   return (
     <View style={styles.stack} testID="dispatch">
-      {part === 'notime' ? null : (
+      {LISTS.includes(part) ? null : (
       <View style={styles.dayRow}>
         <Pressable onPress={() => setDay((d) => addDays(d, -1))} accessibilityRole="button" accessibilityLabel="Day before" testID="dispatch-prev" style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
           <Icon name="back" size={20} color={colors.text} />
@@ -188,11 +209,11 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
       </View>
       ) : null}
 
-      {part === 'notime' || part === 'late' || part === 'double' ? (
+      {LISTS.includes(part) ? (
         <View style={styles.unassigned} testID={`dispatch-alerts-${part}`}>
           {(() => {
-            const list = part === 'notime' ? noTime : part === 'late' ? lateJobs(dayJobs, t) : doubleBooked(dayJobs);
-            if (list.length === 0) return <Text style={styles.cardSub}>{part === 'notime' ? 'Every job with a tech has a start time.' : part === 'late' ? 'No one is running late.' : 'No one is double booked.'}</Text>;
+            const list = part === 'late' ? lateJobs(dayJobs, t) : part === 'double' ? doubleBooked(dayJobs) : fetched;
+            if (list.length === 0) return <Text style={styles.cardSub}>{EMPTY[part]}</Text>;
             return list.map((task) => (
               <View key={task.id} style={styles.card} testID={`dispatch-alert-${task.id}`}>
                 <View style={styles.grow}>
@@ -201,7 +222,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
                     {task.customer ? ` · ${task.name}` : ''}
                   </Text>
                   <Text style={styles.cardSub}>
-                    {[techs.find((w) => task.assignees.includes(w.id))?.name, task.start ? `${dayLabel(task.start, t)} ${formatTime(task.start)}` : 'No time', task.address].filter(Boolean).join(' · ')}
+                    {[techs.find((w) => task.assignees.includes(w.id))?.name ?? (task.assignees.length ? undefined : 'No tech yet'), task.start ? `${dayLabel(task.start, t)} ${formatTime(task.start)}` : 'No time', task.address].filter(Boolean).join(' · ')}
                   </Text>
                 </View>
                 <Action label="Change" primary onPress={() => setPicking(task)} testID={`dispatch-change-${task.id}`} />

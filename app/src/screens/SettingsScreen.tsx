@@ -8,6 +8,7 @@ import { Segmented } from '../components/controls';
 import { Caption, IconRow, RowGroup } from '../components/ToolRows';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
+import { loadShareLocation, saveShareLocation } from '../lib/locationPref';
 import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
 import { useInvoices } from '../lib/useInvoices';
 import { useOwner } from '../lib/useDepartments';
@@ -52,6 +53,10 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
     }
   };
 
+  const [shareLocation, setShareLocation] = useState(true);
+  useEffect(() => {
+    loadShareLocation().then(setShareLocation);
+  }, []);
   const [themePref, setThemePref] = useState<ThemePref>('match');
   useEffect(() => {
     loadThemePref().then(setThemePref);
@@ -101,6 +106,18 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
       </RowGroup>
         </>
       ) : null}
+
+      <Caption>Location</Caption>
+      <Segmented<'on' | 'off'>
+        testID="settings-share-location"
+        options={[{ value: 'on', label: 'Share while clocked in' }, { value: 'off', label: 'Off' }]}
+        value={shareLocation ? 'on' : 'off'}
+        onChange={(v) => {
+          setShareLocation(v === 'on');
+          saveShareLocation(v === 'on');
+        }}
+      />
+      <Text style={styles.shareNote}>While you are clocked in and the app is open, your position goes to your own Odoo so the dispatcher can see where your truck is. Nothing is sent anywhere else.</Text>
 
       <Caption>Appearance</Caption>
       <Segmented<ThemePref>
@@ -153,6 +170,7 @@ function Action({ label, onPress, primary, disabled, testID }: { label: string; 
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
   card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: 12, backgroundColor: colors.card, gap: 4 },
+  shareNote: { fontSize: 15, fontWeight: '600', color: colors.muted, lineHeight: 21 },
   value: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
   note: { fontSize: type.body, fontWeight: '700', color: colors.text },

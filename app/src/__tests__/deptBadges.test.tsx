@@ -39,7 +39,7 @@ describe('red numbers (plain logic)', () => {
   });
 
   it('adds up what each role owns, plus parts ready for a tech', () => {
-    const b = { purchasing: { toOrder: 4, drafts: 2, late: 1 }, warehouse: { receive: 3 }, dispatch: { unassigned: 2, noTime: 1, late: 0, double: 0 }, ready: 1 };
+    const b = { purchasing: { toOrder: 4, drafts: 2, late: 1 }, warehouse: { receive: 3 }, dispatch: { unassigned: 2, noTime: 1, late: 0, double: 0, upcoming: 5, waiting: 5 }, ready: 1 };
     expect(purchasingTotal(b)).toBe(7);
     expect(toolsTotal(b, { warehouse: true, purchasing: true })).toBe(11);
     expect(toolsTotal(b, { warehouse: true, purchasing: false })).toBe(4);
@@ -52,11 +52,13 @@ describe('red numbers (plain logic)', () => {
       session: { kind: 'oca' },
       unassignedTasks: async () => [{ id: 1 }, { id: 2 }, { id: 3 }],
       jobsWithoutTime: async () => [{ id: 4 }],
+      jobsWithoutDate: async () => [{ id: 7 }, { id: 8 }],
+      jobsPlannedBetween: async () => [{ id: 9, assignees: [] }, { id: 10, assignees: [3] }],
       jobsBetween: async () => [{ id: 5, assignees: [7], start: Date.now() - 3600_000 }, { id: 6, assignees: [8], start: Date.now() - 3600_000, arrivedAt: Date.now() - 3000_000 }],
       call: async () => [],
     } as unknown as OdooClient;
     const b = await computeBadges(client, { warehouse: false, purchasing: false, dispatch: true }, 0);
-    expect(b.dispatch).toEqual({ unassigned: 3, noTime: 1, late: 1, double: 0 });
+    expect(b.dispatch).toEqual({ unassigned: 3, noTime: 1, late: 1, double: 0, upcoming: 1, waiting: 2 });
     expect((await computeBadges(client, { warehouse: false, purchasing: false }, 0)).dispatch.unassigned).toBe(0);
     const failing = { ...client, unassignedTasks: async () => { throw new Error('no access'); } } as unknown as OdooClient;
     expect((await computeBadges(failing, { warehouse: false, purchasing: false, dispatch: true }, 0)).dispatch.unassigned).toBe(0);

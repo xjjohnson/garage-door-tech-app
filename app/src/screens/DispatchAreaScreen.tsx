@@ -5,10 +5,26 @@ import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
 import { useBadges } from '../lib/useBadges';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
-import { DispatchScreen } from './DispatchScreen';
+import { DispatchScreen, Part } from './DispatchScreen';
+import { DispatchMap, FollowUpsDue, TimeOff, TruckAlerts, WhoIsWorking } from './DispatchTeamPages';
 
-type Tab = 'unassigned' | 'notime' | 'late' | 'double' | 'board';
-const LABELS: Record<Tab, string> = { unassigned: 'Not assigned', notime: 'No time set', late: 'Running late', double: 'Double booked', board: "Today's board" };
+type Tab = 'unassigned' | 'notime' | 'late' | 'double' | 'board' | 'map' | 'week' | 'upcoming' | 'waiting' | 'followups' | 'working' | 'timeoff' | 'trucks';
+const LABELS: Record<Tab, string> = {
+  unassigned: 'Not assigned',
+  notime: 'No time set',
+  late: 'Running late',
+  double: 'Double booked',
+  board: "Today's board",
+  map: 'Map',
+  week: 'Week',
+  upcoming: 'Upcoming visits',
+  waiting: 'Waiting to be booked',
+  followups: 'Follow-ups due',
+  working: "Who's working",
+  timeoff: 'Time off',
+  trucks: 'Truck parts alerts',
+};
+const JOB_PAGES: Tab[] = ['unassigned', 'notime', 'late', 'double', 'board', 'week', 'upcoming', 'waiting'];
 
 /**
  * The dispatcher's area, as a grouped list like Warehouse and Purchasing.
@@ -45,7 +61,27 @@ export function DispatchAreaScreen() {
     },
     {
       title: 'The day',
-      items: [{ id: 'board', label: "Today's board", detail: 'A lane per tech, with their jobs' }],
+      items: [
+        { id: 'board', label: "Today's board", detail: 'A lane per tech, with their jobs' },
+        { id: 'map', label: 'Map', detail: "Every tech's stops and where the trucks are" },
+        { id: 'week', label: 'Week', detail: 'Everything planned the next 7 days' },
+      ],
+    },
+    {
+      title: 'Coming up',
+      items: [
+        { id: 'upcoming', label: 'Upcoming visits', detail: 'Planned in the next two weeks, repeat visits too', badge: badges.dispatch.upcoming },
+        { id: 'waiting', label: 'Waiting to be booked', detail: 'Open jobs with no date', badge: badges.dispatch.waiting },
+        { id: 'followups', label: 'Follow-ups due', detail: 'Calls to make today' },
+      ],
+    },
+    {
+      title: 'Your team',
+      items: [
+        { id: 'working', label: "Who's working", detail: 'Clocked in, and where the truck was last seen' },
+        { id: 'timeoff', label: 'Time off', detail: 'Who is out in the next two weeks' },
+        { id: 'trucks', label: 'Truck parts alerts', detail: 'Trucks low on a part' },
+      ],
     },
   ];
   return (
@@ -53,7 +89,12 @@ export function DispatchAreaScreen() {
       {tab === null ? <SectionMenu groups={groups} onPick={setTab} testID="dispatch-tabs" rowTestID={(id) => `dispatch-tab-${id}`} /> : null}
       {tab !== null ? (
         <SectionPage area="Dispatch" title={LABELS[tab]} onBack={back} testID="dispatch-back">
-          <DispatchScreen part={tab} />
+          {JOB_PAGES.includes(tab) ? <DispatchScreen part={tab as Part} /> : null}
+          {tab === 'map' ? <DispatchMap client={client} /> : null}
+          {tab === 'followups' ? <FollowUpsDue client={client} /> : null}
+          {tab === 'working' ? <WhoIsWorking client={client} /> : null}
+          {tab === 'timeoff' ? <TimeOff client={client} /> : null}
+          {tab === 'trucks' ? <TruckAlerts client={client} /> : null}
         </SectionPage>
       ) : null}
     </View>

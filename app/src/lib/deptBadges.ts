@@ -16,12 +16,12 @@ export interface Badges {
   /** Warehouse: receipts waiting to come in. */
   warehouse: { receive: number };
   /** Dispatch: open jobs nobody is assigned to. */
-  dispatch: { unassigned: number; noTime: number; late: number; double: number };
+  dispatch: { unassigned: number; noTime: number; late: number; double: number; /** Planned in the next 7 days with no tech, and open jobs with no date. Shown on their rows, not added into the Dispatch total (they overlap Not assigned). */ upcoming: number; waiting: number };
   /** A tech's own job parts that are ready to pick up at the warehouse. */
   ready: number;
 }
 
-export const NO_BADGES: Badges = { purchasing: { toOrder: 0, drafts: 0, late: 0 }, warehouse: { receive: 0 }, dispatch: { unassigned: 0, noTime: 0, late: 0, double: 0 }, ready: 0 };
+export const NO_BADGES: Badges = { purchasing: { toOrder: 0, drafts: 0, late: 0 }, warehouse: { receive: 0 }, dispatch: { unassigned: 0, noTime: 0, late: 0, double: 0, upcoming: 0, waiting: 0 }, ready: 0 };
 
 /** Everything a buyer has waiting, as one number for the Purchasing row. */
 export const purchasingTotal = (b: Badges): number => b.purchasing.toOrder + b.purchasing.drafts + b.purchasing.late;
@@ -37,13 +37,15 @@ export function toolsTotal(b: Badges, access: Pick<Access, 'warehouse' | 'purcha
 /** Counts from Odoo for the areas this person can open. A count Odoo can't answer stays 0, never an error. */
 export async function computeBadges(client: OdooClient, access: Pick<Access, 'warehouse' | 'purchasing'> & { dispatch?: boolean }, ready: number, now = Date.now()): Promise<Badges> {
   const safe = async <T>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
-  const [orders, vendors, receipts, unassigned, noTime, today] = await Promise.all([
+  const [orders, vendors, receipts, unassigned, noTime, today, soon, undated] = await Promise.all([
     access.purchasing ? safe(listPurchases(client, now), []) : Promise.resolve([]),
     access.purchasing ? safe(toOrder(client), []) : Promise.resolve([]),
     access.warehouse ? safe(openReceipts(client, now), []) : Promise.resolve([]),
     access.dispatch ? safe(client.unassignedTasks(), []) : Promise.resolve([]),
     access.dispatch ? safe(client.jobsWithoutTime(), []) : Promise.resolve([]),
     access.dispatch ? safe(client.jobsBetween(startOfDay(now), addDays(startOfDay(now), 1)), []) : Promise.resolve([]),
+    access.dispatch ? safe(client.jobsPlannedBetween(addDays(startOfDay(now), 1), addDays(startOfDay(now), 8)), []) : Promise.resolve([]),
+    access.dispatch ? safe(client.jobsWithoutDate(), []) : Promise.resolve([]),
   ]);
   return {
     purchasing: {
@@ -52,7 +54,7 @@ export async function computeBadges(client: OdooClient, access: Pick<Access, 'wa
       late: orders.filter((o) => o.late).length,
     },
     warehouse: { receive: receipts.length },
-    dispatch: { unassigned: unassigned.length, noTime: noTime.length, late: lateJobs(today, now).length, double: doubleBooked(today).length },
+    dispatch: { unassigned: unassigned.length, noTime: noTime.length, late: lateJobs(today, now).length, double: doubleBooked(today).length, upcoming: soon.filter((t) => t.assignees.length === 0).length, waiting: undated.length },
     ready,
   };
 }
