@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
-import { MeasureField, SectionTitle } from '../components/controls';
-import { TIER_LABEL, TIERS } from '../lib/prices';
-import { useFollowUps } from '../lib/useFollowUps';
+import { SectionTitle } from '../components/controls';
 import { QrCode } from '../components/QrCode';
 import { Business, payLinks } from '../lib/invoices';
 import { queueBusiness } from '../lib/settingsSync';
@@ -41,11 +39,6 @@ const FIELDS: { key: Exclude<keyof Business, 'discounts' | 'customerTypes'>; lab
  */
 export function BusinessScreen() {
   const { business, setBusiness } = useInvoices();
-  const { settings, setSettings } = useFollowUps();
-  const num = (v: string, fallback: number) => {
-    const n = Number.parseFloat(v);
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
-  };
   const { client, status } = useOdoo();
   const signedIn = status === 'signedIn' && !!client;
   const [owner, setOwner] = useState<boolean | null>(null);
@@ -92,21 +85,6 @@ export function BusinessScreen() {
           <Text style={styles.label}>Save these to Odoo now</Text>
         </Pressable>
       ) : null}
-      <SectionTitle>Warranty lengths</SectionTitle>
-      <Text style={styles.note}>The starting warranty on each job, saved on this phone: parts in years, labor in days. On an invoice you can pick that job&apos;s own warranty.</Text>
-      {TIERS.map((tier) => (
-        <MeasureField
-          key={tier}
-          label={`${TIER_LABEL[tier]} spring warranty`}
-          value={String(settings.warrantyMonths[tier] / 12)}
-          onChange={(v) => setSettings((s) => ({ ...s, warrantyMonths: { ...s.warrantyMonths, [tier]: num(v, s.warrantyMonths[tier] / 12) * 12 } }))}
-          unit="years"
-          allowFraction={false}
-          allowDecimal={false}
-          testID={`followup-warranty-${tier}`}
-        />
-      ))}
-      <MeasureField label="Labor warranty" value={String(settings.laborWarrantyDays)} onChange={(v) => setSettings((s) => ({ ...s, laborWarrantyDays: num(v, s.laborWarrantyDays) }))} unit="days" allowFraction={false} allowDecimal={false} testID="followup-labor" />
       {preview.length > 0 ? (
         <>
           <SectionTitle>Check your codes</SectionTitle>
