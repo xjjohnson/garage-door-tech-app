@@ -71,10 +71,10 @@ describe('lost quotes', () => {
 
 describe('repairs not sold', () => {
   const insp = (o: Record<string, unknown>) => ({ at: REPAIR_REMINDERS_FROM + 1000, doors: [{ id: 'a' }, { id: 'b' }], repairs: [{ id: 'r1', label: 'Replace rollers', item: 'd:b:rollers' }, { id: 'r2', label: 'Typed by hand' }], ...o }) as never;
-  it('finds held or declined repairs from a checklist item, only for new inspections', () => {
-    expect(unsoldRepairs(insp({ holdRepairs: true }))).toEqual([{ id: 'r1', label: 'Replace rollers', where: 'Door 2' }]);
-    expect(unsoldRepairs(insp({}))).toEqual([]);
-    expect(unsoldRepairs(insp({ at: REPAIR_REMINDERS_FROM - 1, holdRepairs: true }))).toEqual([]);
+  it('finds flagged repairs that are not on any ticket, only for new inspections', () => {
+    expect(unsoldRepairs(insp({}))).toEqual([{ id: 'r1', label: 'Replace rollers', where: 'Door 2' }]);
+    expect(unsoldRepairs(insp({}), new Set(['r1']))).toEqual([]);
+    expect(unsoldRepairs(insp({ at: REPAIR_REMINDERS_FROM - 1 }))).toEqual([]);
     expect(unsoldRepairs(undefined)).toEqual([]);
     expect(whereOf({ doors: [{ id: 'a' }] } as never, 'g:gate')).toBe('Gate');
   });
@@ -93,11 +93,14 @@ describe('repairs not sold', () => {
         return [];
       },
     } as never;
-    const job = { id: 'j1', inspection: insp({ holdRepairs: true }) };
+    const job = { id: 'j1', inspection: insp({}) };
     expect(await offerUnsoldRepairs(c, 7, job, NOW)).toBe(1);
     expect(JSON.stringify(made)).toContain('Offer repair: Replace rollers (Door 2)');
     exists = true;
     expect(await offerUnsoldRepairs(c, 7, job, NOW)).toBe(0);
+    exists = false;
+    const sold = { ...job, ticket: { lines: [{ repairId: 'r1' }] } as never };
+    expect(await offerUnsoldRepairs(c, 7, sold, NOW)).toBe(0);
   });
 });
 

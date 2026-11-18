@@ -9,6 +9,7 @@ import type { Inspection, Repair } from './inspection';
 import type { OdooClient } from './odoo';
 import { createManualFollowUp } from './odooFollowUps';
 import { REPAIR } from './odooOffice';
+import { repairsOnTicket, type Ticket } from './ticket';
 
 type Caller = Pick<OdooClient, 'call' | 'session'>;
 
@@ -35,14 +36,13 @@ export function whereOf(insp: Pick<Inspection, 'doors'>, item: string | undefine
 }
 
 /**
- * The flagged repairs that did not go to the ticket: still held back, or declined by the
- * customer. Repairs the tech typed by hand (no checklist item) are not flagged repairs.
+ * The flagged repairs that never reached a ticket: no ticket line carries the repair's id
+ * (see repairsOnTicket). Repairs the tech typed by hand (no checklist item) are not flagged repairs.
  */
-export function unsoldRepairs(insp: Inspection | undefined): UnsoldRepair[] {
+export function unsoldRepairs(insp: Inspection | undefined, onTicket: Set<string> = new Set()): UnsoldRepair[] {
   if (!insp || insp.at < REPAIR_REMINDERS_FROM) return [];
-  const held = insp.holdRepairs === true;
   return (insp.repairs ?? [])
-    .filter((r: Repair) => !!r.item && r.label.trim() !== '' && (held || r.declined))
+    .filter((r: Repair) => !!r.item && r.label.trim() !== '' && !onTicket.has(r.id))
     .map((r) => ({ id: r.id, label: r.label.trim(), where: whereOf(insp, r.item) }));
 }
 
@@ -50,9 +50,10 @@ export function unsoldRepairs(insp: Inspection | undefined): UnsoldRepair[] {
  * Makes the to-dos for a job's unsold repairs. Returns how many were made. A to-do already
  * there (found by its marker) is left as it is, so sending an invoice twice never doubles them.
  */
-export async function offerUnsoldRepairs(client: Caller, partnerId: number, job: { id: string; inspection?: Inspection }, now = Date.now()): Promise<number> {
+export async function offerUnsoldRepairs(client: Caller, partnerId: number, job: { id: string; inspection?: Inspection; ticket?: Pick<Ticket, 'lines'>; others?: Pick<Ticket, 'lines'>[] }, now = Date.now()): Promise<number> {
   let made = 0;
-  for (const r of unsoldRepairs(job.inspection)) {
+  const onTicket = new Set([job.ticket, ...(job.others ?? [])].flatMap((t) => (t ? [...repairsOnTicket(t)] : [])));
+  for (const r of unsoldRepairs(job.inspection, onTicket)) {
     const key = marker(job.id, r.id);
     const found = (await client.call('mail.activity', 'search', [[['res_model', '=', 'res.partner'], ['res_id', '=', partnerId], ['note', 'ilike', key]]], { limit: 1 })) as number[];
     if (found[0]) continue;
