@@ -5,7 +5,8 @@
  * photos, and the customer's signature. Kept free of React.
  */
 import { Signature } from './attachments';
-import { doorLine, flags, Inspection, isFlagged, RATING_LABEL, sections, summary } from './inspection';
+import { doorLine, flags, Inspection, isFlagged, RATING_LABEL, repairForItem, sections, summary } from './inspection';
+import { cents, formatMoney } from './prices';
 import { Business } from './invoices';
 import { formatJobDate } from './jobs';
 import { escapeHtml, signatureBlock } from './pdf';
@@ -50,6 +51,9 @@ tr.flag td.r{color:#b00020}
 .photos figcaption{font-size:11px}
 .sig{margin-top:22px;page-break-inside:avoid}.sig svg{border-bottom:1px solid #000}
 .sect{page-break-inside:auto}
+.ok{margin:14px 0 0;font-weight:700}
+.fix{font-size:12px;font-weight:700}
+.mini{width:31%;display:inline-block;margin:6px 8px 0 0}.mini img{width:100%;border:1px solid #999}.mini div{font-size:11px}
 `;
 
 function itemLabel(insp: Inspection, key: string): string {
@@ -78,14 +82,30 @@ export function inspectionHtml(insp: Inspection, info: ReportInfo, business: Bus
     `<div class="stat"><div class="n">${s.flagged}</div>Flagged</div><div class="stat"><div class="n">${s.actions}</div>Actions</div>` +
     `<div class="stat"><div class="n">${s.answered}/${s.total}</div>Checked</div></div>`;
 
+  const lineFor = (key: string) => {
+    const r = repairForItem(insp, key);
+    return r && r.label.trim() ? `<div class="fix">Suggested repair: ${e(r.label.trim())}${cents(r.price) > 0 ? ` · ${formatMoney(cents(r.price) * (r.qty && r.qty > 1 ? r.qty : 1))}` : ''}</div>` : '';
+  };
+  const flaggedKeys = new Set(fl.map((f) => f.key));
+  const inline = (key: string) =>
+    photos
+      .filter((p) => p.item === key)
+      .map((p) => `<figure class="mini"><img src="${p.src}" alt=""><figcaption>${e(itemLabel(insp, key))}</figcaption></figure>`)
+      .join('');
   const flagged = fl.length
     ? `<h2>Flagged items</h2><table>${fl
         .map(
           (f) =>
-            `<tr class="flag"><td>${e(f.section)} · ${e(f.label)}${f.note.trim() ? `<div class="note">${e(f.note.trim())}</div>` : ''}${f.action.trim() ? `<div class="act">Action: ${e(f.action.trim())}</div>` : ''}</td><td class="r">${e(RATING_LABEL[f.rating])}</td></tr>`,
+            `<tr class="flag"><td>${e(f.section)} · ${e(f.label)}${f.note.trim() ? `<div class="note">${e(f.note.trim())}</div>` : ''}${f.action.trim() ? `<div class="act">Action: ${e(f.action.trim())}</div>` : ''}${lineFor(f.key)}${inline(f.key)}</td><td class="r">${e(RATING_LABEL[f.rating])}</td></tr>`,
         )
         .join('')}</table>`
     : '';
+  const others = s.total - s.flagged;
+  const passed = s.answered - s.flagged;
+  const rest =
+    others > 0
+      ? `<p class="ok">${passed === others ? `Everything else passed (${passed} ${passed === 1 ? 'item' : 'items'}).` : passed > 0 ? `${passed} other ${passed === 1 ? 'item' : 'items'} passed; ${others - passed} not checked.` : 'The other items were not checked.'}</p>`
+      : '';
 
   const doorFacts = (title: string) => {
     const d = insp.doors.find((_, i) => title === `Door ${i + 1}`);
@@ -100,6 +120,7 @@ export function inspectionHtml(insp: Inspection, info: ReportInfo, business: Bus
     return line ? `<p class="muted">${e(line)}</p>` : '';
   };
 
+  const fullTitle = fl.length ? '<p class="muted" style="margin-top:18px">The full checklist follows.</p>' : '';
   const body = sections(insp)
     .map((sec) => {
       const rows = sec.items
@@ -114,10 +135,11 @@ export function inspectionHtml(insp: Inspection, info: ReportInfo, business: Bus
     })
     .join('');
 
-  const pics = photos.length
-    ? `<h2>Photos</h2><div class="photos">${photos.map((p) => `<figure><img src="${p.src}" alt=""><figcaption>${e(p.item ? itemLabel(insp, p.item) : '')}</figcaption></figure>`).join('')}</div>`
+  const more = photos.filter((p) => !p.item || !flaggedKeys.has(p.item));
+  const pics = more.length
+    ? `<h2>Photos</h2><div class="photos">${more.map((p) => `<figure><img src="${p.src}" alt=""><figcaption>${e(p.item ? itemLabel(insp, p.item) : '')}</figcaption></figure>`).join('')}</div>`
     : '';
 
-  const signed = signatureBlock(sig, 'I have received this inspection report.');
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Inspection</title><style>${STYLE}</style></head><body>${head}${flagged}${body}${pics}${signed}</body></html>`;
+  const signed = sig ? signatureBlock(sig, 'I have received this inspection report.') : '<div class="sig"><p>Customer signature: not signed yet.</p></div>';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Inspection</title><style>${STYLE}</style></head><body>${head}${flagged}${rest}${fullTitle}${body}${pics}${signed}</body></html>`;
 }

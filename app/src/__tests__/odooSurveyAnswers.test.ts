@@ -1,4 +1,4 @@
-import { EMPTY_INSPECTION, setAnswer } from '../lib/inspection';
+import { EMPTY_INSPECTION, newMotor, setAnswer } from '../lib/inspection';
 import { lineCommands, sendSurveys, surveyInputs, surveyKey, surveysToSend, SurveyIndex } from '../lib/odooSurveyAnswers';
 
 const insp = () => {
@@ -6,7 +6,7 @@ const insp = () => {
   const d = i.doors[0];
   i = setAnswer(i, `d:${d.id}:rollers`, { rating: 'poor', note: 'Worn', action: 'Replace rollers' });
   i = setAnswer(i, `d:${d.id}:track`, { rating: 'good' });
-  i = { ...i, doors: [{ ...i.doors[0], maker: 'clopay', size: '16x7' }] };
+  i = { ...i, doors: [{ ...i.doors[0], maker: 'clopay', size: '16x7', motors: [newMotor(1000)] }] };
   return i;
 };
 

@@ -34,9 +34,11 @@ export const RATING_LABEL: Record<Rating, string> = {
   fail: 'Fail',
 };
 
-/** Answers that flag an item on their own. */
-export const FLAGGED: Rating[] = ['poor', 'risk', 'non', 'fail'];
+/** Answers that flag an item on their own: Fair and worse. A flagged item can carry a note, photos and a suggested repair. */
+export const FLAGGED: Rating[] = ['fair', 'poor', 'risk', 'non', 'fail'];
 export const isFlagged = (r: Rating | undefined) => !!r && FLAGGED.includes(r);
+/** The answers that mean something is wrong now (shown red; Fair is amber). */
+export const isBad = (r: Rating | undefined) => !!r && r !== 'fair' && FLAGGED.includes(r);
 
 /** Points per answer for the score; N/A doesn't count either way. */
 export const POINTS: Record<Rating, number> = { good: 2, fair: 1, poor: 0, risk: 0, na: 0, compliant: 1, non: 0, pass: 1, fail: 0 };
@@ -250,8 +252,13 @@ export interface Inspection {
   /** Set when there's a gate to check (or the job is gate-only). */
   gate?: Gate;
   voice: VoiceNote[];
-  /** Extra lines added to every option of the quote. */
+  /**
+   * The repairs suggested on flagged items (each has `item`), plus any older typed ones.
+   * New inspections hold them back (`holdRepairs`) until "Send suggested repairs to the ticket".
+   */
   repairs: Repair[];
+  /** True while the suggested repairs are kept off the quote; undefined (older inspections) means they are on it. */
+  holdRepairs?: boolean;
   /** When the report last went to Odoo, and where ("Field Service order"). */
   sent?: { at: number; to: string };
   /** The filled-in Odoo surveys made from this inspection: what they held, and their ids by slot (src/lib/odooSurveyAnswers.ts). */
@@ -266,7 +273,7 @@ export function newMotor(now: number, n = 0): Motor {
 }
 
 export function newDoor(now: number, n = 0): Door {
-  return { id: uid('d', now, n), maker: '', size: '', age: '', springCode: '', springCycles: '', answers: {}, motors: [newMotor(now, n)] };
+  return { id: uid('d', now, n), maker: '', size: '', age: '', springCode: '', springCycles: '', answers: {}, motors: [] };
 }
 
 export const EMPTY_INSPECTION = (now: number, gateOnly = false): Inspection => ({
@@ -276,6 +283,7 @@ export const EMPTY_INSPECTION = (now: number, gateOnly = false): Inspection => (
   ...(gateOnly ? { gate: { type: '', answers: {} } } : {}),
   voice: [],
   repairs: [],
+  holdRepairs: true,
 });
 
 /** Where an answer lives: "d:<door>:<item>", "m:<door>:<motor>:<item>" or "g:<item>". */
@@ -303,6 +311,44 @@ export function sections(insp: Inspection): Section[] {
     out.push({ key: 'gate-astm', title: 'Gate · ASTM F2200', items: checklist().astm.map((def) => ({ key: `g:${def.id}`, def, answer: insp.gate!.answers[def.id] })) });
   }
   return out;
+}
+
+/** One line on the inspection's first page: a door, an opener or the gate. */
+export interface HubEntry {
+  id: string;
+  kind: 'door' | 'opener' | 'gate';
+  title: string;
+  /** The checklist sections it shows (see sections()). */
+  sectionKeys: string[];
+}
+
+/** Everything added to this report, in order: each door, its openers, then the gate. */
+export function hubEntries(insp: Inspection): HubEntry[] {
+  const out: HubEntry[] = [];
+  insp.doors.forEach((d, i) => {
+    out.push({ id: d.id, kind: 'door', title: `Door ${i + 1}`, sectionKeys: [d.id] });
+    d.motors.forEach((m, j) => {
+      const which = d.motors.length > 1 ? ` ${j + 1}` : '';
+      out.push({ id: `${d.id}/${m.id}`, kind: 'opener', title: insp.doors.length > 1 ? `Door ${i + 1} · Opener${which}` : `Opener${which}`, sectionKeys: [`${d.id}/${m.id}`] });
+    });
+  });
+  if (insp.gate) out.push({ id: 'gate', kind: 'gate', title: 'Gate', sectionKeys: ['gate-ul', 'gate-type', 'gate-astm'] });
+  return out;
+}
+
+/** How far along one hub entry is. */
+export function entryStats(insp: Inspection, e: HubEntry): { answered: number; total: number; flagged: number } {
+  let answered = 0;
+  let total = 0;
+  let flagged = 0;
+  for (const s of sections(insp).filter((x) => e.sectionKeys.includes(x.key))) {
+    for (const i of s.items) {
+      total++;
+      if (i.answer?.rating) answered++;
+      if (isFlagged(i.answer?.rating)) flagged++;
+    }
+  }
+  return { answered, total, flagged };
 }
 
 /** Changes one answer, wherever it lives. */
@@ -388,11 +434,19 @@ export function repairFromPart(part: { id: number; name: string; cents: number; 
 
 /** The job's repairs as quote lines, then any typed on the quote; ones with no name or price are left off. */
 export function repairLines(insp: Inspection | undefined, typed: Repair[] = []): QuoteLine[] {
-  return [...(insp?.repairs ?? []), ...typed].filter((r) => !r.declined && r.label.trim() !== '' && cents(r.price) > 0).map((r) => {
+  return [...(insp?.holdRepairs ? [] : insp?.repairs ?? []), ...typed].filter((r) => !r.declined && r.label.trim() !== '' && cents(r.price) > 0).map((r) => {
     const qty = r.qty && r.qty > 1 ? Math.floor(r.qty) : 1;
     return { label: r.label.trim(), cents: cents(r.price) * qty, taxable: r.taxable, ...(qty > 1 ? { qty } : {}), ...(r.productId ? { productId: r.productId } : {}) };
   });
 }
+
+/** The repairs suggested on this inspection (held back or not), as quote lines. */
+export function suggestedRepairs(insp: Inspection | undefined): QuoteLine[] {
+  return repairLines(insp ? { ...insp, holdRepairs: false } : undefined);
+}
+
+/** The repair suggested for one checklist item, if any. */
+export const repairForItem = (insp: Inspection, key: AnswerKey): Repair | undefined => insp.repairs.find((r) => r.item === key);
 
 /** The quote with the repairs added to every option that can be priced, totals and tax worked out again. */
 export function withRepairs(quote: Quote, insp: Inspection | undefined, sheet: PriceSheet, typed: Repair[] = []): Quote {
@@ -435,7 +489,7 @@ export function inspectionText(insp: Inspection, customer: string): string {
     out.push('', 'Nothing flagged.');
   }
   if (s.score !== null) out.push('', `Score: ${s.score}% (${s.answered} of ${s.total} items checked)`);
-  const lines = repairLines(insp);
+  const lines = suggestedRepairs(insp);
   if (lines.length > 0) {
     out.push('', 'Recommended repairs:');
     for (const l of lines) out.push(`- ${l.label}: ${formatMoney(l.cents)}`);
@@ -496,7 +550,8 @@ const LEGACY: Record<string, { motor?: boolean; id: string }> = {
 
 function fromLegacy(results: Record<string, unknown>, at: number): Door {
   const door = newDoor(at);
-  const motor = door.motors[0];
+  const motor = newMotor(at);
+  door.motors.push(motor);
   for (const [old, r] of Object.entries(results)) {
     const x = (r ?? {}) as Record<string, unknown>;
     const to = LEGACY[old];
@@ -548,6 +603,7 @@ export function parseInspection(v: unknown): Inspection | undefined {
     ...(gate ? { gate } : {}),
     voice,
     repairs,
+    ...(d.holdRepairs === true ? { holdRepairs: true } : {}),
     ...(d.sent && typeof (d.sent as { at?: unknown }).at === 'number' ? { sent: { at: (d.sent as { at: number }).at, to: str((d.sent as { to?: unknown }).to) } } : {}),
     ...(d.surveys && typeof (d.surveys as { at?: unknown }).at === 'number' ? { surveys: parseSurveys(d.surveys as { at: number; key?: unknown; ids?: unknown }) } : {}),
   };
