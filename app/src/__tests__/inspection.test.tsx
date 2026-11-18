@@ -343,11 +343,20 @@ describe('inspection in the app', () => {
     await settle();
     expect(mockMedia.openPdf).toHaveBeenCalledWith('JVBERi0=', expect.stringMatching(/^Inspection/));
 
-    // The suggested repair stays off the quote until it is sent to the ticket.
-    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].inspection!.holdRepairs).toBe(true);
+    // The suggested repair stays off the ticket until it is added; unticking keeps it off.
+    const jobOf = async () => parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0];
+    expect((await jobOf()).ticket?.lines ?? []).toHaveLength(0);
     await fireEvent.press(screen.getByTestId('inspection-send-repairs'));
-    expect(app.getPathname()).toBe('/quote/j1');
-    expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].inspection!.holdRepairs).toBeUndefined();
+    await settle();
+    const lines = (await jobOf()).ticket!.lines;
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ name: 'Lift cables (pair)', unitCents: 4500, repairId: expect.any(String) });
+    expect(screen.getByTestId('inspection-repairs-added')).toBeTruthy();
+    // Adding again never doubles the line.
+    expect(screen.queryByTestId('inspection-send-repairs')).toBeNull();
+    // Open the ticket goes to the real ticket, not Templates.
+    await fireEvent.press(screen.getByTestId('inspection-ticket'));
+    expect(app.getPathname()).toBe('/ticket/j1');
   });
 
   it('adds a second door, an opener and a gate, one at a time', async () => {

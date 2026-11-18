@@ -31,6 +31,8 @@ export interface TicketLine {
   kind: LineKind;
   /** The Odoo product, when it came from the price book or a linked price-sheet line. */
   productId?: number;
+  /** The inspection repair this line was added from (Repair.id), so the report can tell which suggested repairs are on the ticket. */
+  repairId?: string;
   /** The maintenance plan's fee line: put on and taken off with the plan, not edited by hand. */
   planFee?: boolean;
 }
@@ -328,6 +330,22 @@ export function addTyped(t: Ticket, line: { name: string; unitCents: number; kin
   return insertLine(t, { id, name: line.name.trim() || (line.kind === 'service' ? 'Service' : 'Material'), qty: 1, unitCents: Math.max(0, line.unitCents), kind: line.kind }, at);
 }
 
+/** The inspection repairs already on the ticket, by Repair.id. */
+export const repairsOnTicket = (t: Pick<Ticket, 'lines'>): Set<string> => new Set(t.lines.flatMap((l) => (l.repairId ? [l.repairId] : [])));
+
+/**
+ * Adds the chosen inspection repairs to the ticket, each remembering which repair it came from.
+ * A repair already on the ticket, or with no price, is skipped, so tapping twice never doubles a line.
+ */
+export function addRepairs(t: Ticket, repairs: { id: string; label: string; price: string; taxable: boolean; qty?: number; productId?: number }[], ids: () => string): Ticket {
+  const have = repairsOnTicket(t);
+  return repairs.reduce((cur, r) => {
+    const unit = priceCents(r.price);
+    if (have.has(r.id) || r.label.trim() === '' || unit <= 0) return cur;
+    return insertLine(cur, { id: ids(), name: r.label.trim(), qty: r.qty && r.qty > 1 ? Math.floor(r.qty) : 1, unitCents: unit, kind: r.taxable ? 'material' : 'service', repairId: r.id, ...(r.productId ? { productId: r.productId } : {}) });
+  }, t);
+}
+
 /** A count of 0 or less takes the line off. */
 export function setQty(t: Ticket, id: string, qty: number): Ticket {
   if (qty <= 0) return removeLine(t, id);
@@ -541,6 +559,7 @@ export function parseTicket(v: unknown): Ticket | undefined {
             kind: l.kind === 'service' || l.kind === 'note' || l.kind === 'section' ? l.kind : 'material',
             ...(typeof l.productId === 'number' ? { productId: l.productId } : {}),
             ...(l.planFee === true ? { planFee: true } : {}),
+            ...(typeof l.repairId === 'string' && l.repairId ? { repairId: l.repairId } : {}),
           },
         ];
       })
