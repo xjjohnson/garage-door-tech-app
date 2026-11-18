@@ -58,4 +58,42 @@ describe('time clock in Odoo Attendance', () => {
     expect(log.shifts[0].odooAtt).toEqual({ id: 3, start: 5, end: 9 });
     expect(log.shifts[1].odooAtt).toBeUndefined();
   });
+
+  it('closes an old open check in, then sends today', async () => {
+    const day = shift({ id: 'new', start: Date.UTC(2026, 10, 18, 14, 0) });
+    const old = shift({ id: 'old', start: Date.UTC(2026, 10, 17, 12, 29, 38), end: Date.UTC(2026, 10, 17, 21, 0) });
+    let created = 0;
+    const c = fake((m, method) => {
+      if (method === 'create') {
+        if (!created++) throw new Error('Cannot create new attendance record for Justin, the employee was already checked in on 11/17/2026');
+        return 55;
+      }
+      if (method === 'search_read') return [{ id: 9, check_in: '2026-11-17 12:29:38' }];
+      return true;
+    });
+    const r = await pushShift(c, 12, day, [old, day]);
+    expect(r.id).toBe(55);
+    const w = c.calls.find((x) => x[1] === 'write');
+    expect(w?.[2]).toEqual([[9], { check_out: '2026-11-17 21:00:00' }]);
+  });
+
+  it('closes an unknown open check in when today starts, within 12 hours', async () => {
+    const day = shift({ id: 'new', start: Date.UTC(2026, 10, 18, 14, 0) });
+    let created = 0;
+    const c = fake((m, method) => {
+      if (method === 'create') {
+        if (!created++) throw new Error('the employee was already checked in on x');
+        return 56;
+      }
+      if (method === 'search_read') return [{ id: 9, check_in: '2026-11-17 12:00:00' }];
+      return true;
+    });
+    await pushShift(c, 12, day, [day]);
+    expect(c.calls.find((x) => x[1] === 'write')?.[2]).toEqual([[9], { check_out: '2026-11-18 00:00:00' }]);
+  });
+
+  it('passes other create errors through', async () => {
+    const c = fake((m, method) => { if (method === 'create') throw new Error('boom'); return []; });
+    await expect(pushShift(c, 12, shift(), [])).rejects.toThrow('boom');
+  });
 });

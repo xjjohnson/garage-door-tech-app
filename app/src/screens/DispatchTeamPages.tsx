@@ -34,12 +34,20 @@ function useRead<T>(client: OdooClient, read: () => Promise<T>): { data: T | nul
   return state;
 }
 
-const Failed = ({ what, error }: { what: string; error: string }) => (
+const NOT_INSTALLED = /(doesn.t|does not) exist/i;
+
+const Failed = ({ what, error }: { what: string; error: string }) =>
+  NOT_INSTALLED.test(error) ? (
+    <Card testID="dispatch-not-installed">
+      <Title>{what}</Title>
+      <Note>Not installed in Odoo yet. Dispatch works without it.</Note>
+    </Card>
+  ) : (
   <Card warn testID="dispatch-read-error">
     <Title>{what}</Title>
     <Note>Odoo wouldn't show this to your login, or it couldn't be reached: {error}</Note>
   </Card>
-);
+  );
 
 // ---- Who's working ----
 

@@ -62,7 +62,7 @@ export function OdooAttendanceSync({ now = Date.now }: { now?: () => number }) {
       for (const s of shiftsToSend(latest.current.shifts, since)) {
         if (now() - (failed.current.get(s.id) ?? 0) <= RETRY_MS) continue;
         try {
-          latest.current.markAttendance(s.id, await pushShift(client, r.employee, s));
+          latest.current.markAttendance(s.id, await pushShift(client, r.employee, s, latest.current.shifts));
         } catch (e) {
           failed.current.set(s.id, now());
           log.warn('odoo', `time clock day ${s.id} not sent: ${message(e)}`);
