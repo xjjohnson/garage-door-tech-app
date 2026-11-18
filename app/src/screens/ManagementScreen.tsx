@@ -50,8 +50,9 @@ import { RolesTab } from './RolesTab';
 import { DiscountsTab } from './DiscountsTab';
 import { useCustomerTypes } from '../lib/useInvoices';
 import { TextsTab } from './TextsTab';
+import { LimitsTab } from './LimitsTab';
 
-type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business';
+type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business' | 'limits';
 const GROUPS: MenuGroup<Tab>[] = [
   {
     title: 'Jobs and scheduling',
@@ -84,6 +85,10 @@ const GROUPS: MenuGroup<Tab>[] = [
       { id: 'customerTypes', label: 'Customer types', detail: 'Types and their plans' },
       { id: 'texts', label: 'Texts', detail: 'On my way, ETA, review, confirm' },
     ],
+  },
+  {
+    title: 'Departments',
+    items: [{ id: 'limits', label: 'Departments', detail: 'Days and months the Office and Sales lists use' }],
   },
   {
     title: 'Business',
@@ -135,6 +140,7 @@ export function ManagementScreen() {
           {tab === 'discounts' ? <DiscountsTab canEdit={owner === true} /> : null}
           {tab === 'pricelists' ? <PricelistEditor client={client} canEdit={owner === true} /> : null}
           {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
+          {tab === 'limits' ? <LimitsTab client={client} canEdit={owner === true} /> : null}
           {tab === 'checklists' ? <ChecklistsScreen /> : null}
           {tab === 'business' ? <BusinessScreen /> : null}
         </SectionPage>

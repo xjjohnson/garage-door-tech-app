@@ -1,3 +1,4 @@
+import { offerUnsoldRepairs } from '../lib/odooRepairs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppForeground } from '../lib/useAppForeground';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -157,6 +158,8 @@ export function useInvoiceOdoo(now: () => number = Date.now) {
       const pid = await partner(c, invoice.customerId ?? job?.customerId, { name: invoice.billTo, phone: job?.phone ?? '', address: invoice.address });
       const order = await orderFor(c, invoice, pid, job, opts.order);
       state = await sendInvoice(c, pid, invoice.lines, sheet.odoo, invoiceRef(invoice), order, invoice.shipTo?.id);
+      // Repairs flagged on the inspection that never went on this invoice become reminders for sales (best effort; the invoice is already posted).
+      if (job?.inspection) offerUnsoldRepairs(c, pid, job).catch((e) => log.warn('odoo', `repair reminders for invoice ${invoiceNo(invoice)}: ${message(e)}`));
       // Kept straight away, so a failure below (or a second send from elsewhere) never posts it twice.
       posted.set(invoice.id, state);
       setOdoo(invoice.id, state);

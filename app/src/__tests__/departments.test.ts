@@ -50,7 +50,7 @@ beforeEach(() => AsyncStorage.clear());
 describe('who sees which area', () => {
   it('shows everything to the owner', async () => {
     const f = fake({ 'res.users.has_group': groups(['base.group_system']) });
-    expect(await departmentAccess(f.client)).toEqual({ warehouse: true, purchasing: true, pricing: true, dispatch: true, owner: true });
+    expect(await departmentAccess(f.client)).toEqual({ warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true });
   });
 
   it('keeps the warehouse manager and the buyer separate', async () => {
@@ -79,7 +79,7 @@ describe('who sees which area', () => {
 
   it('shows nothing when Odoo cannot answer', async () => {
     const r = await departmentAccess(fake({}).client);
-    expect(r).toEqual({ warehouse: false, purchasing: false, pricing: false, dispatch: false, owner: false });
+    expect(r).toEqual({ warehouse: false, purchasing: false, pricing: false, dispatch: false, office: false, sales: false, owner: false });
   });
 });
 

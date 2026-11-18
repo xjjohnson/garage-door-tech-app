@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { computeBadges, NO_BADGES, setBadges } from '../lib/deptBadges';
+import { DEFAULT_LIMITS, readLimits } from '../lib/deptLimits';
 import { log } from '../lib/log';
 import { onSyncNow } from '../lib/syncNow';
 import { useAppForeground } from '../lib/useAppForeground';
@@ -36,7 +37,8 @@ export function DeptBadgeSync() {
       for (const p of waiting.slice(0, 20)) {
         if ((await s.jobOrderState(client, p.id).catch(() => 'gone' as const)) === 'ready') readyCount++;
       }
-      setBadges(await computeBadges(client, access, readyCount));
+      const limits = access.office || access.sales ? await readLimits(client) : DEFAULT_LIMITS;
+      setBadges(await computeBadges(client, access, readyCount, Date.now(), limits));
     } catch (e) {
       log.warn('badges', `counting what needs attention: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
