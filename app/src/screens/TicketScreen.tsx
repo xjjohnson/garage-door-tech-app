@@ -19,7 +19,7 @@ import { cents, formatMoney, priceText } from '../lib/prices';
 import { addText, addTyped, hasPriced, isText, confirmTicket, currentTotals, EMPTY_TICKET, estimateTotals, LineKind, linesKey, lineTotal, newLineId, removeLine, setPrice, setQty, syncTicket, Ticket, TicketLine, ticketOption, ticketParts, ticketRef, depositTotal, Deposit, depositsKey, unaccountedParts, setDiscount, setTerms, signaturePending, signedNow, setPlan, planKey, planDone } from '../lib/ticket';
 import { activePlanFor, PlanProgress, PlanSetupError, setUpPlan } from '../lib/planSetup';
 import { useMaintenancePlans } from '../lib/useMaintenancePlans';
-import { orderPartForJob } from '../lib/odooPurchasing';
+import { NO_VENDOR_MESSAGE, orderPartForJob } from '../lib/odooPurchasing';
 import { useCustomerType } from '../lib/useCustomerType';
 import { plansForType } from '../lib/maintenancePlans';
 import { PlanRow } from '../components/PlanRow';
@@ -188,16 +188,22 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
   // A part not on the truck can be ordered for this job: a draft purchase order in Odoo, linked to the job's order.
   const [ordering, setOrdering] = useState<string | null>(null);
   const [orderMsg, setOrderMsg] = useState('');
-  const orderForJob = async (p: { lineId: string; qty: number; name: string }) => {
+  const [needVendor, setNeedVendor] = useState<string | null>(null);
+  const vendorChoices = stock.suppliers.filter((x) => x.odooId).sort((a, b) => a.name.localeCompare(b.name));
+  const orderForJob = async (p: { lineId: string; qty: number; name: string }, vendorId?: number) => {
     const line = ticket.lines.find((l) => l.id === p.lineId);
     if (!client || !ticket.order || !line?.productId) return;
     setOrdering(p.lineId);
     setOrderMsg('');
     try {
-      const po = await orderPartForJob(client, { productId: line.productId, name: line.name, qty: p.qty }, ticket.order);
+      const po = await orderPartForJob(client, { productId: line.productId, name: line.name, qty: p.qty }, ticket.order, vendorId);
+      setNeedVendor(null);
       setOrderMsg(`${po.reused ? 'Added to' : 'Made'} draft purchase order ${po.name} in Odoo. It isn't sent until you confirm it.`);
     } catch (e) {
-      setOrderMsg(message(e));
+      if (message(e) === NO_VENDOR_MESSAGE && vendorChoices.length > 0) {
+        setNeedVendor(p.lineId);
+        setOrderMsg('');
+      } else setOrderMsg(message(e));
     } finally {
       setOrdering(null);
     }
@@ -525,6 +531,18 @@ export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => nu
                   onPress={() => orderForJob(p)}
                   testID={`ticket-part-order-${p.lineId}`}
                 />
+              ) : null}
+              {needVendor === p.lineId ? (
+                <>
+                  <Text style={styles.meta}>This part has no vendor in Odoo yet. Pick the vendor to order it from</Text>
+                  <ChipRow
+                    options={vendorChoices.map((v) => ({ label: v.name, value: String(v.odooId) }))}
+                    value=""
+                    onChange={(v: string) => orderForJob(p, Number(v))}
+                    scroll
+                    testID={`ticket-part-vendor-${p.lineId}`}
+                  />
+                </>
               ) : null}
               {p.why === 'not-on-truck' ? (
                 <Action label="Bought it for this job" onPress={() => setTicket(job.id, (t) => ({ ...t, bought: [...(t.bought ?? []), p.lineId] }))} testID={`ticket-part-bought-${p.lineId}`} />
