@@ -159,11 +159,12 @@ export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[
   );
 
   // The Office and Sales areas: the two Administrator groups, activities (to-dos) and the job-to-order link. Only reads.
-  const [billing, salesAdmin, activities, fsmFields] = await Promise.all([
+  const [billing, salesAdmin, activities, fsmFields, trackFields] = await Promise.all([
     hasGroup(c, s.uid, 'account.group_account_manager'),
     hasGroup(c, s.uid, 'sales_team.group_sale_manager'),
     hasModel(c, 'mail.activity'),
     c.call('fsm.order', 'fields_get', [], { attributes: ['type'] }).catch(() => null) as Promise<Record<string, unknown> | null>,
+    c.call('mail.tracking.email', 'fields_get', [], { attributes: ['type'] }).catch(() => null) as Promise<Record<string, unknown> | null>,
   ]);
   const groupLine = (id: string, label: string, group: string, who: string, v: boolean | null): CheckResult =>
     v === null
@@ -175,7 +176,10 @@ export async function runSetupCheck(c: CheckClient | null): Promise<CheckResult[
     activities
       ? { id: 'activities', label: 'To-dos (activities)', state: 'ok', detail: 'Activities found.' }
       : { id: 'activities', label: 'To-dos (activities)', state: 'warn', detail: 'Activities not found.', fix: 'Follow-ups, complaints and repair reminders are Odoo to-dos. Install Discuss (mail) in Odoo.' },
-    fsmFields && 'sale_order_id' in fsmFields
+    trackFields && 'mail_message_id' in trackFields
+      ? { id: 'mailtracking', label: 'Email opened tracking', state: 'ok', detail: 'Mail Tracking found.' }
+      : { id: 'mailtracking', label: 'Email opened tracking', state: 'warn', detail: 'Odoo does not record when emails are opened.', fix: 'Office > Invoices sent, not opened needs the Mail Tracking add-on in Odoo. Everything else works without it.' },
+    fsmFields && ('sale_id' in fsmFields || 'sale_order_id' in fsmFields)
       ? { id: 'fsmsale', label: 'Jobs linked to orders', state: 'ok', detail: 'Field Service Sale link found.' }
       : { id: 'fsmsale', label: 'Jobs linked to orders', state: 'warn', detail: 'Field Service Sale link not found.', fix: 'In Odoo, Apps > install Field Service Sale so Office can list jobs not yet invoiced.' },
   );
