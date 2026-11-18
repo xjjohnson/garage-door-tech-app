@@ -191,7 +191,7 @@ function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appoint
           <View style={styles.row}>
             {maps ? <IconAction icon="📍" label="Directions" onPress={() => Linking.openURL(maps).catch(() => undefined)} testID={`visit-maps-${a.id}`} /> : null}
             {tel ? <IconAction icon="📞" label="Call" onPress={() => Linking.openURL(tel).catch(() => undefined)} testID={`visit-call-${a.id}`} /> : null}
-            {textLink(a.phone, '') ? <IconAction icon="💬" label="Remind" onPress={() => Linking.openURL(textLink(a.phone, reminderText(a, business.name, now))!).catch(() => undefined)} testID={`visit-remind-${a.id}`} /> : null}
+            {textLink(a.phone, '') ? <IconAction icon="💬" label="Remind" onPress={() => Linking.openURL(textLink(a.phone, reminderText(a, business, now))!).catch(() => undefined)} testID={`visit-remind-${a.id}`} /> : null}
             {a.customerId ? <IconAction icon="👤" label="History" onPress={() => router.push({ pathname: '/customer/[id]', params: { id: a.customerId! } })} testID={`visit-customer-${a.id}`} /> : null}
             <IconAction icon="⋯" label="More" on={more} onPress={() => { setMore(!more); setSure(false); }} testID={`visit-more-${a.id}`} />
           </View>

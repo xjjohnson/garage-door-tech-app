@@ -157,11 +157,12 @@ export function windowLabel(a: Pick<Appointment, 'start' | 'windowMinutes'>): st
   return s.slice(-2) === end.slice(-2) ? `${s.slice(0, -3)} to ${end}` : `${s} to ${end}`;
 }
 
-export function reminderText(a: Pick<Appointment, 'name' | 'start' | 'windowMinutes'>, businessName: string, now: number): string {
-  const first = a.name.split(/\s+/)[0] || 'there';
+/** The appointment confirmation, in the owner's wording from Management > Texts. Opens in the texting app; nothing is sent by the app. */
+export function reminderText(a: Pick<Appointment, 'name' | 'start' | 'windowMinutes'>, business: string | Partial<Business>, now: number): string {
+  const b: Partial<Business> = typeof business === 'string' ? { name: business } : business;
   const label = dayLabel(a.start, now);
-  const when = label === 'Today' || label === 'Tomorrow' ? label.toLowerCase() : `on ${label}`;
-  return `Hi ${first}, it's ${businessName || 'your garage door tech'}. Just confirming your garage door appointment ${when} ${arrivalText(a)}. Reply if you need to change it.`;
+  const day = label === 'Today' || label === 'Tomorrow' ? label.toLowerCase() : `on ${label}`;
+  return messageText(b, 'confirm', { name: a.name, day, window: arrivalText(a) });
 }
 
 function str(v: unknown): string {
