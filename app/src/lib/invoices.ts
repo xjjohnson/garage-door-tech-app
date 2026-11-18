@@ -94,7 +94,7 @@ function odooLines(mine: QuoteLine[], theirs: NonNullable<OdooInvoiceState['line
   return theirs.map((l): QuoteLine => {
     const at = l.display ? -1 : left.findIndex((m) => !m.display && m.label === l.label);
     const m = at >= 0 ? left.splice(at, 1)[0] : undefined;
-    return { label: l.label, cents: l.cents, taxable: m?.taxable ?? false, ...(m?.productId ? { productId: m.productId } : {}), ...(m?.key ? { key: m.key } : {}), ...(l.display ? { display: l.display } : {}), ...(l.qty !== 1 ? { qty: l.qty } : {}) };
+    return { label: l.label, cents: l.cents, taxable: l.taxable ?? m?.taxable ?? false, ...(m?.productId ? { productId: m.productId } : {}), ...(m?.key ? { key: m.key } : {}), ...(l.display ? { display: l.display } : {}), ...(l.qty !== 1 ? { qty: l.qty } : {}) };
   });
 }
 
