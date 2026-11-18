@@ -125,6 +125,12 @@ async function rpc(fetchFn: Fetch, url: string, service: string, method: string,
     log.info('odoo', `${name} ok ${Date.now() - started} ms`);
     return result;
   } catch (e) {
+    const text = e instanceof Error ? e.message : String(e);
+    if (/(doesn.t|does not) exist/i.test(text) && !/database/i.test(text)) {
+      // An Odoo app that isn't installed is a plain note, not a failure.
+      log.info('odoo', `${name}: that Odoo app is not installed here`);
+      throw e;
+    }
     log.warn('odoo', `${name} failed after ${Date.now() - started} ms: ${e instanceof Error ? e.message : String(e)}`);
     throw e;
   }
