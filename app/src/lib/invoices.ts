@@ -80,8 +80,22 @@ export function withOdoo(inv: Invoice, odoo: OdooInvoiceState): Invoice {
     odoo,
     ...(odoo.untaxed !== undefined ? { subtotal: odoo.untaxed, tax: odoo.tax ?? 0, total: odoo.total } : {}),
     // Odoo's lines once it has them, so the phone and Odoo show the same invoice.
-    ...(odoo.lines?.length ? { lines: odoo.lines.map((l): QuoteLine => ({ label: l.label, cents: l.cents, taxable: false, ...(l.display ? { display: l.display } : {}), ...(l.qty !== 1 ? { qty: l.qty } : {}) })) } : {}),
+    ...(odoo.lines?.length ? { lines: odooLines(inv.lines, odoo.lines) } : {}),
   };
+}
+
+/**
+ * Odoo's lines, each keeping what the phone knew about the line it came from
+ * (matched by name): whether it was a taxable part and its product. Without
+ * that the warranty list and equipment tracking lose the parts once Odoo answers.
+ */
+function odooLines(mine: QuoteLine[], theirs: NonNullable<OdooInvoiceState['lines']>): QuoteLine[] {
+  const left = [...mine];
+  return theirs.map((l): QuoteLine => {
+    const at = l.display ? -1 : left.findIndex((m) => !m.display && m.label === l.label);
+    const m = at >= 0 ? left.splice(at, 1)[0] : undefined;
+    return { label: l.label, cents: l.cents, taxable: m?.taxable ?? false, ...(m?.productId ? { productId: m.productId } : {}), ...(m?.key ? { key: m.key } : {}), ...(l.display ? { display: l.display } : {}), ...(l.qty !== 1 ? { qty: l.qty } : {}) };
+  });
 }
 
 /** The invoice's number as the customer sees it: Odoo's ("INV/2026/00080") once it's in Odoo, else the phone's. */
