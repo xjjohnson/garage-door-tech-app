@@ -122,6 +122,22 @@ export function InspectionScreen({ job }: { job: Job }) {
     setBusy(null);
   };
 
+  /** Opens the report in the phone's PDF viewer, where it can be read, saved or shared (like the invoice's Download). */
+  const viewPdf = async () => {
+    if (!media) return;
+    setBusy('view');
+    setNote(null);
+    try {
+      const name = pdfName('Inspection', job.customer);
+      if (media.pdfBase64 && media.openPdf) await media.openPdf(await media.pdfBase64(await reportHtml()), name);
+      else await media.sharePdf(await reportHtml(), name);
+    } catch (e) {
+      log.error('inspect', e);
+      setNote("Couldn't make the PDF. Try again.");
+    }
+    setBusy(null);
+  };
+
   const sendToOdoo = async () => {
     if (!odoo.client || !target || !media?.pdfBase64) return;
     setBusy('odoo');
@@ -292,7 +308,8 @@ export function InspectionScreen({ job }: { job: Job }) {
           setSigning(false);
         }}
       />
-      {media ? <Action label={busy === 'pdf' ? 'Making the PDF...' : 'Share PDF report'} primary disabled={!!busy} onPress={sharePdf} testID="inspection-pdf" /> : null}
+      {media ? <Action label={busy === 'view' ? 'Making the PDF...' : 'View or download PDF'} primary disabled={!!busy} onPress={viewPdf} testID="inspection-pdf-view" /> : null}
+      {media ? <Action label={busy === 'pdf' ? 'Making the PDF...' : 'Share PDF report'} disabled={!!busy} onPress={sharePdf} testID="inspection-pdf" /> : null}
       {odoo.client ? (
         target ? (
           <Action label={busy === 'odoo' ? 'Sending...' : insp.sent ? `Send to Odoo again (sent to ${insp.sent.to})` : `Save report to ${target.label} in Odoo`} disabled={!!busy || !media?.pdfBase64} onPress={sendToOdoo} testID="inspection-odoo" />
