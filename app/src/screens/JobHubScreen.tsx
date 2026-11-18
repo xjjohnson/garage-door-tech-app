@@ -226,7 +226,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       ) : null}
       {tab === 'photos' ? (
         <>
-      <NavRow label="Photos" detail="Before and after" href={{ pathname: '/photos/[id]', params: { id: job.id } }} testID="job-open-photos" />
+      <NavRow label="Photos & files" detail="Before, after and Odoo files" href={{ pathname: '/photos/[id]', params: { id: job.id } }} testID="job-open-photos" />
         </>
       ) : null}
       {tab === 'notes' ? (

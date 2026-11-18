@@ -12,6 +12,7 @@ import { balance, invoiceLabel, invoiceStatus, STATUS_LABEL } from '../lib/invoi
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { AddressSheet } from '../components/AddressSheet';
+import { CustomerFiles } from '../components/OdooFiles';
 import { CustomerOdoo, CustomerTab } from '../components/CustomerOdoo';
 import { CustomerBadgeLine, CustomerEquipmentChips } from '../components/HouseHistory';
 import { OdooNotes } from '../components/OdooNotes';
@@ -29,6 +30,7 @@ const CUSTOMER_TABS: { id: CustomerTab; label: string }[] = [
   { id: 'jobs', label: 'Jobs' },
   { id: 'quotes', label: 'Quotes' },
   { id: 'notes', label: 'Notes' },
+  { id: 'files', label: 'Files' },
 ];
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
@@ -105,6 +107,8 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
 
       {fromOdoo && customer.odooId ? <CustomerOdoo partnerId={customer.odooId} customerId={customer.id} name={customerName(customer)} address={customer.address} tab={tab} /> : null}
 
+      {tab === 'files' && fromOdoo && customer.odooId ? <CustomerFiles partnerId={customer.odooId} /> : null}
+      {tab === 'files' && !(fromOdoo && customer.odooId) ? <Text style={styles.meta}>Files show once this customer is in Odoo.</Text> : null}
       {tab === 'notes' && fromOdoo && customer.odooId ? <OdooNotes target={{ model: 'res.partner', id: customer.odooId }} title="Customer notes" testID="customer-notes" /> : null}
 
       {tab === 'jobs' && (!fromOdoo || waitingJobs.length > 0) ? (

@@ -117,7 +117,7 @@ export function useCustomerRecords(partnerId: number, now: () => number = Date.n
   return { records, fresh, error, online: !!client, refresh };
 }
 
-export type CustomerTab = 'overview' | 'jobs' | 'quotes' | 'notes';
+export type CustomerTab = 'overview' | 'jobs' | 'quotes' | 'notes' | 'files';
 
 /** `tab` picks which part of the customer page shows: Overview (to-dos, repeat visits, agreements), Jobs, or Quotes (with invoices). Without one, everything shows. */
 export function CustomerOdoo({ partnerId, customerId, name = 'this customer', address = '', now = Date.now, tab }: { partnerId: number; customerId?: string; name?: string; address?: string; now?: () => number; tab?: CustomerTab }) {
