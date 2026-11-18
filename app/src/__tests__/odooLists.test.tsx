@@ -155,6 +155,8 @@ describe('Odoo lists on Sales', () => {
     await act(async () => router.navigate('/sales'));
     await settle();
     expect(screen.getByTestId('sales-odoo-quotations')).toBeTruthy();
+    // Sync all lives on Sales (it was Sync now on Home).
+    expect(within(screen.getByTestId('sales-sync-all')).getByText('Sync all')).toBeTruthy();
     // Sales shows Odoo's invoices themselves, not the phone's.
     expect(screen.queryByTestId('sales-odoo-invoices')).toBeNull();
     expect(screen.getByTestId('odoo-row-3')).toHaveTextContent(/INV\/2026\/00003.*\$398.*Pat Smith.*Overdue/);

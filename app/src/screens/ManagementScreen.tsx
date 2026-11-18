@@ -41,6 +41,7 @@ import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, radius, shadow, touch, type } from '../theme';
+import { BusinessScreen } from './BusinessScreen';
 import { ChecklistsScreen } from './ChecklistsScreen';
 import { PricelistEditor } from '../components/PricelistEditor';
 import { CustomerTypesTab } from './CustomerTypesTab';
@@ -49,7 +50,7 @@ import { DiscountsTab } from './DiscountsTab';
 import { useCustomerTypes } from '../lib/useInvoices';
 import { TextsTab } from './TextsTab';
 
-type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists';
+type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'jobTypes', label: 'Job types' },
   { id: 'templates', label: 'Templates' },
@@ -63,6 +64,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'pricelists', label: 'Pricelists' },
   { id: 'texts', label: 'Texts' },
   { id: 'checklists', label: 'Checklists' },
+  { id: 'business', label: 'Your business' },
 ];
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -112,6 +114,7 @@ export function ManagementScreen() {
       {tab === 'pricelists' ? <PricelistEditor client={client} canEdit={owner === true} /> : null}
       {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
       {tab === 'checklists' ? <ChecklistsScreen /> : null}
+      {tab === 'business' ? <BusinessScreen /> : null}
     </View>
   );
 }

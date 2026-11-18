@@ -2,7 +2,6 @@ import { router, usePathname } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import * as Updates from 'expo-updates';
 import { Icon } from '../../components/Icon';
-import { SyncPill } from '../../components/SyncNowButton';
 import { requestHeaderAdd } from '../../lib/headerAdd';
 import { useSchedule } from '../../lib/useSchedule';
 import { onDay } from '../../lib/schedule';
@@ -12,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from '../../config';
-import { SHORT_VERSION } from '../../lib/appVersion';
 import { dateLine } from '../../lib/schedule';
 import { SECTIONS, TOOL_PAGES } from '../../lib/sections';
 import { colors, radius, touch, type } from '../../theme';
@@ -35,12 +33,12 @@ export default function TabsLayout() {
   const { appointments } = useSchedule();
   const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
   const subtitle = current.id === 'today' ? `${dateLine(Date.now())} · ${visits === 0 ? 'no visits' : `${visits} visit${visits === 1 ? '' : 's'}`}` : current.subtitle;
-  // Today and Jobs carry their own action in the header, as in the approved screens; the version stays in sight and opens Settings.
-  const action = !tool && current.id === 'today' ? <SyncPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : null;
+  // Today, Jobs and Customers carry their own action in the header; Settings sits under it. The version lives at the bottom of Home and in Settings.
+  const action = !tool && current.id === 'today' ? <BookPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : null;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
-      {/* The forest header with the page title; Settings at the top right, with the running version on it so it's always in sight. */}
+      {/* The forest header with the page title; Settings at the top right. */}
       <View style={styles.header} testID="header">
         {tool ? (
           <Pressable onPress={() => router.navigate('/tools')} accessibilityRole="button" accessibilityLabel="Back to Tools" testID="back-to-tools" style={({ pressed }) => [styles.back, pressed && styles.headPressed]}>
@@ -58,28 +56,23 @@ export default function TabsLayout() {
         {action ? (
           <View style={styles.actionCol}>
             {action}
-            <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel={`Settings, app ${SHORT_VERSION}`} testID="open-settings" hitSlop={10}>
-              <Text style={styles.versionLink} testID="header-version">
-                {SHORT_VERSION} · Settings
-              </Text>
+            <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" testID="open-settings" hitSlop={10}>
+              <Text style={styles.versionLink}>Settings</Text>
             </Pressable>
           </View>
         ) : current.id === 'tools' && !tool ? (
-          <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel={`Settings, app ${SHORT_VERSION}`} testID="open-settings" style={({ pressed }) => [styles.gear, pressed && styles.headPressed]}>
+          <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" testID="open-settings" style={({ pressed }) => [styles.gear, pressed && styles.headPressed]}>
             <Icon name="gear" size={24} color={colors.onHead} />
           </Pressable>
         ) : (
           <Pressable
             onPress={() => router.push('/settings')}
             accessibilityRole="button"
-            accessibilityLabel={`Settings, app ${SHORT_VERSION}`}
+            accessibilityLabel="Settings"
             testID="open-settings"
             style={({ pressed }) => [styles.settings, pressed && styles.headPressed]}
           >
             <Text style={styles.settingsText}>Settings</Text>
-            <Text style={styles.version} testID="header-version">
-              {SHORT_VERSION}
-            </Text>
           </Pressable>
         )}
       </View>
@@ -120,6 +113,15 @@ export default function TabsLayout() {
   );
 }
 
+function BookPill() {
+  return (
+    <Pressable onPress={() => router.push({ pathname: '/schedule', params: { book: 'new' } })} accessibilityRole="button" testID="home-book-visit" style={({ pressed }) => [styles.newJob, pressed && styles.headPressed]}>
+      <Icon name="plus" size={16} color={colors.onHead} />
+      <Text style={styles.settingsText}>Book a visit</Text>
+    </Pressable>
+  );
+}
+
 function AddPill() {
   return (
     <Pressable onPress={requestHeaderAdd} accessibilityRole="button" testID="customers-add" style={({ pressed }) => [styles.newJob, pressed && styles.headPressed]}>
@@ -153,7 +155,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
   settings: { minHeight: touch.min - 8, minWidth: touch.min + 16, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   settingsText: { fontSize: 15, fontWeight: '800', color: colors.onHead },
-  version: { fontSize: 12, fontWeight: '700', color: colors.onHead, opacity: 0.85 },
   gear: { width: touch.min - 8, height: touch.min - 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   actionCol: { alignItems: 'flex-end', gap: 4 },
   newJob: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: touch.min - 12, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)' },

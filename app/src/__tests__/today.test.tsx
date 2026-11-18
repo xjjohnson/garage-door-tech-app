@@ -28,6 +28,16 @@ describe('Today', () => {
     expect(app.getPathname()).toBe('/schedule');
   });
 
+  it('has Book a visit in the header, the version small at the bottom, and no version or Sync now in the header', async () => {
+    const app = await renderApp();
+    expect(screen.getByTestId('home-version')).toHaveTextContent(/^Johnsons /);
+    expect(screen.queryByTestId('header-version')).toBeNull();
+    expect(screen.queryByTestId('sync-now')).toBeNull();
+    await fireEvent.press(screen.getByTestId('home-book-visit'));
+    expect(app.getPathname()).toBe('/schedule');
+    expect(screen.getByTestId('book-sheet')).toBeTruthy();
+  });
+
   it("starts the next visit as a job and ties it to the appointment", async () => {
     const start = Date.now();
     const appt = { id: 'a1', start, minutes: 60, name: 'Pat Lee', address: '1 Elm St', phone: '555-010-0100', what: 'Broken spring', status: 'booked', createdAt: 1, updatedAt: 1 };

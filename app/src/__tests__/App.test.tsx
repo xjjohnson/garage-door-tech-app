@@ -133,9 +133,9 @@ describe('spring calculator app', () => {
     expect(stopAt).toBeLessThan(doorBanner);
   });
 
-  it('shows the version on the Settings button, and the full build line in Settings', async () => {
+  it('keeps the version out of the header, and shows the full build line in Settings', async () => {
     const app = await renderApp('/springs');
-    expect(screen.getByTestId('header-version')).toBeTruthy();
+    expect(screen.queryByTestId('header-version')).toBeNull();
     expect(screen.queryByTestId('build-info')).toBeNull();
     await fireEvent.press(screen.getByTestId('open-settings'));
     expect(app.getPathname()).toBe('/settings');

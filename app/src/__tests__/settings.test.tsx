@@ -84,7 +84,7 @@ describe('Settings', () => {
     await fireEvent.press(screen.getByTestId('open-settings'));
     expect(app.getPathname()).toBe('/settings');
     for (const [id, path] of [
-      ['settings-business', '/business'],
+      ['settings-management', '/management'],
       ['settings-odoo', '/team'],
       ['settings-backup', '/backup'],
     ] as const) {

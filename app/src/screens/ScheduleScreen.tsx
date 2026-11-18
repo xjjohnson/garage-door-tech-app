@@ -87,6 +87,10 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
 
   useEffect(() => {
     if (!bookFor) return;
+    if (bookFor === 'new') {
+      setBooking(blank(today));
+      return;
+    }
     const c = customers.find((x) => x.id === bookFor);
     if (c) setBooking(blank(today, { customerId: c.id, name: c.name, address: c.address, phone: c.phone }));
   }, [bookFor, customers, today]);

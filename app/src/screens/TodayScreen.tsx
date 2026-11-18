@@ -28,6 +28,7 @@ import { useStartJob } from '../lib/useStartJob';
 import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SHORT_VERSION } from '../lib/appVersion';
 import { colors, radius, shadow } from '../theme';
 
 const CRASH_SEEN_KEY = 'crash/seen';
@@ -151,6 +152,9 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
 
       {today.length === 0 && loose.length === 0 ? <Action label="Open the schedule" onPress={() => router.push('/schedule')} testID="today-schedule" /> : null}
       <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" />
+      <Text style={styles.version} testID="home-version">
+        Johnsons {SHORT_VERSION}
+      </Text>
     </View>
   );
 }
@@ -250,6 +254,7 @@ const styles = StyleSheet.create({
   kpi: { flex: 1, backgroundColor: colors.card, borderRadius: radius.card - 2, borderWidth: 1, borderColor: colors.line, paddingVertical: 11, alignItems: 'center', ...shadow },
   kpiValue: { fontSize: 19, fontWeight: '800', color: colors.text },
   kpiLabel: { fontSize: 12.5, fontWeight: '600', color: colors.muted },
+  version: { fontSize: 12, color: colors.muted, textAlign: 'center', paddingVertical: 8 },
   count: { fontSize: 16, fontWeight: '700', color: colors.muted },
   weatherDay: { fontSize: 16, fontWeight: '800', color: colors.stop },
   pressed: { backgroundColor: colors.info },
