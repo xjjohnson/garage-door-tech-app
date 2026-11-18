@@ -149,12 +149,15 @@ async function orderLinkVals(client: OdooClient, orderId: number): Promise<Recor
  * in Odoo, linked to the job's order so it shows on the order's Purchases tab.
  * Never confirmed or sent from here. Throws a plain sentence when the part has no vendor.
  */
-export async function orderPartForJob(client: OdooClient, part: { productId: number; name: string; qty: number }, order: { id: number; name: string }): Promise<{ id: number; name: string; reused: boolean }> {
-  const [p] = (await client.call('product.product', 'read', [[part.productId]], { fields: ['product_tmpl_id'] })) as { product_tmpl_id?: unknown }[];
+export const NO_VENDOR_MESSAGE = 'This part has no vendor in Odoo yet. Pick one to order it from.';
+
+export async function orderPartForJob(client: OdooClient, part: { productId: number; name: string; qty: number }, order: { id: number; name: string }, vendorId?: number): Promise<{ id: number; name: string; reused: boolean }> {
+  const [p] = (await client.call('product.product', 'read', [[part.productId]], { fields: ['product_tmpl_id', 'standard_price'] })) as { product_tmpl_id?: unknown; standard_price?: unknown }[];
   const tmpl = m2o(p?.product_tmpl_id)?.[0];
   const prices = tmpl ? (await vendorPrices(client, [tmpl])).get(tmpl) ?? [] : [];
-  const best = prices[0];
-  if (!best) throw new Error('This part has no vendor in Odoo yet. Add one on the product, then try again.');
+  // A vendor the tech picked wins; its price is the product's listed price from that vendor, else the cost.
+  const best = vendorId ? prices.find((x) => x.vendorId === vendorId) ?? { vendorId, priceCents: cents(p?.standard_price) } : prices[0];
+  if (!best) throw new Error(NO_VENDOR_MESSAGE);
   return draftForVendor(client, best.vendorId, [{ productId: part.productId, name: part.name, qty: part.qty, priceCents: best.priceCents }], `Job ${order.name}`, order.id);
 }
 

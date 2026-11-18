@@ -218,5 +218,16 @@ describe('links on the Field Service order', () => {
     expect(withVendor.calls.find((c) => c.model === 'purchase.order' && c.method === 'create')!.args[0]).toMatchObject({ partner_id: 40, origin: 'Job FO4', fsm_order_id: 4 });
     const none = fake((c) => (c.model === 'product.product' ? [{ product_tmpl_id: [3, 'Keypad'] }] : []));
     await expect(orderPartForJob(none.client, { productId: 1, name: 'Genie Keypad', qty: 1 }, { id: 4, name: 'FO4' })).rejects.toThrow(/no vendor/);
+    // With a vendor picked by the tech, the draft goes to that vendor at the product's cost.
+    const picked = fake((c) => {
+      if (c.model === 'product.product') return [{ product_tmpl_id: [3, 'Keypad'], standard_price: 12.5 }];
+      if (c.model === 'purchase.order' && c.method === 'fields_get') return {};
+      if (c.model === 'purchase.order' && c.method === 'search') return [];
+      if (c.model === 'purchase.order' && c.method === 'create') return 91;
+      if (c.model === 'purchase.order' && c.method === 'read') return [{ name: 'P00091' }];
+      return [];
+    });
+    expect((await orderPartForJob(picked.client, { productId: 1, name: 'Genie Keypad', qty: 1 }, { id: 4, name: 'FO4' }, 77)).id).toBe(91);
+    expect(picked.calls.find((c) => c.model === 'purchase.order' && c.method === 'create')!.args[0]).toMatchObject({ partner_id: 77 });
   });
 });
