@@ -6,18 +6,20 @@ import { SectionTitle, Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
 import { categoryLevel, fetchedLabel, itemsByIds, PriceBookItem, searchItems, sortByName } from '../lib/priceBook';
 import { usePriceBook } from '../lib/usePriceBook';
+import { useStock } from '../lib/useStock';
 import { colors, touch, type } from '../theme';
 
-export type PriceBookTab = 'all' | 'favorites';
+export type PriceBookTab = 'all' | 'favorites' | 'instock';
 
 /**
  * Odoo's products and prices, browsed by category with search, the tech's
- * own favorites and what sells most. With onPick, tapping an item picks it
+ * own favorites, what is on their truck (In stock) and what sells most. With onPick, tapping an item picks it
  * (for adding to a job); without, the price book is for looking up. Good /
  * better / best comes from Odoo's quotation templates, not from here.
  */
 export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', kind }: { onPick?: (item: PriceBookItem) => void; now?: () => number; initialTab?: PriceBookTab; kind?: 'service' | 'material' }) {
   const { book: fullBook, loaded, favorites, toggle, refresh, busy, error, signedIn } = usePriceBook(now);
+  const { items: stockItems } = useStock();
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<PriceBookTab>(onPick ? 'all' : initialTab);
   const [path, setPath] = useState<string[]>([]);
@@ -33,15 +35,23 @@ export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', ki
   const level = useMemo(() => categoryLevel(book.items, path), [book.items, path]);
   const favItems = useMemo(() => sortByName(itemsByIds(book.items, favorites)), [book.items, favorites]);
   const frequent = useMemo(() => itemsByIds(book.items, book.frequent), [book.items, book.frequent]);
+  // On the tech's truck: stock items linked to an Odoo product with some on hand.
+  const onTruck = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const i of stockItems) if (i.odooId && i.onHand > 0) m.set(i.odooId, (m.get(i.odooId) ?? 0) + i.onHand);
+    return m;
+  }, [stockItems]);
+  const inStock = useMemo(() => sortByName(book.items.filter((i) => onTruck.has(i.id))), [book.items, onTruck]);
   const favSet = useMemo(() => new Set(favorites), [favorites]);
 
-  const row = (i: PriceBookItem) => <ItemRow key={i.id} item={i} favorite={favSet.has(i.id)} onToggle={() => toggle(i.id)} onPick={onPick} />;
+  const row = (i: PriceBookItem) => <ItemRow key={i.id} item={i} onTruck={onTruck.get(i.id)} favorite={favSet.has(i.id)} onToggle={() => toggle(i.id)} onPick={onPick} />;
   const searching = query.trim().length > 0;
   const tabs = (
     <Segmented
       options={[
         { value: 'all', label: 'All' },
         { value: 'favorites', label: favorites.length ? `Favorites (${favorites.length})` : 'Favorites' },
+        { value: 'instock', label: inStock.length ? `In stock (${inStock.length})` : 'In stock' },
       ]}
       value={tab}
       onChange={setTab}
@@ -70,7 +80,13 @@ export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', ki
       ) : (
         <>
           {tabs}
-          {tab === 'favorites' ? (
+          {tab === 'instock' ? (
+            inStock.length === 0 ? (
+              <Text style={styles.note} testID="price-book-no-stock">Nothing from the price book is on your truck yet. Parts on your truck (Truck stock) show up here with how many you have.</Text>
+            ) : (
+              inStock.map(row)
+            )
+          ) : tab === 'favorites' ? (
             favItems.length === 0 ? (
               <Text style={styles.note}>Tap the star on any item to keep it here. Favorites are yours alone.</Text>
             ) : (
@@ -115,12 +131,12 @@ export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', ki
   );
 }
 
-function ItemRow({ item, favorite, onToggle, onPick }: { item: PriceBookItem; favorite: boolean; onToggle: () => void; onPick?: (item: PriceBookItem) => void }) {
+function ItemRow({ item, onTruck, favorite, onToggle, onPick }: { item: PriceBookItem; onTruck?: number; favorite: boolean; onToggle: () => void; onPick?: (item: PriceBookItem) => void }) {
   const body = (
     <>
       <Text style={styles.name}>{item.name}</Text>
       <Text style={styles.meta} numberOfLines={2}>
-        {[item.kind === 'service' ? 'Service' : 'Material', item.code, item.description].filter(Boolean).join(' · ')}
+        {[item.kind === 'service' ? 'Service' : 'Material', onTruck ? `${onTruck} on truck` : '', item.code, item.description].filter(Boolean).join(' · ')}
       </Text>
     </>
   );
