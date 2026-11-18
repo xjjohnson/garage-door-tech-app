@@ -42,3 +42,29 @@ describe('labor lines follow the job labor warranty', () => {
     expect(partWarranties(off, s, trackKey)[1]!.until).toBeNull();
   });
 });
+
+import { readInvoice } from '../lib/odooSales';
+
+describe('part or labor comes from the Odoo product type', () => {
+  const rows = [
+    { id: 1, name: 'CAP2D', quantity: 1, price_subtotal: 100, display_type: 'product', sequence: 1, product_id: [5, 'CAP2D'], tax_ids: [] },
+    { id: 2, name: 'Install', quantity: 1, price_subtotal: 50, display_type: 'product', sequence: 2, product_id: [6, 'Install'], tax_ids: [3] },
+    { id: 3, name: 'Loose line', quantity: 1, price_subtotal: 20, display_type: 'product', sequence: 3, product_id: false, tax_ids: [3] },
+  ];
+  const client = (types: unknown) => ({
+    call: jest.fn(async (model: string) => {
+      if (model === 'account.move') return [{ name: 'INV/1', amount_total: 1, amount_residual: 1, payment_state: 'not_paid', invoice_line_ids: [1, 2, 3] }];
+      if (model === 'account.move.line') return rows;
+      if (model === 'product.product') return types;
+      return true;
+    }),
+  });
+  it('goods are parts and services are labor, whatever the tax says; no product falls back to tax', async () => {
+    const st = await readInvoice(client([{ id: 5, type: 'consu' }, { id: 6, type: 'service' }]) as never, 9, []);
+    expect(st.lines!.map((l) => l.taxable)).toEqual([true, false, true]);
+  });
+  it('falls back to the tax when Odoo gives no product types', async () => {
+    const st = await readInvoice(client(true) as never, 9, []);
+    expect(st.lines!.map((l) => l.taxable)).toEqual([false, true, true]);
+  });
+});
