@@ -5,6 +5,8 @@ import { Segmented } from '../components/controls';
 import { JobPhoto, PHOTO_KINDS, PHOTO_LABEL, PhotoKind, photosFor } from '../lib/attachments';
 import { formatJobDate } from '../lib/jobs';
 import { useAttachments } from '../lib/useAttachments';
+import { OdooFiles } from '../components/OdooFiles';
+import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type } from '../theme';
@@ -22,7 +24,15 @@ export function PhotosScreen({ jobId }: { jobId: string }) {
   const [error, setError] = useState(false);
   const list = photosFor({ photos, signatures: [] }, jobId);
   const { client } = useOdoo();
-  const odooJob = useJobs().jobs.find((j) => j.id === jobId)?.odooJob;
+  const job = useJobs().jobs.find((j) => j.id === jobId);
+  const odooJob = job?.odooJob;
+  const { invoices } = useInvoices();
+  // Everything Odoo holds for this job: its order, its sales order and its invoices.
+  const targets = [
+    ...(odooJob ? [{ model: odooJob.model, id: odooJob.id }] : []),
+    ...(job?.odooOrder ? [{ model: 'sale.order', id: job.odooOrder.id }] : []),
+    ...invoices.filter((i) => i.jobId === jobId && i.odoo?.id).map((i) => ({ model: 'account.move', id: i.odoo!.id })),
+  ];
   const where = !client
     ? 'Photos stay on this phone until you sign in to Odoo, then they go to the job in Odoo.'
     : odooJob
@@ -76,6 +86,7 @@ export function PhotosScreen({ jobId }: { jobId: string }) {
           </View>
         );
       })}
+      <OdooFiles targets={targets} mine={list.flatMap((p) => (p.odooId ? [p.odooId] : []))} />
     </View>
   );
 }
