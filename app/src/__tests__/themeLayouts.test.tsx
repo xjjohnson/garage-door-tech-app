@@ -95,7 +95,7 @@ function fakeOdoo() {
     }
     if ((model === 'sale.order' || model === 'account.move') && method === 'read') return (model === 'sale.order' ? ORDERS : MOVES).filter((r) => (args[0] as number[]).includes(r.id as number));
     if (method === 'read' && LINES[model]) return LINES[model].filter((l) => (args[0] as number[]).includes(l.id as number));
-    if (model === 'res.partner' && method === 'read') return [{ email: 'pat@example.com' }];
+    if (model === 'res.partner' && method === 'read') return (args[0] as number[]).map((id) => ({ id, email: 'pat@example.com', phone: '512 555 0100' }));
     if (model === 'ir.model.data') return [{ res_id: (JSON.stringify(args[0]).includes('sale') ? 21 : 12) }];
     if (model === 'mail.template') return 77;
     if (model === 'mail.mail') return [];
@@ -140,6 +140,9 @@ describe('Sales layouts', () => {
       if (sales === 'aging') expect(screen.getByTestId('sales-aging')).toHaveTextContent(/Unpaid by age/);
       if (sales === 'chase') {
         expect(screen.getByTestId('sales-chase')).toHaveTextContent(/To collect.*\$398/);
+        expect(await screen.findByTestId('chase-call-3')).toBeTruthy();
+        expect(screen.getByTestId('chase-text-3')).toBeTruthy();
+        expect(screen.getByTestId('chase-pay-3')).toBeTruthy();
         // Paid invoices are not on the chase list.
         expect(screen.queryByTestId('odoo-row-2')).toBeNull();
       }
