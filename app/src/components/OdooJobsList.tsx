@@ -134,7 +134,9 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
             {
               key: t.id,
               heading: layouts.jobsGroup === 'status' ? chip : layouts.jobsGroup === 'day' ? day : '',
-              node: (
+              node: wrapRail(
+                when,
+                t.id,
                 <VisitCard
                   key={t.id}
                   variant={layouts.jobRows}
@@ -147,7 +149,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
                   note={when !== undefined ? `${day} ${formatTime(when)}` : 'No date'}
                   onPress={() => openJob(t)}
                   testID={`odoo-job-${t.id}`}
-                />
+                />,
               ),
             },
           ];
@@ -158,6 +160,17 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
           <Text style={styles.buttonText}>{busy ? 'Loading...' : 'Show more'}</Text>
         </Pressable>
       ) : null}
+    </View>
+  );
+}
+
+/** Field: the job's start time in a column on the left, like a day plan. */
+function wrapRail(when: number | undefined, id: number, node: ReactNode): ReactNode {
+  if (!layouts.jobsRail) return node;
+  return (
+    <View key={id} style={styles.railRow}>
+      <Text style={styles.railTime} testID={`odoo-job-time-${id}`}>{when !== undefined ? formatTime(when).replace(' ', '\n') : ''}</Text>
+      <View style={styles.railBody}>{node}</View>
     </View>
   );
 }
@@ -188,6 +201,9 @@ const styles = StyleSheet.create({
   stack: { gap: sp(12) },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   group: { width: '100%' },
+  railRow: { flexDirection: 'row', gap: sp(8), alignItems: 'flex-start', width: '100%' },
+  railTime: { width: 48, paddingTop: sp(10), fontSize: fs(12), fontWeight: '800', color: colors.muted },
+  railBody: { flex: 1, minWidth: 0 },
   groupHead: { width: '100%', fontSize: fs(13), fontWeight: '800', letterSpacing: 0.7, textTransform: 'uppercase', color: colors.muted, marginTop: sp(4), paddingHorizontal: sp(4) },
   item: { minHeight: touch.min, padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   headTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8) },

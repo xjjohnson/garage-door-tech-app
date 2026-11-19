@@ -649,18 +649,19 @@ describe('the Jobs tab in each theme layout', () => {
     jest.restoreAllMocks();
   });
 
-  const cases: [RowStyle, JobsGroup][] = [
+  const cases: [RowStyle, JobsGroup, boolean?][] = [
     ['card', 'none'],
     ['dense', 'none'],
     ['table', 'none'],
     ['edge', 'day'],
+    ['edge', 'day', true],
     ['edge', 'status'],
     ['tile', 'none'],
     ['tile', 'day'],
   ];
-  for (const [jobRows, jobsGroup] of cases) {
-    it(`lists Odoo's jobs as ${jobRows} rows grouped by ${jobsGroup}, and a tap still opens the job`, async () => {
-      Object.assign(layouts, { jobRows, jobsGroup });
+  for (const [jobRows, jobsGroup, jobsRail = false] of cases) {
+    it(`lists Odoo's jobs as ${jobRows} rows grouped by ${jobsGroup}${jobsRail ? ' with a time rail' : ''}, and a tap still opens the job`, async () => {
+      Object.assign(layouts, { jobRows, jobsGroup, jobsRail });
       const o = fakeOdoo();
       o.locations.push({ id: 71, name: 'Atx', street: '9 Elm St', city: 'Austin', zip: '78701', phone: '512 555 0100' });
       o.orders.push({ id: 600, name: 'FO0001', location_id: 71, person_id: 41, scheduled_date_start: toOdooTime(at(10, 1)), scheduled_duration: 1, stage_id: [1, 'New'], description: 'Help door trapped' });
@@ -682,6 +683,7 @@ describe('the Jobs tab in each theme layout', () => {
         expect(screen.getAllByRole('header', { name: /Tomorrow · 1/ }).length).toBe(1);
         expect(screen.getAllByRole('header', { name: /No date · 1/ }).length).toBe(1);
       }
+      if (jobsRail) expect(screen.getByTestId('odoo-job-time-600')).toHaveTextContent(/10:00/);
       if (jobsGroup === 'status') expect(screen.getAllByRole('header', { name: /New · 2/ }).length).toBe(1);
       if (jobRows === 'table') expect(screen.getByText('Address')).toBeTruthy();
       await fireEvent.press(screen.getByTestId('odoo-job-600'));

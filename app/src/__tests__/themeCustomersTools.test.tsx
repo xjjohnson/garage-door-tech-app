@@ -43,3 +43,25 @@ describe('Tools in each theme layout', () => {
     });
   }
 });
+
+describe('Job detail in each theme layout', () => {
+  const { SCHEDULE_STORAGE_KEY } = require('../lib/schedule');
+  const { fireEvent } = require('@testing-library/react-native');
+  const cases = ['steps', 'assign', 'billing', 'directions'] as const;
+  for (const layout of cases) {
+    it(`draws ${layout} with the steps and the next action still there`, async () => {
+      Object.assign(layouts, { jobDetail: layout });
+      await AsyncStorage.clear();
+      const appt = { id: 'a1', start: Date.now(), minutes: 60, name: 'Pat Lee', address: '1 Elm St', phone: '555-010-0100', what: 'Broken spring', status: 'booked', createdAt: 1, updatedAt: 1 };
+      await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt]));
+      await renderApp();
+      await fireEvent.press(await screen.findByTestId('today-next'));
+      expect(await screen.findByTestId('job-steps')).toBeTruthy();
+      expect(screen.getByTestId('job-next')).toBeTruthy();
+      expect(screen.getByTestId('job-visit')).toBeTruthy();
+      if (layout === 'assign') expect(screen.getByTestId('job-reassign')).toBeTruthy();
+      if (layout === 'billing') expect(screen.getByTestId('job-money')).toBeTruthy();
+      if (layout === 'directions') expect(screen.getByTestId('job-go')).toBeTruthy();
+    });
+  }
+});
