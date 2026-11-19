@@ -5,7 +5,7 @@ import { SectionScroll } from '../../components/SectionScroll';
 import { TodayMapScreen } from '../../screens/TodayMapScreen';
 import { TodayScreen } from '../../screens/TodayScreen';
 import { WeekScreen } from '../../screens/WeekScreen';
-import { sp } from '../../theme';
+import { layouts, sp } from '../../theme';
 
 type View_ = 'week' | 'today' | 'map';
 const VIEWS: ChipOption<View_>[] = [
@@ -15,7 +15,7 @@ const VIEWS: ChipOption<View_>[] = [
 ];
 
 export default function TodayRoute() {
-  const [view, setView] = useState<View_>('today');
+  const [view, setView] = useState<View_>(layouts.homeStartsOnMap ? 'map' : 'today');
   return (
     <SectionScroll>
       <View style={styles.switch}>

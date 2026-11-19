@@ -98,21 +98,26 @@ describe('Settings', () => {
   });
 });
 
-describe('Settings look', () => {
-  it('saves a shape and size pick and offers a restart, and can go back to legacy', async () => {
+describe('Settings theme', () => {
+  it('saves a theme pick and offers a restart, and can go back to Classic', async () => {
     const restart = jest.fn(async () => undefined);
     await render(<SettingsScreen api={fakeApi()} restart={restart} />, { wrapper: wrap });
     await settle();
     expect(screen.queryByTestId('settings-look-restart')).toBeNull();
-    await fireEvent.press(screen.getByText('Square'));
-    await fireEvent.press(screen.getByText('Compact'));
+    await fireEvent.press(screen.getByTestId('settings-theme-office'));
     await settle();
-    const saved = JSON.parse((await AsyncStorage.getItem('johnsons.look')) as string);
-    expect(saved).toEqual({ shape: 'square', size: 'compact', palette: 'johnsons' });
+    const saved = JSON.parse((await AsyncStorage.getItem('johnsons.theme')) as string);
+    expect(saved).toEqual({ theme: 'office', palette: 'johnsons' });
     await fireEvent.press(screen.getByTestId('settings-look-restart'));
     expect(restart).toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('settings-look-legacy'));
     await settle();
-    expect(JSON.parse((await AsyncStorage.getItem('johnsons.look')) as string)).toEqual({ shape: 'round', size: 'legacy', palette: 'johnsons' });
+    expect(JSON.parse((await AsyncStorage.getItem('johnsons.theme')) as string)).toEqual({ theme: 'classic', palette: 'johnsons' });
+  });
+
+  it('lists all six themes plus Classic', async () => {
+    await render(<SettingsScreen api={fakeApi()} />, { wrapper: wrap });
+    await settle();
+    for (const id of ['classic', 'field', 'dispatch', 'office', 'owner', 'map', 'simple']) expect(screen.getByTestId(`settings-theme-${id}`)).toBeTruthy();
   });
 });

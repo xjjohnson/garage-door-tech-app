@@ -19,6 +19,8 @@ import { CustomersProvider } from '../lib/useCustomers';
 import { JobsProvider } from '../lib/useJobs';
 import { OdooProvider } from '../lib/useOdoo';
 import { ScheduleProvider } from '../lib/useSchedule';
+import { layouts } from '../theme';
+import type { JobsGroup, RowStyle } from '../lib/themes';
 
 const at = (h: number, dayOffset = 0) => {
   const d = new Date();
@@ -631,4 +633,60 @@ describe('New job offers Odoo\'s Field Service templates', () => {
     await fireEvent.press(screen.getByTestId('new-job-start'));
     expect(parseJobs(await AsyncStorage.getItem(JOBS_STORAGE_KEY))[0].what).toBe('Gate service');
   });
+});
+
+describe('the Jobs tab in each theme layout', () => {
+  const settle = async (n = 10) => {
+    for (let i = 0; i < n; i++) await act(async () => undefined);
+  };
+  const original = { ...layouts };
+  beforeEach(async () => {
+    resetJobsSince();
+    await AsyncStorage.clear();
+  });
+  afterEach(() => {
+    Object.assign(layouts, original);
+    jest.restoreAllMocks();
+  });
+
+  const cases: [RowStyle, JobsGroup][] = [
+    ['card', 'none'],
+    ['dense', 'none'],
+    ['table', 'none'],
+    ['edge', 'day'],
+    ['edge', 'status'],
+    ['tile', 'none'],
+    ['tile', 'day'],
+  ];
+  for (const [jobRows, jobsGroup] of cases) {
+    it(`lists Odoo's jobs as ${jobRows} rows grouped by ${jobsGroup}, and a tap still opens the job`, async () => {
+      Object.assign(layouts, { jobRows, jobsGroup });
+      const o = fakeOdoo();
+      o.locations.push({ id: 71, name: 'Atx', street: '9 Elm St', city: 'Austin', zip: '78701', phone: '512 555 0100' });
+      o.orders.push({ id: 600, name: 'FO0001', location_id: 71, person_id: 41, scheduled_date_start: toOdooTime(at(10, 1)), scheduled_duration: 1, stage_id: [1, 'New'], description: 'Help door trapped' });
+      o.orders.push({ id: 602, name: 'FO0003', location_id: 71, person_id: 41, stage_id: [1, 'New'] });
+      jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
+      const app = await renderApp('/team');
+      await settle();
+      await fireEvent.changeText(screen.getByTestId('team-url'), 'acme.odoo.com');
+      await fireEvent.changeText(screen.getByTestId('team-login'), 'j@x.test');
+      await fireEvent.changeText(screen.getByTestId('team-secret'), 'key123');
+      await fireEvent.press(screen.getByTestId('team-signin-go'));
+      await settle();
+      await act(async () => router.navigate('/jobs'));
+      await settle();
+
+      expect(screen.getByTestId('odoo-job-600')).toHaveTextContent(/FO0001/);
+      expect(screen.getByTestId('odoo-job-602')).toHaveTextContent(/FO0003/);
+      if (jobsGroup === 'day') {
+        expect(screen.getAllByRole('header', { name: /Tomorrow · 1/ }).length).toBe(1);
+        expect(screen.getAllByRole('header', { name: /No date · 1/ }).length).toBe(1);
+      }
+      if (jobsGroup === 'status') expect(screen.getAllByRole('header', { name: /New · 2/ }).length).toBe(1);
+      if (jobRows === 'table') expect(screen.getByText('Address')).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('odoo-job-600'));
+      await settle();
+      expect(app.getPathname()).toMatch(/^\/job\//);
+    });
+  }
 });

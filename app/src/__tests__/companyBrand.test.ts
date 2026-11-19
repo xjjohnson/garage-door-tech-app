@@ -66,9 +66,9 @@ describe('company brand', () => {
 
 describe('look pref', () => {
   beforeEach(() => AsyncStorage.clear());
-  it('defaults to legacy and saves a pick', async () => {
-    expect(await loadLook()).toEqual({ shape: 'round', size: 'legacy', palette: 'johnsons' });
-    await saveLook({ shape: 'square', size: 'compact', palette: 'brand' });
-    expect(await loadLook()).toEqual({ shape: 'square', size: 'compact', palette: 'brand' });
+  it('defaults to Classic and saves a pick', async () => {
+    expect(await loadLook()).toEqual({ theme: 'classic', palette: 'johnsons' });
+    await saveLook({ theme: 'office', palette: 'brand' });
+    expect(await loadLook()).toEqual({ theme: 'office', palette: 'brand' });
   });
 });

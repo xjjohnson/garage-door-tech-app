@@ -15,6 +15,31 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.15',
+    title: 'Themes: six complete looks, one pick',
+    changes: [
+      'Settings > Theme: one pick replaces Shape, Size and Colors. A theme sets how every screen is laid out, how big things are, the corners and the colors. Light and dark stay their own switch. Classic is the app as it was and stays the default.',
+      'Field (technicians): next job and a big On my way button on Home, edge-marked rows, jobs grouped by day, comfortable size.',
+      'Dispatch: opens on the map and the Team board, thin rows, square and tight.',
+      'Office: an action inbox on Home (follow-ups and unpaid invoices), Jobs as a table, Sales shows unpaid by age. Square and tight.',
+      'Owner: money first on Home (owed, collected this week), jobs grouped by status, Sales shows a to-collect list with the longest overdue first.',
+      'Map: Home and Jobs start with the route map, Sales groups invoices by what is owed.',
+      'Simple: big text, today in large rows with a Go button, a New job button, jobs as two-column tiles.',
+      'Colors: Company brand from Odoo still tints any theme if you pick it. The old Shape and Size picks are gone; each theme sets its own.',
+    ],
+    test: [
+      'Settings > Theme: tap Field, tap Restart, and look at Home, Jobs and Sales. Then try Dispatch, Office, Owner, Map and Simple the same way.',
+      'In every theme: are rows easy to tap with a thumb, and is any text clipped or crowded? Tell me the theme and the screen.',
+      'Home in Field: does On my way start the next visit like before? In Owner: do the money boxes look right?',
+      'Jobs in Office (table), Owner (headings by status) and Simple (tiles): tap a job and check it opens.',
+      'Sales in Office (by age), Owner (to collect) and Map (grouped): tap an invoice and check it opens.',
+      'Dispatch: does Jobs open on Team and Home on the map?',
+      'Dark mode in each theme.',
+      'Pick Company brand colors with a theme: do the header and buttons use your Odoo color?',
+      'Back to Classic: everything returns to how it was.',
+    ],
+  },
+  {
     release: '0.6.11',
     title: 'Looks: shape, size and company colors',
     changes: [

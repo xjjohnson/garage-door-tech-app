@@ -1,6 +1,7 @@
 import { Appearance } from 'react-native';
 import { readStartChoice, readStartValue } from './lib/themeStart';
-import { BAR_PX, BUTTON_PX, Look, brandPalette, cleanBrandColor, parsePalette, parseShape, parseSize, scaleBorder, scaleFont, scaleHeight, scaleRadius, scaleSpace } from './lib/themeLook';
+import { BAR_PX, BUTTON_PX, Look, brandPalette, cleanBrandColor, parsePalette, scaleBorder, scaleFont, scaleHeight, scaleRadius, scaleSpace } from './lib/themeLook';
+import { parseTheme, themeById } from './lib/themes';
 
 /**
  * The Johnsons look (style H1): forest green on a soft page, white rounded
@@ -97,10 +98,20 @@ function startScheme(): 'light' | 'dark' {
 export const scheme: 'light' | 'dark' = startScheme();
 export const isDark = scheme === 'dark';
 
-/** The look this run drew itself in (shape, size and palette), read at start like the scheme. Legacy until a look is picked. */
+/** The theme this run drew itself in, read at start like the scheme. Classic until one is picked. */
+export const themeDef = (() => {
+  try {
+    return themeById(parseTheme(readStartValue('apptheme')));
+  } catch {
+    return themeById('classic');
+  }
+})();
+export const layouts = themeDef.layouts;
+
+/** The look this run drew itself in: the theme's shape and size, and whether the company color tints it. */
 function startLook(): Look {
   try {
-    return { shape: parseShape(readStartValue('shape')), size: parseSize(readStartValue('size')), palette: parsePalette(readStartValue('palette')) };
+    return { shape: themeDef.shape, size: themeDef.size, palette: parsePalette(readStartValue('palette')) };
   } catch {
     return { shape: 'round', size: 'legacy', palette: 'johnsons' };
   }
@@ -109,10 +120,10 @@ export const look: Look = startLook();
 
 function startColors(): typeof light {
   const base = isDark ? dark : light;
-  if (look.palette !== 'brand') return base;
-  // The company's own color from Odoo (saved by companyBrand.ts). None saved: the Johnsons palette stays.
-  const brand = cleanBrandColor(readStartValue('brandcolor'));
-  return brand ? { ...base, ...brandPalette(brand, isDark) } : base;
+  // The company's own color from Odoo (saved by companyBrand.ts) wins when the tech chose it. None saved: the theme's own color.
+  const brand = look.palette === 'brand' ? cleanBrandColor(readStartValue('brandcolor')) : null;
+  const tint = brand ?? themeDef.accent;
+  return tint ? { ...base, ...brandPalette(tint, isDark) } : base;
 }
 export const colors: typeof light = startColors();
 

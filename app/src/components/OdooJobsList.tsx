@@ -6,9 +6,9 @@
  * signal.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { VisitCard } from './VisitCard';
+import { rowGap, TableHead, VisitCard } from './VisitCard';
 import { Text } from './AppText';
 import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
@@ -19,7 +19,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useOpenOdooJob } from '../lib/useStartJob';
-import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { colors, layouts, touch, type, bw, fs, rad, sp } from '../theme';
 
 export const ODOO_JOBS_STORAGE_KEY = 'odoo-jobs-list/v1';
 const PAGE = 40;
@@ -104,7 +104,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
 
   const t0 = now();
   return (
-    <View style={styles.stack} testID="odoo-jobs">
+    <View style={[styles.stack, { gap: rowGap(layouts.jobRows) }, layouts.jobRows === 'tile' && styles.tiles]} testID="odoo-jobs">
       {error ? (
         <Text style={styles.error} testID="odoo-jobs-error">
           Couldn&apos;t read Odoo&apos;s jobs: {error}
@@ -117,30 +117,42 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
           {search.trim() ? 'No jobs in Odoo match.' : filter === 'upcoming' ? 'Nothing planned after today. Visits from maintenance plans show up here once Odoo makes them, about 30 days ahead.' : filter === 'open' ? 'No open jobs in Odoo.' : 'No jobs in Odoo.'}
         </Text>
       ) : null}
-      {(rows ?? []).map((t) => {
-        const phoneJob = jobs.find((j) => j.odooJob?.id === t.id);
-        if (owedJobIds && !(phoneJob && owedJobIds.has(phoneJob.id))) return null;
-        const when = t.start ?? t.deadline;
-        const started = !!phoneJob?.steps?.arrivedAt;
-        // Work finished but not paid: say so instead of "In progress".
-        const mine = phoneJob ? invoices.filter((i) => i.jobId === phoneJob.id && invoiceStatus(i) !== 'void') : [];
-        const waiting = !!phoneJob?.steps?.workDoneAt && !(mine.length > 0 && mine.every((i) => invoiceStatus(i) === 'paid'));
-        const stage = t.stage || 'New';
-        return (
-          <VisitCard
-            key={t.id}
-            top={t.name}
-            chip={waiting ? 'Waiting for payment' : started ? 'In progress' : stage}
-            tone={started || waiting ? 'on' : 'plain'}
-            name={t.customer || t.name}
-            address={t.address}
-            what={whatOf(t)}
-            note={when !== undefined ? `${dayLabel(when, t0)} ${formatTime(when)}` : 'No date'}
-            onPress={() => openJob(t)}
-            testID={`odoo-job-${t.id}`}
-          />
-        );
-      })}
+      {layouts.jobRows === 'table' && (rows ?? []).length > 0 ? <TableHead cols={['Job', 'Address', 'When']} /> : null}
+      {groupJobs(
+        (rows ?? []).flatMap((t) => {
+          const phoneJob = jobs.find((j) => j.odooJob?.id === t.id);
+          if (owedJobIds && !(phoneJob && owedJobIds.has(phoneJob.id))) return [];
+          const when = t.start ?? t.deadline;
+          const started = !!phoneJob?.steps?.arrivedAt;
+          // Work finished but not paid: say so instead of "In progress".
+          const mine = phoneJob ? invoices.filter((i) => i.jobId === phoneJob.id && invoiceStatus(i) !== 'void') : [];
+          const waiting = !!phoneJob?.steps?.workDoneAt && !(mine.length > 0 && mine.every((i) => invoiceStatus(i) === 'paid'));
+          const stage = t.stage || 'New';
+          const chip = waiting ? 'Waiting for payment' : started ? 'In progress' : stage;
+          const day = when !== undefined ? dayLabel(when, t0) : 'No date';
+          return [
+            {
+              key: t.id,
+              heading: layouts.jobsGroup === 'status' ? chip : layouts.jobsGroup === 'day' ? day : '',
+              node: (
+                <VisitCard
+                  key={t.id}
+                  variant={layouts.jobRows}
+                  top={t.name}
+                  chip={chip}
+                  tone={waiting ? (layouts.jobRows === 'card' ? 'on' : 'warn') : started ? 'on' : 'plain'}
+                  name={t.customer || t.name}
+                  address={t.address}
+                  what={whatOf(t)}
+                  note={when !== undefined ? `${day} ${formatTime(when)}` : 'No date'}
+                  onPress={() => openJob(t)}
+                  testID={`odoo-job-${t.id}`}
+                />
+              ),
+            },
+          ];
+        }),
+      )}
       {more ? (
         <Pressable onPress={() => load(rows?.length ?? 0)} disabled={busy} accessibilityRole="button" testID="odoo-jobs-more" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
           <Text style={styles.buttonText}>{busy ? 'Loading...' : 'Show more'}</Text>
@@ -150,8 +162,33 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
   );
 }
 
+/** Puts a heading above each run of jobs when the theme groups them (by day or by status), else just the jobs. */
+function groupJobs(items: { key: number; heading: string; node: ReactNode }[]): ReactNode {
+  if (layouts.jobsGroup === 'none') return items.map((i) => i.node);
+  const order: string[] = [];
+  const by = new Map<string, typeof items>();
+  for (const i of items) {
+    if (!by.has(i.heading)) {
+      by.set(i.heading, []);
+      order.push(i.heading);
+    }
+    by.get(i.heading)!.push(i);
+  }
+  return order.map((h) => (
+    <View key={h} style={[styles.group, layouts.jobRows === 'tile' && styles.tiles, { gap: rowGap(layouts.jobRows) }]}>
+      <Text style={styles.groupHead} accessibilityRole="header">
+        {h} · {by.get(h)!.length}
+      </Text>
+      {by.get(h)!.map((i) => i.node)}
+    </View>
+  ));
+}
+
 const styles = StyleSheet.create({
   stack: { gap: sp(12) },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  group: { width: '100%' },
+  groupHead: { width: '100%', fontSize: fs(13), fontWeight: '800', letterSpacing: 0.7, textTransform: 'uppercase', color: colors.muted, marginTop: sp(4), paddingHorizontal: sp(4) },
   item: { minHeight: touch.min, padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   headTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8) },
   name: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },

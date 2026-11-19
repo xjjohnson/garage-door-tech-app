@@ -11,7 +11,8 @@ import { fetchList, FILTERS, ListFilter, ListKind, LISTS_STORAGE_KEY, OdooListRo
 import { formatMoney } from '../lib/prices';
 import { formatTime } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { agingBuckets, chaseOrder, daysLate, isUnpaid, owedOf, sections } from '../lib/salesLayouts';
+import { colors, layouts, touch, type, bw, fs, rad, sp } from '../theme';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -120,16 +121,126 @@ export function OdooListScreen({ kind, now = Date.now, openLocal }: { kind: List
 
 /** Rows open Odoo's record, or the phone's own invoice (payments, signature) when openLocal knows it. */
 function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRow[]; now: number; openLocal?: (odooId: number) => string | undefined }) {
+  const open = (r: OdooListRow) => {
+    const local = openLocal?.(r.id);
+    if (local) router.push({ pathname: '/invoice/[id]', params: { id: local } });
+    else router.push({ pathname: '/odoo-record/[kind]/[id]', params: { kind, id: String(r.id) } });
+  };
+  // The theme picks how the list is drawn; quotes always use the plain dense row when a theme is on.
+  const layout = layouts.sales === 'classic' ? 'classic' : kind === 'invoices' ? layouts.sales : 'dense';
+  const meta = (r: OdooListRow) =>
+    [r.status, r.residual && r.residual !== r.total && r.warn ? `${formatMoney(r.residual)} owed` : '', r.date ? formatJobDate(r.date) : '', r.warn && r.due && r.due < now ? `due ${formatJobDate(r.due)}` : ''].filter(Boolean).join(' · ');
+  const dense = (r: OdooListRow) => (
+    <Pressable key={r.id} onPress={() => open(r)} accessibilityRole="button" testID={`odoo-row-${r.id}`} style={({ pressed }) => [styles.dense, pressed && styles.pressed]}>
+      <View style={[styles.dot, { backgroundColor: r.warn ? colors.stop : isUnpaid(r) ? colors.caution : r.status === 'Paid' ? colors.ok : colors.muted }]} />
+      <View style={styles.denseText}>
+        <Text style={styles.denseName} numberOfLines={1}>
+          {r.name} · {r.customer || 'No customer'}
+        </Text>
+        <Text style={[styles.denseMeta, r.warn && styles.warn]} numberOfLines={1}>
+          {meta(r)}
+        </Text>
+      </View>
+      <Text style={styles.money}>{formatMoney(r.refund ? -r.total : r.total)}</Text>
+    </Pressable>
+  );
+  const head = (title: string, amount?: number) => (
+    <Text key={`h-${title}`} style={styles.groupHead} accessibilityRole="header">
+      {title}
+      {amount ? ` · ${formatMoney(amount)}` : ''}
+    </Text>
+  );
+
+  if (layout === 'dense') return <View style={styles.tight}>{rows.map(dense)}</View>;
+  if (layout === 'grouped')
+    return (
+      <View style={styles.tight}>
+        {sections(rows, now).map((sec) => (
+          <View key={sec.title} style={styles.tight}>
+            {head(sec.title, sec.title === 'Paid and other' ? undefined : sec.owed)}
+            {sec.rows.map(dense)}
+          </View>
+        ))}
+      </View>
+    );
+  if (layout === 'table')
+    return (
+      <View style={styles.tight}>
+        <View style={styles.tHead}>
+          <Text style={[styles.tHeadText, styles.tNo]}>No.</Text>
+          <Text style={[styles.tHeadText, styles.tMain]}>Customer</Text>
+          <Text style={[styles.tHeadText, styles.tEnd]}>Amount</Text>
+        </View>
+        {rows.map((r) => (
+          <Pressable key={r.id} onPress={() => open(r)} accessibilityRole="button" testID={`odoo-row-${r.id}`} style={({ pressed }) => [styles.tRow, pressed && styles.pressed]}>
+            <Text style={[styles.tCell, styles.tNo, styles.tBold]} numberOfLines={1}>
+              {r.name.split('/').pop()}
+            </Text>
+            <Text style={[styles.tCell, styles.tMain, r.warn && styles.warn]} numberOfLines={1}>
+              {r.customer || 'No customer'} · {r.status}
+            </Text>
+            <Text style={[styles.tCell, styles.tEnd, styles.tBold]} numberOfLines={1}>
+              {formatMoney(r.refund ? -r.total : r.total)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  if (layout === 'aging') {
+    const buckets = agingBuckets(rows, now);
+    const max = Math.max(1, ...buckets.map((b) => b.total));
+    return (
+      <View style={styles.tight}>
+        <View style={styles.aging} testID="sales-aging">
+          <Text style={styles.groupHead}>Unpaid by age</Text>
+          {buckets.map((b, i) => (
+            <View key={b.bucket} style={styles.ageRow}>
+              <Text style={styles.ageLabel}>{b.bucket}</Text>
+              <View style={styles.ageTrack}>
+                <View style={[styles.ageFill, { width: `${Math.max(b.total > 0 ? 4 : 0, Math.round((b.total / max) * 100))}%`, backgroundColor: i === 0 ? colors.ok : i === 1 ? colors.caution : colors.stop }]} />
+              </View>
+              <Text style={styles.ageMoney}>{b.total > 0 ? formatMoney(b.total) : '–'}</Text>
+            </View>
+          ))}
+        </View>
+        {rows.filter(isUnpaid).length > 0 ? head('Unpaid, oldest first') : null}
+        {chaseOrder(rows, now).map(dense)}
+      </View>
+    );
+  }
+  if (layout === 'chase') {
+    const list = chaseOrder(rows, now);
+    const owed = list.reduce((n, r) => n + owedOf(r), 0);
+    return (
+      <View style={styles.tight} testID="sales-chase">
+        {head('To collect', owed)}
+        {list.length === 0 ? <Text style={styles.meta}>Nothing to collect here.</Text> : null}
+        {list.map((r) => {
+          const late = daysLate(r, now);
+          return (
+            <Pressable key={r.id} onPress={() => open(r)} accessibilityRole="button" testID={`odoo-row-${r.id}`} style={({ pressed }) => [styles.chase, late > 0 && styles.chaseLate, pressed && styles.pressed]}>
+              <View style={styles.top}>
+                <Text style={styles.customer} numberOfLines={1}>
+                  {r.customer || 'No customer'}
+                </Text>
+                <Text style={styles.chaseMoney}>{formatMoney(owedOf(r))}</Text>
+              </View>
+              <Text style={[styles.meta, late > 0 && styles.warn]}>
+                {r.name}
+                {late > 0 ? ` · ${late} day${late === 1 ? '' : 's'} overdue` : r.due ? ` · due ${formatJobDate(r.due)}` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
   return (
     <View style={styles.stack}>
       {rows.map((r) => (
         <Pressable
           key={r.id}
-          onPress={() => {
-            const local = openLocal?.(r.id);
-            if (local) router.push({ pathname: '/invoice/[id]', params: { id: local } });
-            else router.push({ pathname: '/odoo-record/[kind]/[id]', params: { kind, id: String(r.id) } });
-          }}
+          onPress={() => open(r)}
           accessibilityRole="button"
           testID={`odoo-row-${r.id}`}
           style={({ pressed }) => [styles.row, pressed && styles.pressed]}
@@ -139,9 +250,7 @@ function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRo
             <Text style={styles.money}>{formatMoney(r.refund ? -r.total : r.total)}</Text>
           </View>
           <Text style={styles.customer}>{r.customer || 'No customer'}</Text>
-          <Text style={[styles.meta, r.warn && styles.warn]}>
-            {[r.status, r.residual && r.residual !== r.total && r.warn ? `${formatMoney(r.residual)} owed` : '', r.date ? formatJobDate(r.date) : '', r.warn && r.due && r.due < now ? `due ${formatJobDate(r.due)}` : ''].filter(Boolean).join(' · ')}
-          </Text>
+          <Text style={[styles.meta, r.warn && styles.warn]}>{meta(r)}</Text>
         </Pressable>
       ))}
     </View>
@@ -150,6 +259,30 @@ function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRo
 
 const styles = StyleSheet.create({
   stack: { gap: sp(10) },
+  tight: { gap: sp(4) },
+  dense: { flexDirection: 'row', alignItems: 'center', gap: sp(10), minHeight: touch.min + 6, paddingHorizontal: sp(12), paddingVertical: sp(6), borderRadius: rad(10), backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
+  dot: { width: 9, height: 9, borderRadius: 5 },
+  denseText: { flex: 1, minWidth: 0 },
+  denseName: { fontSize: fs(16), fontWeight: '800', color: colors.text },
+  denseMeta: { fontSize: fs(13), fontWeight: '600', color: colors.muted },
+  groupHead: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.7, textTransform: 'uppercase', color: colors.muted, marginTop: sp(6), paddingHorizontal: sp(4) },
+  tHead: { flexDirection: 'row', gap: sp(8), paddingHorizontal: sp(12), paddingVertical: sp(4) },
+  tHeadText: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', color: colors.muted },
+  tRow: { flexDirection: 'row', alignItems: 'center', gap: sp(8), minHeight: touch.min, paddingHorizontal: sp(12), borderRadius: rad(6), backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
+  tCell: { fontSize: fs(14), fontWeight: '600', color: colors.text },
+  tBold: { fontWeight: '800' },
+  tNo: { width: '17%' },
+  tMain: { flex: 1 },
+  tEnd: { width: '27%', textAlign: 'right' },
+  aging: { gap: sp(6), padding: sp(12), borderRadius: rad(12), backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
+  ageRow: { flexDirection: 'row', alignItems: 'center', gap: sp(8) },
+  ageLabel: { width: '24%', fontSize: fs(13), fontWeight: '700', color: colors.muted },
+  ageTrack: { flex: 1, height: 14, borderRadius: 7, backgroundColor: colors.info, overflow: 'hidden' },
+  ageFill: { height: 14, borderRadius: 7 },
+  ageMoney: { width: '24%', textAlign: 'right', fontSize: fs(14), fontWeight: '800', color: colors.text },
+  chase: { gap: sp(2), padding: sp(14), borderRadius: rad(14), backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, borderLeftWidth: 4, borderLeftColor: colors.caution },
+  chaseLate: { borderLeftColor: colors.stop },
+  chaseMoney: { fontSize: fs(20), fontWeight: '800', color: colors.text },
   input: { minHeight: touch.min, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   row: { minHeight: touch.min, padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
