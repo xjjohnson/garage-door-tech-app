@@ -90,6 +90,18 @@ export interface Snapshot {
   month: PeriodStats;
   /** Collected per month, oldest first, ending with this month. */
   months: { start: number; collected: number }[];
+  /** Collected per day, oldest first, ending today (seven days). */
+  days?: { start: number; collected: number }[];
+}
+
+/** The last seven days as periods, oldest first, the last one today. */
+export function lastDays(now: number, n = 7): Period[] {
+  const d = new Date(now);
+  return Array.from({ length: n }, (_, k) => {
+    const a = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (n - 1 - k));
+    const b = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (n - 1 - k) + 1);
+    return { start: a.getTime(), end: b.getTime() };
+  });
 }
 
 export function snapshot(jobs: Job[], invoices: Invoice[], now: number, monthsBack = 6): Snapshot {
@@ -106,6 +118,7 @@ export function snapshot(jobs: Job[], invoices: Invoice[], now: number, monthsBa
     week: periodStats(jobs, invoices, thisWeek(now)),
     month: periodStats(jobs, invoices, monthOf(now)),
     months,
+    days: lastDays(now).map((p) => ({ start: p.start, collected: periodStats(jobs, invoices, p).collected })),
   };
 }
 

@@ -7,7 +7,7 @@
 import { PAY_METHODS, PayMethod } from './invoices';
 import type { OdooClient } from './odoo';
 import { iso, methodOf } from './odooPayments';
-import { monthOf, Period, PeriodStats, Snapshot, thisWeek } from './stats';
+import { lastDays, monthOf, Period, PeriodStats, Snapshot, thisWeek } from './stats';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
 type Row = Record<string, unknown>;
@@ -84,5 +84,6 @@ export async function odooSnapshot(c: Client, now: number, monthsBack = 6): Prom
       const p = monthOf(now, k - monthsBack + 1);
       return { start: p.start, collected: stats(p).collected };
     }),
+    days: lastDays(now).map((p) => ({ start: p.start, collected: stats(p).collected })),
   };
 }

@@ -199,11 +199,32 @@ function NextCard({ visit }: { visit: Appointment }) {
 
 function OwnerKpis({ now, done, total }: { now: () => number; done: number; total: number }) {
   const { stats } = useStats(now);
+  const days = stats.days ?? [];
+  const top = Math.max(1, ...days.map((d) => d.collected));
   return (
-    <View style={styles.kpis} testID="today-owner-kpis">
-      <Kpi value={formatMoney(stats.owed)} label="Owed to you" testID="today-owner-owed" />
-      <Kpi value={formatMoney(stats.week.collected)} label="Collected this week" testID="today-owner-week" />
-      <Kpi value={`${done} / ${total}`} label="Visits done" testID="today-owner-done" />
+    <View style={styles.stack} testID="today-owner-kpis">
+      <View style={styles.kpis}>
+        <Kpi value={formatMoney(stats.owed)} label="Owed to you" testID="today-owner-owed" />
+        <Kpi value={formatMoney(stats.week.collected)} label="Collected this week" testID="today-owner-week" />
+      </View>
+      {days.length > 0 ? (
+        <View style={styles.chart} testID="today-owner-chart" accessibilityLabel="Money collected in the last seven days">
+          <Text style={styles.sectionHead}>COLLECTED, LAST 7 DAYS</Text>
+          <View style={styles.bars}>
+            {days.map((d) => (
+              <View key={d.start} style={styles.barCol}>
+                <View style={[styles.bar, { height: Math.max(3, Math.round((d.collected / top) * 70)) }]} />
+                <Text style={styles.barDay}>{['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(d.start).getDay()]}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+      <View style={styles.kpis}>
+        <Kpi value={String(stats.openJobs)} label="Open jobs" testID="today-owner-open" />
+        <Kpi value={String(stats.owedInvoices)} label="Unpaid" testID="today-owner-unpaid" />
+        <Kpi value={`${done} / ${total}`} label="Visits done" testID="today-owner-done" />
+      </View>
     </View>
   );
 }
@@ -329,6 +350,11 @@ const styles = StyleSheet.create({
   kpiValue: { fontSize: fs(19), fontWeight: '800', color: colors.text },
   kpiLabel: { fontSize: fs(12.5), fontWeight: '600', color: colors.muted },
   version: { fontSize: fs(12), color: colors.muted, textAlign: 'center', paddingVertical: sp(8) },
+  chart: { padding: sp(12), gap: sp(8), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card },
+  bars: { flexDirection: 'row', alignItems: 'flex-end', gap: sp(6), height: 90 },
+  barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: sp(2) },
+  bar: { width: '100%', borderRadius: rad(3), backgroundColor: colors.selected },
+  barDay: { fontSize: fs(11), fontWeight: '700', color: colors.muted },
   sectionHead: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.6, color: colors.muted },
   count: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   weatherDay: { fontSize: fs(16), fontWeight: '800', color: colors.stop },

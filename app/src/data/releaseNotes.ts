@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.20',
+    title: 'Owner theme: money dashboard on Home',
+    changes: ['Owner Home: Owed to you and Collected this week up top, a bar chart of money collected the last 7 days, then Open jobs, Unpaid and Visits done. Today\'s visits follow below.'],
+    test: ['Settings > Theme > Owner (Restart): does Home look like the Owner mock-up? Do the bars match what you collected each day?', 'Not yet in this release: the Crew today list (who is on a job or driving).'],
+  },
+  {
     release: '0.6.19',
     title: 'Themes: Job detail layouts and the Field day timeline',
     changes: [
