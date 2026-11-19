@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.22',
+    title: 'Owner Sales: Call, Text and Take payment on each row',
+    changes: ['Owner Sales: each unpaid invoice in the To collect list has Call and Text buttons (the customer\'s phone comes from Odoo) and a Take payment button that opens the invoice, where you record the payment as before.'],
+    test: ['Settings > Theme > Owner (Restart), open Sales: tap Call and Text on a row. Tap Take payment: does the invoice open with the payment options?'],
+  },
+  {
     release: '0.6.21',
     title: 'Dispatch Sales table: status column',
     changes: ['Dispatch Sales: the invoice table has a Status column with a colored dot, as in the mock-up, instead of the status in the customer text.'],
