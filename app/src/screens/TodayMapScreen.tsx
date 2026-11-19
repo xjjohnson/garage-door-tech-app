@@ -69,7 +69,7 @@ export function routeStops(appointments: Appointment[], now: number, onDate: num
  * with Show nearby, customers who owe money ($) or have an open quote (Q)
  * near the route. Tap a pin for Navigate (Google Maps or Waze) and the job.
  */
-export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
+export function TodayMapScreen({ now = Date.now, full = false }: { now?: () => number; full?: boolean }) {
   const appointments = useVisits();
   const { invoices } = useInvoices();
   const { client } = useOdoo();
@@ -213,9 +213,17 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
   const route = googleRouteLink(stops.filter((s) => s.kind !== 'done').map((s) => s.address));
   const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
 
+  const driveMiles = stops.reduce((n, s, i) => {
+    const a = i > 0 ? pointOf(stops[i - 1]) : undefined;
+    const b = pointOf(s);
+    return a && b ? n + miles(a, b) : n;
+  }, 0);
+  const unpaidCount = invoices.filter((i) => !i.voidedAt && ['unpaid', 'partial'].includes(invoiceStatus(i))).length;
+  const [sheetOpen, setSheetOpen] = useState(false);
+
   return (
-    <View style={styles.stack} testID="today-map">
-      <View style={styles.mapBox}>
+    <View style={full ? styles.full : styles.stack} testID="today-map">
+      <View style={full ? styles.mapFull : styles.mapBox}>
         <WebView
           ref={web}
           source={{ html, baseUrl: 'https://johnsons.hivemindjohnson.work/' }}
@@ -238,6 +246,48 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
         </Pressable>
       </View>
 
+      {full ? (
+        <View style={styles.sheet} testID="map-sheet">
+          <Pressable onPress={() => setSheetOpen((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: sheetOpen }} accessibilityLabel="Stops, drive and unpaid. Tap to show the list" testID="map-sheet-toggle" style={styles.sheetTop}>
+            <View style={styles.handle} />
+            <View style={styles.stats}>
+              <View style={styles.stat}><Text style={styles.statLabel}>Stops</Text><Text style={styles.statValue} testID="map-stat-stops">{stops.length}</Text></View>
+              <View style={styles.stat}><Text style={styles.statLabel}>Drive</Text><Text style={styles.statValue} testID="map-stat-drive">{driveMiles > 0 ? formatMiles(driveMiles) : '–'}</Text></View>
+              <View style={styles.stat}><Text style={styles.statLabel}>Unpaid</Text><Text style={[styles.statValue, unpaidCount > 0 && styles.statWarn]} testID="map-stat-unpaid">{unpaidCount}</Text></View>
+            </View>
+          </Pressable>
+          <DayStrip days={days} counts={counts} selected={picked} onSelect={(d) => { setPicked(d); setSelected(null); }} testID="map-days" compact />
+          {sel ? (
+            <View style={styles.selRow} testID="map-selected">
+              <View style={styles.grow}>
+                <Text style={styles.lineTitle} numberOfLines={1}>{sel.title}</Text>
+                {sel.detail ? <Text style={styles.lineSub} numberOfLines={1}>{sel.detail}</Text> : null}
+              </View>
+              <Action label="Go" primary onPress={() => open(googleNavLink(sel.address, pointOf(sel)))} testID="map-nav-google" />
+              {sel.appointment ? <Action label={sel.appointment.jobId ? 'Open job' : 'Start job'} onPress={() => startJob(sel.appointment!)} testID="map-open-job" /> : null}
+            </View>
+          ) : null}
+          {sheetOpen ? (
+            <View style={styles.sheetList}>
+              {listed.map((p) => (
+                <Pressable key={p.id} onPress={() => setSelected(p.id)} accessibilityRole="button" accessibilityState={{ selected: p.id === selected }} testID={`map-row-${p.id}`} style={({ pressed }) => [styles.lineTight, p.id === selected && styles.lineOn, pressed && styles.pressed]}>
+                  <Text style={styles.lineTitle} numberOfLines={1}>{p.title}</Text>
+                  {p.detail ? <Text style={styles.lineSub} numberOfLines={1}>{p.detail}</Text> : null}
+                </Pressable>
+              ))}
+              {route ? <Action label="Whole day in Google Maps" onPress={() => open(route)} testID="map-route" /> : null}
+            </View>
+          ) : null}
+          <Text style={styles.meta} testID="map-status">
+            {offline ? 'No map without internet. ' : ''}
+            {waiting > 0 ? `Finding ${waiting} address${waiting === 1 ? '' : 'es'} on the map... ` : ''}
+            {problems.length > 0 ? `${notFound + approx} address${notFound + approx === 1 ? '' : 'es'} not placed exactly. ` : ''}
+            {nearby && shownExtras.length ? `${shownExtras.length} nearby: $ owes money, Q open quote.` : ''}
+            {odooError ? odooError : ''}
+          </Text>
+        </View>
+      ) : (
+        <>
       <DayStrip days={days} counts={counts} selected={picked} onSelect={(d) => { setPicked(d); setSelected(null); }} testID="map-days" />
       <Text style={styles.dayTitle} testID="map-day">
         {dayLabel(picked, t)} · {stops.length === 0 ? 'nothing booked' : `${stops.length} visit${stops.length === 1 ? '' : 's'}`}
@@ -324,12 +374,27 @@ export function TodayMapScreen({ now = Date.now }: { now?: () => number }) {
         ))}
       </View>
       <Text style={styles.credit}>Map © OpenStreetMap contributors. Addresses are looked up with OpenStreetMap Nominatim and kept on this phone.</Text>
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   stack: { gap: sp(12) },
+  full: { flex: 1, minHeight: 560 },
+  mapFull: { flex: 1, minHeight: 300, overflow: 'hidden', backgroundColor: '#E9EDE6' },
+  sheet: { backgroundColor: colors.bg, borderTopWidth: bw(1), borderTopColor: colors.line, paddingHorizontal: sp(12), paddingBottom: sp(8), gap: sp(8) },
+  sheetTop: { gap: sp(6), paddingTop: sp(6) },
+  handle: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  stats: { flexDirection: 'row' },
+  stat: { flex: 1 },
+  statLabel: { fontSize: fs(13), fontWeight: '700', color: colors.muted },
+  statValue: { fontSize: fs(22), fontWeight: '800', color: colors.text },
+  statWarn: { color: colors.warn },
+  selRow: { flexDirection: 'row', alignItems: 'center', gap: sp(8) },
+  sheetList: { gap: sp(4) },
+  lineTight: { paddingVertical: sp(6), paddingHorizontal: sp(10), borderRadius: rad(8), borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card },
   row: { flexDirection: 'row', gap: sp(8) },
   grow: { flex: 1 },
   mapBox: { height: 340, borderRadius: radius.sheet, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden', backgroundColor: '#E9EDE6' },

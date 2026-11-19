@@ -8,7 +8,7 @@ const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
  * Seven day chips, each with its weekday, date and how many visits it has
  * (a dash when none). Tap one to pick the day. Used on Home > Week.
  */
-export function DayStrip({ days, counts, selected, onSelect, testID }: { days: number[]; counts: number[]; selected: number; onSelect: (day: number) => void; testID?: string }) {
+export function DayStrip({ days, counts, selected, onSelect, testID, compact }: { days: number[]; counts: number[]; selected: number; onSelect: (day: number) => void; testID?: string; compact?: boolean }) {
   return (
     <View style={styles.row} testID={testID} accessibilityRole="radiogroup">
       {days.map((d, i) => {
@@ -23,11 +23,11 @@ export function DayStrip({ days, counts, selected, onSelect, testID }: { days: n
             accessibilityState={{ selected: on }}
             accessibilityLabel={`${DAYS[date.getDay()]} ${date.getDate()}, ${n === 0 ? 'no visits' : `${n} visit${n === 1 ? '' : 's'}`}`}
             testID={`day-${i}`}
-            style={({ pressed }) => [styles.chip, on && styles.on, pressed && !on && styles.pressed]}
+            style={({ pressed }) => [styles.chip, compact && styles.chipCompact, on && styles.on, pressed && !on && styles.pressed]}
           >
             <Text style={[styles.dow, on && styles.onText]}>{DAYS[date.getDay()]}</Text>
             <Text style={[styles.date, on && styles.onText]}>{date.getDate()}</Text>
-            <Text style={[styles.count, on && styles.onText]}>{n === 0 ? '–' : n}</Text>
+            {compact ? <Text style={[styles.count, on && styles.onText]}>{n === 0 ? ' ' : '•'}</Text> : <Text style={[styles.count, on && styles.onText]}>{n === 0 ? '–' : n}</Text>}
           </Pressable>
         );
       })}
@@ -38,6 +38,7 @@ export function DayStrip({ days, counts, selected, onSelect, testID }: { days: n
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: sp(5) },
   chip: { flex: 1, alignItems: 'center', paddingVertical: sp(8), borderRadius: radius.card - 2, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, minHeight: sz(72), ...shadow },
+  chipCompact: { minHeight: sz(52), paddingVertical: sp(4), ...{ shadowOpacity: 0, elevation: 0 } },
   on: { backgroundColor: colors.selected, borderColor: colors.selected },
   pressed: { backgroundColor: colors.info },
   dow: { fontSize: fs(11), fontWeight: '800', letterSpacing: 0.4, color: colors.muted },
