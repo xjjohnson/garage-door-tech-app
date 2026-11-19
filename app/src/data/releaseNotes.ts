@@ -15,6 +15,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.18',
+    title: 'Themes: Customers and Tools get their own layouts',
+    changes: [
+      'Customers: Field and Simple show big rows with Call and Go on each row. Dispatch and Office show a table (jobs, open, owes). Owner shows who owes you, biggest first, with a bar. Map lists customers nearest your next stop first, with the distance.',
+      'Tools: Field and Simple show six big tiles. Dispatch and Office show a compact list. Owner shows business tools first. Map puts Spring calc and Parts and truck as two big buttons on top.',
+    ],
+    test: [
+      'Settings > Theme, pick Field, tap Restart, open Customers and Tools. Then try Office, Owner and Map. Does each look like the mock-up you approved?',
+      'In Map, Customers sorts by distance from your next stop today. With no stop today it shows A to Z.',
+      'Not in this release: the small map strip on Map Customers, Job detail layouts, and the Field Jobs timeline.',
+    ],
+  },
+  {
     release: '0.6.17',
     title: 'Dispatch theme: technician lanes on an hour axis',
     changes: ['Dispatch: Jobs opens on the Team board, and each technician\'s day is drawn as blocks on an hour axis (as in the mock-up) instead of a list of chips. Tap a block to move it or change its time.'],

@@ -12,6 +12,8 @@ export type ThemeId = 'classic' | 'field' | 'dispatch' | 'office' | 'owner' | 'm
 export type RowStyle = 'card' | 'dense' | 'edge' | 'tile' | 'big' | 'table';
 export type HomeLayout = 'classic' | 'field' | 'inbox' | 'owner' | 'map' | 'simple';
 export type JobsGroup = 'none' | 'status' | 'day';
+export type CustomersLayout = 'classic' | 'big' | 'table' | 'owed' | 'near';
+export type ToolsLayout = 'classic' | 'tiles' | 'compact' | 'business' | 'calc';
 export type SalesLayout = 'classic' | 'dense' | 'table' | 'aging' | 'chase' | 'grouped';
 
 export interface Layouts {
@@ -29,6 +31,8 @@ export interface Layouts {
   /** Home opens on the map instead of the list. */
   homeStartsOnMap: boolean;
   sales: SalesLayout;
+  customers: CustomersLayout;
+  tools: ToolsLayout;
 }
 
 export interface ThemeDef {
@@ -46,7 +50,7 @@ export interface ThemeDef {
   layouts: Layouts;
 }
 
-const CLASSIC_LAYOUTS: Layouts = { visitRows: 'card', jobRows: 'card', jobsGroup: 'none', jobsTeamFirst: false, jobsMap: false, home: 'classic', homeStartsOnMap: false, sales: 'classic' };
+const CLASSIC_LAYOUTS: Layouts = { visitRows: 'card', jobRows: 'card', jobsGroup: 'none', jobsTeamFirst: false, jobsMap: false, home: 'classic', homeStartsOnMap: false, sales: 'classic', customers: 'classic', tools: 'classic' };
 
 export const THEMES: ThemeDef[] = [
   { id: 'classic', label: 'Classic', who: 'Everyone, as before', detail: 'The app as it was: large cards and buttons.', shape: 'round', size: 'legacy', accent: null, swatch: ['#12633A', '#52C48A', '#EAF0EC'], layouts: CLASSIC_LAYOUTS },
@@ -59,7 +63,7 @@ export const THEMES: ThemeDef[] = [
     size: 'comfortable',
     accent: null,
     swatch: ['#0F3D26', '#52C48A', '#F2B33D'],
-    layouts: { visitRows: 'edge', jobRows: 'edge', jobsGroup: 'day', jobsTeamFirst: false, jobsMap: false, home: 'field', homeStartsOnMap: false, sales: 'dense' },
+    layouts: { visitRows: 'edge', jobRows: 'edge', jobsGroup: 'day', jobsTeamFirst: false, jobsMap: false, home: 'field', homeStartsOnMap: false, sales: 'dense', customers: 'big', tools: 'tiles' },
   },
   {
     id: 'dispatch',
@@ -70,7 +74,7 @@ export const THEMES: ThemeDef[] = [
     size: 'tight',
     accent: '#1F6FB5',
     swatch: ['#14283A', '#5AA9E6', '#F2B33D'],
-    layouts: { visitRows: 'dense', jobRows: 'dense', jobsGroup: 'none', jobsTeamFirst: true, jobsMap: false, home: 'map', homeStartsOnMap: true, sales: 'table' },
+    layouts: { visitRows: 'dense', jobRows: 'dense', jobsGroup: 'none', jobsTeamFirst: true, jobsMap: false, home: 'map', homeStartsOnMap: true, sales: 'table', customers: 'table', tools: 'compact' },
   },
   {
     id: 'office',
@@ -81,7 +85,7 @@ export const THEMES: ThemeDef[] = [
     size: 'tight',
     accent: '#2E7D57',
     swatch: ['#2B2F36', '#8CC8A5', '#FF8A94'],
-    layouts: { visitRows: 'dense', jobRows: 'table', jobsGroup: 'none', jobsTeamFirst: false, jobsMap: false, home: 'inbox', homeStartsOnMap: false, sales: 'aging' },
+    layouts: { visitRows: 'dense', jobRows: 'table', jobsGroup: 'none', jobsTeamFirst: false, jobsMap: false, home: 'inbox', homeStartsOnMap: false, sales: 'aging', customers: 'table', tools: 'compact' },
   },
   {
     id: 'owner',
@@ -92,7 +96,7 @@ export const THEMES: ThemeDef[] = [
     size: 'compact',
     accent: '#8A6A12',
     swatch: ['#3A2F0F', '#E3B341', '#52C48A'],
-    layouts: { visitRows: 'edge', jobRows: 'edge', jobsGroup: 'status', jobsTeamFirst: false, jobsMap: false, home: 'owner', homeStartsOnMap: false, sales: 'chase' },
+    layouts: { visitRows: 'edge', jobRows: 'edge', jobsGroup: 'status', jobsTeamFirst: false, jobsMap: false, home: 'owner', homeStartsOnMap: false, sales: 'chase', customers: 'owed', tools: 'business' },
   },
   {
     id: 'map',
@@ -103,7 +107,7 @@ export const THEMES: ThemeDef[] = [
     size: 'compact',
     accent: null,
     swatch: ['#0F3D26', '#7FD6A8', '#F2B33D'],
-    layouts: { visitRows: 'edge', jobRows: 'edge', jobsGroup: 'day', jobsTeamFirst: false, jobsMap: true, home: 'map', homeStartsOnMap: true, sales: 'grouped' },
+    layouts: { visitRows: 'edge', jobRows: 'edge', jobsGroup: 'day', jobsTeamFirst: false, jobsMap: true, home: 'map', homeStartsOnMap: true, sales: 'grouped', customers: 'near', tools: 'calc' },
   },
   {
     id: 'simple',
@@ -114,7 +118,7 @@ export const THEMES: ThemeDef[] = [
     size: 'legacy',
     accent: null,
     swatch: ['#0F3D26', '#52C48A', '#FFFFFF'],
-    layouts: { visitRows: 'big', jobRows: 'tile', jobsGroup: 'none', jobsTeamFirst: false, jobsMap: false, home: 'simple', homeStartsOnMap: false, sales: 'dense' },
+    layouts: { visitRows: 'big', jobRows: 'tile', jobsGroup: 'none', jobsTeamFirst: false, jobsMap: false, home: 'simple', homeStartsOnMap: false, sales: 'dense', customers: 'big', tools: 'tiles' },
   },
 ];
 
