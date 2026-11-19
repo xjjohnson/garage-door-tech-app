@@ -94,24 +94,25 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   const home = layouts.home;
   const rows = layouts.visitRows;
   const lean = home === 'simple';
+  const field = home === 'field';
+  const owedNow = invoices.filter((i) => !i.voidedAt && ['unpaid', 'partial'].includes(invoiceStatus(i)));
   return (
     <View style={[styles.stack, { gap: rowGap(rows) }]} testID="today">
       <SyncLine />
       <OlderJobsLine />
       <CrashNotice />
-      {home === 'field' && next ? <NextCard visit={next} onGo={() => startJob(next)} /> : null}
-      {home === 'field' ? <QuickActions /> : null}
+      {home === 'field' && next ? <NextCard visit={next} /> : null}
       {home === 'owner' ? <OwnerKpis now={now} done={doneCount} total={today.length} /> : null}
       {home === 'inbox' ? <Inbox now={now} /> : null}
-      {today.length > 0 && !lean && home !== 'owner' ? (
+      {today.length > 0 && !lean && !field && home !== 'owner' ? (
         <View style={styles.kpis} testID="today-kpis">
           <Kpi value={`${doneCount} / ${today.length}`} label="Visits done" testID="today-kpi-done" />
           <Kpi value={formatMoney(collected)} label="Collected" testID="today-kpi-collected" />
           <Kpi value={`${Math.floor(clockMs / 3_600_000)}.${Math.floor(((clockMs % 3_600_000) / 3_600_000) * 10)} h`} label="On the clock" testID="today-kpi-clock" />
         </View>
       ) : null}
-      {lean ? null : <Text style={styles.count} testID="today-count">
-        {today.length === 0 ? 'Nothing booked today' : `${today.length} visit${today.length === 1 ? '' : 's'} today${today.length > booked.length ? ` · ${today.length - booked.length} done` : ''}`}
+      {lean ? null : <Text style={field ? styles.sectionHead : styles.count} testID="today-count">
+        {today.length === 0 ? 'Nothing booked today' : field ? `TODAY · ${today.length} STOP${today.length === 1 ? '' : 'S'}` : `${today.length} visit${today.length === 1 ? '' : 's'} today${today.length > booked.length ? ` · ${today.length - booked.length} done` : ''}`}
       </Text>}
 
       {worst && !lean ? (
@@ -167,7 +168,16 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
 
       {today.length === 0 && loose.length === 0 ? <Action label="Open the schedule" onPress={() => router.push('/schedule')} testID="today-schedule" /> : null}
       {lean ? <Action label="+ New job" primary onPress={() => router.push('/new-job')} testID="today-new-job" /> : null}
-      <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" />
+      {field && owedNow.length > 0 ? (
+        <View style={styles.stack} testID="today-needs-you">
+          <Text style={styles.sectionHead}>NEEDS YOU · {owedNow.length} UNPAID</Text>
+          {owedNow.slice(0, 3).map((i) => (
+            <VisitCard key={i.id} variant="edge" top={invoiceLabel(i)} chip="Unpaid" tone="warn" name={i.billTo || i.address || 'Customer'} address="" what={`${formatMoney(balance(i))} owed`} onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: i.id } })} testID={`today-owed-${i.id}`} />
+          ))}
+        </View>
+      ) : null}
+      {field ? null : <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" />}
+      {field ? <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" /> : null}
       <Text style={styles.version} testID="home-version">
         Johnsons {SHORT_VERSION}
       </Text>
@@ -176,29 +186,17 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
 }
 
 /** Field Home: the next visit big, with the one action a tech wants as they head out. */
-function NextCard({ visit, onGo }: { visit: Appointment; onGo: () => void }) {
+function NextCard({ visit }: { visit: Appointment }) {
   return (
     <View style={styles.nextCard} testID="today-next-card">
       <Text style={styles.nextTop}>NEXT · {windowLabel(visit).toUpperCase()}</Text>
       <Text style={styles.nextName}>{visit.name}</Text>
       {visit.address ? <Text style={styles.nextSub}>{visit.address}</Text> : null}
       {visit.what ? <Text style={styles.nextSub}>{cleanNotes(visit.what).split('\n')[0]}</Text> : null}
-      <Action label="On my way" primary onPress={onGo} testID="today-next-go" />
     </View>
   );
 }
 
-function QuickActions() {
-  return (
-    <View style={styles.row} testID="today-quick">
-      <Action label="+ New job" grow onPress={() => router.push('/new-job')} testID="today-quick-new" />
-      <Action label="Spring calc" grow onPress={() => router.push('/springs')} testID="today-quick-springs" />
-      <Action label="Time" grow onPress={() => router.push('/time-log')} testID="today-quick-time" />
-    </View>
-  );
-}
-
-/** Owner Home: money first (owed, collected this week), then how today is going. */
 function OwnerKpis({ now, done, total }: { now: () => number; done: number; total: number }) {
   const { stats } = useStats(now);
   return (
@@ -331,6 +329,7 @@ const styles = StyleSheet.create({
   kpiValue: { fontSize: fs(19), fontWeight: '800', color: colors.text },
   kpiLabel: { fontSize: fs(12.5), fontWeight: '600', color: colors.muted },
   version: { fontSize: fs(12), color: colors.muted, textAlign: 'center', paddingVertical: sp(8) },
+  sectionHead: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.6, color: colors.muted },
   count: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   weatherDay: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
   pressed: { backgroundColor: colors.info },

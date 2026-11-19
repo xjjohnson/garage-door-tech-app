@@ -37,7 +37,8 @@ describe('Home layouts', () => {
       expect(await screen.findByTestId('today-next')).toHaveTextContent(/Pat Lee/);
       if (home === 'field') {
         expect(screen.getByTestId('today-next-card')).toHaveTextContent(/NEXT.*Pat Lee/);
-        expect(screen.getByTestId('today-quick-new')).toBeTruthy();
+        expect(screen.getByTestId('field-go-bar')).toHaveTextContent(/Pat Lee/);
+        expect(screen.queryByTestId('today-kpis')).toBeNull();
         await fireEvent.press(screen.getByTestId('today-next-go'));
         expect(router).toBeTruthy();
       }
@@ -149,4 +150,19 @@ describe('Sales layouts', () => {
       expect(screen.getByTestId('odoo-record')).toBeTruthy();
     });
   }
+});
+
+describe('Home on the map (Dispatch and Map)', () => {
+  const appt = (id: string, start: number, name: string) => ({ id, start, minutes: 60, name, address: '1 Elm St', phone: '', what: 'Broken spring', status: 'booked', createdAt: 1, updatedAt: 1 });
+  it('fills the screen with a stops, drive and unpaid sheet', async () => {
+    Object.assign(layouts, { home: 'map', homeStartsOnMap: true, visitRows: 'dense' });
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt('a1', Date.now() + 60_000, 'Pat Lee')]));
+    await renderApp();
+    expect(await screen.findByTestId('map-sheet')).toBeTruthy();
+    expect(screen.getByTestId('map-stat-stops')).toHaveTextContent('1');
+    expect(screen.getByTestId('map-stat-unpaid')).toHaveTextContent('0');
+    await fireEvent.press(screen.getByTestId('map-sheet-toggle'));
+    expect(await screen.findByText(/Pat Lee/)).toBeTruthy();
+  });
 });

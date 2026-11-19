@@ -15,6 +15,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.16',
+    title: 'Themes: Home now matches the mock-ups',
+    changes: [
+      'Dispatch and Map: Home is the map, filling the screen. Under it a small sheet shows Stops, Drive and Unpaid, a slim row of days and the picked stop with a Go button. Tap the sheet to see the stop list.',
+      'Field: Home is the next job card, today as a short list, a Needs you list of unpaid jobs, and the one big On my way button pinned at the bottom. The extra tiles and buttons are gone.',
+    ],
+    test: [
+      'Settings > Theme > Dispatch (then Restart): Home should be mostly map. Tap a pin, then Go. Tap the bar under the map for the stop list.',
+      'Settings > Theme > Field (then Restart): Home should show the next job, today, Needs you, and one big green button at the bottom. Does it match the mock-up you picked?',
+      'Tell me which themes and screens still do not match (Jobs and Sales are not changed in this release).',
+    ],
+  },
+  {
     release: '0.6.15',
     title: 'Themes: six complete looks, one pick',
     changes: [
