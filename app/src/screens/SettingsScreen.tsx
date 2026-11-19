@@ -11,11 +11,12 @@ import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
 import { loadShareLocation, saveShareLocation } from '../lib/locationPref';
 import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
 import { loadLook, saveLook } from '../lib/lookPref';
-import { Look, PALETTES, SHAPES, SIZES, LEGACY_LOOK } from '../lib/themeLook';
+import { PALETTES } from '../lib/themeLook';
+import { DEFAULT_THEME, LookPick, THEMES } from '../lib/themes';
 import { useInvoices } from '../lib/useInvoices';
 import { useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, look as drawnLook, scheme, touch, type, bw, fs, rad, sp } from '../theme';
+import { colors, look as drawnLook, themeDef, scheme, touch, type, bw, fs, rad, sp } from '../theme';
 
 interface Props {
   /** expo-updates; tests pass a fake. */
@@ -71,12 +72,12 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
     if (now !== scheme) repaintRestart(now, restart).catch(() => undefined);
   };
 
-  const [lookPick, setLookPick] = useState<Look>(drawnLook);
+  const [lookPick, setLookPick] = useState<LookPick>({ theme: themeDef.id, palette: drawnLook.palette });
   useEffect(() => {
     loadLook().then(setLookPick);
   }, []);
-  const changed = lookPick.shape !== drawnLook.shape || lookPick.size !== drawnLook.size || lookPick.palette !== drawnLook.palette;
-  const chooseLook = async (next: Look) => {
+  const changed = lookPick.theme !== themeDef.id || lookPick.palette !== drawnLook.palette;
+  const chooseLook = async (next: LookPick) => {
     setLookPick(next);
     await saveLook(next);
   };
@@ -139,17 +140,38 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         onChange={chooseTheme}
       />
 
-      <Caption>Look</Caption>
-      <Text style={styles.shareNote}>Shape</Text>
-      <Segmented<Look['shape']> testID="settings-look-shape" options={SHAPES} value={lookPick.shape} onChange={(shape) => chooseLook({ ...lookPick, shape })} />
-      <Text style={styles.shareNote}>Size of buttons and text. Legacy is the large look from before.</Text>
-      <Segmented<Look['size']> testID="settings-look-size" options={SIZES.map((s) => ({ value: s.value, label: s.label }))} value={lookPick.size} onChange={(size) => chooseLook({ ...lookPick, size })} />
+      <Caption>Theme</Caption>
+      <Text style={styles.shareNote}>A theme sets how every screen is arranged, how big things are and the colors. Light and dark are above.</Text>
+      {THEMES.map((t) => {
+        const on = lookPick.theme === t.id;
+        return (
+          <Pressable
+            key={t.id}
+            onPress={() => chooseLook({ ...lookPick, theme: t.id })}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            testID={`settings-theme-${t.id}`}
+            style={({ pressed }) => [styles.themeCard, on && styles.themeCardOn, pressed && styles.themePressed]}
+          >
+            <View style={styles.themeTop}>
+              <Text style={styles.themeName}>{t.label}</Text>
+              <View style={styles.swatch}>
+                {t.swatch.map((c) => (
+                  <View key={c} style={[styles.dot, { backgroundColor: c }]} />
+                ))}
+              </View>
+            </View>
+            <Text style={styles.themeWho}>{t.who}</Text>
+            <Text style={styles.shareNote}>{t.detail}</Text>
+          </Pressable>
+        );
+      })}
       <Text style={styles.shareNote}>Colors</Text>
-      <Segmented<Look['palette']> testID="settings-look-palette" options={PALETTES} value={lookPick.palette} onChange={(palette) => chooseLook({ ...lookPick, palette })} />
-      <Text style={styles.shareNote}>Company brand uses the color set on your company in Odoo (and falls back to Johnsons green if there is none).</Text>
-      {changed ? <Action label="Restart to use this look" primary onPress={() => restart().catch(() => setRestartFailed(true))} testID="settings-look-restart" /> : null}
-      {lookPick.shape === LEGACY_LOOK.shape && lookPick.size === LEGACY_LOOK.size && lookPick.palette === LEGACY_LOOK.palette ? null : (
-        <Action label="Back to the legacy look" onPress={() => chooseLook(LEGACY_LOOK)} testID="settings-look-legacy" />
+      <Segmented<LookPick['palette']> testID="settings-look-palette" options={PALETTES} value={lookPick.palette} onChange={(palette) => chooseLook({ ...lookPick, palette })} />
+      <Text style={styles.shareNote}>Company brand uses the color set on your company in Odoo (and falls back to the theme's own color if there is none).</Text>
+      {changed ? <Action label="Restart to use this theme" primary onPress={() => restart().catch(() => setRestartFailed(true))} testID="settings-look-restart" /> : null}
+      {lookPick.theme === DEFAULT_THEME && lookPick.palette === 'johnsons' ? null : (
+        <Action label="Back to Classic" onPress={() => chooseLook({ theme: DEFAULT_THEME, palette: 'johnsons' })} testID="settings-look-legacy" />
       )}
 
       <Caption>This phone</Caption>
@@ -195,6 +217,14 @@ function Action({ label, onPress, primary, disabled, testID }: { label: string; 
 const styles = StyleSheet.create({
   wrap: { gap: sp(12) },
   card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(12), padding: sp(12), backgroundColor: colors.card, gap: sp(4) },
+  themeCard: { padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.line, backgroundColor: colors.card },
+  themeCardOn: { borderColor: colors.selected, backgroundColor: colors.info },
+  themePressed: { opacity: 0.85 },
+  themeTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  themeName: { fontSize: type.body, fontWeight: '800', color: colors.text },
+  themeWho: { fontSize: fs(15), fontWeight: '800', color: colors.selected },
+  swatch: { flexDirection: 'row', gap: sp(4) },
+  dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.line },
   shareNote: { fontSize: fs(15), fontWeight: '600', color: colors.muted, lineHeight: fs(21) },
   value: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },

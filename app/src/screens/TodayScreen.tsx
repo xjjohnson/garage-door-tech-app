@@ -29,7 +29,13 @@ import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SHORT_VERSION } from '../lib/appVersion';
-import { colors, radius, shadow, bw, fs, rad, sz, sp } from '../theme';
+import { followUps } from '../lib/followups';
+import { balance, invoiceLabel, invoiceStatus, sortInvoices } from '../lib/invoices';
+import { useFollowUps } from '../lib/useFollowUps';
+import { useStats } from '../lib/useStats';
+import { IconRow, RowGroup } from '../components/ToolRows';
+import { rowGap } from '../components/VisitCard';
+import { colors, layouts, radius, shadow, bw, fs, rad, sz, sp } from '../theme';
 
 const CRASH_SEEN_KEY = 'crash/seen';
 
@@ -85,23 +91,30 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
     return { label: 'Scheduled', tone: 'plain' };
   };
 
+  const home = layouts.home;
+  const rows = layouts.visitRows;
+  const lean = home === 'simple';
   return (
-    <View style={styles.stack} testID="today">
+    <View style={[styles.stack, { gap: rowGap(rows) }]} testID="today">
       <SyncLine />
       <OlderJobsLine />
       <CrashNotice />
-      {today.length > 0 ? (
+      {home === 'field' && next ? <NextCard visit={next} onGo={() => startJob(next)} /> : null}
+      {home === 'field' ? <QuickActions /> : null}
+      {home === 'owner' ? <OwnerKpis now={now} done={doneCount} total={today.length} /> : null}
+      {home === 'inbox' ? <Inbox now={now} /> : null}
+      {today.length > 0 && !lean && home !== 'owner' ? (
         <View style={styles.kpis} testID="today-kpis">
           <Kpi value={`${doneCount} / ${today.length}`} label="Visits done" testID="today-kpi-done" />
           <Kpi value={formatMoney(collected)} label="Collected" testID="today-kpi-collected" />
           <Kpi value={`${Math.floor(clockMs / 3_600_000)}.${Math.floor(((clockMs % 3_600_000) / 3_600_000) * 10)} h`} label="On the clock" testID="today-kpi-clock" />
         </View>
       ) : null}
-      <Text style={styles.count} testID="today-count">
+      {lean ? null : <Text style={styles.count} testID="today-count">
         {today.length === 0 ? 'Nothing booked today' : `${today.length} visit${today.length === 1 ? '' : 's'} today${today.length > booked.length ? ` · ${today.length - booked.length} done` : ''}`}
-      </Text>
+      </Text>}
 
-      {worst ? (
+      {worst && !lean ? (
         <Text style={styles.weatherDay} testID="today-weather-day">
           Heads up: {worst.label.toLowerCase()} on today's route
         </Text>
@@ -114,6 +127,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
         return (
           <VisitCard
             key={a.id}
+            variant={rows}
             top={windowLabel(a).toUpperCase()}
             chip={st.label}
             tone={st.tone}
@@ -138,6 +152,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
         return (
           <VisitCard
             key={j.id}
+            variant={rows}
             top="Started"
             chip={j.steps?.arrivedAt ? 'Working' : 'On the way'}
             tone="on"
@@ -151,10 +166,67 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
       })}
 
       {today.length === 0 && loose.length === 0 ? <Action label="Open the schedule" onPress={() => router.push('/schedule')} testID="today-schedule" /> : null}
+      {lean ? <Action label="+ New job" primary onPress={() => router.push('/new-job')} testID="today-new-job" /> : null}
       <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" />
       <Text style={styles.version} testID="home-version">
         Johnsons {SHORT_VERSION}
       </Text>
+    </View>
+  );
+}
+
+/** Field Home: the next visit big, with the one action a tech wants as they head out. */
+function NextCard({ visit, onGo }: { visit: Appointment; onGo: () => void }) {
+  return (
+    <View style={styles.nextCard} testID="today-next-card">
+      <Text style={styles.nextTop}>NEXT · {windowLabel(visit).toUpperCase()}</Text>
+      <Text style={styles.nextName}>{visit.name}</Text>
+      {visit.address ? <Text style={styles.nextSub}>{visit.address}</Text> : null}
+      {visit.what ? <Text style={styles.nextSub}>{cleanNotes(visit.what).split('\n')[0]}</Text> : null}
+      <Action label="On my way" primary onPress={onGo} testID="today-next-go" />
+    </View>
+  );
+}
+
+function QuickActions() {
+  return (
+    <View style={styles.row} testID="today-quick">
+      <Action label="+ New job" grow onPress={() => router.push('/new-job')} testID="today-quick-new" />
+      <Action label="Spring calc" grow onPress={() => router.push('/springs')} testID="today-quick-springs" />
+      <Action label="Time" grow onPress={() => router.push('/time-log')} testID="today-quick-time" />
+    </View>
+  );
+}
+
+/** Owner Home: money first (owed, collected this week), then how today is going. */
+function OwnerKpis({ now, done, total }: { now: () => number; done: number; total: number }) {
+  const { stats } = useStats(now);
+  return (
+    <View style={styles.kpis} testID="today-owner-kpis">
+      <Kpi value={formatMoney(stats.owed)} label="Owed to you" testID="today-owner-owed" />
+      <Kpi value={formatMoney(stats.week.collected)} label="Collected this week" testID="today-owner-week" />
+      <Kpi value={`${done} / ${total}`} label="Visits done" testID="today-owner-done" />
+    </View>
+  );
+}
+
+/** Office Home: what is waiting on you, with one tap to each. */
+function Inbox({ now }: { now: () => number }) {
+  const { invoices, business } = useInvoices();
+  const { settings, dismissed } = useFollowUps();
+  const t = now();
+  const owed = sortInvoices(invoices.filter((i) => ['unpaid', 'partial'].includes(invoiceStatus(i)))).slice(0, 5);
+  const due = followUps(invoices, settings, business, t, dismissed).filter((f) => f.due <= t + 7 * 24 * 3600 * 1000).length;
+  if (owed.length === 0 && due === 0) return null;
+  return (
+    <View style={styles.stack} testID="today-inbox">
+      <Text style={styles.count}>Waiting on you</Text>
+      <RowGroup>
+        {due > 0 ? <IconRow icon="wrap" label={`${due} follow-up${due === 1 ? '' : 's'} due`} detail="Invoice and quote reminders" onPress={() => router.push('/follow-ups')} testID="today-inbox-followups" last={owed.length === 0} /> : null}
+        {owed.map((i, k) => (
+          <IconRow key={i.id} icon="warn" warn label={`${invoiceLabel(i)} · ${i.billTo || i.address || 'Customer'}`} detail={`${formatMoney(balance(i))} owed`} onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: i.id } })} testID={`today-inbox-${i.id}`} last={k === owed.length - 1} />
+        ))}
+      </RowGroup>
     </View>
   );
 }
@@ -248,6 +320,10 @@ function CrashNotice() {
 }
 
 const styles = StyleSheet.create({
+  nextCard: { gap: sp(4), padding: sp(14), borderRadius: radius.card, borderWidth: bw(1.5), borderColor: colors.selected, backgroundColor: colors.card },
+  nextTop: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.6, color: colors.muted },
+  nextName: { fontSize: fs(24), fontWeight: '800', color: colors.text },
+  nextSub: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   stack: { gap: sp(12) },
   row: { flexDirection: 'row', gap: sp(10), alignItems: 'center' },
   kpis: { flexDirection: 'row', gap: sp(8) },
