@@ -1,4 +1,4 @@
-import { readProfile, writeProfile } from '../lib/odooCompany';
+import { htmlToText, readProfile, textToHtml, writeProfile } from '../lib/odooCompany';
 
 type Call = [string, string, unknown[], Record<string, unknown>?];
 function fake(row: Record<string, unknown>, fields: string[] | null = null) {
@@ -48,5 +48,23 @@ describe('business profile on the Odoo company', () => {
     await expect(writeProfile(c, { name: ' ' })).rejects.toThrow();
     await expect(writeProfile(c, { quotation_validity_days: 'abc' })).rejects.toThrow();
     expect(c.calls.some((x) => x[1] === 'write')).toBe(false);
+  });
+});
+
+describe('rich-text company fields', () => {
+  it('shows Odoo HTML as plain text and treats empty HTML as blank', async () => {
+    const p = await readProfile(fake({ name: 'J', report_header: '<h3 data-oe-version="2.0"><br></h3>', report_footer: '<p data-oe-version="2.0">Call us &amp; save<br>Lic 12</p><p>Thanks</p>' }));
+    expect(p.values.report_header).toBe('');
+    expect(p.values.report_footer).toBe('Call us & save\nLic 12\n\nThanks');
+    expect(p.rawHtml.report_footer).toContain('<p');
+  });
+
+  it('writes plain text back as escaped Odoo HTML, and blank as empty', async () => {
+    expect(textToHtml('A < B & C\nline two\n\nnext')).toBe('<p>A &lt; B &amp; C<br>line two</p><p>next</p>');
+    expect(htmlToText(textToHtml('x\ny'))).toBe('x\ny');
+    const c = fake({ name: 'J' });
+    await writeProfile(c, { report_footer: 'Hi\nthere', report_header: '  ' });
+    const w = c.calls.find((x) => x[1] === 'write')!;
+    expect(w[2][1]).toEqual({ report_footer: '<p>Hi<br>there</p>', report_header: false });
   });
 });
