@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { StepChips } from '../components/StepChips';
+import { CrewToday } from '../components/CrewToday';
 import { ChipTone, VisitCard } from '../components/VisitCard';
 import { lastCrash } from '../lib/crash';
 import { jobName } from '../lib/jobs';
@@ -103,6 +104,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
       <CrashNotice />
       {home === 'field' && next ? <NextCard visit={next} /> : null}
       {home === 'owner' ? <OwnerKpis now={now} done={doneCount} total={today.length} /> : null}
+      {home === 'owner' ? <CrewToday now={now} /> : null}
       {home === 'inbox' ? <Inbox now={now} /> : null}
       {today.length > 0 && !lean && !field && home !== 'owner' ? (
         <View style={styles.kpis} testID="today-kpis">

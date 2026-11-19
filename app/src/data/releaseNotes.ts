@@ -17,8 +17,8 @@ export const RELEASE_NOTES: ReleaseNote[] = [
   {
     release: '0.6.20',
     title: 'Owner theme: money dashboard on Home',
-    changes: ['Owner Home: Owed to you and Collected this week up top, a bar chart of money collected the last 7 days, then Open jobs, Unpaid and Visits done. Today\'s visits follow below.'],
-    test: ['Settings > Theme > Owner (Restart): does Home look like the Owner mock-up? Do the bars match what you collected each day?', 'Not yet in this release: the Crew today list (who is on a job or driving).'],
+    changes: ['Owner Home: Owed to you and Collected this week up top, a bar chart of money collected the last 7 days, then Open jobs, Unpaid and Visits done. Crew today shows what each tech is on, from Odoo. Today\'s visits follow below.'],
+    test: ['Settings > Theme > Owner (Restart): does Home look like the Owner mock-up? Do the bars match what you collected each day?', 'Crew today lists each tech with On job, Next (time) or Nothing booked, from their jobs in Odoo. It cannot tell who is driving.'],
   },
   {
     release: '0.6.19',
