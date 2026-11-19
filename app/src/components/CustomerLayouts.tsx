@@ -73,10 +73,10 @@ function Table({ rows }: { rows: CustomerRow[] }) {
       </View>
       {rows.map((c) => (
         <Pressable key={c.id} onPress={() => go(c.id)} accessibilityRole="button" testID={`customer-${c.id}`} style={({ pressed }) => [styles.tr, styles.trBody, pressed && styles.pressed]}>
-          <Text style={[styles.td, styles.cName]} numberOfLines={1}>{c.name}</Text>
-          <Text style={[styles.td, styles.cNum]}>{c.jobs}</Text>
-          <Text style={[styles.td, styles.cNum]}>{c.open}</Text>
-          <Text style={[styles.td, styles.cOwe, c.owed > 0 && styles.owes]}>{c.owed > 0 ? formatMoney(c.owed) : '–'}</Text>
+          <Text style={[styles.td, styles.cName, c.jobs === 0 && c.owed === 0 && styles.quiet]} numberOfLines={1}>{c.name}</Text>
+          <Text style={[styles.td, styles.cNum]}>{c.jobs > 0 ? c.jobs : ''}</Text>
+          <Text style={[styles.td, styles.cNum]}>{c.open > 0 ? c.open : ''}</Text>
+          <Text style={[styles.td, styles.cOwe, c.owed > 0 && styles.owes]}>{c.owed > 0 ? formatMoney(c.owed) : ''}</Text>
         </Pressable>
       ))}
     </View>
@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
   trBody: { minHeight: sz(44), borderTopWidth: bw(1), borderTopColor: colors.line },
   th: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.5, color: colors.muted },
   td: { fontSize: fs(16), fontWeight: '700', color: colors.text },
+  quiet: { color: colors.muted, fontWeight: '600' },
   cName: { flex: 1, minWidth: 0 },
   cNum: { width: 44, textAlign: 'right' },
   cOwe: { width: 92, textAlign: 'right' },

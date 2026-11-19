@@ -52,7 +52,7 @@ export function CustomersScreen() {
       const waiting = odoo ? sum.jobs.filter((j) => !j.odooJob && !j.odooOrder) : sum.jobs;
       const jobsN = odoo ? odoo.jobs + waiting.length : sum.jobs.length;
       const openN = odoo ? odoo.open + waiting.filter((j) => j.status === 'open').length : sum.openJobs;
-      return { sum, jobsN, openN, quotes: odoo?.quotes ?? 0, owes: owes.has(c.id), owed: owes.get(c.id) ?? 0 };
+      return { sum, jobsN, openN, quotes: odoo?.quotes ?? 0, ...(odoo ? { owes: (odoo.owed ?? 0) > 0, owed: odoo.owed ?? 0 } : { owes: owes.has(c.id), owed: owes.get(c.id) ?? 0 }) };
     });
   }, [customers, jobs, query, odooCounts, owes]);
 

@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.23',
+    title: 'Dispatch Jobs lanes readable, Customers owed from Odoo',
+    changes: ['Dispatch Jobs: the hour numbers now line up with the lane, each visit block shows its time and customer name instead of a cut-off "F…", and Not assigned shows 2 jobs with Show all instead of filling the screen.', 'Customers (Dispatch and Office): money owed now comes from Odoo\'s unpaid invoices, so it matches the customer page. Customers with no jobs show blank cells and a dimmer name instead of 0 and a dash.'],
+    test: ['Dispatch theme, Jobs > Team: are the hours lined up and can you read each visit?', 'Customers: does each Owes amount match the amount on that customer\'s page?'],
+  },
+  {
     release: '0.6.22',
     title: 'Owner Sales: Call, Text and Take payment on each row',
     changes: ['Owner Sales: each unpaid invoice in the To collect list has Call and Text buttons (the customer\'s phone comes from Odoo) and a Take payment button that opens the invoice, where you record the payment as before.'],

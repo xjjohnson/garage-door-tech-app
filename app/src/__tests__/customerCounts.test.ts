@@ -42,6 +42,18 @@ describe('customer counts from Odoo', () => {
     expect(out[102]).toEqual({ jobs: 1, open: 1, quotes: 0 });
   });
 
+  it('adds up what each customer still owes from unpaid invoices, house included', async () => {
+    const { c } = fake('oca', {
+      'fsm.order.search_read': [],
+      'sale.order.search_read': [],
+      'account.move.search_read': [{ partner_id: [101, 'Flash house'], amount_residual: 100.5 }, { partner_id: [200, 'Flash Garage Doors LLC'], amount_residual: 49.49 }],
+      'res.partner.read': [{ id: 101, parent_id: [200, 'Flash Garage Doors LLC'] }, { id: 200, parent_id: false }],
+    });
+    const out = await fetchCustomerCounts(c);
+    expect(out[200]?.owed).toBe(14999);
+    expect(out[101]?.owed).toBe(10050);
+  });
+
   it('keeps going when Sales or the contact read is missing', async () => {
     const { c } = fake('task', { 'project.task.search_read': [{ id: 1, partner_id: [5, 'Pat'] }, { id: 2, partner_id: [5, 'Pat'] }] });
     expect(await fetchCustomerCounts(c)).toEqual({ 5: { jobs: 2, open: 2, quotes: 0 } });
