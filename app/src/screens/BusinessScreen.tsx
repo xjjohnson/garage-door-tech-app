@@ -12,7 +12,7 @@ import { queueBusiness } from '../lib/settingsSync';
 import { isOwner } from '../lib/scorecard';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 const FIELDS: { key: 'cashtag' | 'venmo' | 'zelle' | 'reviewUrl'; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' | 'url' }[] = [
   { key: 'cashtag', label: 'Cash App $cashtag', placeholder: '$yourcashtag', hint: 'Invoices show a QR code that opens Cash App with the amount filled in.' },
@@ -299,22 +299,22 @@ function Box({ label, hint, value, editable, onChange, placeholder, keyboard, ca
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 14 },
+  stack: { gap: sp(14) },
   logo: { height: 64, width: '100%', alignSelf: 'flex-start' },
-  field: { gap: 4 },
+  field: { gap: sp(4) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   input: {
     minHeight: touch.min,
     borderRadius: rad(10),
     borderWidth: bw(1.5),
     borderColor: colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: sp(14),
     fontSize: type.body,
     fontWeight: '700',
     color: colors.text,
     backgroundColor: colors.bg,
   },
   save: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  qr: { alignItems: 'center', gap: 8, padding: 12, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
+  qr: { alignItems: 'center', gap: sp(8), padding: sp(12), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
 });

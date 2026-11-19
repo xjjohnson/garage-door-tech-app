@@ -22,7 +22,7 @@ import { useCustomersIfAny } from '../lib/useCustomers';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -201,13 +201,13 @@ function CustomerSearch({ onPick }: { onPick: (c: FoundCustomer) => void }) {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 10 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 8 },
+  stack: { gap: sp(10) },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8), flexWrap: 'wrap', marginTop: sp(8) },
   now: { fontSize: type.value, fontWeight: '800', color: colors.text },
   label: { fontSize: type.value, fontWeight: '800', color: colors.text },
   note: { fontSize: type.body, fontWeight: '600', color: colors.muted },
-  input: { minHeight: touch.min, borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), paddingHorizontal: 12, fontSize: type.body, color: colors.text, backgroundColor: colors.card },
-  option: { minHeight: touch.min, padding: 10, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: 2 },
+  input: { minHeight: touch.min, borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), paddingHorizontal: sp(12), fontSize: type.body, color: colors.text, backgroundColor: colors.card },
+  option: { minHeight: touch.min, padding: sp(10), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: sp(2) },
   on: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.info },
   title: { fontSize: fs(16), fontWeight: '800', color: colors.muted },

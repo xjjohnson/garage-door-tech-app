@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { colors, radius, touch, type, bw, fs, rad, sz } from '../theme';
+import { colors, radius, touch, type, bw, fs, rad, sz, sp } from '../theme';
 import { Keypad } from './Keypad';
 
 /** A labelled group of inputs. */
@@ -252,18 +252,18 @@ export function ClearButton({ onPress, testID }: { onPress: () => void; testID?:
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 6 },
+  field: { gap: sp(6) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   hint: { fontSize: fs(16), color: colors.muted },
-  section: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: 16, marginBottom: 2 },
-  sectionFirst: { marginTop: 0 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  section: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: sp(16), marginBottom: sp(2) },
+  sectionFirst: { marginTop: sp(0) },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
   chip: {
     minHeight: touch.min,
     minWidth: 72,
     flexGrow: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: sp(14),
+    paddingVertical: sp(6),
     borderRadius: radius.field,
     borderWidth: bw(1),
     borderColor: colors.line,
@@ -274,10 +274,10 @@ const styles = StyleSheet.create({
   chipCompact: { minWidth: 76, flexBasis: '22%' },
   chipInline: { flexGrow: 0 },
   // Runs to the screen edges (the screen has 16 px padding) so the row visibly continues.
-  chipScroll: { marginHorizontal: -16, flexGrow: 0 },
-  chipScrollContent: { gap: 8, paddingHorizontal: 16 },
-  segments: { flexDirection: 'row', backgroundColor: colors.info, borderRadius: radius.pill, padding: 3, gap: 2 },
-  segment: { flex: 1, minHeight: touch.min - 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, borderRadius: radius.pill },
+  chipScroll: { marginHorizontal: sp(-16), flexGrow: 0 },
+  chipScrollContent: { gap: sp(8), paddingHorizontal: sp(16) },
+  segments: { flexDirection: 'row', backgroundColor: colors.info, borderRadius: radius.pill, padding: sp(3), gap: sp(2) },
+  segment: { flex: 1, minHeight: touch.min - 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(6), paddingVertical: sp(4), borderRadius: radius.pill },
   segmentDivider: {},
   segmentText: { fontSize: fs(16), fontWeight: '800', color: colors.text, textAlign: 'center' },
   chipOn: { backgroundColor: colors.selected },
@@ -290,16 +290,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.field,
     borderWidth: bw(1),
     borderColor: colors.line,
-    paddingHorizontal: 16,
+    paddingHorizontal: sp(16),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: sp(8),
     backgroundColor: colors.card,
   },
   measureText: { fontSize: type.big, fontWeight: '800', color: colors.text },
   measureUnit: { fontSize: type.value, fontWeight: '700', color: colors.muted },
   placeholder: { fontSize: type.body, fontWeight: '600', color: colors.muted },
-  textButton: { minHeight: touch.min, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  textButton: { minHeight: touch.min, justifyContent: 'center', alignItems: 'center', paddingHorizontal: sp(16), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   textButtonArmed: { backgroundColor: colors.stop, borderColor: colors.stop },
   textButtonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   textButtonTextArmed: { color: colors.onStop },

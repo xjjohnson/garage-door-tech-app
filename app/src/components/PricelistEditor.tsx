@@ -8,7 +8,7 @@ import { ChipRow } from './controls';
 import { OdooClient } from '../lib/odoo';
 import { listPricelists, Pricelist, pricelistOptionOn, pricelistRules, pricelistsAvailable, PriceRule, removePriceRule, RuleKind, RuleScope, ruleText, savePriceRule } from '../lib/odooPurchasing';
 import { browseProducts } from '../lib/odooStock';
-import { colors, fs } from '../theme';
+import { colors, fs, sp } from '../theme';
 
 interface Draft {
   id?: number;
@@ -184,6 +184,6 @@ export function PricelistEditor({ client, canEdit }: { client: OdooClient; canEd
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
+  stack: { gap: sp(12) },
   foot: { fontSize: fs(14), color: colors.muted },
 });

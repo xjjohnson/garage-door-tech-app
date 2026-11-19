@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, LayoutChangeEvent, Modal, PanResponder, Platform,
 import { Text, TextInput } from './AppText';
 import Svg, { Path } from 'react-native-svg';
 import { strokePath } from '../lib/attachments';
-import { colors, touch, type, bw, rad } from '../theme';
+import { colors, touch, type, bw, rad, sp } from '../theme';
 
 export interface SignatureResult {
   name: string;
@@ -98,18 +98,18 @@ export function SignatureSheet({ visible, title, agreement, initialName, onSave,
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10) },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(12) },
   title: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
-  cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
+  cancel: { minHeight: touch.min, paddingHorizontal: sp(12), justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
   agreement: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   pad: { height: 200, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: '#FFFFFF', overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
   hint: { position: 'absolute', fontSize: type.body, color: colors.muted, fontWeight: '700' },
-  row: { flexDirection: 'row', gap: 8 },
+  row: { flexDirection: 'row', gap: sp(8) },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { backgroundColor: colors.muted },

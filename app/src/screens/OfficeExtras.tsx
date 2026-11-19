@@ -10,6 +10,7 @@ import type { OdooClient } from '../lib/odoo';
 import { closedWithoutOrder, readTerms, saveTerms, Terms } from '../lib/odooOffice';
 import { formatMoney } from '../lib/prices';
 import { usePendingItems } from '../lib/usePending';
+import { sp } from '../theme';
 
 /**
  * Payments taken on this phone that Odoo has not recorded yet. They go to Odoo on their own
@@ -29,7 +30,7 @@ export function PaymentsToRecord() {
     };
   });
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: sp(10) }}>
       <Note>Cash and checks taken on this phone that are not in Odoo yet. They go on their own when the phone has signal. Payments taken on another phone show on that phone.</Note>
       <RowList rows={rows} empty="Every payment taken on this phone is in Odoo." testID="payments" />
     </View>
@@ -42,7 +43,7 @@ export function ClosedNoOrder({ client, limits, now = Date.now }: { client: Odoo
   if (error) return <PageError what="Closed jobs" error={error} />;
   const rows: RowItem[] | null = data?.map((j) => ({ key: `noorder-${j.id}`, title: j.place || j.name, sub: j.name, lines: [`Closed ${j.at ? dateText(j.at) : ''}${j.tech ? ` · ${j.tech}` : ''}`.trim(), 'No sales order in Odoo for this job.'] })) ?? null;
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: sp(10) }}>
       <Note>Jobs closed in the last {limits.invoiceLookbackDays} days with no sales order in Odoo. Some may have been billed another way; this is a list to check, not a count.</Note>
       <RowList rows={rows} empty="Every closed job has an order." testID="noorder" />
     </View>
@@ -80,7 +81,7 @@ export function TermsPage({ client }: { client: OdooClient }) {
     );
   }
   return (
-    <View style={{ gap: 10 }} testID="terms">
+    <View style={{ gap: sp(10) }} testID="terms">
       <Note>This is added to a quote when the Terms switch on the ticket is on. Saved to the company in Odoo; every phone uses it.</Note>
       <Message msg={msg} />
       <TextBox value={text} onChange={setText} label="Terms and Conditions" testID="terms-text" />

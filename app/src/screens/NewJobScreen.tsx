@@ -20,7 +20,7 @@ import { setPlan } from '../lib/ticket';
 import { useOdoo } from '../lib/useOdoo';
 import { fetchOpenOrders, OpenOrder, ticketFromOrder } from '../lib/odooOpenOrders';
 import { formatMoney } from '../lib/prices';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 type When = 'now' | 'later';
 
@@ -207,13 +207,13 @@ export function NewJobScreen() {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 10 },
-  label: { fontSize: fs(15), fontWeight: '800', letterSpacing: 0.5, color: colors.muted, marginTop: 6 },
-  input: { minHeight: touch.min, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 6 },
+  stack: { gap: sp(10) },
+  label: { fontSize: fs(15), fontWeight: '800', letterSpacing: 0.5, color: colors.muted, marginTop: sp(6) },
+  input: { minHeight: touch.min, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: sp(6) },
   suggestName: { fontSize: fs(17), fontWeight: '800', color: colors.text },
   suggestSub: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },
-  picked: { backgroundColor: colors.info, borderRadius: rad(12), paddingHorizontal: 10 },
+  picked: { backgroundColor: colors.info, borderRadius: rad(12), paddingHorizontal: sp(10) },
   meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
 });

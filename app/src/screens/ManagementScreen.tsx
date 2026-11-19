@@ -42,7 +42,7 @@ import { resetQuoteTemplates } from '../lib/useQuoteTemplates';
 import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, radius, shadow, touch, type, bw, fs, rad, sz } from '../theme';
+import { colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
 import { BusinessScreen } from './BusinessScreen';
 import { ChecklistsScreen } from './ChecklistsScreen';
 import { PricelistEditor } from '../components/PricelistEditor';
@@ -733,34 +733,34 @@ function Plans({ client, canEdit }: TabProps) {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  stack: { gap: sp(12) },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   warn: { fontSize: type.body, fontWeight: '700', color: colors.stop },
-  tabScroll: { flexGrow: 0, marginHorizontal: -16 },
-  tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
-  tab: { minHeight: sz(44), paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  tabScroll: { flexGrow: 0, marginHorizontal: sp(-16) },
+  tabs: { flexDirection: 'row', gap: sp(8), paddingHorizontal: sp(16) },
+  tab: { minHeight: sz(44), paddingHorizontal: sp(16), borderRadius: radius.pill, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
   tabOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   tabText: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   tabTextOn: { color: colors.onSelected },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  field: { gap: 4 },
+  field: { gap: sp(4) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: radius.field, borderWidth: bw(1), borderColor: colors.line, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  multiline: { minHeight: 120, paddingTop: 12, textAlignVertical: 'top' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: touch.min, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 12, ...shadow },
-  rowText: { flex: 1, gap: 2 },
+  input: { minHeight: touch.min, borderRadius: radius.field, borderWidth: bw(1), borderColor: colors.line, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  multiline: { minHeight: sz(120), paddingTop: sp(12), textAlignVertical: 'top' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: sp(8), minHeight: touch.min, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, paddingHorizontal: sp(14), paddingVertical: sp(12), ...shadow },
+  rowText: { flex: 1, gap: sp(2) },
   pressed: { backgroundColor: colors.info },
   chevron: { fontSize: fs(28), fontWeight: '800', color: colors.text },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(16), color: colors.muted },
-  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, padding: 14, gap: 10 },
-  pick: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 14, backgroundColor: colors.card },
-  back: { alignSelf: 'flex-start', minHeight: sz(44), borderRadius: radius.pill, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  addPill: { alignSelf: 'flex-end', minHeight: sz(44), borderRadius: radius.pill, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
-  primary: { minHeight: touch.min, borderRadius: radius.card, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, padding: sp(14), gap: sp(10) },
+  pick: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, justifyContent: 'center', paddingHorizontal: sp(14), backgroundColor: colors.card },
+  back: { alignSelf: 'flex-start', minHeight: sz(44), borderRadius: radius.pill, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
+  addPill: { alignSelf: 'flex-end', minHeight: sz(44), borderRadius: radius.pill, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(18) },
+  primary: { minHeight: touch.min, borderRadius: radius.card, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
-  danger: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.stop, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  danger: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.stop, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   dangerText: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: sz(44), paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
+  chip: { minHeight: sz(44), paddingHorizontal: sp(16), borderRadius: radius.pill, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
 });

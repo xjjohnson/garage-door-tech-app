@@ -6,7 +6,7 @@ import { setCustomerType, typesFor } from '../lib/customerTypes';
 import { useCustomerType } from '../lib/useCustomerType';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, fs } from '../theme';
+import { colors, fs, sp } from '../theme';
 
 /** The customer's type (Homeowner, Commercial...), kept as a tag on their contact in Odoo. */
 export function CustomerTypeRow({ partnerId }: { partnerId: number }) {
@@ -39,7 +39,7 @@ export function CustomerTypeRow({ partnerId }: { partnerId: number }) {
 }
 
 const styles = StyleSheet.create({
-  box: { gap: 6 },
+  box: { gap: sp(6) },
   label: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   note: { fontSize: fs(15), color: colors.muted },
 });

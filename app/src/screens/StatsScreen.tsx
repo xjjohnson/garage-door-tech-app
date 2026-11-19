@@ -7,7 +7,7 @@ import { formatJobDate } from '../lib/jobs';
 import { formatMoney } from '../lib/prices';
 import { monthLabel, percent, PeriodStats } from '../lib/stats';
 import { useStats } from '../lib/useStats';
-import { colors, radius, shadow, touch, type, bw, fs, rad } from '../theme';
+import { colors, radius, shadow, touch, type, bw, fs, rad, sp } from '../theme';
 
 /** The short version, at the top of Jobs: open jobs, owed, and collected this week. Taps through to the full page. */
 export function StatsCard({ now = Date.now }: { now?: () => number }) {
@@ -117,27 +117,27 @@ function Line({ label, value, bold }: { label: string; value: string; bold?: boo
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  card: { flexDirection: 'row', gap: 8, padding: 10, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, minHeight: touch.bar, ...shadow },
-  row: { flexDirection: 'row', gap: 8 },
-  tile: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, padding: 6 },
+  stack: { gap: sp(12) },
+  card: { flexDirection: 'row', gap: sp(8), padding: sp(10), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, minHeight: touch.bar, ...shadow },
+  row: { flexDirection: 'row', gap: sp(8) },
+  tile: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: sp(2), padding: sp(6) },
   tileValue: { fontSize: type.value, fontWeight: '800', color: colors.text },
   tileLabel: { fontSize: fs(15), fontWeight: '700', color: colors.muted, textAlign: 'center' },
   alert: { color: colors.stop },
-  period: { padding: 14, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, gap: 6 },
+  period: { padding: sp(14), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, gap: sp(6) },
   periodTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  line: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  line: { flexDirection: 'row', justifyContent: 'space-between', gap: sp(12) },
   lineLabel: { flex: 1, fontSize: type.body, color: colors.text },
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
   bold: { fontWeight: '800' },
-  chart: { flexDirection: 'row', gap: 6, height: 200, alignItems: 'stretch', padding: 8, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
-  barCol: { flex: 1, alignItems: 'center', gap: 4 },
+  chart: { flexDirection: 'row', gap: sp(6), height: 200, alignItems: 'stretch', padding: sp(8), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
+  barCol: { flex: 1, alignItems: 'center', gap: sp(4) },
   barValue: { fontSize: fs(13), fontWeight: '800', color: colors.text },
   barTrack: { flex: 1, width: '70%', justifyContent: 'flex-end' },
   bar: { width: '100%', backgroundColor: colors.selected, borderTopLeftRadius: 4, borderTopRightRadius: 4, minHeight: 2 },
   barLabel: { fontSize: fs(15), fontWeight: '800', color: colors.text },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.warnBg },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), paddingVertical: sp(8), backgroundColor: colors.warnBg },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   pressed: { backgroundColor: colors.info },
 });

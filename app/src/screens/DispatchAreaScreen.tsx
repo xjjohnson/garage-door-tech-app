@@ -7,6 +7,7 @@ import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { DispatchScreen, Part } from './DispatchScreen';
 import { DispatchMap, FollowUpsDue, TimeOff, TruckAlerts, WhoIsWorking } from './DispatchTeamPages';
+import { sp } from '../theme';
 
 type Tab = 'unassigned' | 'notime' | 'late' | 'double' | 'board' | 'map' | 'week' | 'upcoming' | 'waiting' | 'followups' | 'working' | 'timeoff' | 'trucks';
 const LABELS: Record<Tab, string> = {
@@ -101,4 +102,4 @@ export function DispatchAreaScreen() {
   );
 }
 
-const styles = StyleSheet.create({ stack: { gap: 12 } });
+const styles = StyleSheet.create({ stack: { gap: sp(12) } });

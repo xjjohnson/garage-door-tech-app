@@ -5,7 +5,7 @@ import { log } from '../lib/log';
 import { requestSyncNow } from '../lib/syncNow';
 import { useOdoo } from '../lib/useOdoo';
 import { Icon } from './Icon';
-import { colors, radius, touch, type, bw, fs, rad } from '../theme';
+import { colors, radius, touch, type, bw, fs, rad, sp } from '../theme';
 
 /**
  * Sync now, where it's easy to find (Today and Jobs): asks every background
@@ -44,8 +44,8 @@ export function SyncNowButton({ testID = 'sync-now', label = 'Sync now' }: { tes
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, backgroundColor: colors.card },
+  row: { flexDirection: 'row', alignItems: 'center', gap: sp(12) },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(18), backgroundColor: colors.card },
   text: { fontSize: type.body, fontWeight: '800', color: colors.text },
   ok: { fontSize: fs(16), color: colors.muted, fontWeight: '700' },
   off: { opacity: 0.5 },
@@ -78,7 +78,7 @@ export function SyncPill({ testID = 'sync-now', label = 'Sync now' }: { testID?:
 }
 
 const pill = StyleSheet.create({
-  button: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: touch.min - 12, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)' },
+  button: { flexDirection: 'row', alignItems: 'center', gap: sp(6), minHeight: touch.min - 12, paddingHorizontal: sp(14), borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)' },
   pressed: { backgroundColor: 'rgba(255,255,255,0.35)' },
   text: { fontSize: fs(15), fontWeight: '800', color: colors.onHead },
 });

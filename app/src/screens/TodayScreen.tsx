@@ -29,7 +29,7 @@ import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SHORT_VERSION } from '../lib/appVersion';
-import { colors, radius, shadow, bw, fs, rad, sz } from '../theme';
+import { colors, radius, shadow, bw, fs, rad, sz, sp } from '../theme';
 
 const CRASH_SEEN_KEY = 'crash/seen';
 
@@ -248,19 +248,19 @@ function CrashNotice() {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  row: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  kpis: { flexDirection: 'row', gap: 8 },
-  kpi: { flex: 1, backgroundColor: colors.card, borderRadius: radius.card - 2, borderWidth: bw(1), borderColor: colors.line, paddingVertical: 11, alignItems: 'center', ...shadow },
+  stack: { gap: sp(12) },
+  row: { flexDirection: 'row', gap: sp(10), alignItems: 'center' },
+  kpis: { flexDirection: 'row', gap: sp(8) },
+  kpi: { flex: 1, backgroundColor: colors.card, borderRadius: radius.card - 2, borderWidth: bw(1), borderColor: colors.line, paddingVertical: sp(11), alignItems: 'center', ...shadow },
   kpiValue: { fontSize: fs(19), fontWeight: '800', color: colors.text },
   kpiLabel: { fontSize: fs(12.5), fontWeight: '600', color: colors.muted },
-  version: { fontSize: fs(12), color: colors.muted, textAlign: 'center', paddingVertical: 8 },
+  version: { fontSize: fs(12), color: colors.muted, textAlign: 'center', paddingVertical: sp(8) },
   count: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   weatherDay: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
   pressed: { backgroundColor: colors.info },
   sync: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
-  syncPill: { minHeight: sz(44), justifyContent: 'center', paddingHorizontal: 12, borderRadius: rad(14), backgroundColor: colors.card },
+  syncPill: { minHeight: sz(44), justifyContent: 'center', paddingHorizontal: sp(12), borderRadius: rad(14), backgroundColor: colors.card },
   syncWarn: { backgroundColor: colors.warnBg },
-  crash: { borderWidth: bw(1.5), borderColor: colors.stop, borderRadius: rad(12), padding: 12, gap: 10 },
+  crash: { borderWidth: bw(1.5), borderColor: colors.stop, borderRadius: rad(12), padding: sp(12), gap: sp(10) },
   crashText: { fontSize: fs(17), fontWeight: '800', color: colors.text },
 });

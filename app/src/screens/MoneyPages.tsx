@@ -13,6 +13,7 @@ import { emailRecord, partnerEmail } from '../lib/odooReports';
 import { sendPayments } from '../lib/odooSales';
 import { formatMoney } from '../lib/prices';
 import { useInvoices } from '../lib/useInvoices';
+import { sp } from '../theme';
 
 type Mode = { kind: 'pay'; row: MoneyRow } | { kind: 'email'; row: MoneyRow; to: string } | { kind: 'lost'; row: MoneyRow } | null;
 
@@ -63,7 +64,7 @@ export function MoneyList({ client, load, empty, invoice, lost, header, testID }
 
   const total = data && header ? header(data) : '';
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: sp(10) }}>
       <Message msg={msg} />
       {mode?.kind === 'pay' ? (
         <Card warn testID="pay-panel">

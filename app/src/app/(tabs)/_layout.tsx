@@ -18,7 +18,7 @@ import { UpdateReadyBar } from '../../components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from '../../config';
 import { dateLine } from '../../lib/schedule';
 import { SECTIONS, TOOL_PAGES } from '../../lib/sections';
-import { colors, radius, touch, type, fs, rad } from '../../theme';
+import { colors, radius, touch, type, fs, rad, sp } from '../../theme';
 
 /**
  * The five tabs (Today, Jobs, Sales, Customers, Tools) and the tool pages
@@ -145,23 +145,23 @@ const MARK = require('../../../assets/brand/mark.png');
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.head },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 26, backgroundColor: colors.head },
+  header: { flexDirection: 'row', alignItems: 'center', gap: sp(10), paddingHorizontal: sp(16), paddingTop: sp(8), paddingBottom: sp(26), backgroundColor: colors.head },
   headText: { flex: 1 },
   mark: { width: 44, height: 44, borderRadius: rad(10) },
-  back: { minHeight: touch.min - 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  back: { minHeight: touch.min - 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(14) },
   backText: { fontSize: fs(16), fontWeight: '800', color: colors.onHead },
   title: { fontSize: type.big - 2, fontWeight: '800', color: colors.onHead },
   subtitle: { fontSize: fs(15), fontWeight: '600', color: colors.onHead, opacity: 0.85 },
-  settings: { minHeight: touch.min - 8, minWidth: touch.min + 16, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  settings: { minHeight: touch.min - 8, minWidth: touch.min + 16, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12) },
   settingsText: { fontSize: fs(15), fontWeight: '800', color: colors.onHead },
   gear: { width: touch.min - 8, height: touch.min - 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  actionCol: { alignItems: 'flex-end', gap: 4 },
-  newJob: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: touch.min - 12, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)' },
+  actionCol: { alignItems: 'flex-end', gap: sp(4) },
+  newJob: { flexDirection: 'row', alignItems: 'center', gap: sp(6), minHeight: touch.min - 12, paddingHorizontal: sp(14), borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)' },
   versionLink: { fontSize: fs(12), fontWeight: '700', color: colors.onHead, opacity: 0.85 },
   headPressed: { backgroundColor: 'rgba(255,255,255,0.35)' },
-  sheet: { flex: 1, marginTop: -18, backgroundColor: colors.bg, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
-  nav: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6, paddingBottom: 4 },
-  navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar - 6, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  sheet: { flex: 1, marginTop: sp(-18), backgroundColor: colors.bg, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
+  nav: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: sp(6), paddingBottom: sp(4) },
+  navItem: { flex: 1, paddingHorizontal: sp(2), minHeight: touch.bar - 6, alignItems: 'center', justifyContent: 'center', gap: sp(2) },
   navBadge: { position: 'absolute', top: -6, right: -16 },
   navPressed: { backgroundColor: colors.info },
   navText: { fontSize: fs(13), fontWeight: '700', color: colors.muted },

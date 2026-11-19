@@ -6,7 +6,7 @@ import { DIAG_BRANDS } from '../data/diagnostics';
 import { PROG_SAFETY, PROG_TASK_LABEL, PROG_TASK_ORDER, ProgTaskKind } from '../data/programming';
 import { hostOf } from '../lib/diagnose';
 import { manualsFor, progBrands, progFamiliesFor, progFamilyById, taskFor } from '../lib/programming';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 interface Props {
   openUrl: (url: string) => Promise<unknown>;
@@ -111,28 +111,28 @@ export function ProgramScreen({ openUrl }: Props) {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
+  stack: { gap: sp(12) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   hint: { fontSize: fs(16), color: colors.muted },
-  read: { padding: 12, borderRadius: rad(14), backgroundColor: colors.card, gap: 6 },
-  readBody: { fontSize: type.body, color: colors.text, lineHeight: 24 },
+  read: { padding: sp(12), borderRadius: rad(14), backgroundColor: colors.card, gap: sp(6) },
+  readBody: { fontSize: type.body, color: colors.text, lineHeight: fs(24) },
   models: { fontSize: fs(15), color: colors.muted },
-  card: { padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: 10 },
+  card: { padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: sp(10) },
   cardTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  safety: { padding: 10, borderRadius: rad(8), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.warnBg, gap: 4 },
-  safetyLine: { fontSize: fs(16), fontWeight: '700', color: colors.text, lineHeight: 22 },
-  before: { fontSize: type.body, fontWeight: '700', color: colors.text, lineHeight: 24 },
-  steps: { gap: 10 },
-  stepRow: { flexDirection: 'row', gap: 8 },
+  safety: { padding: sp(10), borderRadius: rad(8), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.warnBg, gap: sp(4) },
+  safetyLine: { fontSize: fs(16), fontWeight: '700', color: colors.text, lineHeight: fs(22) },
+  before: { fontSize: type.body, fontWeight: '700', color: colors.text, lineHeight: fs(24) },
+  steps: { gap: sp(10) },
+  stepRow: { flexDirection: 'row', gap: sp(8) },
   stepNum: { fontSize: type.body, fontWeight: '800', color: colors.text, minWidth: 28 },
-  stepText: { flex: 1, fontSize: type.body, color: colors.text, lineHeight: 24 },
-  note: { fontSize: fs(16), fontWeight: '700', color: colors.muted, lineHeight: 22 },
-  unchecked: { padding: 10, borderRadius: rad(8), backgroundColor: colors.info, gap: 4 },
+  stepText: { flex: 1, fontSize: type.body, color: colors.text, lineHeight: fs(24) },
+  note: { fontSize: fs(16), fontWeight: '700', color: colors.muted, lineHeight: fs(22) },
+  unchecked: { padding: sp(10), borderRadius: rad(8), backgroundColor: colors.info, gap: sp(4) },
   uncheckedTitle: { fontSize: fs(16), fontWeight: '800', color: colors.text },
-  uncheckedLine: { fontSize: fs(15), color: colors.text, lineHeight: 21 },
-  subhead: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: 4 },
-  sources: { gap: 8 },
-  source: { minHeight: touch.min, padding: 10, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, justifyContent: 'center', gap: 2 },
+  uncheckedLine: { fontSize: fs(15), color: colors.text, lineHeight: fs(21) },
+  subhead: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: sp(4) },
+  sources: { gap: sp(8) },
+  source: { minHeight: touch.min, padding: sp(10), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, justifyContent: 'center', gap: sp(2) },
   sourceTitle: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   sourceHost: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },

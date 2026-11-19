@@ -23,7 +23,7 @@ import { useJobs } from '../lib/useJobs';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { usePriceSheet } from '../lib/usePriceSheet';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 const message = (e: unknown) => (e instanceof OdooError || e instanceof Error ? e.message : "Couldn't reach Odoo. Try again.");
 
@@ -491,12 +491,12 @@ function Button({ label, onPress, disabled, testID }: { label: string; onPress: 
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 8 },
-  box: { gap: 8, padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
+  stack: { gap: sp(8) },
+  box: { gap: sp(8), padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), backgroundColor: colors.card },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   off: { opacity: 0.5 },
   pressed: { backgroundColor: colors.info },

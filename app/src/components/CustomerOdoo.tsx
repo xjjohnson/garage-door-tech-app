@@ -28,7 +28,7 @@ import { dayLabel, formatTime } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { useOpenOdooJob } from '../lib/useStartJob';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 export const CUSTOMER_ODOO_STORAGE_KEY = 'odoo-customer/v1';
 const LIMIT = 20;
@@ -461,13 +461,13 @@ function Rows({ title, kind, rows, onOpen }: { title: string; kind: ListKind; ro
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  row: { flexDirection: 'row', gap: 8 },
-  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  stack: { gap: sp(12) },
+  row: { flexDirection: 'row', gap: sp(8) },
+  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: sp(8) },
+  item: { minHeight: touch.min, padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8) },
   title: { flexShrink: 1, fontSize: type.body, fontWeight: '800', color: colors.text },
-  badge: { fontSize: fs(14), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
+  badge: { fontSize: fs(14), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: sp(8), paddingVertical: sp(2), borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   warn: { color: colors.stop },

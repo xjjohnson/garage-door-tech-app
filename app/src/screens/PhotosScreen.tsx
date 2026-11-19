@@ -9,7 +9,7 @@ import { OdooFiles } from '../components/OdooFiles';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 /**
  * Before and after photos for one job: the old spring, the cable, the
@@ -129,16 +129,16 @@ function Action({ label, onPress, primary, grow, disabled, testID }: { label: st
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  row: { flexDirection: 'row', gap: 8 },
+  stack: { gap: sp(12) },
+  row: { flexDirection: 'row', gap: sp(8) },
   grow: { flex: 1 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: sp(8) },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
-  item: { padding: 10, gap: 8, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  item: { padding: sp(10), gap: sp(8), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   image: { width: '100%', aspectRatio: 4 / 3, borderRadius: rad(8), backgroundColor: colors.card },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { opacity: 0.5 },

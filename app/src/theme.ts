@@ -1,6 +1,6 @@
 import { Appearance } from 'react-native';
 import { readStartChoice, readStartValue } from './lib/themeStart';
-import { BAR_PX, BUTTON_PX, Look, brandPalette, cleanBrandColor, parsePalette, parseShape, parseSize, scaleBorder, scaleFont, scaleHeight, scaleRadius } from './lib/themeLook';
+import { BAR_PX, BUTTON_PX, Look, brandPalette, cleanBrandColor, parsePalette, parseShape, parseSize, scaleBorder, scaleFont, scaleHeight, scaleRadius, scaleSpace } from './lib/themeLook';
 
 /**
  * The Johnsons look (style H1): forest green on a soft page, white rounded
@@ -128,6 +128,8 @@ export const touch = { min: BUTTON_PX[look.size], bar: BAR_PX[look.size] };
 export const rad = (n: number) => scaleRadius(n, look.shape);
 export const fs = (n: number) => scaleFont(n, look.size);
 export const sz = (n: number) => scaleHeight(n, look.size);
+/** sp: padding, margin or gap. */
+export const sp = (n: number) => scaleSpace(n, look.size);
 export const bw = (n: number) => scaleBorder(n, look.shape);
 
 export const type = {

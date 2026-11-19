@@ -12,7 +12,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { OdooJobsList } from '../components/OdooJobsList';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type, bw, fs, rad, sz } from '../theme';
+import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
 type Filter = JobStatus | 'all' | 'unpaid' | 'upcoming';
 
@@ -239,8 +239,8 @@ function DeleteButton({ onPress, testID }: { onPress: () => void; testID?: strin
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  searchRow: { flexDirection: 'row', gap: 8 },
+  stack: { gap: sp(12) },
+  searchRow: { flexDirection: 'row', gap: sp(8) },
   search: {
     flex: 1,
     minWidth: 0,
@@ -248,33 +248,33 @@ const styles = StyleSheet.create({
     borderRadius: rad(10),
     borderWidth: bw(1.5),
     borderColor: colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: sp(14),
     fontSize: type.value,
     fontWeight: '700',
     color: colors.text,
     backgroundColor: colors.bg,
   },
-  clear: { minHeight: sz(64), minWidth: touch.min + 16, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  clear: { minHeight: sz(64), minWidth: touch.min + 16, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(10) },
   count: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
-  empty: { padding: 12, borderRadius: rad(14), backgroundColor: colors.card, gap: 6 },
+  empty: { padding: sp(12), borderRadius: rad(14), backgroundColor: colors.card, gap: sp(6) },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  emptyBody: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
+  emptyBody: { fontSize: fs(16), color: colors.text, lineHeight: fs(22) },
   item: { borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' },
   itemDone: { backgroundColor: colors.card },
-  head: { minHeight: touch.min, padding: 12, gap: 2 },
-  headTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  head: { minHeight: touch.min, padding: sp(12), gap: sp(2) },
+  headTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8) },
   name: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
-  badge: { fontSize: fs(14), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
+  badge: { fontSize: fs(14), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: sp(8), paddingVertical: sp(2), borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
   badgeDone: { color: colors.onSelected, backgroundColor: colors.selected },
   address: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  answer: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: 4 },
+  answer: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: sp(4) },
   accepted: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
-  actions: { gap: 8, padding: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
-  detail: { fontSize: type.body, color: colors.text, lineHeight: 24 },
-  row: { flexDirection: 'row', gap: 8 },
+  actions: { gap: sp(8), padding: sp(12), paddingTop: sp(10), borderTopWidth: 1, borderTopColor: colors.border },
+  detail: { fontSize: type.body, color: colors.text, lineHeight: fs(24) },
+  row: { flexDirection: 'row', gap: sp(8) },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(10), backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   due: { backgroundColor: colors.warnBg },
   armed: { backgroundColor: colors.stop, borderColor: colors.stop },

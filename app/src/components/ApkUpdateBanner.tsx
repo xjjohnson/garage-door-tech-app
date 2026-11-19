@@ -4,7 +4,7 @@ import { Text } from './AppText';
 import { ApkCheck, checkForApk } from '../lib/apkUpdate';
 import { isCheckDue } from '../lib/otaUpdate';
 import { useAppForeground } from '../lib/useAppForeground';
-import { colors, touch, type, bw, rad } from '../theme';
+import { colors, touch, type, bw, rad, sp, fs } from '../theme';
 
 interface Props {
   manifestUrl: string;
@@ -78,10 +78,10 @@ export function ApkUpdateBanner({ manifestUrl, currentVersion, fetchImpl = fetch
 }
 
 const styles = StyleSheet.create({
-  banner: { marginHorizontal: 16, marginTop: 8, padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.info, gap: 8 },
+  banner: { marginHorizontal: sp(16), marginTop: sp(8), padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.info, gap: sp(8) },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  body: { fontSize: type.body, color: colors.text, lineHeight: 24 },
-  row: { flexDirection: 'row', gap: 8 },
+  body: { fontSize: type.body, color: colors.text, lineHeight: fs(24) },
+  row: { flexDirection: 'row', gap: sp(8) },
   button: { flex: 1, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected, flex: 2 },
   pressed: { backgroundColor: colors.info },

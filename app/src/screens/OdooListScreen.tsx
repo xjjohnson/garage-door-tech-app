@@ -11,7 +11,7 @@ import { fetchList, FILTERS, ListFilter, ListKind, LISTS_STORAGE_KEY, OdooListRo
 import { formatMoney } from '../lib/prices';
 import { formatTime } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -149,11 +149,11 @@ function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRo
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 10 },
-  input: { minHeight: touch.min, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  row: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
+  stack: { gap: sp(10) },
+  input: { minHeight: touch.min, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  row: { minHeight: touch.min, padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
-  top: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', gap: sp(12) },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   money: { fontSize: type.body, fontWeight: '800', color: colors.text },
   customer: { fontSize: fs(17), fontWeight: '700', color: colors.text },

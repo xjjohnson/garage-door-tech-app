@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { onDevFlags, pretendOffline, pretendTime, PREVIEWS, rolePreview, weakSignal } from '../lib/devFlags';
-import { colors, fs } from '../theme';
+import { colors, fs, sp } from '../theme';
 
 export function testModeLabels(): string[] {
   const out: string[] = [];
@@ -34,6 +34,6 @@ export function TestModeBanner() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 8, bottom: 96, backgroundColor: colors.stop, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  wrap: { position: 'absolute', left: 8, bottom: 96, backgroundColor: colors.stop, borderRadius: 999, paddingHorizontal: sp(12), paddingVertical: sp(6) },
   text: { color: '#FFFFFF', fontSize: fs(13), fontWeight: '800' },
 });

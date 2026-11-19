@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { applyKey, EIGHTHS, KeypadKey, SIXTEENTHS } from '../lib/measure';
-import { colors, touch, type, bw, fs, rad, sz } from '../theme';
+import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
 interface Props {
   visible: boolean;
@@ -127,7 +127,7 @@ function Key({ label, onPress, small, word, testID, a11y }: { label: string; onP
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
-  sheet: { backgroundColor: colors.card, padding: 12, paddingBottom: 28, borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: 8 },
+  sheet: { backgroundColor: colors.card, padding: sp(12), paddingBottom: sp(28), borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: sp(8) },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text, flex: 1 },
   cancel: { minHeight: touch.min, minWidth: 96, alignItems: 'center', justifyContent: 'center' },
@@ -140,15 +140,15 @@ const styles = StyleSheet.create({
     borderWidth: bw(1.5),
     borderColor: colors.border,
     borderRadius: rad(10),
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: sp(16),
+    paddingVertical: sp(8),
     minHeight: sz(72),
-    gap: 8,
+    gap: sp(8),
   },
   displayText: { fontSize: type.huge, fontWeight: '800', color: colors.text },
   unit: { fontSize: type.value, fontWeight: '700', color: colors.muted },
-  fractions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  row: { flexDirection: 'row', gap: 8 },
+  fractions: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
+  row: { flexDirection: 'row', gap: sp(8) },
   key: {
     flex: 1,
     flexBasis: 0,

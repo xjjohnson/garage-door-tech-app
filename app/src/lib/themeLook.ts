@@ -34,6 +34,8 @@ export const BUTTON_PX: Record<SizeName, number> = { legacy: 56, comfortable: 48
 export const BAR_PX: Record<SizeName, number> = { legacy: 64, comfortable: 58, compact: 54, tight: 50 };
 /** Text scale (applied to every font size). */
 export const TEXT_SCALE: Record<SizeName, number> = { legacy: 1, comfortable: 0.9, compact: 0.84, tight: 0.78 };
+/** Space between and around things (padding, margin, gap), as a share of the legacy number. */
+export const SPACE_SCALE: Record<SizeName, number> = { legacy: 1, comfortable: 0.9, compact: 0.75, tight: 0.62 };
 /** Corner scale for round, and a hard cap for square. */
 export const SQUARE_MAX_RADIUS = 3;
 
@@ -65,6 +67,12 @@ export function scaleFont(n: number, size: SizeName): number {
 export function scaleHeight(n: number, size: SizeName): number {
   if (size === 'legacy') return n;
   return Math.round((n * BUTTON_PX[size]) / BUTTON_PX.legacy);
+}
+
+/** Padding, margin or gap for this look. Tiny gaps (2 or less) stay; legacy is unchanged. */
+export function scaleSpace(n: number, size: SizeName): number {
+  if (size === 'legacy' || Math.abs(n) <= 2) return n;
+  return Math.max(2, Math.round(n * SPACE_SCALE[size]));
 }
 
 /** Border width: square looks draw a firmer line. */

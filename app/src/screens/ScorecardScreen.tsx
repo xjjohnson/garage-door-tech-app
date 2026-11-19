@@ -8,7 +8,7 @@ import { percent } from '../lib/stats';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, type, bw, fs, rad } from '../theme';
+import { colors, type, bw, fs, rad, sp } from '../theme';
 
 const PERIODS: ScorePeriod[] = ['week', '30d', 'year'];
 
@@ -147,13 +147,13 @@ function Stat({ big, label, warn }: { big: string; label: string; warn?: boolean
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
+  stack: { gap: sp(12) },
   sub: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
-  card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(16), padding: 14, gap: 10 },
+  card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(16), padding: sp(14), gap: sp(10) },
   name: { fontSize: fs(20), fontWeight: '800', color: colors.text },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
-  grid: { flexDirection: 'row', gap: 8 },
-  stat: { flex: 1, gap: 2 },
+  grid: { flexDirection: 'row', gap: sp(8) },
+  stat: { flex: 1, gap: sp(2) },
   big: { fontSize: fs(24), fontWeight: '800', color: colors.text },
   warn: { color: colors.stop },
   statLabel: { fontSize: fs(13), fontWeight: '800', color: colors.muted },

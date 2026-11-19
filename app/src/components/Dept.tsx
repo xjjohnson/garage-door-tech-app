@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
-import { colors, radius, touch, type, bw, fs } from '../theme';
+import { colors, radius, touch, type, bw, fs, sp } from '../theme';
 
 /** Small pieces the Warehouse and Purchasing screens share. */
 
@@ -65,7 +65,7 @@ export function PartsSummary({ items, testID, children }: { items: { name: strin
   if (items.length === 0) return <Meta>No parts on it yet</Meta>;
   const short = items.slice(0, 2).map((i) => `${i.qty} × ${i.name}`).join(', ') + (items.length > 2 ? `, +${items.length - 2} more` : '');
   return (
-    <View style={{ gap: 4 }}>
+    <View style={{ gap: sp(4) }}>
       <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityLabel={open ? 'Hide the parts' : 'Show all the parts'} testID={testID}>
         <Text style={styles.parts}>{open ? 'Parts (tap to close)' : `${short} ▾`}</Text>
       </Pressable>
@@ -113,15 +113,15 @@ export const dateText = (ms?: number) => (ms ? new Date(ms).toLocaleDateString('
 export const Row = ({ children }: { children: ReactNode }) => <View style={styles.row}>{children}</View>;
 
 const styles = StyleSheet.create({
-  msg: { fontSize: fs(16), fontWeight: '800', color: colors.text, lineHeight: 22 },
+  msg: { fontSize: fs(16), fontWeight: '800', color: colors.text, lineHeight: fs(22) },
   bad: { color: colors.stop },
-  card: { padding: 12, gap: 8, borderRadius: radius.card, backgroundColor: colors.card },
+  card: { padding: sp(12), gap: sp(8), borderRadius: radius.card, backgroundColor: colors.card },
   warn: { borderWidth: bw(3), borderColor: colors.caution },
   title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   parts: { fontSize: fs(16), fontWeight: '700', color: colors.text },
-  note: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
-  input: { minHeight: touch.min - 8, borderRadius: radius.field, borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  note: { fontSize: fs(16), color: colors.text, lineHeight: fs(22) },
+  input: { minHeight: touch.min - 8, borderRadius: radius.field, borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(12), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   wide: { alignSelf: 'stretch' },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
+  row: { flexDirection: 'row', gap: sp(8), alignItems: 'center', flexWrap: 'wrap' },
 });

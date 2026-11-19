@@ -1,7 +1,7 @@
 import { ReactNode, useRef } from 'react';
 import { Pressable, ScrollView, ScrollViewInstance, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { colors, touch, type, fs } from '../theme';
+import { colors, touch, type, fs, sp } from '../theme';
 
 export type BarTone = 'waiting' | 'ok' | 'stop';
 
@@ -84,21 +84,21 @@ function ResultBar({ summary, onPress, testID }: { summary: BarSummary; onPress:
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: 16, paddingBottom: 32, gap: 14 },
-  results: { gap: 14 },
+  content: { padding: sp(16), paddingBottom: sp(32), gap: sp(14) },
+  results: { gap: sp(14) },
   bar: {
     minHeight: touch.bar,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    gap: sp(12),
+    paddingHorizontal: sp(16),
+    paddingVertical: sp(8),
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   pressed: { backgroundColor: colors.info },
   pressedText: { color: colors.text },
-  barText: { flex: 1, gap: 2 },
+  barText: { flex: 1, gap: sp(2) },
   barTitle: { fontSize: type.value, fontWeight: '800' },
   barDetail: { fontSize: fs(16), fontWeight: '700' },
   barGo: { fontSize: fs(16), fontWeight: '800' },

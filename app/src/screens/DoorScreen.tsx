@@ -12,7 +12,7 @@ import { EstimateWeightLink } from '../components/EstimateWeightLink';
 import { SaveJobPanel } from '../components/SaveJobPanel';
 import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { DoorResult } from '../springCalc';
-import { colors, type, fs } from '../theme';
+import { colors, type, fs, sp } from '../theme';
 
 const COUNT_OPTIONS: ChipOption<1 | 2>[] = [
   { label: 'One spring', value: 1 },
@@ -174,8 +174,8 @@ function DoorResults({ result, springCount }: { result: DoorResult; springCount:
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 14 },
-  note: { fontSize: fs(17), color: colors.text, lineHeight: 24 },
-  divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
+  stack: { gap: sp(14) },
+  note: { fontSize: fs(17), color: colors.text, lineHeight: fs(24) },
+  divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: sp(10) },
   optionNumber: { fontSize: fs(16), fontWeight: '800', color: colors.muted, letterSpacing: 1 },
 });

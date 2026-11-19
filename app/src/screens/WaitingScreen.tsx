@@ -11,7 +11,7 @@ import { requestSyncNow } from '../lib/syncNow';
 import { useCustomerSync } from '../lib/useCustomerSync';
 import { useOdoo } from '../lib/useOdoo';
 import { usePendingItems } from '../lib/usePending';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -150,14 +150,14 @@ function Row({ title, detail, how, onPress, testID }: { title: string; detail?: 
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
+  stack: { gap: sp(12) },
+  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: sp(8) },
+  item: { minHeight: touch.min, padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '600', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   ok: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },

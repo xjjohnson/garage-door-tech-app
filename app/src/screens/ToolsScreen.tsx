@@ -15,7 +15,7 @@ import { useBadges } from '../lib/useBadges';
 import { dispatchTotal, officeTotal, overviewTotal, purchasingTotal, salesTotal } from '../lib/deptBadges';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, openShift, shiftMs } from '../lib/worklog';
-import { colors, fs } from '../theme';
+import { colors, fs, sp } from '../theme';
 import { StatsCard } from './StatsScreen';
 
 /**
@@ -105,7 +105,7 @@ function FollowUpsRow() {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
-  version: { textAlign: 'center', fontSize: fs(14), fontWeight: '600', color: colors.muted, paddingTop: 4 },
+  stack: { gap: sp(12) },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: sp(10) },
+  version: { textAlign: 'center', fontSize: fs(14), fontWeight: '600', color: colors.muted, paddingTop: sp(4) },
 });

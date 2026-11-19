@@ -11,7 +11,7 @@ import { dayLabel, formatTime, mapsLink } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
 import { useOpenOdooJob } from '../lib/useStartJob';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 /** At the top of Jobs. */
 export function TeamButton() {
@@ -210,20 +210,20 @@ function Action({ label, onPress, primary, grow, disabled, testID }: { label: st
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  row: { flexDirection: 'row', gap: 8 },
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  stack: { gap: sp(12) },
+  row: { flexDirection: 'row', gap: sp(8) },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
   grow: { flex: 1 },
-  field: { gap: 4 },
+  field: { gap: sp(4) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  item: { padding: 12, gap: 6, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  item: { padding: sp(12), gap: sp(6), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { opacity: 0.5 },

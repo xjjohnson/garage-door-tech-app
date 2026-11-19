@@ -4,7 +4,7 @@ import { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { Icon, IconName } from './Icon';
-import { colors, radius, shadow, touch, type, bw, fs, rad, sz } from '../theme';
+import { look, colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
 /** The shared card pieces of the Tools and Settings pages (style H1): grouped rows, tiles, a quiet section label and an alert banner. */
 
@@ -102,26 +102,26 @@ export function AlertBanner({ title, detail, action, onPress, testID, tone = 'wa
 }
 
 const styles = StyleSheet.create({
-  caption: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: 6, marginLeft: 4 },
+  caption: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: sp(6), marginLeft: sp(4) },
   group: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden', ...shadow },
-  row: { minHeight: touch.min + 6, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  row: { minHeight: look.size === 'legacy' ? touch.min + 6 : touch.min, flexDirection: 'row', alignItems: 'center', gap: sp(12), paddingHorizontal: sp(14), paddingVertical: sp(10) },
   rowLine: { borderBottomWidth: 1, borderBottomColor: colors.line },
   pressed: { backgroundColor: colors.info },
-  icon: { width: 40, height: 40, borderRadius: rad(12), backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: Math.max(32, sz(40)), height: Math.max(32, sz(40)), borderRadius: rad(12), backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center' },
   iconWarn: { backgroundColor: colors.warnBg },
-  text: { flex: 1, gap: 2 },
-  nameLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  text: { flex: 1, gap: sp(2) },
+  nameLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: sp(8) },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'left' },
   detail: { fontSize: fs(15), fontWeight: '600', color: colors.muted, textAlign: 'left' },
-  tag: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', color: colors.muted, borderWidth: bw(1), borderColor: colors.line, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 1, overflow: 'hidden' },
-  badge: { fontSize: fs(14), fontWeight: '800', color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' },
+  tag: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', color: colors.muted, borderWidth: bw(1), borderColor: colors.line, borderRadius: radius.pill, paddingHorizontal: sp(8), paddingVertical: sp(1), overflow: 'hidden' },
+  badge: { fontSize: fs(14), fontWeight: '800', color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: sp(10), paddingVertical: sp(3), borderRadius: radius.pill, overflow: 'hidden' },
   badgeOk: { color: colors.selected, backgroundColor: colors.info },
-  tile: { width: '48.5%', minHeight: 124, justifyContent: 'space-between', gap: 10, padding: 14, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
-  tileText: { gap: 2 },
-  alert: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.card, backgroundColor: colors.warnBg },
+  tile: { width: '48.5%', minHeight: look.size === 'legacy' ? 124 : touch.min + 20, ...(look.size === 'legacy' ? { justifyContent: 'space-between' as const } : { flexDirection: 'row' as const, alignItems: 'center' as const }), gap: sp(10), padding: sp(14), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
+  tileText: { gap: sp(2), ...(look.size === 'legacy' ? {} : { flex: 1 }) },
+  alert: { flexDirection: 'row', alignItems: 'center', gap: sp(12), padding: sp(12), borderRadius: radius.card, backgroundColor: colors.warnBg },
   alertTitle: { fontSize: type.body, fontWeight: '800', color: colors.warn },
   alertDetail: { fontSize: fs(15), fontWeight: '600', color: colors.warn },
-  alertButton: { minHeight: sz(44), minWidth: 76, borderRadius: radius.field, backgroundColor: colors.warn, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  alertButton: { minHeight: sz(44), minWidth: 76, borderRadius: radius.field, backgroundColor: colors.warn, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(14) },
   alertOk: { backgroundColor: colors.info },
   alertTextOk: { color: colors.selected },
   alertButtonOk: { backgroundColor: colors.selected },

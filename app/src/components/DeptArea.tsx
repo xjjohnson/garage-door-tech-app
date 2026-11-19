@@ -6,6 +6,7 @@ import type { Access } from '../lib/odooWarehouse';
 import type { OdooClient } from '../lib/odoo';
 import { Card, Note, Title } from './Dept';
 import { MenuGroup, SectionMenu, SectionPage } from './SectionMenu';
+import { sp } from '../theme';
 
 /**
  * The shell Office, Sales and Owner overview share: sign-in and access checks, the grouped list,
@@ -38,4 +39,4 @@ export function DeptArea<T extends string>({ area, who, need, groups, labels, pa
   );
 }
 
-const styles = StyleSheet.create({ stack: { gap: 12 } });
+const styles = StyleSheet.create({ stack: { gap: sp(12) } });
