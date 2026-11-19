@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { SectionTitle, Segmented } from '../components/controls';
 import { loadCompanyBrand } from '../lib/companyBrand';
-import { CompanyProfile, ProfileKey, readProfile, writeProfile } from '../lib/odooCompany';
+import { CompanyProfile, ProfileKey, htmlToText, readProfile, writeProfile } from '../lib/odooCompany';
 import { TermsPage } from './OfficeExtras';
 import { LOGO_DATA_URL } from '../data/logoPng';
 import { QrCode } from '../components/QrCode';
@@ -42,7 +42,7 @@ const PROFILE_FIELDS: Record<'identity' | 'contact' | 'documents', { key: Profil
     { key: 'report_header', label: 'Tagline on documents', placeholder: 'A short line under your name' },
   ],
   contact: [
-    { key: 'phone', label: 'Business phone', placeholder: 'For questions about an invoice', keyboard: 'phone-pad' },
+    { key: 'phone', label: 'Business phone', placeholder: '(555) 123-4567', hint: 'Customers call this number about a quote or invoice.', keyboard: 'phone-pad' },
     { key: 'email', label: 'Business email', placeholder: 'name@yourbusiness.com', keyboard: 'email-address' },
     { key: 'website', label: 'Website', placeholder: 'https://', keyboard: 'url' },
     { key: 'street', label: 'Street address', placeholder: 'Street and number' },
@@ -51,7 +51,7 @@ const PROFILE_FIELDS: Record<'identity' | 'contact' | 'documents', { key: Profil
     { key: 'zip', label: 'ZIP code', placeholder: 'ZIP code' },
   ],
   documents: [
-    { key: 'report_footer', label: 'Footer on every document', placeholder: 'For example your phone, website and license number', hint: 'Odoo prints this at the bottom of quotes and invoices.' },
+    { key: 'report_footer', label: 'Footer on every document', placeholder: 'For example your phone, website and license number', hint: 'Odoo prints this at the bottom of quotes and invoices.', multiline: true },
     { key: 'quotation_validity_days', label: 'Quotes are good for (days)', placeholder: '30', keyboard: 'number-pad' },
   ],
 };
@@ -118,13 +118,16 @@ export function BusinessScreen() {
       setSaved('');
       timers.current[key] = setTimeout(() => {
         if (!client) return;
+        // Rich-text fields: leave Odoo's own formatting alone unless the words changed.
+        const raw = profile?.rawHtml?.[key];
+        if (raw !== undefined && htmlToText(raw) === v.trim()) return;
         writeProfile(client, { [key]: v }).then(
           () => setSaved('Saved to Odoo.'),
           (e) => setSaved(e instanceof Error ? e.message : 'Odoo did not save that.'),
         );
       }, 700);
     },
-    [business, client, setBusiness],
+    [business, client, setBusiness, profile],
   );
 
   const locked = signedIn && owner !== true;
