@@ -15,6 +15,18 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.19',
+    title: 'Themes: Job detail layouts and the Field day timeline',
+    changes: [
+      'Job detail: Dispatch puts the visit and a Reassign button above the steps. Office and Owner show Quote, Paid and Owed above the steps with an Open invoice button. Map puts a big Go · Directions button on top. Field and Simple keep the steps first with the one big next action.',
+      'Field Jobs: each job shows its start time in a column on the left, like a day plan.',
+    ],
+    test: [
+      'Settings > Theme > Office (Restart), open a job: do you see Quote, Paid and Owed above the steps? Try Dispatch (Reassign) and Map (Go · Directions).',
+      'Settings > Theme > Field (Restart), open Jobs: are times down the left side?',
+    ],
+  },
+  {
     release: '0.6.18',
     title: 'Themes: Customers and Tools get their own layouts',
     changes: [

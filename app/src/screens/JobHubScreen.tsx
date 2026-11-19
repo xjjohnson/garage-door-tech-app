@@ -25,7 +25,7 @@ import { houseOf, NoteTarget } from '../lib/odooNotes';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { EtaPicker } from '../components/EtaPicker';
-import { colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { colors, layouts, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
 type Tab = 'overview' | 'work' | 'photos' | 'notes';
 const TABS: { id: Tab; label: string }[] = [
@@ -112,6 +112,17 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
     if (job.status !== 'done') setStatus(job.id, 'done');
   };
 
+  const visitRow = (
+    <NavRow
+        label="Visit"
+        detail={visit ? `${dayLabel(visit.start, now())} ${windowLabel(visit)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''} · change` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
+        href={{ pathname: '/schedule', params: { job: job.id } }}
+        testID="job-visit"
+      />
+  );
+  const quoted = job.ticket ? currentTotals(job.ticket)?.total ?? subtotal(job.ticket) : 0;
+  const owed = inv ? balance(inv) : quoted;
+
   return (
     <View style={styles.stack} testID="job-hub">
       <View style={styles.hero} testID="job-hero">
@@ -128,6 +139,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
         {jobAddress(job, customer) ? <Text style={styles.sub}>{jobAddress(job, customer)}</Text> : null}
         {job.odooJob?.model === 'fsm.order' ? <EquipmentChips orderId={job.odooJob.id} partnerId={customer?.odooId} address={jobAddress(job, customer)} now={now} onDark /> : null}
       </View>
+      {layouts.jobDetail === 'directions' && maps ? <Action primary label="Go · Directions" onPress={() => open(maps)} testID="job-go" /> : null}
       <View style={styles.row}>
         {tel ? <QuickAction icon="phone" label="Call" onPress={() => open(tel)} testID="job-call" /> : null}
         {smsLink(job.phone, '') ? <QuickAction icon="chat" label="Text" onPress={() => open(smsLink(job.phone, ''))} testID="job-text" /> : null}
@@ -143,6 +155,25 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
             open(smsLink(job.phone, onMyWayText({ name: job.customer }, business, m, etaPick === 'eta' ? 'eta' : undefined)));
           }}
         />
+      ) : null}
+
+      {layouts.jobDetail === 'assign' ? (
+        <>
+          {visitRow}
+          <Action label="Reassign or reschedule" onPress={() => router.push({ pathname: '/schedule', params: { job: job.id } })} testID="job-reassign" />
+        </>
+      ) : null}
+      {layouts.jobDetail === 'billing' ? (
+        <View style={styles.moneyRow} testID="job-money">
+          <View style={styles.money}><Text style={styles.moneyLabel}>QUOTE</Text><Text style={styles.moneyValue}>{quoted > 0 ? formatMoney(quoted) : '–'}</Text></View>
+          <View style={styles.money}><Text style={styles.moneyLabel}>PAID</Text><Text style={styles.moneyValue}>{formatMoney(inv ? Math.max(0, inv.total - balance(inv)) : 0)}</Text></View>
+          <View style={styles.money}><Text style={styles.moneyLabel}>OWED</Text><Text style={[styles.moneyValue, owed > 0 && styles.moneyOwed]} testID="job-owed">{formatMoney(owed)}</Text></View>
+        </View>
+      ) : null}
+      {layouts.jobDetail === 'billing' ? (
+        <View style={styles.row}>
+          <Action label={inv ? 'Open invoice' : 'Open ticket'} grow onPress={() => (inv ? router.push({ pathname: '/invoice/[id]', params: { id: inv.id } }) : router.push({ pathname: '/ticket/[id]', params: { id: job.id } }))} testID="job-billing-open" />
+        </View>
       ) : null}
 
       <View style={styles.statusRow} accessibilityRole="list" testID="job-steps">
@@ -180,12 +211,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       {tab === 'overview' ? (
         <>
 
-      <NavRow
-        label="Visit"
-        detail={visit ? `${dayLabel(visit.start, now())} ${windowLabel(visit)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''} · change` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
-        href={{ pathname: '/schedule', params: { job: job.id } }}
-        testID="job-visit"
-      />
+      {layouts.jobDetail === 'assign' ? null : visitRow}
       {job.customerId ? <NavRow label="Customer" detail={job.customer || 'Their doors and history'} href={{ pathname: '/customer/[id]', params: { id: job.customerId } }} testID="job-open-customer" /> : null}
       {customer?.odooId ? <NavRow label="Address" detail={`${jobAddress(job, customer) || 'No address'} · change`} href={{ pathname: '/job-address/[id]', params: { id: job.id } }} testID="job-open-address" /> : null}
       {job.odooJob?.model === 'fsm.order' ? <HouseCard orderId={job.odooJob.id} partnerId={customer?.odooId} address={jobAddress(job, customer)} now={now} /> : null}
@@ -304,6 +330,11 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
 }
 
 const styles = StyleSheet.create({
+  moneyRow: { flexDirection: 'row', gap: sp(8) },
+  money: { flex: 1, padding: sp(10), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card },
+  moneyLabel: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.5, color: colors.muted },
+  moneyValue: { fontSize: fs(20), fontWeight: '800', color: colors.text },
+  moneyOwed: { color: colors.warn },
   stack: { gap: sp(12) },
   tabs: { flexDirection: 'row', gap: sp(6) },
   tab: { paddingHorizontal: sp(14), minHeight: sz(40), justifyContent: 'center', borderRadius: radius.pill },
