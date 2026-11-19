@@ -7,12 +7,13 @@ import { onHeaderAdd } from '../lib/headerAdd';
 import { OdooCustomerSync } from '../components/OdooCustomerSync';
 import { customerName, EMPTY_CUSTOMER, searchCustomers, summarize } from '../lib/customers';
 import { CustomerSheet } from './CustomerScreen';
-import { invoiceStatus } from '../lib/invoices';
+import { balance, invoiceStatus } from '../lib/invoices';
+import { CustomerLayouts } from '../components/CustomerLayouts';
 import { useCustomers } from '../lib/useCustomers';
 import { useCustomerCounts } from '../lib/useCustomerCounts';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
-import { colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { colors, layouts, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
@@ -35,10 +36,10 @@ export function CustomersScreen() {
   // Who still owes money: unpaid invoices, matched to the customer through their job.
   const owes = useMemo(() => {
     const byJob = new Map(jobs.map((j) => [j.id, j.customerId]));
-    const set = new Set<string>();
+    const set = new Map<string, number>();
     for (const i of invoices) {
       const c = i.jobId ? byJob.get(i.jobId) : undefined;
-      if (c && ['unpaid', 'partial'].includes(invoiceStatus(i))) set.add(c);
+      if (c && ['unpaid', 'partial'].includes(invoiceStatus(i))) set.set(c, (set.get(c) ?? 0) + balance(i));
     }
     return set;
   }, [jobs, invoices]);
@@ -51,7 +52,7 @@ export function CustomersScreen() {
       const waiting = odoo ? sum.jobs.filter((j) => !j.odooJob && !j.odooOrder) : sum.jobs;
       const jobsN = odoo ? odoo.jobs + waiting.length : sum.jobs.length;
       const openN = odoo ? odoo.open + waiting.filter((j) => j.status === 'open').length : sum.openJobs;
-      return { sum, jobsN, openN, quotes: odoo?.quotes ?? 0, owes: owes.has(c.id) };
+      return { sum, jobsN, openN, quotes: odoo?.quotes ?? 0, owes: owes.has(c.id), owed: owes.get(c.id) ?? 0 };
     });
   }, [customers, jobs, query, odooCounts, owes]);
 
@@ -128,7 +129,13 @@ export function CustomersScreen() {
         </Text>
       ) : null}
 
-      {shown.length > 0 ? (
+      {shown.length > 0 && layouts.customers !== 'classic' ? (
+        <CustomerLayouts
+          layout={layouts.customers}
+          rows={shown.map((r) => ({ id: r.sum.customer.id, name: customerName(r.sum.customer), address: r.sum.customer.address ?? '', phone: r.sum.customer.phone ?? '', jobs: r.jobsN, open: r.openN, quotes: r.quotes, owed: r.owed }))}
+        />
+      ) : null}
+      {shown.length > 0 && layouts.customers === 'classic' ? (
         <View style={styles.group}>
           {shown.map((r, i) => {
             const c = r.sum.customer;

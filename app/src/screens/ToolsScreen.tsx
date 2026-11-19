@@ -15,7 +15,7 @@ import { useBadges } from '../lib/useBadges';
 import { dispatchTotal, officeTotal, overviewTotal, purchasingTotal, salesTotal } from '../lib/deptBadges';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, openShift, shiftMs } from '../lib/worklog';
-import { colors, fs, sp } from '../theme';
+import { colors, fs, layouts, sp } from '../theme';
 import { StatsCard } from './StatsScreen';
 
 /**
@@ -31,6 +31,17 @@ export function ToolsScreen() {
   const { owner } = useOwner();
   const badges = useBadges();
   const buying = purchasingTotal(badges);
+  const mode = layouts.tools;
+  const businessGroup = (
+    <>
+      <Caption>Business</Caption>
+      <RowGroup>
+        <IconRow icon="tag" label="Price book" detail="Parts and labor prices" href="/price-book" testID="tools-price-book" last={!owner} />
+        {owner ? <IconRow icon="chart" label="Business numbers" detail="Sales, close rate, average ticket" tag="Owner only" href="/stats" testID="tools-stats" /> : null}
+        {owner ? <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last /> : null}
+      </RowGroup>
+    </>
+  );
   return (
     <View style={styles.stack} testID="tools">
       {owner ? <StatsCard /> : null}
@@ -38,28 +49,48 @@ export function ToolsScreen() {
       {low > 0 ? <AlertBanner testID="stock-alert" title={`Truck stock: ${low} low`} detail="Check what to reorder" action="Review" onPress={() => router.push('/stock')} /> : null}
       <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />
 
-      <Caption>In the field</Caption>
-      <View style={styles.tiles}>
-        <ToolTile icon="calc" label="Spring calculator" detail="Match old, size, extension" href="/springs" testID="tools-springs" />
-        <ToolTile icon="weight" label="Door weight" detail="Estimate from size and type" href="/door-weight" testID="tools-door-weight" />
-        <ToolTile icon="diag" label="Diagnose" detail="Opener codes and symptoms" href="/diagnose" testID="tools-diagnose" />
-        <ToolTile icon="book" label="Manuals" detail="Install and owner's manuals" href="/manuals" testID="tools-manuals" />
-      </View>
+      {mode === 'calc' ? (
+        <View style={styles.pair}>
+          <Action primary label="Spring calc" onPress={() => router.push('/springs')} testID="tools-springs-big" grow />
+          <Action primary label="Parts and truck" onPress={() => router.push('/stock')} testID="tools-stock-big" grow />
+        </View>
+      ) : null}
+
+      {mode === 'business' ? businessGroup : null}
+
+      {mode === 'compact' || mode === 'business' || mode === 'calc' ? (
+        <>
+          <Caption>{mode === 'calc' ? 'All tools' : 'In the field'}</Caption>
+          <RowGroup>
+            <IconRow icon="calc" label="Spring calculator" detail="Match old, size, extension" href="/springs" testID="tools-springs" />
+            <IconRow icon="weight" label="Door weight" detail="Estimate from size and type" href="/door-weight" testID="tools-door-weight" />
+            <IconRow icon="diag" label="Diagnose" detail="Opener codes and symptoms" href="/diagnose" testID="tools-diagnose" />
+            <IconRow icon="book" label="Manuals" detail="Install and owner's manuals" href="/manuals" testID="tools-manuals" last={mode === 'calc' ? false : true} />
+          </RowGroup>
+        </>
+      ) : (
+        <>
+          <Caption>In the field</Caption>
+          <View style={styles.tiles}>
+            <ToolTile icon="calc" label="Spring calculator" detail="Match old, size, extension" href="/springs" testID="tools-springs" />
+            <ToolTile icon="weight" label="Door weight" detail="Estimate from size and type" href="/door-weight" testID="tools-door-weight" />
+            <ToolTile icon="diag" label="Diagnose" detail="Opener codes and symptoms" href="/diagnose" testID="tools-diagnose" />
+            <ToolTile icon="book" label="Manuals" detail="Install and owner's manuals" href="/manuals" testID="tools-manuals" />
+            {mode === 'tiles' ? <ToolTile icon="truck" label="Truck stock" detail={low > 0 ? `${low} low` : 'Parts on the truck'} href="/stock" testID="open-stock-tile" /> : null}
+            {mode === 'tiles' ? <ToolTile icon="clock" label="Time and miles" detail="Clock in, clock out, trip log" href="/time-log" testID="open-time-log-tile" /> : null}
+          </View>
+        </>
+      )}
 
       <Caption>Truck and day</Caption>
       <RowGroup>
-        <IconRow icon="truck" label="Truck stock" detail="Parts on the truck" href="/stock" testID="open-stock" badge={low > 0 ? `${low} low` : undefined} warn={low > 0} />
-        <TimeRow />
+        {mode === 'tiles' ? null : <IconRow icon="truck" label="Truck stock" detail="Parts on the truck" href="/stock" testID="open-stock" badge={low > 0 ? `${low} low` : undefined} warn={low > 0} />}
+        {mode === 'tiles' ? null : <TimeRow />}
         <FollowUpsRow />
         <IconRow icon="cal" label="Schedule" detail="Book and move visits" href="/schedule" testID="tools-schedule" last />
       </RowGroup>
 
-      <Caption>Business</Caption>
-      <RowGroup>
-        <IconRow icon="tag" label="Price book" detail="Parts and labor prices" href="/price-book" testID="tools-price-book" last={!owner} />
-        {owner ? <IconRow icon="chart" label="Business numbers" detail="Sales, close rate, average ticket" tag="Owner only" href="/stats" testID="tools-stats" /> : null}
-        {owner ? <IconRow icon="star" label="Tech scorecard" detail="Quotes won, ticket, callbacks" tag="Owner only" href="/scorecard" testID="tools-scorecard" last /> : null}
-      </RowGroup>
+      {mode === 'business' ? null : businessGroup}
 
       {access.warehouse || access.purchasing || access.dispatch || access.office || access.sales || access.owner ? (
         <>
@@ -106,6 +137,7 @@ function FollowUpsRow() {
 
 const styles = StyleSheet.create({
   stack: { gap: sp(12) },
+  pair: { flexDirection: 'row', gap: sp(10) },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: sp(10) },
   version: { textAlign: 'center', fontSize: fs(14), fontWeight: '600', color: colors.muted, paddingTop: sp(4) },
 });

@@ -21,7 +21,7 @@ describe('themes', () => {
     expect(c.shape).toBe('round');
     expect(c.size).toBe('legacy');
     expect(c.accent).toBeNull();
-    expect(c.layouts).toEqual({ visitRows: 'card', jobRows: 'card', jobsGroup: 'none', jobsTeamFirst: false, jobsMap: false, home: 'classic', homeStartsOnMap: false, sales: 'classic' });
+    expect(c.layouts).toEqual({ visitRows: 'card', jobRows: 'card', jobsGroup: 'none', jobsTeamFirst: false, jobsMap: false, home: 'classic', homeStartsOnMap: false, sales: 'classic', customers: 'classic', tools: 'classic' });
   });
 
   it('defines six themes besides Classic, each with a unique id and a plain description', () => {
