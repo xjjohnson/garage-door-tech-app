@@ -65,3 +65,31 @@ describe('Job detail in each theme layout', () => {
     });
   }
 });
+
+describe('Owner Home chart data', () => {
+  it('gives seven days, oldest first, ending today, and counts a payment on its day', () => {
+    const { snapshot, lastDays } = require('../lib/stats');
+    const now = new Date(2026, 10, 19, 15).getTime();
+    const days = lastDays(now);
+    expect(days).toHaveLength(7);
+    expect(new Date(days[6].start).getDate()).toBe(19);
+    expect(new Date(days[0].start).getDate()).toBe(13);
+    const inv = { id: 'i', total: 5000, createdAt: now, payments: [{ at: new Date(2026, 10, 18, 9).getTime(), amount: 5000, method: 'cash' }], lines: [] };
+    const snap = snapshot([], [inv], now);
+    expect(snap.days).toHaveLength(7);
+    expect(snap.days[5].collected).toBe(5000);
+    expect(snap.days[6].collected).toBe(0);
+  });
+});
+
+describe('Crew today line', () => {
+  const { crewLine } = require('../components/CrewToday');
+  const now = new Date(2026, 10, 19, 13).getTime();
+  const task = (o: object) => ({ id: 1, name: 'FO042', customer: '', phone: '', address: '', stage: 'New', notes: '', assignees: [1], ...o });
+  it('says On job once arrived, Next with the time, or free', () => {
+    expect(crewLine([task({ arrivedAt: now - 1000 })], now)).toEqual({ text: 'On job · FO042', tone: 'on' });
+    expect(crewLine([task({ start: new Date(2026, 10, 19, 14).getTime() })], now).text).toBe('Next 2:00 pm · FO042');
+    expect(crewLine([], now)).toEqual({ text: 'Nothing booked', tone: 'free' });
+    expect(crewLine([task({ stage: 'Done', start: now - 7200000 })], now).text).toBe('Done for today');
+  });
+});
