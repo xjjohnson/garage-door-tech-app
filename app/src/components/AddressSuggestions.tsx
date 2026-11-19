@@ -10,7 +10,7 @@ import { Text } from './AppText';
 import type { AddressSuggestion } from '../lib/addressSuggest';
 import { useAddressSuggestions } from '../lib/useAddressSuggestions';
 import { rememberPoint } from '../lib/useGeocode';
-import { colors, touch } from '../theme';
+import { colors, touch, fs } from '../theme';
 
 export function AddressSuggestions({
   typed,
@@ -62,7 +62,7 @@ export function AddressSuggestions({
 
 const styles = StyleSheet.create({
   suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 6 },
-  name: { fontSize: 17, fontWeight: '800', color: colors.text },
-  sub: { fontSize: 15, fontWeight: '600', color: colors.muted },
+  name: { fontSize: fs(17), fontWeight: '800', color: colors.text },
+  sub: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },
 });

@@ -8,7 +8,7 @@ import { completeActivity, createManualFollowUp, fetchTodos, TodoRow } from '../
 import { currentTemplate, fetchJobTags, setJobTags, switchTemplate, Tag } from '../lib/odooJobExtras';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, radius, touch } from '../theme';
+import { colors, radius, touch, bw, fs, sz } from '../theme';
 
 /**
  * The slim rows at the bottom of a job: Summary of work, Job Inputs (the
@@ -164,23 +164,23 @@ function Tags({ orderId }: { orderId: number }) {
 
 const styles = StyleSheet.create({
   stack: { gap: 8 },
-  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line },
   head: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14 },
-  title: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
-  badge: { fontSize: 13, fontWeight: '800', color: colors.selected, backgroundColor: colors.info, paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden', maxWidth: 160 },
-  plus: { fontSize: 24, fontWeight: '700', color: colors.muted, width: 22, textAlign: 'center' },
+  title: { flex: 1, fontSize: fs(17), fontWeight: '800', color: colors.text },
+  badge: { fontSize: fs(13), fontWeight: '800', color: colors.selected, backgroundColor: colors.info, paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden', maxWidth: 160 },
+  plus: { fontSize: fs(24), fontWeight: '700', color: colors.muted, width: 22, textAlign: 'center' },
   body: { paddingHorizontal: 14, paddingBottom: 14, gap: 10 },
-  hint: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  input: { minHeight: 110, borderRadius: radius.field, borderWidth: 1, borderColor: colors.border, padding: 12, fontSize: 17, fontWeight: '600', color: colors.text, textAlignVertical: 'top', backgroundColor: colors.bg },
-  line: { minHeight: touch.min, borderRadius: radius.field, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, fontSize: 17, fontWeight: '600', color: colors.text, backgroundColor: colors.bg },
+  hint: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
+  input: { minHeight: 110, borderRadius: radius.field, borderWidth: bw(1), borderColor: colors.border, padding: 12, fontSize: fs(17), fontWeight: '600', color: colors.text, textAlignVertical: 'top', backgroundColor: colors.bg },
+  line: { minHeight: touch.min, borderRadius: radius.field, borderWidth: bw(1), borderColor: colors.border, paddingHorizontal: 12, fontSize: fs(17), fontWeight: '600', color: colors.text, backgroundColor: colors.bg },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 44, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
+  chip: { minHeight: sz(44), paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
   chipOn: { backgroundColor: colors.selected, borderColor: colors.selected },
-  chipText: { fontSize: 16, fontWeight: '700', color: colors.text },
+  chipText: { fontSize: fs(16), fontWeight: '700', color: colors.text },
   chipTextOn: { color: colors.onSelected },
   task: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   grow: { flex: 1 },
-  taskTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
-  done: { minHeight: 44, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center' },
-  doneText: { fontSize: 15, fontWeight: '800', color: colors.selected },
+  taskTitle: { fontSize: fs(17), fontWeight: '700', color: colors.text },
+  done: { minHeight: sz(44), paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center' },
+  doneText: { fontSize: fs(15), fontWeight: '800', color: colors.selected },
 });

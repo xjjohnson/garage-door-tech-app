@@ -28,7 +28,7 @@ import { dayLabel, formatTime } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { useOpenOdooJob } from '../lib/useStartJob';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 export const CUSTOMER_ODOO_STORAGE_KEY = 'odoo-customer/v1';
 const LIMIT = 20;
@@ -464,14 +464,14 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
   section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   title: { flexShrink: 1, fontSize: type.body, fontWeight: '800', color: colors.text },
-  badge: { fontSize: 14, fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', letterSpacing: 1 },
+  badge: { fontSize: fs(14), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   warn: { color: colors.stop },
   owed: { fontSize: type.value, fontWeight: '800', color: colors.stop },
-  error: { fontSize: 16, fontWeight: '700', color: colors.stop },
+  error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
   pressed: { backgroundColor: colors.info },
 });

@@ -15,6 +15,25 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.11',
+    title: 'Looks: shape, size and company colors',
+    changes: [
+      'Settings > Look: pick Round or Square corners, a size (Legacy, Comfortable, Compact, Tight) and Johnsons green or the company brand color from Odoo. Legacy round is the default, so nothing changes until you pick.',
+      'Compact sizes make buttons 48, 44 or 40 px and text smaller so more fits on a screen. Square looks use sharp corners, firmer borders and no shadows.',
+      'Company brand colors are checked for contrast and nudged lighter or darker so white text stays readable.',
+      'Management > Your business > Logo: use the company logo from Odoo on PDF reports instead of the built-in Johnsons logo. Read-only from Odoo; nothing is written to it.',
+    ],
+    test: [
+      'Settings > Look: pick Square + Compact, tap Restart, and look through Today, Jobs, a job, Customers and Sales for clipped or crowded text.',
+      'Try Comfortable and Tight too: are buttons still easy to hit?',
+      'Pick Company brand: do the header and buttons use your Odoo color and stay readable? (If Odoo has none, it stays Johnsons green.)',
+      'Dark mode with each look.',
+      'Signature pad and the inspection tiles in a compact size.',
+      'Management > Your business > Logo: switch to Logo from Odoo, wait a few minutes, make an inspection report PDF and check the logo.',
+      'Tap Back to the legacy look: everything returns to how it was.',
+    ],
+  },
+  {
     release: '0.6.10',
     title: 'Switch Odoo database from the Developer screen',
     changes: [

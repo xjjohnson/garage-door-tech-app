@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, LayoutChangeEvent, Modal, PanResponder, Platform,
 import { Text, TextInput } from './AppText';
 import Svg, { Path } from 'react-native-svg';
 import { strokePath } from '../lib/attachments';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, rad } from '../theme';
 
 export interface SignatureResult {
   name: string;
@@ -104,12 +104,12 @@ const styles = StyleSheet.create({
   cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
   agreement: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  pad: { height: 200, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#FFFFFF', overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  pad: { height: 200, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: '#FFFFFF', overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
   hint: { position: 'absolute', fontSize: type.body, color: colors.muted, fontWeight: '700' },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { backgroundColor: colors.muted },

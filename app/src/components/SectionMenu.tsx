@@ -2,7 +2,7 @@ import { ReactNode, useEffect } from 'react';
 import { useBackStep } from '../lib/backStep';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { colors, radius, shadow } from '../theme';
+import { colors, radius, shadow, bw, fs, rad, sz } from '../theme';
 
 export interface MenuItem<T extends string> {
   id: T;
@@ -68,16 +68,16 @@ export function SectionPage({ title, onBack, children }: { area?: string; title:
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  heading: { fontSize: 13, fontWeight: '800', letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 4, paddingBottom: 6, paddingTop: 4 },
-  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, overflow: 'hidden', ...shadow },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14, minHeight: 56 },
+  heading: { fontSize: fs(13), fontWeight: '800', letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 4, paddingBottom: 6, paddingTop: 4 },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden', ...shadow },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14, minHeight: sz(56) },
   line: { borderTopWidth: 1, borderTopColor: colors.line },
   pressed: { backgroundColor: colors.info },
   text: { flex: 1, gap: 2 },
-  label: { fontSize: 18, fontWeight: '800', color: colors.text },
-  detail: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  chevron: { fontSize: 26, color: colors.muted },
-  badge: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: '#C62828', alignItems: 'center', justifyContent: 'center' },
-  badgeText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
-  pageTitle: { fontSize: 22, fontWeight: '800', color: colors.text, paddingHorizontal: 4 },
+  label: { fontSize: fs(18), fontWeight: '800', color: colors.text },
+  detail: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
+  chevron: { fontSize: fs(26), color: colors.muted },
+  badge: { minWidth: 24, height: 24, borderRadius: rad(12), paddingHorizontal: 7, backgroundColor: '#C62828', alignItems: 'center', justifyContent: 'center' },
+  badgeText: { fontSize: fs(13), fontWeight: '800', color: '#FFFFFF' },
+  pageTitle: { fontSize: fs(22), fontWeight: '800', color: colors.text, paddingHorizontal: 4 },
 });

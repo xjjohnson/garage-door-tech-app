@@ -9,7 +9,7 @@ import { CYCLE_CHOICES, DEFAULT_DRUMS_FORM, DrumsForm, DrumsResult, COMMERCIAL_I
 import { OpenJobRequest } from '../lib/jobs';
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
-import { colors, type } from '../theme';
+import { colors, type, fs } from '../theme';
 
 const COUNT_OPTIONS: ChipOption<1 | 2 | 4>[] = [
   { label: 'One spring', value: 1 },
@@ -197,11 +197,11 @@ function DrumsResults({ result, springCount }: { result: DrumsResult; springCoun
 
 const styles = StyleSheet.create({
   stack: { gap: 14 },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
   divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
-  optionNumber: { fontSize: 16, fontWeight: '800', color: colors.muted, letterSpacing: 1 },
+  optionNumber: { fontSize: fs(16), fontWeight: '800', color: colors.muted, letterSpacing: 1 },
   drum: { gap: 2 },
   drumName: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  drumDetail: { fontSize: 16, color: colors.text },
+  drumDetail: { fontSize: fs(16), color: colors.text },
   off: { color: colors.muted },
 });

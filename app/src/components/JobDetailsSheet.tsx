@@ -6,7 +6,7 @@ import { Text, TextInput } from './AppText';
 import { suggestCustomers } from '../lib/customers';
 import { EMPTY_DETAILS, JobDetails } from '../lib/jobs';
 import { useCustomersIfAny } from '../lib/useCustomers';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 const FIELDS: { key: keyof JobDetails; label: string; placeholder: string; multiline?: boolean; phone?: boolean }[] = [
   { key: 'customer', label: 'Customer', placeholder: 'Name' },
@@ -129,8 +129,8 @@ const styles = StyleSheet.create({
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   input: {
     minHeight: touch.min,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    borderRadius: rad(10),
+    borderWidth: bw(1.5),
     borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -140,11 +140,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   multiline: { minHeight: 110, textAlignVertical: 'top' },
-  hint: { fontSize: 16, fontWeight: '700', color: colors.muted },
+  hint: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   suggestions: { gap: 6, marginTop: 4 },
-  suggestion: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.card },
+  suggestion: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.card },
   suggestionText: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
+  save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
   pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },

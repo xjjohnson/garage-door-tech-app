@@ -5,7 +5,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import { Text, TextInput } from './AppText';
 import { ChipRow } from './controls';
 import { ADDRESS_TYPES, AddressFields, AddressType, EMPTY_ADDRESS } from '../lib/odooContacts';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 const FIELDS: { key: Exclude<keyof AddressFields, 'type'>; label: string; placeholder: string; keyboard?: 'phone-pad' | 'email-address' }[] = [
   { key: 'address', label: 'Address', placeholder: '400 Main St, Kyle 78640' },
@@ -108,9 +108,9 @@ const styles = StyleSheet.create({
   fields: { gap: 12, paddingBottom: 4 },
   field: { gap: 4 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 8, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  error: { fontSize: 16, fontWeight: '700', color: colors.stop },
-  save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 8, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
+  save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
   pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },

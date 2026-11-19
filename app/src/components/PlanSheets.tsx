@@ -4,7 +4,7 @@ import { Text, TextInput } from './AppText';
 import { DAY } from '../lib/followups';
 import type { AgreementRow, FrequencySet, RepeatRow } from '../lib/odooRecurring';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 import { MaintenancePlan, planSummary } from '../lib/maintenancePlans';
 import { ChipRow } from './controls';
 
@@ -221,12 +221,12 @@ const styles = StyleSheet.create({
   field: { gap: 4 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   value: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 8, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 8, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   multi: { minHeight: 90, textAlignVertical: 'top' },
-  pick: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
-  error: { fontSize: 16, fontWeight: '700', color: colors.stop },
-  save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
+  pick: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
+  save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
   pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },

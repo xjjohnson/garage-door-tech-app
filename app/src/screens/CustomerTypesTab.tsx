@@ -5,7 +5,7 @@ import { renameCustomerType, typesFor } from '../lib/customerTypes';
 import type { OdooClient } from '../lib/odoo';
 import { queueBusiness } from '../lib/settingsSync';
 import { useInvoices } from '../lib/useInvoices';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 /**
  * Management > Customer types: the kinds of customer (Homeowner, Commercial,
@@ -96,11 +96,11 @@ const styles = StyleSheet.create({
   stack: { gap: 10 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   grow: { flex: 1 },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  small: { minWidth: touch.min, minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  back: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  small: { minWidth: touch.min, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  back: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  primary: { minHeight: touch.min, borderRadius: 14, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' },
+  primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
 });

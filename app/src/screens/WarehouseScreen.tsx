@@ -34,7 +34,7 @@ import {
 } from '../lib/odooWarehouse';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
-import { colors } from '../theme';
+import { colors, fs } from '../theme';
 
 type Tab = 'overview' | 'count' | 'move' | 'receive' | 'jobs' | 'log';
 const LABELS: Record<Tab, string> = { overview: 'Overview', count: 'Count', move: 'Move parts', receive: 'Receive', jobs: 'Parts on jobs', log: 'History' };
@@ -512,7 +512,7 @@ function History({ client }: { client: OdooClient }) {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   grow: { flex: 1 },
-  name: { fontSize: 18, fontWeight: '700', color: colors.text },
-  bad: { color: colors.stop, fontSize: 16, fontWeight: '800' },
-  diff: { fontSize: 22, fontWeight: '800', color: colors.text },
+  name: { fontSize: fs(18), fontWeight: '700', color: colors.text },
+  bad: { color: colors.stop, fontSize: fs(16), fontWeight: '800' },
+  diff: { fontSize: fs(22), fontWeight: '800', color: colors.text },
 });

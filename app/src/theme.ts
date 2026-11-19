@@ -1,5 +1,6 @@
 import { Appearance } from 'react-native';
-import { readStartChoice } from './lib/themeStart';
+import { readStartChoice, readStartValue } from './lib/themeStart';
+import { BAR_PX, BUTTON_PX, Look, brandPalette, cleanBrandColor, parsePalette, parseShape, parseSize, scaleBorder, scaleFont, scaleHeight, scaleRadius } from './lib/themeLook';
 
 /**
  * The Johnsons look (style H1): forest green on a soft page, white rounded
@@ -96,27 +97,58 @@ function startScheme(): 'light' | 'dark' {
 export const scheme: 'light' | 'dark' = startScheme();
 export const isDark = scheme === 'dark';
 
-export const colors: typeof light = isDark ? dark : light;
+/** The look this run drew itself in (shape, size and palette), read at start like the scheme. Legacy until a look is picked. */
+function startLook(): Look {
+  try {
+    return { shape: parseShape(readStartValue('shape')), size: parseSize(readStartValue('size')), palette: parsePalette(readStartValue('palette')) };
+  } catch {
+    return { shape: 'round', size: 'legacy', palette: 'johnsons' };
+  }
+}
+export const look: Look = startLook();
 
-/** min: any button or chip. bar: the pinned answer bar and the bottom tabs. */
-export const touch = { min: 56, bar: 64 } as const;
+function startColors(): typeof light {
+  const base = isDark ? dark : light;
+  if (look.palette !== 'brand') return base;
+  // The company's own color from Odoo (saved by companyBrand.ts). None saved: the Johnsons palette stays.
+  const brand = cleanBrandColor(readStartValue('brandcolor'));
+  return brand ? { ...base, ...brandPalette(brand, isDark) } : base;
+}
+export const colors: typeof light = startColors();
+
+/** min: any button or chip. bar: the pinned answer bar and the bottom tabs. Scaled by the size pick. */
+export const touch = { min: BUTTON_PX[look.size], bar: BAR_PX[look.size] };
+
+/**
+ * Helpers for screens. Write the legacy number; the look scales it. Under the
+ * Legacy look each returns its input unchanged.
+ * rad: a corner radius. fs: a font size. sz: a control height written for a
+ * 56 px button. bw: a border width.
+ */
+export const rad = (n: number) => scaleRadius(n, look.shape);
+export const fs = (n: number) => scaleFont(n, look.size);
+export const sz = (n: number) => scaleHeight(n, look.size);
+export const bw = (n: number) => scaleBorder(n, look.shape);
 
 export const type = {
-  label: 18,
-  body: 18,
-  value: 22,
-  big: 30,
-  huge: 40,
-} as const;
+  label: scaleFont(18, look.size),
+  body: scaleFont(18, look.size),
+  value: scaleFont(22, look.size),
+  big: scaleFont(30, look.size),
+  huge: scaleFont(40, look.size),
+};
 
 /** Corners: fields and buttons, cards, sheets, and full pills. */
-export const radius = { field: 12, card: 16, sheet: 22, pill: 999 } as const;
+export const radius = { field: rad(12), card: rad(16), sheet: rad(22), pill: 999 };
+
 
 /** The soft card shadow from the approved screens. */
-export const shadow = {
-  shadowColor: colors.shadow,
-  shadowOpacity: isDark ? 0.4 : 0.08,
-  shadowRadius: 8,
-  shadowOffset: { width: 0, height: 2 },
-  elevation: 2,
-} as const;
+export const shadow = look.shape === 'square'
+  ? ({ shadowColor: colors.shadow, shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 0 } as const)
+  : ({
+      shadowColor: colors.shadow,
+      shadowOpacity: isDark ? 0.4 : 0.08,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+    } as const);

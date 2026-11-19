@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
-import { colors, radius, touch, type } from '../theme';
+import { colors, radius, touch, type, bw, fs } from '../theme';
 
 /** Small pieces the Warehouse and Purchasing screens share. */
 
@@ -113,15 +113,15 @@ export const dateText = (ms?: number) => (ms ? new Date(ms).toLocaleDateString('
 export const Row = ({ children }: { children: ReactNode }) => <View style={styles.row}>{children}</View>;
 
 const styles = StyleSheet.create({
-  msg: { fontSize: 16, fontWeight: '800', color: colors.text, lineHeight: 22 },
+  msg: { fontSize: fs(16), fontWeight: '800', color: colors.text, lineHeight: 22 },
   bad: { color: colors.stop },
   card: { padding: 12, gap: 8, borderRadius: radius.card, backgroundColor: colors.card },
-  warn: { borderWidth: 3, borderColor: colors.caution },
+  warn: { borderWidth: bw(3), borderColor: colors.caution },
   title: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  parts: { fontSize: 16, fontWeight: '700', color: colors.text },
-  note: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  input: { minHeight: touch.min - 8, borderRadius: radius.field, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
+  parts: { fontSize: fs(16), fontWeight: '700', color: colors.text },
+  note: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
+  input: { minHeight: touch.min - 8, borderRadius: radius.field, borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   wide: { alignSelf: 'stretch' },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
 });

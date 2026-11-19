@@ -41,7 +41,7 @@ import { listPlaces, Place, recentPartsUsed } from '../lib/odooWarehouse';
 import { writeOrderpoint } from '../lib/odooStock';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
-import { colors } from '../theme';
+import { colors, fs } from '../theme';
 
 type Tab = 'order' | 'orders' | 'vendors' | 'prices' | 'lists' | 'usage';
 const LABELS: Record<Tab, string> = { order: 'To order', orders: 'Purchase orders', vendors: 'Vendors', prices: 'Cost and price', lists: 'Pricelists', usage: 'Reorder levels' };
@@ -499,6 +499,6 @@ function Usage({ client }: { client: OdooClient }) {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   grow: { flex: 1 },
-  name: { fontSize: 18, fontWeight: '700', color: colors.text },
-  bad: { color: colors.stop, fontSize: 16, fontWeight: '800' },
+  name: { fontSize: fs(18), fontWeight: '700', color: colors.text },
+  bad: { color: colors.stop, fontSize: fs(16), fontWeight: '800' },
 });

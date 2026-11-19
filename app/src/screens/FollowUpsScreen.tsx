@@ -14,7 +14,7 @@ import { formatJobDate } from '../lib/jobs';
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 const PLAN_TODOS_KEY = 'plan-renewal-todos/v1';
 
@@ -199,17 +199,17 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  empty: { padding: 12, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
+  empty: { padding: 12, borderRadius: rad(14), backgroundColor: colors.card, gap: 6 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  item: { padding: 12, gap: 6, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
-  overdue: { borderWidth: 4, borderColor: colors.caution },
+  emptyBody: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
+  item: { padding: 12, gap: 6, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  overdue: { borderWidth: bw(4), borderColor: colors.caution },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },

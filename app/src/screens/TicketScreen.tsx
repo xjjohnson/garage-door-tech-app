@@ -33,7 +33,7 @@ import { useStock } from '../lib/useStock';
 import { EmailResult, emailedText, emailRecord, partnerEmail } from '../lib/odooReports';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { canMove, groupIntoLaborAndParts, hasSections, headings, moveLine, moveToSection, orderLines, renameLine, sectionTotals } from '../lib/ticketSections';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 const message = (e: unknown) => (e instanceof OdooError || e instanceof Error ? e.message : "Couldn't reach Odoo. Try again.");
 
@@ -926,14 +926,14 @@ function Small({ label, onPress, testID, hint, disabled }: { label: string; onPr
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   termsTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  for: { fontSize: 22, fontWeight: '800', color: colors.text },
-  meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
+  for: { fontSize: fs(22), fontWeight: '800', color: colors.text },
+  meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   refBox: { gap: 6 },
-  qrBox: { alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  qrBox: { alignItems: 'center', gap: 10, padding: 12, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   qrLabel: { fontSize: type.value, fontWeight: '800', color: colors.text, textAlign: 'center' },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 8 },
+  card: { backgroundColor: colors.card, borderRadius: rad(12), padding: 12, gap: 8 },
   line: { gap: 6, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
   lineTop: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   name: { flex: 1, fontSize: type.body, fontWeight: '800', color: colors.text },
@@ -941,16 +941,16 @@ const styles = StyleSheet.create({
   controls: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   qty: { minWidth: 28, textAlign: 'center', fontSize: type.value, fontWeight: '800', color: colors.text },
   each: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  price: { minWidth: 90, minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 10, fontSize: type.body, fontWeight: '800', color: colors.text, backgroundColor: colors.card },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  small: { minWidth: touch.min, minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
+  price: { minWidth: 90, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 10, fontSize: type.body, fontWeight: '800', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  small: { minWidth: touch.min, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
   smallText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.info },
   off: { opacity: 0.4 },
   menu: { gap: 6, paddingVertical: 6 },
-  band: { gap: 6, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border },
+  band: { gap: 6, paddingVertical: 10, paddingHorizontal: 12, borderRadius: rad(12), backgroundColor: colors.card, borderWidth: bw(1.5), borderColor: colors.border },
   bandName: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
-  chip: { fontSize: 13, fontWeight: '800', color: colors.muted },
+  chip: { fontSize: fs(13), fontWeight: '800', color: colors.muted },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between' },
   totalLabel: { fontSize: type.body, fontWeight: '700', color: colors.text },
   totalValue: { fontSize: type.body, fontWeight: '800', color: colors.text },

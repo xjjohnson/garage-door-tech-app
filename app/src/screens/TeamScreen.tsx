@@ -11,7 +11,7 @@ import { dayLabel, formatTime, mapsLink } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
 import { useOpenOdooJob } from '../lib/useStartJob';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 /** At the top of Jobs. */
 export function TeamButton() {
@@ -218,12 +218,12 @@ const styles = StyleSheet.create({
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  item: { padding: 12, gap: 6, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  item: { padding: 12, gap: 6, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   off: { opacity: 0.5 },

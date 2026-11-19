@@ -5,7 +5,7 @@ import { ChipOption, ChipRow, Segmented } from '../components/controls';
 import { DIAG_BRANDS, DIAG_SAFETY, DiagSource, SYMPTOMS } from '../data/diagnostics';
 import { familiesFor, familyById, findCode, hostOf } from '../lib/diagnose';
 import { ProgramScreen } from './ProgramScreen';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 type Mode = 'symptom' | 'code' | 'program';
 
@@ -194,12 +194,12 @@ function Sources({ sources, openUrl }: { sources: DiagSource[]; openUrl: (url: s
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  safety: { padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.warnBg, gap: 6 },
+  safety: { padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.warnBg, gap: 6 },
   safetyTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  safetyLine: { fontSize: 16, fontWeight: '600', color: colors.text, lineHeight: 22 },
+  safetyLine: { fontSize: fs(16), fontWeight: '600', color: colors.text, lineHeight: 22 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  hint: { fontSize: 16, color: colors.muted },
-  card: { padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, gap: 8 },
+  hint: { fontSize: fs(16), color: colors.muted },
+  card: { padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: 8 },
   cardTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
   codeBig: { fontSize: type.huge, fontWeight: '800', color: colors.text },
   summary: { fontSize: type.body, fontWeight: '600', color: colors.text, lineHeight: 24 },
@@ -208,20 +208,20 @@ const styles = StyleSheet.create({
   checkRow: { flexDirection: 'row', gap: 8 },
   checkNum: { fontSize: type.body, fontWeight: '800', color: colors.text, minWidth: 28 },
   checkText: { flex: 1, fontSize: type.body, color: colors.text, lineHeight: 24 },
-  pro: { padding: 10, borderRadius: 8, backgroundColor: colors.stop },
+  pro: { padding: 10, borderRadius: rad(8), backgroundColor: colors.stop },
   proText: { fontSize: type.body, fontWeight: '800', color: colors.onStop },
-  read: { padding: 12, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
+  read: { padding: 12, borderRadius: rad(14), backgroundColor: colors.card, gap: 6 },
   readTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   readBody: { fontSize: type.body, color: colors.text, lineHeight: 24 },
-  readNote: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  models: { fontSize: 15, color: colors.muted },
+  readNote: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
+  models: { fontSize: fs(15), color: colors.muted },
   related: { gap: 8 },
-  relatedItem: { minHeight: touch.min, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, justifyContent: 'center', gap: 2 },
+  relatedItem: { minHeight: touch.min, padding: 10, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, justifyContent: 'center', gap: 2 },
   relatedCode: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  relatedMeaning: { fontSize: 16, color: colors.muted },
+  relatedMeaning: { fontSize: fs(16), color: colors.muted },
   sources: { gap: 8 },
-  source: { minHeight: touch.min, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, justifyContent: 'center', gap: 2 },
-  sourceTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
-  sourceHost: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  source: { minHeight: touch.min, padding: 10, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, justifyContent: 'center', gap: 2 },
+  sourceTitle: { fontSize: fs(16), fontWeight: '800', color: colors.text },
+  sourceHost: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },
 });

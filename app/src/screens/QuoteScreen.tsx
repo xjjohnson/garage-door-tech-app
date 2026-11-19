@@ -12,7 +12,7 @@ import { templateQuote, TemplateSets } from '../lib/odooTemplates';
 import { useQuoteTemplates } from '../lib/useQuoteTemplates';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 /**
  * The Templates screen: every Odoo quotation template in a list. Tick one or
@@ -181,21 +181,21 @@ function Action({ label, onPress, primary, testID }: { label: string; onPress: (
 const styles = StyleSheet.create({
   stack: { gap: 14 },
   for: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  notice: { padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.warnBg, gap: 8 },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
+  notice: { padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.warnBg, gap: 8 },
   stop: { backgroundColor: colors.stop, borderColor: colors.stop },
   onStop: { color: colors.onStop },
   noticeTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
   noticeBody: { fontSize: type.body, color: colors.text, lineHeight: 24 },
-  card: { padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, gap: 8 },
-  cardOn: { borderWidth: 4, backgroundColor: colors.card },
+  card: { padding: 14, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: 8 },
+  cardOn: { borderWidth: bw(4), backgroundColor: colors.card },
   cardOff: { borderStyle: 'dashed' },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   tier: { fontSize: type.value, fontWeight: '800', color: colors.text },
   total: { fontSize: type.big, fontWeight: '800', color: colors.text },
   line: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  pick: { padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, gap: 4 },
-  sheet: { borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' },
+  pick: { padding: 14, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: 4 },
+  sheet: { borderRadius: rad(16), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' },
   sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 14, backgroundColor: colors.selected },
   sheetTitle: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.onSelected },
   sheetTotal: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
@@ -206,12 +206,12 @@ const styles = StyleSheet.create({
   customText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
   lineLabel: { flex: 1, fontSize: type.body, color: colors.text },
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   thumbs: { flexDirection: 'row', gap: 8 },
-  thumb: { width: 88, height: 88, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+  thumb: { width: 88, height: 88, borderRadius: rad(8), borderWidth: bw(1), borderColor: colors.border },
 });

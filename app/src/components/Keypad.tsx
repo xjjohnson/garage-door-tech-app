@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { applyKey, EIGHTHS, KeypadKey, SIXTEENTHS } from '../lib/measure';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad, sz } from '../theme';
 
 interface Props {
   visible: boolean;
@@ -132,17 +132,17 @@ const styles = StyleSheet.create({
   title: { fontSize: type.value, fontWeight: '800', color: colors.text, flex: 1 },
   cancel: { minHeight: touch.min, minWidth: 96, alignItems: 'center', justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '700', color: colors.text, textDecorationLine: 'underline' },
-  hint: { fontSize: 16, color: colors.muted },
+  hint: { fontSize: fs(16), color: colors.muted },
   display: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'flex-end',
-    borderWidth: 1.5,
+    borderWidth: bw(1.5),
     borderColor: colors.border,
-    borderRadius: 10,
+    borderRadius: rad(10),
     paddingHorizontal: 16,
     paddingVertical: 8,
-    minHeight: 72,
+    minHeight: sz(72),
     gap: 8,
   },
   displayText: { fontSize: type.huge, fontWeight: '800', color: colors.text },
@@ -152,10 +152,10 @@ const styles = StyleSheet.create({
   key: {
     flex: 1,
     flexBasis: 0,
-    minHeight: 60,
-    borderRadius: 10,
+    minHeight: sz(60),
+    borderRadius: rad(10),
     backgroundColor: colors.card,
-    borderWidth: 1.5,
+    borderWidth: bw(1.5),
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',

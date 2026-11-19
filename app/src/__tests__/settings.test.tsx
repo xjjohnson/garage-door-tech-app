@@ -97,3 +97,22 @@ describe('Settings', () => {
     }
   });
 });
+
+describe('Settings look', () => {
+  it('saves a shape and size pick and offers a restart, and can go back to legacy', async () => {
+    const restart = jest.fn(async () => undefined);
+    await render(<SettingsScreen api={fakeApi()} restart={restart} />, { wrapper: wrap });
+    await settle();
+    expect(screen.queryByTestId('settings-look-restart')).toBeNull();
+    await fireEvent.press(screen.getByText('Square'));
+    await fireEvent.press(screen.getByText('Compact'));
+    await settle();
+    const saved = JSON.parse((await AsyncStorage.getItem('johnsons.look')) as string);
+    expect(saved).toEqual({ shape: 'square', size: 'compact', palette: 'johnsons' });
+    await fireEvent.press(screen.getByTestId('settings-look-restart'));
+    expect(restart).toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('settings-look-legacy'));
+    await settle();
+    expect(JSON.parse((await AsyncStorage.getItem('johnsons.look')) as string)).toEqual({ shape: 'round', size: 'legacy', palette: 'johnsons' });
+  });
+});

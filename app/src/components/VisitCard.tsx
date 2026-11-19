@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { Icon } from './Icon';
-import { colors, radius, shadow } from '../theme';
+import { colors, radius, shadow, bw, fs } from '../theme';
 
 export type ChipTone = 'plain' | 'on' | 'warn';
 
@@ -76,19 +76,19 @@ export function VisitCard({
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 2, ...shadow },
-  next: { borderColor: colors.selected, borderWidth: 1.5 },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, padding: 14, gap: 2, ...shadow },
+  next: { borderColor: colors.selected, borderWidth: bw(1.5) },
   muted: { opacity: 0.8 },
   pressed: { backgroundColor: colors.info },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  time: { flex: 1, fontSize: 19, fontWeight: '800', color: colors.text },
-  chip: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5, color: colors.selected, backgroundColor: colors.info, paddingHorizontal: 11, paddingVertical: 5, borderRadius: radius.pill, overflow: 'hidden' },
+  time: { flex: 1, fontSize: fs(19), fontWeight: '800', color: colors.text },
+  chip: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.5, color: colors.selected, backgroundColor: colors.info, paddingHorizontal: 11, paddingVertical: 5, borderRadius: radius.pill, overflow: 'hidden' },
   chipOn: { backgroundColor: colors.selected, color: colors.onSelected },
   chipWarn: { backgroundColor: colors.warnBg, color: colors.warn },
-  name: { fontSize: 20, fontWeight: '800', color: colors.text, marginTop: 6 },
-  address: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  name: { fontSize: fs(20), fontWeight: '800', color: colors.text, marginTop: 6 },
+  address: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   foot: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 2, marginTop: 8 },
-  footText: { fontSize: 15, fontWeight: '600', color: colors.muted },
+  footText: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   wx: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   warn: { color: colors.stop, fontWeight: '800' },
 });

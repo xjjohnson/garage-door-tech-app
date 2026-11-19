@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
-import { SectionTitle } from '../components/controls';
+import { SectionTitle, Segmented } from '../components/controls';
+import { loadCompanyBrand } from '../lib/companyBrand';
+import { LOGO_DATA_URL } from '../data/logoPng';
 import { QrCode } from '../components/QrCode';
 import { Business, payLinks } from '../lib/invoices';
 import { queueBusiness } from '../lib/settingsSync';
 import { isOwner } from '../lib/scorecard';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
-const FIELDS: { key: Exclude<keyof Business, 'discounts' | 'customerTypes'>; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' | 'url' }[] = [
+const FIELDS: { key: Exclude<keyof Business, 'discounts' | 'customerTypes' | 'useOdooLogo'>; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' | 'url' }[] = [
   { key: 'name', label: 'Business name', placeholder: 'Shown at the top of invoices' },
   { key: 'phone', label: 'Business phone', placeholder: 'For questions about an invoice', keyboard: 'phone-pad' },
   { key: 'cashtag', label: 'Cash App $cashtag', placeholder: '$yourcashtag', hint: 'Invoices show a QR code that opens Cash App with the amount filled in.' },
@@ -50,7 +52,17 @@ export function BusinessScreen() {
       alive = false;
     };
   }, [signedIn, client]);
+  const [odooLogo, setOdooLogo] = useState('');
+  useEffect(() => {
+    loadCompanyBrand().then((b) => setOdooLogo(b.logo));
+  }, [signedIn]);
   const locked = signedIn && owner !== true;
+  const useLogo = business.useOdooLogo === true;
+  const setUseLogo = (on: boolean) => {
+    const next = { ...business, useOdooLogo: on || undefined };
+    setBusiness(() => next);
+    if (signedIn && owner === true) queueBusiness(next);
+  };
   const preview = payLinks(business, 0, '').filter((l) => l.url);
   return (
     <View style={styles.stack} testID="business">
@@ -80,6 +92,18 @@ export function BusinessScreen() {
           />
         </View>
       ))}
+      <SectionTitle>Logo</SectionTitle>
+      <Text style={styles.note}>Show your company logo from Odoo on PDFs (inspection and photo reports) instead of the built-in Johnsons logo. If Odoo has no usable logo, the built-in one is used.</Text>
+      {locked ? null : (
+        <Segmented<'odoo' | 'built-in'>
+          testID="business-logo-switch"
+          options={[{ value: 'built-in', label: 'Built-in logo' }, { value: 'odoo', label: 'Logo from Odoo' }]}
+          value={useLogo ? 'odoo' : 'built-in'}
+          onChange={(v) => setUseLogo(v === 'odoo')}
+        />
+      )}
+      <Image source={{ uri: useLogo && odooLogo ? odooLogo : LOGO_DATA_URL }} resizeMode="contain" style={styles.logo} accessibilityLabel="Logo on reports" testID="business-logo-preview" />
+      {useLogo && !odooLogo ? <Text style={styles.note} testID="business-logo-none">The phone has no logo from Odoo yet, or it is too large. It is fetched while you are signed in, within about 15 minutes. Until then the built-in logo is used.</Text> : null}
       {signedIn && owner === true ? (
         <Pressable onPress={() => queueBusiness(business)} accessibilityRole="button" testID="business-save-odoo" style={styles.save}>
           <Text style={styles.label}>Save these to Odoo now</Text>
@@ -105,13 +129,14 @@ export function BusinessScreen() {
 
 const styles = StyleSheet.create({
   stack: { gap: 14 },
+  logo: { height: 64, width: '100%', alignSelf: 'flex-start' },
   field: { gap: 4 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
   input: {
     minHeight: touch.min,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    borderRadius: rad(10),
+    borderWidth: bw(1.5),
     borderColor: colors.border,
     paddingHorizontal: 14,
     fontSize: type.body,
@@ -119,6 +144,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.bg,
   },
-  save: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  qr: { alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border },
+  save: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  qr: { alignItems: 'center', gap: 8, padding: 12, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
 });

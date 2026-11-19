@@ -25,7 +25,7 @@ import { houseOf, NoteTarget } from '../lib/odooNotes';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { EtaPicker } from '../components/EtaPicker';
-import { colors, radius, shadow, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type, bw, fs, rad, sz } from '../theme';
 
 type Tab = 'overview' | 'work' | 'photos' | 'notes';
 const TABS: { id: Tab; label: string }[] = [
@@ -306,35 +306,35 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   tabs: { flexDirection: 'row', gap: 6 },
-  tab: { paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: radius.pill },
+  tab: { paddingHorizontal: 14, minHeight: sz(40), justifyContent: 'center', borderRadius: radius.pill },
   tabOn: { backgroundColor: colors.selected },
-  tabText: { fontSize: 15, fontWeight: '700', color: colors.muted },
+  tabText: { fontSize: fs(15), fontWeight: '700', color: colors.muted },
   tabTextOn: { color: colors.onSelected },
   row: { flexDirection: 'row', gap: 8 },
   hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: 16, gap: 6, ...shadow },
   chipRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  statusChip: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: colors.onHead, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
-  title: { fontSize: 24, fontWeight: '800', color: colors.onHead },
-  sub: { fontSize: 16, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
+  statusChip: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: colors.onHead, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
+  title: { fontSize: fs(24), fontWeight: '800', color: colors.onHead },
+  sub: { fontSize: fs(16), fontWeight: '600', color: colors.onHead, opacity: 0.85 },
   statusRow: { flexDirection: 'row', gap: 6 },
-  statusBtn: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: radius.field, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.line },
+  statusBtn: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: radius.field, backgroundColor: colors.card, borderWidth: bw(1.5), borderColor: colors.line },
   statusDone: { backgroundColor: colors.info, borderColor: colors.info },
   statusNext: { backgroundColor: colors.selected, borderColor: colors.selected },
   statusPressed: { opacity: 0.8 },
-  statusText: { fontSize: 15, fontWeight: '800', color: colors.text },
+  statusText: { fontSize: fs(15), fontWeight: '800', color: colors.text },
   statusTextNext: { color: colors.onSelected },
   statusTextDone: { color: colors.selected },
-  statusTime: { fontSize: 12, fontWeight: '700', color: colors.muted },
+  statusTime: { fontSize: fs(12), fontWeight: '700', color: colors.muted },
   step: { flex: 1, gap: 6 },
-  bar: { height: 8, borderRadius: 4, backgroundColor: colors.info },
+  bar: { height: 8, borderRadius: rad(4), backgroundColor: colors.info },
   barDone: { backgroundColor: colors.selected, opacity: 0.55 },
   barNext: { backgroundColor: colors.selected },
-  stepText: { fontSize: 13, fontWeight: '800', color: colors.text },
+  stepText: { fontSize: fs(13), fontWeight: '800', color: colors.text },
   stepNext: { color: colors.selected, fontWeight: '800' },
   stepLater: { color: colors.muted, fontWeight: '700' },
   done: { fontSize: type.body, fontWeight: '800', color: colors.ok, minHeight: touch.min, textAlignVertical: 'center' },
-  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: 14, gap: 4, borderWidth: 1, borderColor: colors.line },
-  label: { fontSize: 15, fontWeight: '800', color: colors.muted },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, padding: 14, gap: 4, borderWidth: bw(1), borderColor: colors.line },
+  label: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
   note: { fontSize: type.body, color: colors.muted },
 });

@@ -12,7 +12,7 @@ import { useCustomers } from '../lib/useCustomers';
 import { useCustomerCounts } from '../lib/useCustomerCounts';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
-import { colors, radius, shadow, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type, bw, fs, rad, sz } from '../theme';
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
@@ -175,27 +175,27 @@ export function CustomersScreen() {
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, paddingLeft: 14, paddingRight: 6 },
-  search: { flex: 1, minWidth: 0, minHeight: 56, fontSize: type.body, fontWeight: '700', color: colors.text },
-  clear: { minHeight: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.info },
-  count: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  empty: { padding: 14, borderRadius: 14, backgroundColor: colors.card, gap: 6 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, borderRadius: radius.card, paddingLeft: 14, paddingRight: 6 },
+  search: { flex: 1, minWidth: 0, minHeight: sz(56), fontSize: type.body, fontWeight: '700', color: colors.text },
+  clear: { minHeight: sz(44), borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.info },
+  count: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
+  empty: { padding: 14, borderRadius: rad(14), backgroundColor: colors.card, gap: 6 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
+  emptyBody: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
   chips: { gap: 8, paddingRight: 8 },
-  chip: { minHeight: 44, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  chip: { minHeight: sz(44), paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   chipOn: { backgroundColor: colors.selected, borderColor: colors.selected },
-  chipText: { fontSize: 15, fontWeight: '800', color: colors.muted },
+  chipText: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
   chipTextOn: { color: colors.onSelected },
-  group: { borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, overflow: 'hidden', ...shadow },
-  letter: { fontSize: 13, fontWeight: '800', letterSpacing: 1, color: colors.muted, backgroundColor: colors.bg, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 4 },
+  group: { borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, overflow: 'hidden', ...shadow },
+  letter: { fontSize: fs(13), fontWeight: '800', letterSpacing: 1, color: colors.muted, backgroundColor: colors.bg, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 4 },
   item: { minHeight: touch.min + 6, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: colors.line },
-  avatar: { width: 42, height: 42, borderRadius: 21, textAlign: 'center', textAlignVertical: 'center', lineHeight: 42, overflow: 'hidden', fontSize: 15, fontWeight: '800', color: colors.selected, backgroundColor: colors.info },
+  avatar: { width: 42, height: 42, borderRadius: rad(21), textAlign: 'center', textAlignVertical: 'center', lineHeight: 42, overflow: 'hidden', fontSize: fs(15), fontWeight: '800', color: colors.selected, backgroundColor: colors.info },
   itemText: { flex: 1, gap: 1 },
-  name: { fontSize: 18, fontWeight: '800', color: colors.text },
-  detail: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  meta: { fontSize: 14, fontWeight: '600', color: colors.muted },
-  badge: { fontSize: 12, fontWeight: '800', letterSpacing: 0.4, color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
+  name: { fontSize: fs(18), fontWeight: '800', color: colors.text },
+  detail: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
+  meta: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
+  badge: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.4, color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
   pressed: { backgroundColor: colors.info },
-  buttonText: { fontSize: 15, fontWeight: '800', color: colors.selected, textAlign: 'center' },
+  buttonText: { fontSize: fs(15), fontWeight: '800', color: colors.selected, textAlign: 'center' },
 });

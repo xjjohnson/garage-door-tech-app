@@ -10,7 +10,7 @@ import { deviceSecrets } from '../lib/secrets';
 import type { SecretStore } from '../lib/secrets';
 import type { SnapshotStore } from '../lib/dbSwitch';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 interface Props {
   /** What is waiting to send, in words ("2 invoices"), or empty. */
@@ -153,14 +153,14 @@ function Field({ label, value, onChange, placeholder, secure, testID }: { label:
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   field: { gap: 4 },
-  card: { borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 8 },
+  card: { borderRadius: rad(16), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 8 },
   cardWarn: { borderColor: colors.warn, backgroundColor: colors.warnBg },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   big: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  tag: { fontSize: 16, fontWeight: '700', color: colors.muted },
+  tag: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   tagWarn: { color: colors.warn },
-  body: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  body: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
 });

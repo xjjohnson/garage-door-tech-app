@@ -7,7 +7,7 @@ import { formatJobDate, jobName } from '../lib/jobs';
 import { olderJobs } from '../lib/odooJobs';
 import { useJobs } from '../lib/useJobs';
 import { useJobsSince } from '../lib/useJobsSince';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 /**
  * Open jobs saved before the phone started sending jobs to Odoo. None go on
@@ -73,9 +73,9 @@ export function OlderJobsScreen() {
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  card: { minHeight: touch.min, padding: 12, gap: 4, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
-  cardOn: { borderWidth: 4, backgroundColor: colors.card },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
+  card: { minHeight: touch.min, padding: 12, gap: 4, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
+  cardOn: { borderWidth: bw(4), backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
 });

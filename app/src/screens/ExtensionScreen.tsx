@@ -11,7 +11,7 @@ import { OpenJobRequest } from '../lib/jobs';
 import { formatFeetInches, formatInches, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { EXTENSION_COLORS, ExtensionResult } from '../springCalc';
-import { colors, type } from '../theme';
+import { colors, type, fs } from '../theme';
 
 const PER_SIDE_OPTIONS: ChipOption<1 | 2>[] = [
   { label: 'One a side (2)', value: 1 },
@@ -170,5 +170,5 @@ function ExtensionResults({ result }: { result: ExtensionResult }) {
 const styles = StyleSheet.create({
   stack: { gap: 14 },
   big: { fontSize: type.big, fontWeight: '800', color: colors.text },
-  note: { fontSize: 17, color: colors.text, lineHeight: 24 },
+  note: { fontSize: fs(17), color: colors.text, lineHeight: 24 },
 });

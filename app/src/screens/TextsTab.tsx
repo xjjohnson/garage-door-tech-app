@@ -6,7 +6,7 @@ import { reviewLink } from '../lib/invoices';
 import { DEFAULT_PAYMENTS_HEADING, DEFAULT_PLAN_HEADING } from '../lib/ticketSections';
 import { queueBusiness } from '../lib/settingsSync';
 import { useInvoices } from '../lib/useInvoices';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 const KINDS: TextKind[] = ['onMyWay', 'eta', 'confirm', 'review'];
 
@@ -101,14 +101,14 @@ export function TextsTab({ canEdit }: { canEdit: boolean }) {
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
   field: { gap: 6 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  input: { minHeight: 120, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, paddingTop: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card, textAlignVertical: 'top' },
-  line: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  meta: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  input: { minHeight: 120, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, paddingTop: 12, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card, textAlignVertical: 'top' },
+  line: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  meta: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  back: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primary: { minHeight: touch.min, borderRadius: 14, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  back: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
 });
