@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.17',
+    title: 'Dispatch theme: technician lanes on an hour axis',
+    changes: ['Dispatch: Jobs opens on the Team board, and each technician\'s day is drawn as blocks on an hour axis (as in the mock-up) instead of a list of chips. Tap a block to move it or change its time.'],
+    test: ['Settings > Theme > Dispatch (then Restart), open Jobs. Do you see an hour row with one lane per tech and a block per job? Tap a block.', 'Sales, Customers and Tools still need their themed layouts; tell me what you want to see there.'],
+  },
+  {
     release: '0.6.16',
     title: 'Themes: Home now matches the mock-ups',
     changes: [
