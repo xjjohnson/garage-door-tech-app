@@ -16,6 +16,8 @@ export interface CustomerCounts {
   open: number;
   /** Quotations and sales orders. */
   quotes: number;
+  /** Unpaid invoice balance in cents, left out when nothing is owed. */
+  owed?: number;
 }
 
 export const CUSTOMER_COUNTS_STORAGE_KEY = 'odoo-customer-counts/v1';
@@ -23,7 +25,7 @@ const LIMIT = 3000;
 
 const many2one = (v: unknown): number => (Array.isArray(v) && typeof v[0] === 'number' ? v[0] : 0);
 
-const bump = (m: Map<number, CustomerCounts>, id: number, k: keyof CustomerCounts) => {
+const bump = (m: Map<number, CustomerCounts>, id: number, k: 'jobs' | 'open' | 'quotes') => {
   if (!id) return;
   const c = m.get(id) ?? { jobs: 0, open: 0, quotes: 0 };
   c[k]++;
@@ -74,6 +76,21 @@ export async function fetchCustomerCounts(c: Caller): Promise<Record<number, Cus
     /* no Sales app */
   }
 
+  // What each contact still owes on posted, unpaid or part-paid invoices, in cents.
+  try {
+    const inv = (await c.call('account.move', 'search_read', [[['move_type', '=', 'out_invoice'], ['state', '=', 'posted'], ['payment_state', 'in', ['not_paid', 'partial']]]], { fields: ['partner_id', 'amount_residual'], limit: LIMIT })) as Record<string, unknown>[];
+    for (const r of inv) {
+      const id = many2one(r.partner_id);
+      const cents = Math.round(Number(r.amount_residual ?? 0) * 100);
+      if (!id || !(cents > 0)) continue;
+      const c0 = own.get(id) ?? { jobs: 0, open: 0, quotes: 0 };
+      c0.owed = (c0.owed ?? 0) + cents;
+      own.set(id, c0);
+    }
+  } catch {
+    /* no Accounting, or no signal: owed stays unknown */
+  }
+
   // A contact under a customer (a house, an accounts person) counts for the customer.
   const ids = [...own.keys()];
   const parent = new Map<number, number>();
@@ -93,6 +110,7 @@ export async function fetchCustomerCounts(c: Caller): Promise<Record<number, Cus
       t.jobs += n.jobs;
       t.open += n.open;
       t.quotes += n.quotes;
+      if (n.owed) t.owed = (t.owed ?? 0) + n.owed;
     }
   }
   return out;
@@ -104,7 +122,7 @@ export function parseSavedCounts(raw: string | null): Record<number, CustomerCou
     if (!d || typeof d !== 'object') return {};
     const out: Record<number, CustomerCounts> = {};
     for (const [k, v] of Object.entries(d as Record<string, Record<string, unknown>>)) {
-      if (v && typeof v.jobs === 'number' && typeof v.open === 'number' && typeof v.quotes === 'number') out[Number(k)] = { jobs: v.jobs, open: v.open, quotes: v.quotes };
+      if (v && typeof v.jobs === 'number' && typeof v.open === 'number' && typeof v.quotes === 'number') out[Number(k)] = { jobs: v.jobs, open: v.open, quotes: v.quotes, ...(typeof v.owed === 'number' && v.owed > 0 ? { owed: v.owed } : {}) };
     }
     return out;
   } catch {

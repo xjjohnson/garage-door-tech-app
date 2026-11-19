@@ -153,6 +153,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
 
   // Dispatch theme: each worker's day drawn as blocks on an hour axis.
   const timeline = layouts.jobsTeamFirst;
+  const shownN = timeline ? 2 : SHOWN;
   const hoursOf = (ms: number) => (ms - day) / 3_600_000;
   const timed = dayJobs.filter((x) => x.start !== undefined);
   const axisFrom = Math.min(7, ...timed.map((x) => Math.floor(hoursOf(x.start!))));
@@ -201,7 +202,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
           <Text style={styles.unTitle}>Not assigned · {open?.length ?? '…'}</Text>
         </View>
         {open && open.length === 0 ? <Text style={styles.cardSub}>Every open job has a worker.</Text> : null}
-        {(showAll ? unassigned : unassigned.slice(0, SHOWN)).map((task) => (
+        {(showAll ? unassigned : unassigned.slice(0, shownN)).map((task) => (
           <View key={task.id} style={styles.card} testID={`dispatch-open-${task.id}`}>
             <View style={styles.grow}>
               <Text style={styles.cardTitle}>
@@ -213,7 +214,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
             <Action label="Assign" primary onPress={() => setPicking(task)} testID={`dispatch-assign-${task.id}`} />
           </View>
         ))}
-        {unassigned.length > SHOWN ? <Action label={showAll ? 'Show fewer' : `Show all ${unassigned.length}`} onPress={() => setShowAll((v) => !v)} testID="dispatch-show-all" /> : null}
+        {unassigned.length > shownN ? <Action label={showAll ? 'Show fewer' : `Show all ${unassigned.length}`} onPress={() => setShowAll((v) => !v)} testID="dispatch-show-all" /> : null}
       </View>
       ) : null}
 
@@ -262,10 +263,11 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
                 {jobs.filter((x) => x.start !== undefined).map((task) => {
                   const from = Math.max(0, (task.start! - day) / 3_600_000 - axis.from);
                   const left = Math.min(98, (from / axis.span) * 100);
-                  const wide = Math.max(8, Math.min(100 - left, (((task.minutes ?? 60) / 60) / axis.span) * 100));
+                  const wide = Math.max(24, Math.min(100 - left, (((task.minutes ?? 60) / 60) / axis.span) * 100));
                   return (
                     <Pressable key={task.id} onPress={() => setPicking(task)} accessibilityRole="button" accessibilityLabel={`${task.name}, ${formatTime(task.start!)}`} accessibilityHint="Move or change the time" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.tblock, { left: `${left}%`, width: `${wide}%` }, pressed && styles.pressed]}>
-                      <Text style={styles.tblockText} numberOfLines={1}>{task.name}</Text>
+                      <Text style={styles.tblockTime} numberOfLines={1}>{formatTime(task.start!)}</Text>
+                      <Text style={styles.tblockText} numberOfLines={1}>{task.customer || task.name}</Text>
                     </Pressable>
                   );
                 })}
@@ -440,10 +442,11 @@ const styles = StyleSheet.create({
   lane: { gap: sp(8), padding: sp(12), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
   laneHead: { flexDirection: 'row', alignItems: 'center', gap: sp(10) },
   avatar: { width: 38, height: 38, borderRadius: rad(19), textAlign: 'center', textAlignVertical: 'center', lineHeight: 38, overflow: 'hidden', fontSize: fs(14), fontWeight: '800', color: colors.selected, backgroundColor: colors.info },
-  axis: { height: fs(16), marginLeft: 0 },
+  axis: { height: fs(16), marginHorizontal: sp(13) },
   axisText: { position: 'absolute', top: 0, fontSize: fs(12), fontWeight: '700', color: colors.muted },
   track: { height: sz(44), borderRadius: rad(8), backgroundColor: colors.bg, borderWidth: bw(1), borderColor: colors.line },
   tblock: { position: 'absolute', top: 3, bottom: 3, borderRadius: rad(6), borderLeftWidth: 3, borderLeftColor: colors.selected, backgroundColor: colors.info, paddingHorizontal: sp(4), justifyContent: 'center', overflow: 'hidden' },
+  tblockTime: { fontSize: fs(11), fontWeight: '700', color: colors.muted },
   tblockText: { fontSize: fs(12), fontWeight: '800', color: colors.text },
   bar: { height: 6, borderRadius: radius.pill, backgroundColor: colors.line, overflow: 'hidden' },
   barFill: { height: 6, backgroundColor: colors.selected },
