@@ -176,6 +176,22 @@ describe('Jobs › Team', () => {
     await settle();
   }
 
+  it('draws each worker\'s day on an hour axis in the Dispatch theme and still opens a job', async () => {
+    const { layouts } = require('../theme');
+    const was = layouts.jobsTeamFirst;
+    layouts.jobsTeamFirst = true;
+    try {
+      const o = fakeOdoo();
+      await signInAndOpenJobs(o);
+      await settle();
+      expect(screen.getByTestId('dispatch-axis')).toBeTruthy();
+      expect(screen.getByTestId('dispatch-track-40')).toBeTruthy();
+      expect(screen.getByTestId('dispatch-lane-40')).toHaveTextContent(/Justin \(me\)/);
+    } finally {
+      layouts.jobsTeamFirst = was;
+    }
+  });
+
   it('shows unassigned orders and a lane per worker, and assigns one at a time with a text', async () => {
     const o = fakeOdoo();
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);

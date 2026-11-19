@@ -11,7 +11,7 @@ import { doubleBooked, lateJobs } from '../lib/dispatchAlerts';
 import { addDays, dayLabel, formatTime, slotsFor, startOfDay } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, radius, shadow, touch, type, bw, fs, rad, sp } from '../theme';
+import { colors, layouts, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
 /** Whether the signed-in Odoo user may hand out jobs (Field Service Dispatcher or Manager, or an Odoo admin). */
 export function useCanDispatch(): boolean {
@@ -151,6 +151,14 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
     }
   };
 
+  // Dispatch theme: each worker's day drawn as blocks on an hour axis.
+  const timeline = layouts.jobsTeamFirst;
+  const hoursOf = (ms: number) => (ms - day) / 3_600_000;
+  const timed = dayJobs.filter((x) => x.start !== undefined);
+  const axisFrom = Math.min(7, ...timed.map((x) => Math.floor(hoursOf(x.start!))));
+  const axisTo = Math.max(19, ...timed.map((x) => Math.ceil(hoursOf(endOf(x)))));
+  const axis = { from: Math.max(0, axisFrom), span: Math.max(4, Math.min(24, axisTo) - Math.max(0, axisFrom)) };
+
   return (
     <View style={styles.stack} testID="dispatch">
       {LISTS.includes(part) ? null : (
@@ -232,6 +240,13 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
         </View>
       ) : null}
 
+      {timeline && (part === 'all' || part === 'board') && lanes.length > 0 ? (
+        <View style={styles.axis} testID="dispatch-axis">
+          {Array.from({ length: Math.floor(axis.span / 2) + 1 }, (_, i) => axis.from + i * 2).map((h) => (
+            <Text key={h} style={[styles.axisText, { left: `${((h - axis.from) / axis.span) * 100}%` }]}>{h % 12 === 0 ? 12 : h % 12}</Text>
+          ))}
+        </View>
+      ) : null}
       {(part === 'all' || part === 'board' ? lanes : []).map(({ w, jobs, freeAt }) => (
         <View key={w.id} style={styles.lane} testID={`dispatch-lane-${w.id}`}>
           <View style={styles.laneHead}>
@@ -241,21 +256,50 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
               {jobs.length === 0 ? 'Nothing booked' : `${jobs.length} job${jobs.length === 1 ? '' : 's'} · free after ${formatTime(freeAt!)}`}
             </Text>
           </View>
-          <View style={styles.bar}>
-            <View style={[styles.barFill, { width: `${Math.min(100, Math.round((jobs.reduce((n, x) => n + (x.minutes ?? 60), 0) / 480) * 100))}%` }]} />
-          </View>
-          {jobs.length > 0 ? (
-            <View style={styles.wrap}>
-              {jobs.map((task) => (
-                <Pressable key={task.id} onPress={() => setPicking(task)} accessibilityRole="button" accessibilityHint="Move or change the time" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.block, pressed && styles.pressed]}>
-                  <Text style={styles.blockTime}>{task.start ? formatTime(task.start) : 'Any time'}</Text>
-                  <Text style={styles.blockText} numberOfLines={1}>
-                    {task.customer || task.name}
-                  </Text>
-                </Pressable>
-              ))}
+          {timeline ? (
+            <View testID={`dispatch-track-${w.id}`}>
+              <View style={styles.track}>
+                {jobs.filter((x) => x.start !== undefined).map((task) => {
+                  const from = Math.max(0, (task.start! - day) / 3_600_000 - axis.from);
+                  const left = Math.min(98, (from / axis.span) * 100);
+                  const wide = Math.max(8, Math.min(100 - left, (((task.minutes ?? 60) / 60) / axis.span) * 100));
+                  return (
+                    <Pressable key={task.id} onPress={() => setPicking(task)} accessibilityRole="button" accessibilityLabel={`${task.name}, ${formatTime(task.start!)}`} accessibilityHint="Move or change the time" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.tblock, { left: `${left}%`, width: `${wide}%` }, pressed && styles.pressed]}>
+                      <Text style={styles.tblockText} numberOfLines={1}>{task.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {jobs.some((x) => x.start === undefined) ? (
+                <View style={styles.wrap}>
+                  {jobs.filter((x) => x.start === undefined).map((task) => (
+                    <Pressable key={task.id} onPress={() => setPicking(task)} accessibilityRole="button" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.block, pressed && styles.pressed]}>
+                      <Text style={styles.blockTime}>Any time</Text>
+                      <Text style={styles.blockText} numberOfLines={1}>{task.customer || task.name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
             </View>
-          ) : null}
+          ) : (
+            <>
+              <View style={styles.bar}>
+                <View style={[styles.barFill, { width: `${Math.min(100, Math.round((jobs.reduce((n, x) => n + (x.minutes ?? 60), 0) / 480) * 100))}%` }]} />
+              </View>
+              {jobs.length > 0 ? (
+                <View style={styles.wrap}>
+                  {jobs.map((task) => (
+                    <Pressable key={task.id} onPress={() => setPicking(task)} accessibilityRole="button" accessibilityHint="Move or change the time" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.block, pressed && styles.pressed]}>
+                      <Text style={styles.blockTime}>{task.start ? formatTime(task.start) : 'Any time'}</Text>
+                      <Text style={styles.blockText} numberOfLines={1}>
+                        {task.customer || task.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          )}
         </View>
       ))}
       {(part === 'all' || part === 'board') && techs.length === 0 && !busy ? <Text style={styles.note}>No Field Service workers in Odoo yet. In Odoo, tick "Is a FS Worker" on each tech's contact.</Text> : null}
@@ -396,6 +440,11 @@ const styles = StyleSheet.create({
   lane: { gap: sp(8), padding: sp(12), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
   laneHead: { flexDirection: 'row', alignItems: 'center', gap: sp(10) },
   avatar: { width: 38, height: 38, borderRadius: rad(19), textAlign: 'center', textAlignVertical: 'center', lineHeight: 38, overflow: 'hidden', fontSize: fs(14), fontWeight: '800', color: colors.selected, backgroundColor: colors.info },
+  axis: { height: fs(16), marginLeft: 0 },
+  axisText: { position: 'absolute', top: 0, fontSize: fs(12), fontWeight: '700', color: colors.muted },
+  track: { height: sz(44), borderRadius: rad(8), backgroundColor: colors.bg, borderWidth: bw(1), borderColor: colors.line },
+  tblock: { position: 'absolute', top: 3, bottom: 3, borderRadius: rad(6), borderLeftWidth: 3, borderLeftColor: colors.selected, backgroundColor: colors.info, paddingHorizontal: sp(4), justifyContent: 'center', overflow: 'hidden' },
+  tblockText: { fontSize: fs(12), fontWeight: '800', color: colors.text },
   bar: { height: 6, borderRadius: radius.pill, backgroundColor: colors.line, overflow: 'hidden' },
   barFill: { height: 6, backgroundColor: colors.selected },
   block: { minHeight: touch.min, minWidth: 96, maxWidth: '100%', borderRadius: rad(8), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(8), paddingVertical: sp(4), justifyContent: 'center', backgroundColor: colors.card },
