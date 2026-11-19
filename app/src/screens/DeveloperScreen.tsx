@@ -5,6 +5,7 @@ import type { OdooClient } from '../lib/odoo';
 import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { ChipRow, SectionTitle } from '../components/controls';
+import { DatabaseSwitcher } from '../components/DatabaseSwitcher';
 import { DevTestTools } from '../components/DevTestTools';
 import { OdooSignInForm } from '../components/OdooSignInForm';
 import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
@@ -339,6 +340,9 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       ) : null}
       {odoo.status === 'signedIn' ? <Text style={styles.meta}>Signing out keeps everything on this phone, including anything not yet sent to Odoo.</Text> : null}
       {odoo.status !== 'signedIn' || signInAgain ? <OdooSignInForm intro={false} testID="dev-signin-form" /> : null}
+
+      <SectionTitle>Database</SectionTitle>
+      <DatabaseSwitcher pendingText={pending.total ? describePending(pending) : ''} restart={restart} />
 
       <SectionTitle>Sync</SectionTitle>
       <View style={styles.card} testID="dev-sync">

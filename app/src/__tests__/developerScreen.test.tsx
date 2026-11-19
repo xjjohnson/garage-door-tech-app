@@ -93,6 +93,8 @@ describe('Developer screen', () => {
     expect(screen.getByTestId('dev-account-state')).toHaveTextContent('Not signed in');
     expect(screen.getByTestId('dev-signin-form')).toBeTruthy();
     expect(screen.getByTestId('dev-sync')).toBeTruthy();
+    expect(screen.getByTestId('dev-db-name')).toHaveTextContent('Not signed in');
+    expect(screen.getByTestId('dev-db-check')).toBeTruthy();
     expect(screen.getByTestId('dev-queue-empty')).toBeTruthy();
     expect(screen.getByTestId('dev-update-details')).toBeTruthy();
     expect(screen.getByTestId('dev-setup-summary')).toHaveTextContent('Sign in to run the setup check.');
@@ -300,7 +302,7 @@ describe('testing tools (0.6.8)', () => {
     t = await setTick('0.6.8', 1, 'pass');
     expect(await loadTicks('0.6.8')).toEqual({});
     expect(await loadTicks('0.6.7')).toEqual({});
-    expect(newerThan('0.6.6', RELEASE_NOTES).map((n: { release: string }) => n.release)).toEqual(['0.6.8', '0.6.7']);
+    expect(newerThan('0.6.6', RELEASE_NOTES).map((n: { release: string }) => n.release)).toEqual(['0.6.10', '0.6.8', '0.6.7']);
     expect(newerThan(null, RELEASE_NOTES)).toEqual([]);
   });
 
