@@ -40,7 +40,7 @@ import { installCrashHandler } from '../lib/crash';
 import { loadFonts } from '../lib/fonts';
 import { describeError, log } from '../lib/log';
 import { useColorSchemeReload } from '../lib/useColorSchemeReload';
-import { colors, isDark, touch, type, bw, rad } from '../theme';
+import { colors, isDark, touch, type, bw, rad, sp, fs } from '../theme';
 
 // Errors nobody caught go to the log before anything else runs.
 installCrashHandler(log);
@@ -165,9 +165,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 const styles = StyleSheet.create({
-  fail: { flex: 1, backgroundColor: colors.bg, padding: 24, justifyContent: 'center', gap: 16 },
+  fail: { flex: 1, backgroundColor: colors.bg, padding: sp(24), justifyContent: 'center', gap: sp(16) },
   failTitle: { fontSize: type.big, fontWeight: '800', color: colors.text },
-  failBody: { fontSize: type.body, fontWeight: '600', color: colors.muted, lineHeight: 26 },
+  failBody: { fontSize: type.body, fontWeight: '600', color: colors.muted, lineHeight: fs(26) },
   failButton: { minHeight: touch.min, borderRadius: rad(12), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' },
   failSecondary: { backgroundColor: colors.card, borderWidth: bw(1.5), borderColor: colors.border },
   failPressed: { backgroundColor: colors.info },

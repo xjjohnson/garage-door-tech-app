@@ -4,7 +4,7 @@ import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import { categoryLevel, groupVariants, PriceBookItem, searchItems } from '../lib/priceBook';
 import { formatMoney } from '../lib/prices';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 /**
  * Picks one product from the price book (Odoo's products, kept on the phone):
@@ -73,17 +73,17 @@ export function PriceBookPicker({ visible, items, title = 'Add from the price bo
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '90%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  close: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
+  close: { minHeight: touch.min, paddingHorizontal: sp(12), justifyContent: 'center' },
   closeText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },
-  list: { gap: 8, paddingBottom: 8 },
-  pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text },
+  list: { gap: sp(8), paddingBottom: sp(8) },
+  pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: sp(8), paddingHorizontal: sp(12), paddingVertical: sp(8), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   grow: { flex: 1 },
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: fs(15), fontWeight: '700', color: colors.muted },
   pressed: { backgroundColor: colors.info },
-  heading: { fontSize: fs(15), fontWeight: '800', color: colors.muted, marginTop: 6 },
+  heading: { fontSize: fs(15), fontWeight: '800', color: colors.muted, marginTop: sp(6) },
 });

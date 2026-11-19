@@ -7,7 +7,7 @@ import { formatMoney } from '../lib/prices';
 import { categoryLevel, fetchedLabel, groupVariants, itemsByIds, PriceBookItem, searchItems, sortByName } from '../lib/priceBook';
 import { usePriceBook } from '../lib/usePriceBook';
 import { useStock } from '../lib/useStock';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 export type PriceBookTab = 'all' | 'favorites' | 'instock';
 
@@ -166,16 +166,16 @@ function ItemRow({ item, onTruck, favorite, onToggle, onPick }: { item: PriceBoo
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  grow: { flex: 1, gap: 2 },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  stack: { gap: sp(12) },
+  grow: { flex: 1, gap: sp(2) },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
-  variantHeading: { fontSize: fs(16), fontWeight: '800', color: colors.text, marginTop: 8 },
+  variantHeading: { fontSize: fs(16), fontWeight: '800', color: colors.text, marginTop: sp(8) },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   up: { minHeight: touch.min, justifyContent: 'center' },
   upText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  item: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  item: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: sp(10), paddingVertical: sp(10), borderBottomWidth: 1, borderBottomColor: colors.line },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   price: { fontSize: type.body, fontWeight: '800', color: colors.text },
   star: { minWidth: touch.min, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', borderRadius: rad(10) },

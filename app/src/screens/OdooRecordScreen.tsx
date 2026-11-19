@@ -8,7 +8,7 @@ import { fetchRecord, ListKind, MODEL, OdooRecordDetail, odooWebLink } from '../
 import { EmailResult, emailedText, emailRecord, partnerEmail } from '../lib/odooReports';
 import { formatMoney } from '../lib/prices';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -138,16 +138,16 @@ export function OdooRecordScreen({ kind, id, now = Date.now }: { kind: ListKind;
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 10 },
+  stack: { gap: sp(10) },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   customer: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   warnText: { color: colors.stop },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  card: { padding: 14, gap: 8, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, minHeight: touch.min },
-  heading: { fontSize: fs(15), fontWeight: '800', letterSpacing: 0.5, color: colors.muted, marginTop: 4 },
-  line: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  card: { padding: sp(14), gap: sp(8), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, minHeight: touch.min },
+  heading: { fontSize: fs(15), fontWeight: '800', letterSpacing: 0.5, color: colors.muted, marginTop: sp(4) },
+  line: { flexDirection: 'row', justifyContent: 'space-between', gap: sp(12) },
   lineLabel: { flex: 1, fontSize: type.body, color: colors.text },
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
   total: { fontSize: type.value, fontWeight: '800', color: colors.text },

@@ -13,7 +13,7 @@ import { ChipRow, SectionTitle } from './controls';
 import { RELEASE_NOTES, newerThan, type ReleaseNote } from '../data/releaseNotes';
 import { onDevFlags, pretendTime, Preview, PREVIEWS, rolePreview, setPretendTime, setRolePreview, setWeakSignal, Signal, weakSignal } from '../lib/devFlags';
 import { doneCount, loadSeenRelease, loadTicks, saveSeenRelease, setTick, Ticks } from '../lib/testChecklist';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 interface Props {
   /** The release number the phone is running. */
@@ -143,12 +143,12 @@ export function DevTestTools({ release, shareText, logText, notes = RELEASE_NOTE
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  stack: { gap: sp(12) },
+  row: { flexDirection: 'row', gap: sp(8), alignItems: 'center' },
   grow: { flex: 1 },
   meta: { color: colors.muted, fontSize: fs(15), fontWeight: '600' },
-  item: { gap: 8, paddingVertical: 4 },
+  item: { gap: sp(8), paddingVertical: sp(4) },
   itemText: { color: colors.text, fontSize: type.body, fontWeight: '700' },
   done: { color: colors.muted },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
 });

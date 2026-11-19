@@ -6,6 +6,7 @@ import { SectionScroll } from '../../components/SectionScroll';
 import { useCalculatorLink } from '../../lib/useCalculatorLink';
 import { DispatchScreen, useCanDispatch } from '../../screens/DispatchScreen';
 import { JobsScreen } from '../../screens/JobsScreen';
+import { sp } from '../../theme';
 
 type Whose = 'mine' | 'team';
 const WHOSE: ChipOption<Whose>[] = [
@@ -40,4 +41,4 @@ export default function JobsRoute() {
   );
 }
 
-const styles = StyleSheet.create({ switch: { marginBottom: 12 } });
+const styles = StyleSheet.create({ switch: { marginBottom: sp(12) } });

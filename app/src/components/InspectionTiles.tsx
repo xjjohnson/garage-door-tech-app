@@ -9,7 +9,7 @@ import { JobPhoto } from '../lib/attachments';
 import { Answer, AnswerKey, isBad, isFlagged, ItemDef, RATING_LABEL, Rating, Repair, repairFromPart, SCALES, Section } from '../lib/inspection';
 import { PriceBookItem } from '../lib/priceBook';
 import { cents, formatMoney } from '../lib/prices';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp, sz } from '../theme';
 
 const TAX_OPTIONS = [
   { label: 'Taxed (parts)', value: 'yes' as const },
@@ -262,11 +262,11 @@ function Stepper({ value, onChange, id }: { value: number; onChange: (n: number)
 }
 
 const styles = StyleSheet.create({
-  groups: { gap: 14 },
-  groupBox: { gap: 6 },
+  groups: { gap: sp(14) },
+  groupBox: { gap: sp(6) },
   groupTitle: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tile: { width: '32%', flexGrow: 1, minHeight: 76, padding: 8, borderRadius: rad(12), justifyContent: 'space-between', gap: 4, borderWidth: bw(1.5) },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(6) },
+  tile: { width: '32%', flexGrow: 1, minHeight: sz(76), padding: sp(8), borderRadius: rad(12), justifyContent: 'space-between', gap: sp(4), borderWidth: bw(1.5) },
   tileBlank: { borderStyle: 'dashed', borderColor: colors.border, backgroundColor: colors.card },
   tileGood: { backgroundColor: colors.selected, borderColor: colors.selected },
   tileFair: { backgroundColor: colors.warn, borderColor: colors.warn },
@@ -274,33 +274,33 @@ const styles = StyleSheet.create({
   tileTitle: { fontSize: fs(15), fontWeight: '800', color: colors.text },
   tileState: { fontSize: fs(14), fontWeight: '700', color: colors.muted },
   onColor: { color: colors.onSelected },
-  badge: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: colors.card, paddingHorizontal: 8, paddingVertical: 1 },
+  badge: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: colors.card, paddingHorizontal: sp(8), paddingVertical: sp(1) },
   badgeText: { fontSize: fs(12), fontWeight: '800', color: colors.text },
   pressed: { opacity: 0.8 },
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
   scrim: { flex: 1 },
   sheet: { maxHeight: '85%', backgroundColor: colors.card, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
-  sheetBody: { padding: 16, gap: 10, paddingBottom: 28 },
+  sheetBody: { padding: sp(16), gap: sp(10), paddingBottom: sp(28) },
   sheetTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
   last: { fontSize: fs(15), fontWeight: '700', color: colors.muted },
-  choices: { flexDirection: 'row', gap: 6 },
-  choice: { flex: 1, minHeight: touch.min, paddingHorizontal: 4, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  choices: { flexDirection: 'row', gap: sp(6) },
+  choice: { flex: 1, minHeight: touch.min, paddingHorizontal: sp(4), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   choiceGood: { backgroundColor: colors.selected, borderColor: colors.selected },
   choiceFair: { backgroundColor: colors.warn, borderColor: colors.warn },
   choiceBad: { backgroundColor: colors.stop, borderColor: colors.stop },
   choiceText: { fontSize: fs(16), fontWeight: '800', color: colors.text, textAlign: 'center' },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  photoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: sp(8) },
   thumb: { width: 56, height: 56, borderRadius: rad(10), backgroundColor: colors.info },
   plus: { width: 56, height: 56, borderRadius: rad(10), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   plusText: { fontSize: fs(28), fontWeight: '800', color: colors.text },
   photoCount: { flex: 1, fontSize: fs(15), fontWeight: '700', color: colors.muted },
-  na: { minHeight: touch.min, minWidth: 64, paddingHorizontal: 10, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  row: { flexDirection: 'row', gap: 8 },
+  na: { minHeight: touch.min, minWidth: 64, paddingHorizontal: sp(10), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', gap: sp(8) },
   grow: { flex: 1 },
-  repair: { padding: 12, gap: 8, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  repair: { padding: sp(12), gap: sp(8), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   fieldLabel: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
-  partBox: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  partBox: { flexDirection: 'row', alignItems: 'center', gap: sp(10) },
   partName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   step: { width: touch.min, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontSize: type.value, fontWeight: '800', color: colors.text },

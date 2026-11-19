@@ -50,3 +50,18 @@ describe('themeLook', () => {
     }
   });
 });
+
+describe('scaleSpace', () => {
+  const { scaleSpace } = require('../lib/themeLook');
+  it('leaves Legacy exactly as it was', () => {
+    expect(scaleSpace(16, 'legacy')).toBe(16);
+    expect(scaleSpace(-8, 'legacy')).toBe(-8);
+  });
+  it('tightens space as the size gets smaller, and keeps hairline gaps', () => {
+    expect(scaleSpace(16, 'comfortable')).toBe(14);
+    expect(scaleSpace(16, 'compact')).toBe(12);
+    expect(scaleSpace(16, 'tight')).toBe(10);
+    expect(scaleSpace(2, 'tight')).toBe(2);
+    expect(scaleSpace(4, 'tight')).toBe(2);
+  });
+});

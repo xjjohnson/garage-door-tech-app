@@ -16,7 +16,7 @@ import { useWorkLog } from '../lib/useWorkLog';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 interface Props {
   /** The phone's folder and file pickers; tests pass a fake. */
@@ -183,14 +183,14 @@ function Button({ label, onPress, disabled, primary, testID }: { label: string; 
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
-  detail: { fontSize: type.body, color: colors.text, lineHeight: 24 },
-  card: { padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: 10 },
+  stack: { gap: sp(12) },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
+  detail: { fontSize: type.body, color: colors.text, lineHeight: fs(24) },
+  card: { padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: sp(10) },
   cardTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  result: { fontSize: type.body, fontWeight: '800', color: colors.text, padding: 12, borderRadius: rad(14), backgroundColor: colors.info },
+  result: { fontSize: type.body, fontWeight: '800', color: colors.text, padding: sp(12), borderRadius: rad(14), backgroundColor: colors.info },
   error: { color: colors.onStop, backgroundColor: colors.stop },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(10), backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   disabled: { opacity: 0.4 },
   pressed: { backgroundColor: colors.info },

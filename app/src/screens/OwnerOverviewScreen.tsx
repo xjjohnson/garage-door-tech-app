@@ -10,7 +10,7 @@ import { startOfDay, addDays } from '../lib/schedule';
 import { useBadges } from '../lib/useBadges';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, radius, bw, fs, sz } from '../theme';
+import { colors, radius, bw, fs, sz, sp } from '../theme';
 
 /** The owner's day: money in, jobs done, who is working, then every list that needs a look. */
 export function OwnerOverviewScreen({ now = Date.now }: { now?: () => number }) {
@@ -77,12 +77,12 @@ export function OwnerOverviewScreen({ now = Date.now }: { now?: () => number }) 
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  heading: { fontSize: fs(13), fontWeight: '800', letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 4, paddingBottom: 6, paddingTop: 4 },
+  stack: { gap: sp(12) },
+  heading: { fontSize: fs(13), fontWeight: '800', letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: sp(4), paddingBottom: sp(6), paddingTop: sp(4) },
   card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14, minHeight: sz(52) },
+  row: { flexDirection: 'row', alignItems: 'center', gap: sp(10), paddingHorizontal: sp(16), paddingVertical: sp(14), minHeight: sz(52) },
   line: { borderTopWidth: 1, borderTopColor: colors.line },
   label: { flex: 1, fontSize: fs(18), fontWeight: '800', color: colors.text },
   chevron: { fontSize: fs(26), color: colors.muted },
-  link: { minHeight: sz(52), justifyContent: 'center', paddingHorizontal: 16, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
+  link: { minHeight: sz(52), justifyContent: 'center', paddingHorizontal: sp(16), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
 });

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Text } from '../components/AppText';
 import type { OdooClient } from '../lib/odoo';
 import { canChangeRoles, createPerson, LinkState, Links, linkEmployee, linkStatus, linkWorker, listPeople, looksLikeEmail, Person, ROLE_INFO, RoleId, saveRoles, sendInvite } from '../lib/odooRoles';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 /**
  * Management > Team roles: who is an owner, dispatcher, office, sales, warehouse manager or buyer. Each
@@ -221,15 +221,15 @@ function LinkRow({ label, what, state, canFix, onFix, testID }: { label: string;
 
 const styles = StyleSheet.create({
   off: { opacity: 0.5 },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, fontSize: type.body, color: colors.text },
-  small: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  stack: { gap: 10 },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: sp(12), fontSize: type.body, color: colors.text },
+  small: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12) },
+  stack: { gap: sp(10) },
   grow: { flex: 1 },
-  row: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 2 },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  row: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, padding: sp(12), gap: sp(2) },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: sp(10) },
   title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   warn: { fontSize: fs(16), fontWeight: '700', color: colors.text },
   back: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },

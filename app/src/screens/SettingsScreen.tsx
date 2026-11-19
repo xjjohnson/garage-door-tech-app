@@ -15,7 +15,7 @@ import { Look, PALETTES, SHAPES, SIZES, LEGACY_LOOK } from '../lib/themeLook';
 import { useInvoices } from '../lib/useInvoices';
 import { useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, look as drawnLook, scheme, touch, type, bw, fs, rad } from '../theme';
+import { colors, look as drawnLook, scheme, touch, type, bw, fs, rad, sp } from '../theme';
 
 interface Props {
   /** expo-updates; tests pass a fake. */
@@ -193,13 +193,13 @@ function Action({ label, onPress, primary, disabled, testID }: { label: string; 
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 12 },
-  card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(12), padding: 12, backgroundColor: colors.card, gap: 4 },
-  shareNote: { fontSize: fs(15), fontWeight: '600', color: colors.muted, lineHeight: 21 },
+  wrap: { gap: sp(12) },
+  card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(12), padding: sp(12), backgroundColor: colors.card, gap: sp(4) },
+  shareNote: { fontSize: fs(15), fontWeight: '600', color: colors.muted, lineHeight: fs(21) },
   value: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   note: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   pressed: { backgroundColor: colors.info },

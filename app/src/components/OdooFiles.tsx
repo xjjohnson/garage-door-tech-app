@@ -6,7 +6,7 @@ import { formatJobDate } from '../lib/jobs';
 import { useAttachments } from '../lib/useAttachments';
 import { useOdoo } from '../lib/useOdoo';
 import { jobsModel } from '../lib/odooReports';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 /**
  * What Odoo holds for a job: photos from every phone as a grid (tap to see one
@@ -125,22 +125,22 @@ export function OdooFiles({ targets, mine }: { targets: FileTarget[]; mine: numb
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 10 },
-  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  stack: { gap: sp(10) },
+  section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: sp(8) },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(6) },
   tile: { width: '32%', aspectRatio: 1 },
   thumb: { flex: 1, borderRadius: rad(10), backgroundColor: colors.card },
   empty: { alignItems: 'center', justifyContent: 'center' },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  row: { flexDirection: 'row', gap: sp(12), alignItems: 'center', padding: sp(12), minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   icon: { width: 40, height: 48, borderRadius: rad(6), backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
   iconText: { fontSize: fs(11), fontWeight: '800', color: colors.text },
   grow: { flex: 1 },
   name: { fontSize: type.body, fontWeight: '700', color: colors.text },
   small: { fontSize: fs(14), color: colors.muted },
-  modal: { flex: 1, backgroundColor: '#000', justifyContent: 'center', padding: 12 },
+  modal: { flex: 1, backgroundColor: '#000', justifyContent: 'center', padding: sp(12) },
   full: { flex: 1 },
-  cap: { color: '#fff', fontSize: fs(14), textAlign: 'center', marginVertical: 8 },
+  cap: { color: '#fff', fontSize: fs(14), textAlign: 'center', marginVertical: sp(8) },
   close: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   closeText: { fontSize: type.body, fontWeight: '800', color: '#000' },
 });

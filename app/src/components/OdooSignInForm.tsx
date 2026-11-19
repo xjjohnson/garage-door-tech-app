@@ -4,7 +4,7 @@ import { Text, TextInput } from './AppText';
 import { Action } from './Buttons';
 import { cleanUrl, guessDb } from '../lib/odoo';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 /**
  * The Odoo sign-in form (address, database, email, API key). One copy, used
@@ -76,11 +76,11 @@ function Field({ label, hint, value, onChange, placeholder, keyboard, secure, te
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  field: { gap: 4 },
+  stack: { gap: sp(12) },
+  field: { gap: sp(4) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
 });

@@ -5,7 +5,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import { Text, TextInput } from './AppText';
 import { ChipRow } from './controls';
 import { ADDRESS_TYPES, AddressFields, AddressType, EMPTY_ADDRESS } from '../lib/odooContacts';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 const FIELDS: { key: Exclude<keyof AddressFields, 'type'>; label: string; placeholder: string; keyboard?: 'phone-pad' | 'email-address' }[] = [
   { key: 'address', label: 'Address', placeholder: '400 Main St, Kyle 78640' },
@@ -100,15 +100,15 @@ export function AddressSheet({
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '90%' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(12) },
   title: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
-  cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
+  cancel: { minHeight: touch.min, paddingHorizontal: sp(12), justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
-  fields: { gap: 12, paddingBottom: 4 },
-  field: { gap: 4 },
+  fields: { gap: sp(12), paddingBottom: sp(4) },
+  field: { gap: sp(4) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 8, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), paddingVertical: sp(8), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
   save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },

@@ -4,7 +4,7 @@ import { Text, TextInput } from '../components/AppText';
 import { DEFAULT_DISCOUNTS, DiscountPreset, parseDollars, parsePct, presetsFor } from '../lib/discounts';
 import { queueBusiness } from '../lib/settingsSync';
 import { useInvoices } from '../lib/useInvoices';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 interface Row {
   label: string;
@@ -118,16 +118,16 @@ export function DiscountsTab({ canEdit }: { canEdit: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
-  field: { gap: 6 },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  stack: { gap: sp(12) },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
+  field: { gap: sp(6) },
+  row: { flexDirection: 'row', gap: sp(8), alignItems: 'center' },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   amount: { flex: 1 },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  kind: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  kind: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(14) },
   kindOn: { backgroundColor: colors.selected },
-  back: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  back: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
+  primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
 });

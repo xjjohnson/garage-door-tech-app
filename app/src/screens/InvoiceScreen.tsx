@@ -18,7 +18,7 @@ import { partWarranties, textLink, warrantyFor, warrantyText } from '../lib/foll
 import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 const METHOD_OPTIONS: ChipOption<PayMethod>[] = PAY_METHODS.map((m) => ({ label: PAY_LABEL[m], value: m }));
 const CONFIRM_MS = 4000;
@@ -335,35 +335,35 @@ function ConfirmButton({ label, armedLabel, onPress, testID }: { label: string; 
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  stack: { gap: sp(12) },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8) },
   number: { flex: 1, fontSize: type.big, fontWeight: '800', color: colors.text },
-  badge: { fontSize: fs(16), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
+  badge: { fontSize: fs(16), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: sp(10), paddingVertical: sp(4), borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
   badgePaid: { color: colors.onSelected, backgroundColor: colors.selected },
   badgeVoid: { color: colors.onStop, backgroundColor: colors.stop },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
-  card: { padding: 14, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: 8 },
-  line: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  card: { padding: sp(14), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: sp(8) },
+  line: { flexDirection: 'row', justifyContent: 'space-between', gap: sp(12) },
   lineLabel: { flex: 1, fontSize: type.body, color: colors.text },
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
   bold: { fontWeight: '800', fontSize: type.value },
-  payment: { padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, gap: 6 },
-  qrBox: { alignItems: 'center', gap: 10, padding: 12, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
+  payment: { padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, gap: sp(6) },
+  qrBox: { alignItems: 'center', gap: sp(10), padding: sp(12), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   qrLabel: { fontSize: type.value, fontWeight: '800', color: colors.text, textAlign: 'center' },
-  notice: { padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.warnBg, gap: 8 },
+  notice: { padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.warnBg, gap: sp(8) },
   input: {
     minHeight: touch.min,
     borderRadius: rad(10),
     borderWidth: bw(1.5),
     borderColor: colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: sp(14),
     fontSize: type.body,
     fontWeight: '700',
     color: colors.text,
     backgroundColor: colors.bg,
   },
-  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   disabled: { opacity: 0.4 },
   armed: { backgroundColor: colors.stop, borderColor: colors.stop },

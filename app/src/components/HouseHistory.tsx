@@ -19,7 +19,7 @@ import { Invoice, invoiceNo } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, radius, type, bw, fs, rad } from '../theme';
+import { colors, radius, type, bw, fs, rad, sp } from '../theme';
 
 export const HOUSE_STORAGE_KEY = 'odoo-house/v2';
 export const BADGE_STORAGE_KEY = 'odoo-badge/v1';
@@ -160,15 +160,15 @@ export function HouseCard({ orderId, partnerId, address, now = Date.now }: { ord
 }
 
 const styles = StyleSheet.create({
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: sp(8) },
   repeatDark: { backgroundColor: colors.warnBg, color: colors.warn },
   badgeDark: { color: colors.onHead },
-  repeat: { fontSize: fs(13), fontWeight: '800', color: colors.onSelected, backgroundColor: colors.selected, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, overflow: 'hidden' },
+  repeat: { fontSize: fs(13), fontWeight: '800', color: colors.onSelected, backgroundColor: colors.selected, borderRadius: 999, paddingHorizontal: sp(10), paddingVertical: sp(3), overflow: 'hidden' },
   badge: { fontSize: fs(16), fontWeight: '800', color: colors.text },
-  card: { backgroundColor: colors.card, borderRadius: rad(12), padding: 12, gap: 6 },
+  card: { backgroundColor: colors.card, borderRadius: rad(12), padding: sp(12), gap: sp(6) },
   label: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
-  sub: { fontSize: fs(15), fontWeight: '800', color: colors.text, marginTop: 6 },
-  item: { gap: 1 },
+  sub: { fontSize: fs(15), fontWeight: '800', color: colors.text, marginTop: sp(6) },
+  item: { gap: sp(1) },
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   ok: { color: colors.ok },
@@ -259,15 +259,15 @@ function ChipList({ equipment, now, onDark, testID = 'equipment-chips' }: { equi
 }
 
 const chipStyles = StyleSheet.create({
-  wrap: { gap: 8 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
+  wrap: { gap: sp(8) },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: sp(6), minHeight: 36, paddingHorizontal: sp(12), borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
   chipDark: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.25)' },
   chipOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   chipText: { fontSize: fs(14), fontWeight: '700', color: colors.selected, maxWidth: 180 },
   chipTextDark: { color: colors.onHead },
   chipTextOn: { color: colors.onSelected },
-  detail: { backgroundColor: colors.card, borderRadius: radius.field, padding: 12, gap: 2, borderWidth: bw(1), borderColor: colors.line },
+  detail: { backgroundColor: colors.card, borderRadius: radius.field, padding: sp(12), gap: sp(2), borderWidth: bw(1), borderColor: colors.line },
   detailTitle: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   soldLink: { minHeight: 36, justifyContent: 'center' },
   linkText: { color: colors.selected, textDecorationLine: 'underline' },

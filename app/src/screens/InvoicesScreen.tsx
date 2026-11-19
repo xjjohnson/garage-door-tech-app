@@ -11,7 +11,7 @@ import { formatMoney } from '../lib/prices';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { OdooListScreen } from './OdooListScreen';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
 type Filter = 'owed' | 'paid' | 'all';
 const FILTERS: ChipOption<Filter>[] = [
@@ -132,16 +132,16 @@ function PhoneInvoices() {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
+  stack: { gap: sp(12) },
   owed: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  empty: { padding: 12, borderRadius: rad(14), backgroundColor: colors.card, gap: 6 },
+  empty: { padding: sp(12), borderRadius: rad(14), backgroundColor: colors.card, gap: sp(6) },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  emptyBody: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
+  emptyBody: { fontSize: fs(16), color: colors.text, lineHeight: fs(22) },
+  item: { minHeight: touch.min, padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   itemPaid: { backgroundColor: colors.card },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8) },
   name: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
-  badge: { fontSize: fs(14), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
+  badge: { fontSize: fs(14), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: sp(8), paddingVertical: sp(2), borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
   badgePaid: { color: colors.onSelected, backgroundColor: colors.selected },
   badgeVoid: { color: colors.onStop, backgroundColor: colors.stop },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },

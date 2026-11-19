@@ -14,6 +14,7 @@ import { useBadges } from '../lib/useBadges';
 import { useLimits } from '../lib/useLimits';
 import { ActivityList, phonesFor } from './CarePages';
 import { MoneyList } from './MoneyPages';
+import { sp } from '../theme';
 
 export type SalesTab = 'quiet' | 'followups' | 'open' | 'won' | 'lost' | 'renew' | 'notseen' | 'flagged';
 const LABELS: Record<SalesTab, string> = {
@@ -43,7 +44,7 @@ function Lost({ client }: { client: OdooClient }) {
   const rows: RowItem[] | null = data?.map((l) => ({ key: `lost-${l.orderId}`, title: l.customer || l.name, sub: l.name, lines: [`${l.reason}${l.at ? ` · ${dateText(l.at)}` : ''}`] })) ?? null;
   const by = data ? lostByReason(data) : [];
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: sp(10) }}>
       {by.length ? <Note testID="lost-summary">{by.map((b) => `${b.reason}: ${b.count}`).join(' · ')}</Note> : null}
       <Note>Only quotes marked lost from this app show a reason. Quotes cancelled in Odoo are not listed.</Note>
       <RowList rows={rows} empty="No quote has been marked lost yet." testID="lost" />

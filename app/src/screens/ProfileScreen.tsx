@@ -11,7 +11,7 @@ import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, inPeriod, totals, weekOf } from '../lib/worklog';
-import { colors, radius, shadow, touch, type, bw, fs, rad, sz } from '../theme';
+import { colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
 type Tab = 'details' | 'certificates' | 'badges' | 'payroll';
 const TABS: { id: Tab; label: string }[] = [
@@ -250,27 +250,27 @@ const open = (url: string) => {
 };
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
+  stack: { gap: sp(12) },
   note: { fontSize: fs(16), fontWeight: '600', color: colors.muted, textAlign: 'left' },
   error: { fontSize: type.body, fontWeight: '700', color: colors.stop },
-  card: { alignItems: 'center', gap: 6, padding: 16, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
+  card: { alignItems: 'center', gap: sp(6), padding: sp(16), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
   photo: { width: 88, height: 88, borderRadius: rad(22) },
   initials: { backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center' },
   initialsText: { fontSize: fs(30), fontWeight: '800', color: colors.selected },
-  name: { fontSize: type.value + 2, fontWeight: '800', color: colors.text, marginTop: 4 },
+  name: { fontSize: type.value + 2, fontWeight: '800', color: colors.text, marginTop: sp(4) },
   sub: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 2 },
-  chip: { fontSize: fs(14), fontWeight: '800', color: colors.selected, backgroundColor: colors.info, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: sp(8), marginTop: sp(2) },
+  chip: { fontSize: fs(14), fontWeight: '800', color: colors.selected, backgroundColor: colors.info, paddingHorizontal: sp(10), paddingVertical: sp(4), borderRadius: radius.pill, overflow: 'hidden' },
   chipOff: { color: colors.muted },
-  actions: { flexDirection: 'row', gap: 8, alignSelf: 'stretch', marginTop: 8 },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tab: { minHeight: sz(44), paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  actions: { flexDirection: 'row', gap: sp(8), alignSelf: 'stretch', marginTop: sp(8) },
+  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
+  tab: { minHeight: sz(44), paddingHorizontal: sp(14), borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   tabOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   tabText: { fontSize: fs(16), fontWeight: '800', color: colors.muted },
   tabTextOn: { color: colors.onSelected },
-  line: { minHeight: sz(52), flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  line: { minHeight: sz(52), flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: sp(12), paddingHorizontal: sp(14), paddingVertical: sp(10) },
   lineRule: { borderBottomWidth: 1, borderBottomColor: colors.line },
   lineLabel: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   lineValue: { flexShrink: 1, fontSize: type.body, fontWeight: '700', color: colors.text, textAlign: 'right' },
-  input: { minHeight: touch.min, borderRadius: radius.field, borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 14, fontSize: type.body, color: colors.text },
+  input: { minHeight: touch.min, borderRadius: radius.field, borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: sp(14), fontSize: type.body, color: colors.text },
 });

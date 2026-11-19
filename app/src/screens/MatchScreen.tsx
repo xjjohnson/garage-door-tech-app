@@ -11,7 +11,7 @@ import { OpenJobRequest } from '../lib/jobs';
 import { SaveJobPanel } from '../components/SaveJobPanel';
 import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { MatchResult, Wind, WIRES } from '../springCalc';
-import { colors, type, fs } from '../theme';
+import { colors, type, fs, sp } from '../theme';
 
 const WIRE_METHODS: ChipOption<WireMethod>[] = [
   { label: '20 coils', value: 'twenty' },
@@ -249,9 +249,9 @@ function MatchResults({ result }: { result: MatchResult }) {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 14 },
-  note: { fontSize: fs(17), color: colors.text, lineHeight: 24 },
+  stack: { gap: sp(14) },
+  note: { fontSize: fs(17), color: colors.text, lineHeight: fs(24) },
   stopNote: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
+  divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: sp(10) },
   upgradeTarget: { fontSize: type.body, fontWeight: '800', color: colors.text },
 });

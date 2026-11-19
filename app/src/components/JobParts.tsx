@@ -10,7 +10,7 @@ import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useStock } from '../lib/useStock';
 import { useTruckSync } from '../lib/useTruckSync';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 import { BarcodeScanner } from './BarcodeScanner';
 
 /**
@@ -342,28 +342,28 @@ function Button({ label, onPress, testID }: { label: string; onPress: () => void
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.card, borderRadius: rad(12), padding: 12, gap: 8 },
+  card: { backgroundColor: colors.card, borderRadius: rad(12), padding: sp(12), gap: sp(8) },
   label: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
   note: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
-  line: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  line: { flexDirection: 'row', alignItems: 'center', gap: sp(8) },
   grow: { flex: 1 },
-  row: { flexDirection: 'row', gap: 8 },
-  undo: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
+  row: { flexDirection: 'row', gap: sp(8) },
+  undo: { minHeight: touch.min, paddingHorizontal: sp(12), justifyContent: 'center' },
   undoText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
-  button: { flex: 1, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: colors.card },
+  button: { flex: 1, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(8), backgroundColor: colors.card },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   pressed: { backgroundColor: colors.info },
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '85%' },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '85%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },
-  list: { gap: 8, paddingBottom: 8 },
-  pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text },
+  list: { gap: sp(8), paddingBottom: sp(8) },
+  pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: sp(8), paddingHorizontal: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   count: { fontSize: type.value, fontWeight: '800', color: colors.text },
   qty: { minWidth: 48, textAlign: 'center' },
-  waiting: { gap: 6, borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), padding: 10 },
+  waiting: { gap: sp(6), borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), padding: sp(10) },
   primary: { backgroundColor: colors.selected, borderColor: colors.selected },
   primaryText: { color: colors.onSelected },
   disabled: { opacity: 0.5 },

@@ -9,7 +9,7 @@ import { listPlaces, placeOverview, PlaceSummary } from '../lib/odooWarehouse';
 import { devNow } from '../lib/devFlags';
 import { addDays, formatTime, startOfDay } from '../lib/schedule';
 import { useGeocode } from '../lib/useGeocode';
-import { colors, radius, bw } from '../theme';
+import { colors, radius, bw, sp } from '../theme';
 
 /** The Dispatch pages that are about people and trucks, not jobs. Each reads Odoo when opened and says plainly when this login can't see something. */
 
@@ -244,7 +244,7 @@ export function DispatchMap({ client, now = devNow }: { client: OdooClient; now?
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 10 },
+  stack: { gap: sp(10) },
   mapBox: { height: 340, borderRadius: radius.sheet, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden', backgroundColor: '#E9EDE6' },
   map: { flex: 1, backgroundColor: '#E9EDE6' },
 });

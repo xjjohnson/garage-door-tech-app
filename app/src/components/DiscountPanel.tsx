@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { Discount, DiscountPreset, discountAmountText, discountText, parseDollars, parsePct } from '../lib/discounts';
-import { colors, touch, type, bw, rad } from '../theme';
+import { colors, touch, type, bw, rad, sp } from '../theme';
 import { Action } from './Buttons';
 import { SectionTitle } from './controls';
 
@@ -70,8 +70,8 @@ export function DiscountPanel({ discount, presets, onChange }: { discount?: Disc
 }
 
 const styles = StyleSheet.create({
-  box: { gap: 6 },
-  row: { flexDirection: 'row', gap: 8 },
+  box: { gap: sp(6) },
+  row: { flexDirection: 'row', gap: sp(8) },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
 });

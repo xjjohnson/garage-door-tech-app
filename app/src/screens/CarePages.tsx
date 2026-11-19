@@ -8,6 +8,7 @@ import { callLink, textLink } from '../lib/deptActions';
 import type { DeptLimits } from '../lib/deptLimits';
 import type { OdooClient } from '../lib/odoo';
 import { ActivityRow, callbacks, Covered, finishActivity, findCustomers, logComplaint, openComplaints, readVisits, warrantyList, DAY_MS } from '../lib/odooOffice';
+import { sp } from '../theme';
 
 const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
 
@@ -50,7 +51,7 @@ export function ActivityList({ client, load, empty, doneLabel, testID, textBody 
   );
   if (error) return <PageError what="This list" error={error} />;
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: sp(10) }}>
       <Message msg={msg} />
       <RowList rows={rows} empty={empty} testID={testID} />
     </View>
@@ -88,7 +89,7 @@ export function LogComplaint({ client, now = Date.now }: { client: OdooClient; n
   const [days, setDays] = useState(1);
   const { busy, msg, run } = useRun();
   return (
-    <View style={{ gap: 10 }} testID="complaint-form">
+    <View style={{ gap: sp(10) }} testID="complaint-form">
       <Message msg={msg} />
       {who ? (
         <Card>
@@ -141,7 +142,7 @@ export function WarrantyList({ client, now = Date.now }: { client: OdooClient; n
     lines: [c.partsUntil ? `Parts covered until ${dateText(c.partsUntil)}` : '', c.laborUntil ? `Labor covered until ${dateText(c.laborUntil)}` : ''].filter(Boolean),
   })) ?? null;
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: sp(10) }}>
       <TextBox value={q} onChange={setQ} label="Search customer or item" testID="warranty-search" />
       <Note>Read from the warranty lines the app writes on each piece of equipment. Equipment sold before those lines were written is not listed.</Note>
       <RowList rows={rows} empty="No equipment is under warranty." testID="warranty" />

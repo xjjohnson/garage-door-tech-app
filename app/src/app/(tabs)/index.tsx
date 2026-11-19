@@ -5,6 +5,7 @@ import { SectionScroll } from '../../components/SectionScroll';
 import { TodayMapScreen } from '../../screens/TodayMapScreen';
 import { TodayScreen } from '../../screens/TodayScreen';
 import { WeekScreen } from '../../screens/WeekScreen';
+import { sp } from '../../theme';
 
 type View_ = 'week' | 'today' | 'map';
 const VIEWS: ChipOption<View_>[] = [
@@ -25,4 +26,4 @@ export default function TodayRoute() {
   );
 }
 
-const styles = StyleSheet.create({ switch: { marginBottom: 14 } });
+const styles = StyleSheet.create({ switch: { marginBottom: sp(14) } });

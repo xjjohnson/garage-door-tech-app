@@ -4,7 +4,7 @@ import { Text, TextInput } from './AppText';
 import { DAY } from '../lib/followups';
 import type { AgreementRow, FrequencySet, RepeatRow } from '../lib/odooRecurring';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
-import { colors, touch, type, bw, fs, rad } from '../theme';
+import { colors, touch, type, bw, fs, rad, sp, sz } from '../theme';
 import { MaintenancePlan, planSummary } from '../lib/maintenancePlans';
 import { ChipRow } from './controls';
 
@@ -212,19 +212,19 @@ export function AgreementSheet({ visible, customer, editing, repeats, busy, erro
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, gap: 10, maxHeight: '90%' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '90%' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(12) },
   title: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
-  cancel: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
+  cancel: { minHeight: touch.min, paddingHorizontal: sp(12), justifyContent: 'center' },
   cancelText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
-  fields: { gap: 12, paddingBottom: 4 },
-  field: { gap: 4 },
+  fields: { gap: sp(12), paddingBottom: sp(4) },
+  field: { gap: sp(4) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   value: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
-  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 8, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  multi: { minHeight: 90, textAlignVertical: 'top' },
-  pick: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), paddingVertical: sp(8), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  multi: { minHeight: sz(90), textAlignVertical: 'top' },
+  pick: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: sp(12), paddingVertical: sp(8), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
   save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },

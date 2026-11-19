@@ -11,7 +11,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useStats } from '../lib/useStats';
-import { colors, radius, shadow, type, bw, fs, sz } from '../theme';
+import { colors, radius, shadow, type, bw, fs, sz, sp } from '../theme';
 import { InvoicesScreen } from './InvoicesScreen';
 import { OdooListScreen } from './OdooListScreen';
 
@@ -95,15 +95,15 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 12 },
+  stack: { gap: sp(12) },
   meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
-  money: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 16, borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
+  money: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: sp(12), padding: sp(16), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
   moneyRight: { alignItems: 'flex-end' },
   moneyLabel: { fontSize: fs(14), fontWeight: '700', color: colors.muted },
   moneyBig: { fontSize: type.big, fontWeight: '800', color: colors.text },
   moneyOwed: { color: colors.stop },
   moneyMid: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  switch: { flexDirection: 'row', backgroundColor: colors.info, borderRadius: radius.field, padding: 4, gap: 4 },
+  switch: { flexDirection: 'row', backgroundColor: colors.info, borderRadius: radius.field, padding: sp(4), gap: sp(4) },
   tab: { flex: 1, minHeight: sz(48), borderRadius: radius.field - 3, alignItems: 'center', justifyContent: 'center' },
   tabOn: { backgroundColor: colors.selected },
   tabText: { fontSize: type.body, fontWeight: '800', color: colors.text },

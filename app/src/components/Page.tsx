@@ -5,7 +5,7 @@ import { runBackStep } from '../lib/backStep';
 import { Text } from './AppText';
 import { Icon } from './Icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, radius, touch, type } from '../theme';
+import { colors, radius, touch, type, sp } from '../theme';
 
 const DockContext = createContext<((node: ReactNode) => void) | null>(null);
 
@@ -60,10 +60,10 @@ export function Page({ title, children, testID }: { title: string; children: Rea
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.head },
+  head: { flexDirection: 'row', alignItems: 'center', gap: sp(12), paddingHorizontal: sp(16), paddingVertical: sp(10), backgroundColor: colors.head },
   title: { flex: 1, fontSize: type.big, fontWeight: '800', color: colors.onHead },
   close: { width: touch.min - 4, height: touch.min - 4, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: 'rgba(255,255,255,0.35)' },
-  dock: { padding: 12, gap: 8, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line },
-  content: { padding: 16, paddingBottom: 48, gap: 14 },
+  dock: { padding: sp(12), gap: sp(8), backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line },
+  content: { padding: sp(16), paddingBottom: sp(48), gap: sp(14) },
 });
