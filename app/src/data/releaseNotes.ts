@@ -15,6 +15,21 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.10',
+    title: 'Switch Odoo database from the Developer screen',
+    changes: [
+      'Developer > Database shows which Odoo database the phone is attached to, and lets you switch to another (a test copy, or back to live).',
+      'A colored NOT LIVE strip shows on every screen whenever the phone is on a database that is not the live one.',
+      'Each database keeps its own copy of the phone data. Unsent work stays with its own database and is never sent to another.',
+    ],
+    test: [
+      'Developer > Database: see the current database name.',
+      'Type a wrong database name: it should say it could not sign in and change nothing.',
+      'Switch to a test database: the app restarts and the NOT LIVE strip shows.',
+      'Switch back to live: your jobs and anything not yet sent are still there.',
+    ],
+  },
+  {
     release: '0.6.8',
     title: 'More testing tools on the Developer screen',
     changes: [

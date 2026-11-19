@@ -2,9 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Fetch, ODOO_STORAGE_KEY, OdooClient, OdooError, OdooLogin } from './odoo';
 import { loadFeatureFlags } from './featureFlags';
+import { claimIfUnowned, dataMatches, resumeSwitch, SECRET_KEY } from './dbSwitch';
+import { deviceSnapshots } from './dbSnapshots';
 import { deviceSecrets, SecretStore } from './secrets';
 
-const SECRET_KEY = 'odoo.secret';
+const WRONG_DB = 'The data on this phone belongs to a different Odoo database. Use Developer > Switch database, so nothing is sent to the wrong one.';
 
 type Status = 'loading' | 'signedOut' | 'signingIn' | 'signedIn';
 
@@ -47,6 +49,13 @@ export function OdooProvider({ children, fetchFn, secrets: givenSecrets }: { chi
       const n = ++attempt.current;
       setStatus('signingIn');
       setError(null);
+      // Data made for one database is never sent to another: a different one goes through Switch database.
+      if (!(await dataMatches(AsyncStorage, login))) {
+        setClient(null);
+        setStatus('signedOut');
+        setError(WRONG_DB);
+        return false;
+      }
       try {
         const c = await OdooClient.signIn(doFetch, login, secret);
         if (n !== attempt.current) return false;
@@ -54,6 +63,7 @@ export function OdooProvider({ children, fetchFn, secrets: givenSecrets }: { chi
         setSaved(keep);
         setClient(c);
         setStatus('signedIn');
+        claimIfUnowned(AsyncStorage, keep);
         AsyncStorage.setItem(ODOO_STORAGE_KEY, JSON.stringify(keep)).catch(() => undefined);
         await secrets.set(SECRET_KEY, secret);
         return true;
@@ -72,6 +82,8 @@ export function OdooProvider({ children, fetchFn, secrets: givenSecrets }: { chi
     let alive = true;
     loadFeatureFlags().catch(() => undefined);
     (async () => {
+      // Finish a database switch the app was closed in the middle of, before anything reads the phone's data.
+      await resumeSwitch({ storage: AsyncStorage, snapshots: deviceSnapshots(), secrets }).catch(() => false);
       const login = parseLogin(await AsyncStorage.getItem(ODOO_STORAGE_KEY).catch(() => null));
       if (!alive) return;
       setSaved(login);

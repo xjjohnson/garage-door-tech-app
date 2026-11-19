@@ -20,6 +20,7 @@ import { OdooChecklistSync } from '../components/OdooChecklistSync';
 import { OdooReportSync } from '../components/OdooReportSync';
 import { OdooEquipmentSync } from '../components/OdooEquipmentSync';
 import { OdooAttendanceSync } from '../components/OdooAttendanceSync';
+import { DatabaseBanner } from '../components/DatabaseBanner';
 import { TestModeBanner } from '../components/TestModeBanner';
 import { OdooLocationSync } from '../components/OdooLocationSync';
 import { AttachmentsProvider } from '../lib/useAttachments';
@@ -122,6 +123,7 @@ export default function RootLayout() {
                               <Stack.Screen name="new-job" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="job/[id]" />
                             </Stack>
+                            <DatabaseBanner />
                             <TestModeBanner />
                           </CalculatorLinkProvider>
                         </OdooProvider>
