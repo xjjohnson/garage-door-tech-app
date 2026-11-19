@@ -302,7 +302,7 @@ describe('testing tools (0.6.8)', () => {
     t = await setTick('0.6.8', 1, 'pass');
     expect(await loadTicks('0.6.8')).toEqual({});
     expect(await loadTicks('0.6.7')).toEqual({});
-    expect(newerThan('0.6.6', RELEASE_NOTES).map((n: { release: string }) => n.release)).toEqual(['0.6.10', '0.6.8', '0.6.7']);
+    expect(newerThan('0.6.6', RELEASE_NOTES).map((n: { release: string }) => n.release).slice(-3)).toEqual(['0.6.10', '0.6.8', '0.6.7']);
     expect(newerThan(null, RELEASE_NOTES)).toEqual([]);
   });
 

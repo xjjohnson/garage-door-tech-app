@@ -41,3 +41,25 @@ export function writeStartChoice(choice: Choice | null): void {
     // Not saved here; the async copy still holds the choice.
   }
 }
+
+/** Other small start-up values (shape, size, palette, brand color), read the same way. Nothing here throws. */
+export function readStartValue(key: string): string | null {
+  try {
+    const row = open()?.getFirstSync<{ v: string }>(`SELECT v FROM pref WHERE k = '${key.replace(/[^a-z]/gi, '')}'`);
+    return typeof row?.v === 'string' ? row.v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeStartValue(key: string, value: string | null): void {
+  try {
+    const d = open();
+    if (!d) return;
+    const k = key.replace(/[^a-z]/gi, '');
+    if (value) d.runSync(`INSERT OR REPLACE INTO pref (k, v) VALUES ('${k}', ?)`, [value]);
+    else d.runSync(`DELETE FROM pref WHERE k = '${k}'`, []);
+  } catch {
+    // Not saved here; the async copy still holds it.
+  }
+}

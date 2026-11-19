@@ -23,7 +23,7 @@ import { useContactAddresses } from '../lib/useContactAddresses';
 import { AddressSuggestions } from '../components/AddressSuggestions';
 import { QuickAction } from '../components/Buttons';
 import { mapsLink } from '../lib/schedule';
-import { colors, radius, shadow, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type, bw, fs, rad, sz } from '../theme';
 
 const CUSTOMER_TABS: { id: CustomerTab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -302,24 +302,24 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: 16, gap: 4, ...shadow },
-  heroText: { fontSize: 16, fontWeight: '600', color: colors.onHead },
-  heroMeta: { fontSize: 15, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
+  heroText: { fontSize: fs(16), fontWeight: '600', color: colors.onHead },
+  heroMeta: { fontSize: fs(15), fontWeight: '600', color: colors.onHead, opacity: 0.85 },
   tabs: { flexDirection: 'row', gap: 6 },
-  tab: { paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: radius.pill },
+  tab: { paddingHorizontal: 14, minHeight: sz(40), justifyContent: 'center', borderRadius: radius.pill },
   tabOn: { backgroundColor: colors.selected },
-  tabText: { fontSize: 15, fontWeight: '700', color: colors.muted },
+  tabText: { fontSize: fs(15), fontWeight: '700', color: colors.muted },
   tabTextOn: { color: colors.onSelected },
   quickRow: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
   name: { fontSize: type.big, fontWeight: '800', color: colors.onHead },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   owed: { fontSize: type.value, fontWeight: '800', color: colors.stop },
   section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: 8 },
-  job: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, ...shadow },
+  job: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, ...shadow },
   jobDone: { backgroundColor: colors.card },
   jobTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: radius.field, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: radius.field, borderWidth: bw(1), borderColor: colors.line, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
@@ -336,8 +336,8 @@ const styles = StyleSheet.create({
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   input: {
     minHeight: touch.min,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    borderRadius: rad(10),
+    borderWidth: bw(1.5),
     borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   multiline: { minHeight: 110, textAlignVertical: 'top' },
-  save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
+  save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
   pressedText: { color: colors.text },

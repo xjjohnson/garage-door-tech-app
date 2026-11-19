@@ -12,7 +12,7 @@ import { useJobs } from '../lib/useJobs';
 import { createMissingSurveys, SurveyKind, surveyState, SurveyState } from '../lib/odooSurveys';
 import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, rad } from '../theme';
 
 const NAME: Record<SurveyKind, string> = { door: 'Garage door inspection', opener: 'Opener inspection', gate: 'Gate inspection' };
 
@@ -136,9 +136,9 @@ const styles = StyleSheet.create({
   stack: { gap: 10 },
   note: { fontSize: type.body, color: colors.muted },
   warn: { fontSize: type.body, fontWeight: '700', color: colors.stop },
-  card: { backgroundColor: colors.card, borderRadius: 12, padding: 14, gap: 2 },
+  card: { backgroundColor: colors.card, borderRadius: rad(12), padding: 14, gap: 2 },
   title: { fontSize: type.body, fontWeight: '700', color: colors.text },
   meta: { fontSize: type.body, color: colors.muted },
-  button: { minHeight: touch.min, borderRadius: 14, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  button: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   buttonText: { fontSize: type.body, fontWeight: '700', color: colors.onSelected },
 });

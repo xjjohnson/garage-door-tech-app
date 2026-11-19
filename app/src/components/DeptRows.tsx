@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { Action } from './Buttons';
 import { Card, Meta, Note, Title } from './Dept';
-import { colors } from '../theme';
+import { colors, fs } from '../theme';
 
 /** A row on one of the Office or Sales lists: who and what, a few lines, and the buttons that apply. */
 export interface RowAction {
@@ -81,7 +81,7 @@ export const PageError = ({ what, error }: { what: string; error: string }) => (
 
 const styles = StyleSheet.create({
   stack: { gap: 10 },
-  line: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  bad: { fontSize: 16, fontWeight: '800', color: colors.stop },
+  line: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
+  bad: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

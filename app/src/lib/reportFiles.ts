@@ -3,7 +3,7 @@
  * the photos tagged with a checklist item and the customer's signature.
  * Shared by the inspection screen and the invoice email.
  */
-import { LOGO_DATA_URL } from '../data/logoPng';
+import { reportLogo } from './companyBrand';
 import { Attachments, photosFor, signatureFor } from './attachments';
 import type { DeviceMedia } from './deviceMedia';
 import { photoPairs, photoReportHtml, PhotoReportInfo } from './photoReport';
@@ -24,7 +24,7 @@ export async function inspectionReportHtml(job: Job, attachments: Attachments, m
     const src = await media?.photoDataUrl?.(p.uri);
     if (src) imgs.push({ item: p.item, src });
   }
-  return inspectionHtml(job.inspection, { customer: job.customer, address: job.address, ...info }, business, LOGO_DATA_URL, imgs, signatureFor(attachments, 'inspection', job.id));
+  return inspectionHtml(job.inspection, { customer: job.customer, address: job.address, ...info }, business, await reportLogo(business.useOdooLogo), imgs, signatureFor(attachments, 'inspection', job.id));
 }
 
 /** The before/after photo report page for a job, or '' when it has no before or after photos on this phone. */
@@ -35,5 +35,5 @@ export async function beforeAfterReportHtml(job: Pick<Job, 'id' | 'customer' | '
     const src = await media?.photoDataUrl?.(p.uri);
     if (src) loaded.push({ kind: p.kind as 'before' | 'after', at: p.at, src });
   }
-  return photoReportHtml(photoPairs(loaded), { customer: job.customer, address: job.address, ...info }, business, LOGO_DATA_URL);
+  return photoReportHtml(photoPairs(loaded), { customer: job.customer, address: job.address, ...info }, business, await reportLogo(business.useOdooLogo));
 }

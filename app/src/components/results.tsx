@@ -6,7 +6,7 @@ import { expectedLife, formatLife, springName } from '../lib/springNames';
 import { useFollowUps } from '../lib/useFollowUps';
 import { MeasureField } from './controls';
 import { findWire, SpringSpec, Warning } from '../springCalc';
-import { colors, type } from '../theme';
+import { colors, type, bw, fs, rad } from '../theme';
 
 export const SAFETY_TEXT =
   "Torsion springs store enough energy to cause serious injury. Results are estimates from published charts and must be checked against the spring maker's data. Only trained technicians should wind or unwind springs. Use proper winding bars, never screwdrivers.";
@@ -143,24 +143,24 @@ export function SpringDetails({ spec, children }: { spec: SpringSpec; children?:
 
 const styles = StyleSheet.create({
   stack: { gap: 8 },
-  safety: { backgroundColor: colors.warnBg, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, padding: 12, gap: 4 },
+  safety: { backgroundColor: colors.warnBg, borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), padding: 12, gap: 4 },
   safetyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  safetyText: { fontSize: 17, fontWeight: '700', color: colors.text, lineHeight: 24 },
-  warning: { borderWidth: 1.5, borderRadius: 14, padding: 12, gap: 2 },
-  warningLabel: { fontSize: 16, fontWeight: '800', letterSpacing: 1 },
+  safetyText: { fontSize: fs(17), fontWeight: '700', color: colors.text, lineHeight: 24 },
+  warning: { borderWidth: bw(1.5), borderRadius: rad(14), padding: 12, gap: 2 },
+  warningLabel: { fontSize: fs(16), fontWeight: '800', letterSpacing: 1 },
   warningText: { fontSize: type.body, fontWeight: '700', lineHeight: 25 },
-  missing: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border, borderRadius: 14, padding: 12, gap: 4 },
+  missing: { borderWidth: bw(1.5), borderStyle: 'dashed', borderColor: colors.border, borderRadius: rad(14), padding: 12, gap: 4 },
   missingTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   missingItem: { fontSize: type.body, color: colors.text },
-  card: { backgroundColor: colors.card, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, padding: 14, gap: 10 },
+  card: { backgroundColor: colors.card, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, padding: 14, gap: 10 },
   cardTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
   stat: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   // The number never breaks across lines; the label wraps instead.
   statLabel: { fontSize: type.body, fontWeight: '600', color: colors.muted, flex: 1, paddingTop: 2 },
   statRight: { alignItems: 'flex-end', flexShrink: 0, maxWidth: '62%' },
   statValue: { fontSize: type.value, fontWeight: '800', color: colors.text, textAlign: 'right' },
-  statSub: { fontSize: 15, color: colors.muted, textAlign: 'right' },
+  statSub: { fontSize: fs(15), color: colors.muted, textAlign: 'right' },
   spring: { gap: 6, paddingTop: 4 },
   springName: { fontSize: type.big, fontWeight: '800', color: colors.text },
-  springColor: { fontSize: 16, fontWeight: '700', color: colors.muted },
+  springColor: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
 });

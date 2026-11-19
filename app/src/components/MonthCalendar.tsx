@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { Icon } from './Icon';
 import { startOfDay } from '../lib/schedule';
-import { colors, radius, shadow } from '../theme';
+import { colors, radius, shadow, bw, fs, rad } from '../theme';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -86,19 +86,19 @@ export function visitCounts(starts: number[]): Record<number, number> {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, padding: 10, gap: 2, ...shadow },
+  card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, padding: 10, gap: 2, ...shadow },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 4 },
-  title: { fontSize: 17, fontWeight: '800', color: colors.text },
+  title: { fontSize: fs(17), fontWeight: '800', color: colors.text },
   arrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   flip: { transform: [{ scaleX: -1 }] },
   week: { flexDirection: 'row' },
-  dow: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '800', color: colors.muted, paddingBottom: 2 },
-  cell: { flex: 1, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  dow: { flex: 1, textAlign: 'center', fontSize: fs(12), fontWeight: '800', color: colors.muted, paddingBottom: 2 },
+  cell: { flex: 1, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: rad(12) },
   on: { backgroundColor: colors.selected },
-  todayRing: { borderWidth: 1.5, borderColor: colors.selected },
-  num: { fontSize: 16, fontWeight: '700', color: colors.text },
+  todayRing: { borderWidth: bw(1.5), borderColor: colors.selected },
+  num: { fontSize: fs(16), fontWeight: '700', color: colors.text },
   onText: { color: colors.onSelected, fontWeight: '800' },
-  dot: { width: 5, height: 5, borderRadius: 3, marginTop: 2, backgroundColor: 'transparent' },
+  dot: { width: 5, height: 5, borderRadius: rad(3), marginTop: 2, backgroundColor: 'transparent' },
   dotShown: { backgroundColor: colors.selected },
   dotOn: { backgroundColor: colors.onSelected },
 });

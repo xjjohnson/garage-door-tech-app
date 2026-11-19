@@ -21,7 +21,7 @@ import { useSchedule } from '../lib/useSchedule';
 import { useStock } from '../lib/useStock';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours } from '../lib/worklog';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad, sz } from '../theme';
 
 /**
  * Wrap up the day: jobs done, money by how it was paid (cash and checks to
@@ -232,27 +232,27 @@ function Check({ done, label, onPress, testID }: { done: boolean; label: string;
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  sub: { fontSize: 17, fontWeight: '700', color: colors.muted },
+  sub: { fontSize: fs(17), fontWeight: '700', color: colors.muted },
   tiles: { flexDirection: 'row', gap: 8 },
-  tile: { flex: 1, backgroundColor: colors.card, borderRadius: 12, padding: 10, gap: 2 },
-  tileBig: { fontSize: 21, fontWeight: '800', color: colors.text },
-  tileLabel: { fontSize: 14, fontWeight: '800', color: colors.muted },
-  line: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
+  tile: { flex: 1, backgroundColor: colors.card, borderRadius: rad(12), padding: 10, gap: 2 },
+  tileBig: { fontSize: fs(21), fontWeight: '800', color: colors.text },
+  tileLabel: { fontSize: fs(14), fontWeight: '800', color: colors.muted },
+  line: { minHeight: sz(52), flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
   lastLine: { borderBottomWidth: 0 },
   lineLabel: { flex: 1, fontSize: type.body, fontWeight: '800', color: colors.text },
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  warn: { backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
+  warn: { backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: rad(8), overflow: 'hidden' },
   checks: { gap: 4 },
   check: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  box: { width: 28, height: 28, borderRadius: 6, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  box: { width: 28, height: 28, borderRadius: rad(6), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   boxDone: { backgroundColor: colors.selected, borderColor: colors.selected },
-  tick: { color: colors.onSelected, fontSize: 17, fontWeight: '800' },
-  checkText: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
+  tick: { color: colors.onSelected, fontSize: fs(17), fontWeight: '800' },
+  checkText: { flex: 1, fontSize: fs(17), fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.info },
   field: { gap: 4 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },
-  error: { fontSize: 16, fontWeight: '800', color: colors.stop },
-  closed: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: colors.card },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },
+  error: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
+  closed: { gap: 8, padding: 12, borderRadius: rad(12), backgroundColor: colors.card },
   closedText: { fontSize: type.body, fontWeight: '800', color: colors.ok },
 });

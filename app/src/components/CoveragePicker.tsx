@@ -6,7 +6,7 @@ import { DAY } from '../lib/followups';
 import { Invoice, trackKey } from '../lib/invoices';
 import { trackedKeys } from '../lib/odooEquipment';
 import { formatMoney } from '../lib/prices';
-import { colors, type } from '../theme';
+import { colors, type, bw, fs, rad } from '../theme';
 
 /** Parts are covered by the year, labor by the day. */
 const MONTHS: number[] = [0, 12, 24, 36, 60, 120];
@@ -91,22 +91,22 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
 }
 
 const styles = StyleSheet.create({
-  box: { gap: 6, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  box: { gap: 6, padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   title: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  label: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  hint: { fontSize: 15, color: colors.muted },
+  label: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
+  hint: { fontSize: fs(15), color: colors.muted },
   track: { gap: 6, marginTop: 6 },
   lineBox: { gap: 6 },
   trackRow: { minHeight: 36, justifyContent: 'center' },
-  line: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  line: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, padding: 10, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   lineOn: { backgroundColor: colors.selected, borderColor: colors.selected },
   lineName: { flex: 1, flexShrink: 1, gap: 4, alignItems: 'flex-start' },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   badgePart: { backgroundColor: colors.info },
   badgeLabor: { backgroundColor: colors.warnBg },
-  badgeText: { fontSize: 13, fontWeight: '800' },
+  badgeText: { fontSize: fs(13), fontWeight: '800' },
   badgePartText: { color: colors.selected },
   badgeLaborText: { color: colors.warn },
-  lineText: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: colors.text },
+  lineText: { flexShrink: 1, fontSize: fs(16), fontWeight: '700', color: colors.text },
   lineTextOn: { color: colors.onSelected },
 });

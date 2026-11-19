@@ -8,7 +8,7 @@ import { formatMoney } from '../lib/prices';
 import { formatTime } from '../lib/schedule';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, inPeriod, openShift, Shift, shiftMiles, shiftMs, totals, weekOf, workLogCsv } from '../lib/worklog';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 /** Re-renders every minute so a running clock stays current. */
 function useMinuteTick(now: () => number) {
@@ -184,25 +184,25 @@ function Day({ s, now, onMiles, onRemove }: { s: Shift; now: number; onMiles: (m
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  clock: { padding: 12, gap: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border },
-  clockOn: { borderWidth: 4, borderColor: colors.selected },
+  clock: { padding: 12, gap: 8, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
+  clockOn: { borderWidth: bw(4), borderColor: colors.selected },
   clockTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
   totals: { flexDirection: 'row', gap: 8 },
-  total: { flex: 1, padding: 10, borderRadius: 14, backgroundColor: colors.card, alignItems: 'center' },
+  total: { flex: 1, padding: 10, borderRadius: rad(14), backgroundColor: colors.card, alignItems: 'center' },
   totalValue: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  item: { padding: 12, gap: 6, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  item: { padding: 12, gap: 6, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
-  onClock: { borderWidth: 4, borderColor: colors.selected },
+  onClock: { borderWidth: bw(4), borderColor: colors.selected },
   onClockText: { fontWeight: '800' },
-  danger: { borderColor: colors.caution, borderWidth: 4 },
+  danger: { borderColor: colors.caution, borderWidth: bw(4) },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

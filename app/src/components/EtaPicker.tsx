@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { TextInput } from './AppText';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, rad } from '../theme';
 import { Action } from './Buttons';
 
 export const ETA_MINUTES = [10, 15, 30, 45, 60];
@@ -42,5 +42,5 @@ export function EtaPicker({ onPick, testID, options = ETA_MINUTES }: { onPick: (
 const styles = StyleSheet.create({
   stack: { gap: 8 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  input: { flex: 1, minHeight: touch.min, borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  input: { flex: 1, minHeight: touch.min, borderRadius: rad(10), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
 });

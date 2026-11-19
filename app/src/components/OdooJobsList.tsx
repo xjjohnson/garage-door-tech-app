@@ -19,7 +19,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useOpenOdooJob } from '../lib/useStartJob';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 export const ODOO_JOBS_STORAGE_KEY = 'odoo-jobs-list/v1';
 const PAGE = 40;
@@ -152,15 +152,15 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  item: { minHeight: touch.min, padding: 12, gap: 2, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   headTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   name: { flex: 1, fontSize: type.value, fontWeight: '800', color: colors.text },
-  badge: { fontSize: 14, fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', letterSpacing: 1 },
+  badge: { fontSize: fs(14), fontWeight: '800', color: colors.text, backgroundColor: colors.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rad(6), overflow: 'hidden', letterSpacing: 1 },
   address: { fontSize: type.body, fontWeight: '700', color: colors.text },
   answer: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: 4 },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  error: { fontSize: 16, fontWeight: '700', color: colors.stop },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
+  error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
 });

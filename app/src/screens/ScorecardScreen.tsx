@@ -8,7 +8,7 @@ import { percent } from '../lib/stats';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, type } from '../theme';
+import { colors, type, bw, fs, rad } from '../theme';
 
 const PERIODS: ScorePeriod[] = ['week', '30d', 'year'];
 
@@ -148,18 +148,18 @@ function Stat({ big, label, warn }: { big: string; label: string; warn?: boolean
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  sub: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, padding: 14, gap: 10 },
-  name: { fontSize: 20, fontWeight: '800', color: colors.text },
+  sub: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
+  card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(16), padding: 14, gap: 10 },
+  name: { fontSize: fs(20), fontWeight: '800', color: colors.text },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
   grid: { flexDirection: 'row', gap: 8 },
   stat: { flex: 1, gap: 2 },
-  big: { fontSize: 24, fontWeight: '800', color: colors.text },
+  big: { fontSize: fs(24), fontWeight: '800', color: colors.text },
   warn: { color: colors.stop },
-  statLabel: { fontSize: 13, fontWeight: '800', color: colors.muted },
-  meta: { fontSize: 15, fontWeight: '800', color: colors.muted },
-  track: { height: 12, borderRadius: 6, backgroundColor: colors.info, overflow: 'hidden' },
+  statLabel: { fontSize: fs(13), fontWeight: '800', color: colors.muted },
+  meta: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
+  track: { height: 12, borderRadius: rad(6), backgroundColor: colors.info, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: colors.selected },
-  note: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  error: { fontSize: 16, fontWeight: '800', color: colors.stop },
+  note: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
+  error: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
 });

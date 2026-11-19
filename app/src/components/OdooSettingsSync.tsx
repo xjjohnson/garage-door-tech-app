@@ -7,6 +7,7 @@
  * written over Odoo by themselves. Renders nothing.
  */
 import { useCallback, useEffect, useRef } from 'react';
+import { refreshBrandIfStale } from '../lib/companyBrand';
 import { log } from '../lib/log';
 import { sameBusiness, readSettings, writeSettings } from '../lib/odooSettings';
 import { clearPending, onQueued, pendingBusiness } from '../lib/settingsSync';
@@ -30,6 +31,7 @@ export function OdooSettingsSync() {
     if (!client || running.current) return;
     running.current = true;
     try {
+      await refreshBrandIfStale(client);
       const edit = pendingBusiness();
       if (edit) {
         await writeSettings(client, { business: edit });

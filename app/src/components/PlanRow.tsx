@@ -4,7 +4,7 @@ import { Text } from './AppText';
 import { MaintenancePlan, planPriceText, planSummary } from '../lib/maintenancePlans';
 import type { ActivePlan } from '../lib/planSetup';
 import type { TicketPlan } from '../lib/ticket';
-import { colors, type } from '../theme';
+import { colors, type, fs } from '../theme';
 import { Action } from './Buttons';
 import { SectionTitle } from './controls';
 
@@ -81,6 +81,6 @@ export function PlanRow({ plan, plans, locked, active, error, done, onChange, on
 const styles = StyleSheet.create({
   box: { gap: 8 },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  meta: { fontSize: 16, color: colors.muted, lineHeight: 22 },
-  error: { fontSize: 16, fontWeight: '700', color: colors.stop },
+  meta: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
 });

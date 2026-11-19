@@ -135,6 +135,8 @@ export interface Business {
   paymentsHeading?: string;
   /** The customer types in Management > Customer types, in order; unset means Homeowner and Commercial (see customerTypes.ts). Each is a tag on the customer's contact in Odoo. */
   customerTypes?: string[];
+  /** Management > Your business: show the company logo from Odoo on PDFs and in Settings instead of the built-in Johnsons one. Off unless the owner turns it on. */
+  useOdooLogo?: boolean;
 }
 
 export const EMPTY_BUSINESS: Business = { name: '', phone: '', cashtag: '', venmo: '', zelle: '', reviewUrl: '', textOnMyWay: '', textEta: '', textReview: '' };
@@ -346,7 +348,7 @@ export function parseBusiness(raw: string | null | object): Business {
   }
   if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
   const d = data as Record<string, unknown>;
-  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(str(d.textConfirm) ? { textConfirm: str(d.textConfirm) } : {}), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}), ...(Array.isArray(d.customerTypes) && d.customerTypes.some((x) => typeof x === 'string' && x.trim()) ? { customerTypes: d.customerTypes.flatMap((x): string[] => (typeof x === 'string' && x.trim() ? [x.trim()] : [])) } : {}) };
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(str(d.textConfirm) ? { textConfirm: str(d.textConfirm) } : {}), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}), ...(Array.isArray(d.customerTypes) && d.customerTypes.some((x) => typeof x === 'string' && x.trim()) ? { customerTypes: d.customerTypes.flatMap((x): string[] => (typeof x === 'string' && x.trim() ? [x.trim()] : [])) } : {}), ...(d.useOdooLogo === true ? { useOdooLogo: true } : {}) };
 }
 
 /** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */

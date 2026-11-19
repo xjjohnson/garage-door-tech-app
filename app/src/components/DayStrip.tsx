@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { colors, radius, shadow } from '../theme';
+import { colors, radius, shadow, bw, fs, sz } from '../theme';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
@@ -37,11 +37,11 @@ export function DayStrip({ days, counts, selected, onSelect, testID }: { days: n
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 5 },
-  chip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.card - 2, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, minHeight: 72, ...shadow },
+  chip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.card - 2, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, minHeight: sz(72), ...shadow },
   on: { backgroundColor: colors.selected, borderColor: colors.selected },
   pressed: { backgroundColor: colors.info },
-  dow: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4, color: colors.muted },
-  date: { fontSize: 18, fontWeight: '800', color: colors.text },
-  count: { fontSize: 13, fontWeight: '800', color: colors.selected },
+  dow: { fontSize: fs(11), fontWeight: '800', letterSpacing: 0.4, color: colors.muted },
+  date: { fontSize: fs(18), fontWeight: '800', color: colors.text },
+  count: { fontSize: fs(13), fontWeight: '800', color: colors.selected },
   onText: { color: colors.onSelected },
 });

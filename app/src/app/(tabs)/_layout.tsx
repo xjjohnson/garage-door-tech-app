@@ -18,7 +18,7 @@ import { UpdateReadyBar } from '../../components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from '../../config';
 import { dateLine } from '../../lib/schedule';
 import { SECTIONS, TOOL_PAGES } from '../../lib/sections';
-import { colors, radius, touch, type } from '../../theme';
+import { colors, radius, touch, type, fs, rad } from '../../theme';
 
 /**
  * The five tabs (Today, Jobs, Sales, Customers, Tools) and the tool pages
@@ -147,23 +147,23 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.head },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 26, backgroundColor: colors.head },
   headText: { flex: 1 },
-  mark: { width: 44, height: 44, borderRadius: 10 },
+  mark: { width: 44, height: 44, borderRadius: rad(10) },
   back: { minHeight: touch.min - 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
-  backText: { fontSize: 16, fontWeight: '800', color: colors.onHead },
+  backText: { fontSize: fs(16), fontWeight: '800', color: colors.onHead },
   title: { fontSize: type.big - 2, fontWeight: '800', color: colors.onHead },
-  subtitle: { fontSize: 15, fontWeight: '600', color: colors.onHead, opacity: 0.85 },
+  subtitle: { fontSize: fs(15), fontWeight: '600', color: colors.onHead, opacity: 0.85 },
   settings: { minHeight: touch.min - 8, minWidth: touch.min + 16, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  settingsText: { fontSize: 15, fontWeight: '800', color: colors.onHead },
+  settingsText: { fontSize: fs(15), fontWeight: '800', color: colors.onHead },
   gear: { width: touch.min - 8, height: touch.min - 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   actionCol: { alignItems: 'flex-end', gap: 4 },
   newJob: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: touch.min - 12, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.2)' },
-  versionLink: { fontSize: 12, fontWeight: '700', color: colors.onHead, opacity: 0.85 },
+  versionLink: { fontSize: fs(12), fontWeight: '700', color: colors.onHead, opacity: 0.85 },
   headPressed: { backgroundColor: 'rgba(255,255,255,0.35)' },
   sheet: { flex: 1, marginTop: -18, backgroundColor: colors.bg, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
   nav: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6, paddingBottom: 4 },
   navItem: { flex: 1, paddingHorizontal: 2, minHeight: touch.bar - 6, alignItems: 'center', justifyContent: 'center', gap: 2 },
   navBadge: { position: 'absolute', top: -6, right: -16 },
   navPressed: { backgroundColor: colors.info },
-  navText: { fontSize: 13, fontWeight: '700', color: colors.muted },
+  navText: { fontSize: fs(13), fontWeight: '700', color: colors.muted },
   navTextOn: { color: colors.selected, fontWeight: '800' },
 });

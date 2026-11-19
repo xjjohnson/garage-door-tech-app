@@ -9,7 +9,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { dbLabel, isNotLive, liveId } from '../lib/dbSwitch';
 import { useOdooIfAny } from '../lib/useOdoo';
-import { colors } from '../theme';
+import { colors, fs } from '../theme';
 
 export function DatabaseBanner() {
   const odoo = useOdooIfAny();
@@ -32,5 +32,5 @@ export function DatabaseBanner() {
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.warn, paddingVertical: 3, alignItems: 'center' },
-  text: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  text: { color: '#FFFFFF', fontSize: fs(13), fontWeight: '800' },
 });

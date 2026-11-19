@@ -4,7 +4,7 @@ import { Text } from './AppText';
 import { isRealOwner } from '../lib/scorecard';
 import { useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, radius, type } from '../theme';
+import { colors, radius, type, bw } from '../theme';
 
 /**
  * Shows its page only to the owner (an Odoo admin or Field Service manager).
@@ -42,7 +42,7 @@ export function OwnerOnly({ children, what, realOwner }: { children: ReactNode; 
 
 const styles = StyleSheet.create({
   sub: { fontSize: type.body, fontWeight: '600', color: colors.muted },
-  card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.card ?? 12, padding: 14, backgroundColor: colors.card, gap: 6 },
+  card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: radius.card ?? 12, padding: 14, backgroundColor: colors.card, gap: 6 },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
 });

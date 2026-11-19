@@ -29,7 +29,7 @@ import { ChannelApi, readBeta, setBeta } from '../lib/updateChannel';
 import { useLog } from '../lib/useLog';
 import { useOdoo } from '../lib/useOdoo';
 import { usePending, usePendingItems } from '../lib/usePending';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 type Filter = LogFilter;
 const FILTERS = [
@@ -588,18 +588,18 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  card: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 6 },
+  card: { backgroundColor: colors.card, borderRadius: rad(12), padding: 12, gap: 6 },
   line: { flexDirection: 'row', gap: 8 },
-  k: { width: 82, fontSize: 15, fontWeight: '700', color: colors.muted },
-  v: { flex: 1, fontSize: 15, fontWeight: '800', color: colors.text },
+  k: { width: 82, fontSize: fs(15), fontWeight: '700', color: colors.muted },
+  v: { flex: 1, fontSize: fs(15), fontWeight: '800', color: colors.text },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  meta: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  note: { fontSize: 16, fontWeight: '700', color: colors.text },
+  meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
+  note: { fontSize: fs(16), fontWeight: '700', color: colors.text },
   switchRow: { flexDirection: 'row', alignItems: 'center', minHeight: touch.min, gap: 8 },
   switch: { transform: [{ scale: 1.3 }] },
-  search: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  log: { backgroundColor: colors.text, borderRadius: 12, padding: 10, gap: 4 },
-  logLine: { fontFamily: mono, fontSize: 12, lineHeight: 17, color: '#E3E3E3' },
+  search: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  log: { backgroundColor: colors.text, borderRadius: rad(12), padding: 10, gap: 4 },
+  logLine: { fontFamily: mono, fontSize: fs(12), lineHeight: 17, color: '#E3E3E3' },
   logWarn: { color: colors.safety },
   logError: { color: '#FF8A80' },
   logErrorText: { color: colors.stop },

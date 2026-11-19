@@ -62,7 +62,7 @@ export async function companyDetails(client: Caller): Promise<{ name: string; ph
 }
 
 /** Whether two sets of details are the same. */
-export const sameBusiness = (a: Business, b: Business) => ([...Object.keys(EMPTY_BUSINESS), 'discounts', 'planHeading', 'paymentsHeading', 'customerTypes'] as (keyof Business)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
+export const sameBusiness = (a: Business, b: Business) => ([...Object.keys(EMPTY_BUSINESS), 'discounts', 'planHeading', 'paymentsHeading', 'customerTypes', 'useOdooLogo'] as (keyof Business)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
 
 /**
  * The terms-and-conditions line for a new quotation: the company's terms

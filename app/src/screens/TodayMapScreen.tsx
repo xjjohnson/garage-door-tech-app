@@ -17,7 +17,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { useVisits } from '../lib/useVisits';
 import { useStartJob } from '../lib/useStartJob';
-import { colors, radius, shadow, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type, bw, fs, rad, sz } from '../theme';
 
 /** The WebView's class typing doesn't fit React 19's JSX checks; this is the part the map uses. */
 interface WebHandle {
@@ -332,32 +332,32 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
   grow: { flex: 1 },
-  mapBox: { height: 340, borderRadius: radius.sheet, borderWidth: 1, borderColor: colors.line, overflow: 'hidden', backgroundColor: '#E9EDE6' },
+  mapBox: { height: 340, borderRadius: radius.sheet, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden', backgroundColor: '#E9EDE6' },
   map: { flex: 1, backgroundColor: '#E9EDE6' },
-  nearby: { position: 'absolute', right: 10, top: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, justifyContent: 'center' },
+  nearby: { position: 'absolute', right: 10, top: 10, minHeight: sz(48), paddingHorizontal: 14, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, justifyContent: 'center' },
   nearbyOn: { backgroundColor: colors.selected, borderColor: colors.selected },
-  nearbyText: { fontSize: 16, fontWeight: '800', color: colors.text },
+  nearbyText: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   nearbyTextOn: { color: colors.onSelected },
-  dayTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
-  meta: { fontSize: 15, fontWeight: '700', color: colors.muted },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
-  card: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, padding: 14, gap: 10, ...shadow },
+  dayTitle: { fontSize: fs(18), fontWeight: '800', color: colors.text },
+  meta: { fontSize: fs(15), fontWeight: '700', color: colors.muted },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
+  card: { backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, borderRadius: radius.card, padding: 14, gap: 10, ...shadow },
   cardHead: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  cardTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
-  cardSub: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 8, ...shadow },
-  lineOn: { borderColor: colors.selected, borderWidth: 1.5 },
+  cardTitle: { fontSize: fs(20), fontWeight: '800', color: colors.text },
+  cardSub: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
+  line: { minHeight: touch.min + 8, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 8, ...shadow },
+  lineOn: { borderColor: colors.selected, borderWidth: bw(1.5) },
   lineTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  lineSub: { fontSize: 15, fontWeight: '600', color: colors.muted },
-  dot: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.border },
-  dotText: { fontSize: 16, fontWeight: '800', color: colors.text },
+  lineSub: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
+  dot: { width: 40, height: 40, borderRadius: rad(20), alignItems: 'center', justifyContent: 'center', borderWidth: bw(1.5), borderColor: colors.border },
+  dotText: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   dotTextLight: { color: colors.onSelected },
   pressed: { backgroundColor: colors.info },
-  problemBar: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.warnBg },
-  problemText: { fontSize: 16, fontWeight: '800', color: colors.text },
+  problemBar: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: rad(12), backgroundColor: colors.warnBg },
+  problemText: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   problems: { gap: 10 },
-  problem: { gap: 6, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border },
-  credit: { fontSize: 13, fontWeight: '600', color: colors.muted },
+  problem: { gap: 6, padding: 12, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
+  credit: { fontSize: fs(13), fontWeight: '600', color: colors.muted },
 });
 
 const dotStyle = StyleSheet.create({

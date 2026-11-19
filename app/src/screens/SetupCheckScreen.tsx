@@ -4,7 +4,7 @@ import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { CheckResult, runSetupCheck, setupSummary } from '../lib/setupCheck';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, type } from '../theme';
+import { colors, type, bw, fs, rad } from '../theme';
 
 const MARK: Record<CheckResult['state'], string> = { ok: '✓', missing: '✗', warn: '!' };
 
@@ -57,13 +57,13 @@ const styles = StyleSheet.create({
   stack: { gap: 12 },
   note: { fontSize: type.body, color: colors.muted, fontWeight: '600' },
   summary: { fontSize: type.value, fontWeight: '800', color: colors.text },
-  row: { flexDirection: 'row', gap: 12, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, padding: 12 },
-  mark: { width: 32, fontSize: 26, fontWeight: '800', textAlign: 'center' },
+  row: { flexDirection: 'row', gap: 12, borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), padding: 12 },
+  mark: { width: 32, fontSize: fs(26), fontWeight: '800', textAlign: 'center' },
   ok: { color: colors.ok },
   bad: { color: colors.stop },
   warn: { color: colors.text },
   body: { flex: 1, gap: 2 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  detail: { fontSize: 16, fontWeight: '700', color: colors.muted },
-  fix: { fontSize: 16, fontWeight: '600', color: colors.text },
+  detail: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
+  fix: { fontSize: fs(16), fontWeight: '600', color: colors.text },
 });

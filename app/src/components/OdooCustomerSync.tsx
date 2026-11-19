@@ -6,7 +6,7 @@ import { OdooError } from '../lib/odoo';
 import { CrampedAddress, crampedAddresses, splitAddresses } from '../lib/odooContacts';
 import { useCustomerSync } from '../lib/useCustomerSync';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, radius, shadow, touch, type } from '../theme';
+import { colors, radius, shadow, touch, type, bw, fs, rad, sz } from '../theme';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -125,20 +125,20 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
 
 const styles = StyleSheet.create({
   wrapAll: { gap: 8 },
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingLeft: 12, paddingRight: 8, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, ...shadow },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingLeft: 12, paddingRight: 8, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, ...shadow },
   barText: { flex: 1, gap: 1 },
-  barTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
-  barSub: { fontSize: 14, fontWeight: '600', color: colors.muted },
-  barButton: { minHeight: 44, minWidth: 88, borderRadius: radius.field, borderWidth: 1.5, borderColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  barButtonText: { fontSize: 15, fontWeight: '800', color: colors.selected },
-  box: { gap: 8, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  barTitle: { fontSize: fs(16), fontWeight: '800', color: colors.text },
+  barSub: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
+  barButton: { minHeight: sz(44), minWidth: 88, borderRadius: radius.field, borderWidth: bw(1.5), borderColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  barButtonText: { fontSize: fs(15), fontWeight: '800', color: colors.selected },
+  box: { gap: 8, padding: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   off: { opacity: 0.5 },
-  pick: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', minHeight: touch.min, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
-  tick: { fontSize: 24, color: colors.text },
+  pick: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', minHeight: touch.min, padding: 8, borderRadius: rad(8), borderWidth: bw(1), borderColor: colors.border, backgroundColor: colors.card },
+  tick: { fontSize: fs(24), color: colors.text },
   grow: { flex: 1 },
   pickName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.info },

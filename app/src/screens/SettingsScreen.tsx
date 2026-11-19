@@ -10,10 +10,12 @@ import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
 import { loadShareLocation, saveShareLocation } from '../lib/locationPref';
 import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
+import { loadLook, saveLook } from '../lib/lookPref';
+import { Look, PALETTES, SHAPES, SIZES, LEGACY_LOOK } from '../lib/themeLook';
 import { useInvoices } from '../lib/useInvoices';
 import { useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
-import { colors, scheme, touch, type } from '../theme';
+import { colors, look as drawnLook, scheme, touch, type, bw, fs, rad } from '../theme';
 
 interface Props {
   /** expo-updates; tests pass a fake. */
@@ -67,6 +69,16 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
     // Screens draw their colors once, so restart the app's JS to repaint.
     const now = Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
     if (now !== scheme) repaintRestart(now, restart).catch(() => undefined);
+  };
+
+  const [lookPick, setLookPick] = useState<Look>(drawnLook);
+  useEffect(() => {
+    loadLook().then(setLookPick);
+  }, []);
+  const changed = lookPick.shape !== drawnLook.shape || lookPick.size !== drawnLook.size || lookPick.palette !== drawnLook.palette;
+  const chooseLook = async (next: Look) => {
+    setLookPick(next);
+    await saveLook(next);
   };
 
   const check = async () => {
@@ -127,6 +139,19 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         onChange={chooseTheme}
       />
 
+      <Caption>Look</Caption>
+      <Text style={styles.shareNote}>Shape</Text>
+      <Segmented<Look['shape']> testID="settings-look-shape" options={SHAPES} value={lookPick.shape} onChange={(shape) => chooseLook({ ...lookPick, shape })} />
+      <Text style={styles.shareNote}>Size of buttons and text. Legacy is the large look from before.</Text>
+      <Segmented<Look['size']> testID="settings-look-size" options={SIZES.map((s) => ({ value: s.value, label: s.label }))} value={lookPick.size} onChange={(size) => chooseLook({ ...lookPick, size })} />
+      <Text style={styles.shareNote}>Colors</Text>
+      <Segmented<Look['palette']> testID="settings-look-palette" options={PALETTES} value={lookPick.palette} onChange={(palette) => chooseLook({ ...lookPick, palette })} />
+      <Text style={styles.shareNote}>Company brand uses the color set on your company in Odoo (and falls back to Johnsons green if there is none).</Text>
+      {changed ? <Action label="Restart to use this look" primary onPress={() => restart().catch(() => setRestartFailed(true))} testID="settings-look-restart" /> : null}
+      {lookPick.shape === LEGACY_LOOK.shape && lookPick.size === LEGACY_LOOK.size && lookPick.palette === LEGACY_LOOK.palette ? null : (
+        <Action label="Back to the legacy look" onPress={() => chooseLook(LEGACY_LOOK)} testID="settings-look-legacy" />
+      )}
+
       <Caption>This phone</Caption>
       <RowGroup>
         <IconRow icon="book" label="Back up or restore" detail="Save everything to a file, or read one back" href="/backup" testID="settings-backup" last />
@@ -169,12 +194,12 @@ function Action({ label, onPress, primary, disabled, testID }: { label: string; 
 
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
-  card: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: 12, backgroundColor: colors.card, gap: 4 },
-  shareNote: { fontSize: 15, fontWeight: '600', color: colors.muted, lineHeight: 21 },
+  card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(12), padding: 12, backgroundColor: colors.card, gap: 4 },
+  shareNote: { fontSize: fs(15), fontWeight: '600', color: colors.muted, lineHeight: 21 },
   value: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   note: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   pressed: { backgroundColor: colors.info },

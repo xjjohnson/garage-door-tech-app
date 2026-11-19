@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import type { StockProduct } from '../lib/odooStock';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad } from '../theme';
 
 /**
  * Picks a product that's already in Odoo (the price book): Odoo's goods by
@@ -132,14 +132,14 @@ const styles = StyleSheet.create({
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   close: { minHeight: touch.min, paddingHorizontal: 12, justifyContent: 'center' },
   closeText: { fontSize: type.body, fontWeight: '800', color: colors.text, textDecorationLine: 'underline' },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text },
   list: { gap: 8, paddingBottom: 8 },
-  group: { fontSize: 15, fontWeight: '800', color: colors.muted, marginTop: 4 },
-  pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
-  newPart: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border, marginTop: 8 },
+  group: { fontSize: fs(15), fontWeight: '800', color: colors.muted, marginTop: 4 },
+  pick: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  newPart: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: 12, borderRadius: rad(14), borderWidth: bw(1.5), borderStyle: 'dashed', borderColor: colors.border, marginTop: 8 },
   grow: { flex: 1 },
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 15, fontWeight: '700', color: colors.muted },
-  error: { fontSize: 16, fontWeight: '800', color: colors.stop },
+  meta: { fontSize: fs(15), fontWeight: '700', color: colors.muted },
+  error: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
   pressed: { backgroundColor: colors.info },
 });

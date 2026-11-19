@@ -6,7 +6,7 @@ import { DoorScreen } from '../../screens/DoorScreen';
 import { DrumsScreen } from '../../screens/DrumsScreen';
 import { ExtensionScreen } from '../../screens/ExtensionScreen';
 import { MatchScreen } from '../../screens/MatchScreen';
-import { colors, touch, type } from '../../theme';
+import { colors, touch, type, bw, rad } from '../../theme';
 
 type Tab = 'match' | 'door' | 'extension' | 'drums';
 
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   hidden: { display: 'none' },
   segmentWrap: { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
-  segments: { flexDirection: 'row', borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
+  segments: { flexDirection: 'row', borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(12), overflow: 'hidden' },
   segment: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: colors.card },
   segmentDivider: { borderLeftWidth: 3, borderLeftColor: colors.border },
   tabOn: { backgroundColor: colors.selected },

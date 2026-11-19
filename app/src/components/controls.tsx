@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { colors, radius, touch, type } from '../theme';
+import { colors, radius, touch, type, bw, fs, rad, sz } from '../theme';
 import { Keypad } from './Keypad';
 
 /** A labelled group of inputs. */
@@ -254,8 +254,8 @@ export function ClearButton({ onPress, testID }: { onPress: () => void; testID?:
 const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  hint: { fontSize: 16, color: colors.muted },
-  section: { fontSize: 14, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: 16, marginBottom: 2 },
+  hint: { fontSize: fs(16), color: colors.muted },
+  section: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: 16, marginBottom: 2 },
   sectionFirst: { marginTop: 0 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: radius.field,
-    borderWidth: 1,
+    borderWidth: bw(1),
     borderColor: colors.line,
     backgroundColor: colors.card,
     alignItems: 'center',
@@ -279,16 +279,16 @@ const styles = StyleSheet.create({
   segments: { flexDirection: 'row', backgroundColor: colors.info, borderRadius: radius.pill, padding: 3, gap: 2 },
   segment: { flex: 1, minHeight: touch.min - 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, borderRadius: radius.pill },
   segmentDivider: {},
-  segmentText: { fontSize: 16, fontWeight: '800', color: colors.text, textAlign: 'center' },
+  segmentText: { fontSize: fs(16), fontWeight: '800', color: colors.text, textAlign: 'center' },
   chipOn: { backgroundColor: colors.selected },
   chipPressed: { backgroundColor: colors.info },
   chipText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  chipSub: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  chipSub: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
   chipTextOn: { color: colors.onSelected },
   measure: {
-    minHeight: 64,
+    minHeight: sz(64),
     borderRadius: radius.field,
-    borderWidth: 1,
+    borderWidth: bw(1),
     borderColor: colors.line,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   measureText: { fontSize: type.big, fontWeight: '800', color: colors.text },
   measureUnit: { fontSize: type.value, fontWeight: '700', color: colors.muted },
   placeholder: { fontSize: type.body, fontWeight: '600', color: colors.muted },
-  textButton: { minHeight: touch.min, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+  textButton: { minHeight: touch.min, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   textButtonArmed: { backgroundColor: colors.stop, borderColor: colors.stop },
   textButtonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   textButtonTextArmed: { color: colors.onStop },

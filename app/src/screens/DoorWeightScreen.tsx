@@ -6,7 +6,7 @@ import { Card, Warnings } from '../components/results';
 import { formatFeetInches, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { DOOR_CONSTRUCTIONS, DoorConstruction, DoorWeightEstimate, estimateDoorWeight } from '../springCalc';
-import { colors, type } from '../theme';
+import { colors, type, bw, fs, rad } from '../theme';
 
 export interface DoorWeightForm {
   width: string;
@@ -98,9 +98,9 @@ export function DoorWeightScreen() {
 
 const styles = StyleSheet.create({
   stack: { gap: 14 },
-  banner: { backgroundColor: colors.caution, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, padding: 12, gap: 4 },
+  banner: { backgroundColor: colors.caution, borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), padding: 12, gap: 4 },
   bannerTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  bannerText: { fontSize: 17, fontWeight: '700', color: colors.text, lineHeight: 24 },
+  bannerText: { fontSize: fs(17), fontWeight: '700', color: colors.text, lineHeight: 24 },
   big: { fontSize: type.big, fontWeight: '800', color: colors.text },
-  note: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  note: { fontSize: fs(16), color: colors.muted, lineHeight: 22 },
 });

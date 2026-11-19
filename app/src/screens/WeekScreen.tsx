@@ -15,7 +15,7 @@ import { useGeocode } from '../lib/useGeocode';
 import { useStartJob } from '../lib/useStartJob';
 import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
-import { colors } from '../theme';
+import { colors, fs } from '../theme';
 
 /**
  * Home > Week: seven day chips starting today, each with its visit count.
@@ -76,6 +76,6 @@ export function WeekScreen({ now = Date.now }: { now?: () => number }) {
 const styles = StyleSheet.create({
   stack: { gap: 12 },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  day: { fontSize: 18, fontWeight: '800', color: colors.text },
-  count: { fontSize: 14, fontWeight: '700', color: colors.muted },
+  day: { fontSize: fs(18), fontWeight: '800', color: colors.text },
+  count: { fontSize: fs(14), fontWeight: '700', color: colors.muted },
 });

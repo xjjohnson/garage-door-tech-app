@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { colors, radius } from '../theme';
+import { colors, radius, fs, sz } from '../theme';
 
 export const STATUS_STEPS = ['On my way', 'Arrived', 'Work done', 'Paid'] as const;
 
@@ -28,10 +28,10 @@ export function StepChips({ done, testID }: { done: boolean[]; testID?: string }
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 6, marginTop: 10 },
-  chip: { flex: 1, minHeight: 44, borderRadius: radius.card - 6, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  chip: { flex: 1, minHeight: sz(44), borderRadius: radius.card - 6, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   done: { backgroundColor: colors.line },
   cur: { backgroundColor: colors.selected },
-  text: { fontSize: 12.5, fontWeight: '800', textAlign: 'center', color: colors.selected },
+  text: { fontSize: fs(12.5), fontWeight: '800', textAlign: 'center', color: colors.selected },
   doneText: { color: colors.muted, fontWeight: '700' },
   curText: { color: colors.onSelected },
 });

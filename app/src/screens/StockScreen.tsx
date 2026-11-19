@@ -19,7 +19,7 @@ import { useSchedule } from '../lib/useSchedule';
 import { NewStockItem, useStock } from '../lib/useStock';
 import { useCanAdjustStock } from '../lib/useStockLock';
 import { useTruckSync } from '../lib/useTruckSync';
-import { colors, touch, type } from '../theme';
+import { colors, touch, type, bw, fs, rad, sz } from '../theme';
 
 /** At the top of Jobs: how many items are low. */
 export function StockButton() {
@@ -683,26 +683,26 @@ function Action({ label, onPress, primary, grow, testID, accessibilityLabel }: {
 
 const styles = StyleSheet.create({
   stack: { gap: 12 },
-  syncCard: { padding: 12, gap: 6, borderRadius: 12, backgroundColor: colors.card },
-  message: { fontSize: 16, fontWeight: '800', color: colors.text },
+  syncCard: { padding: 12, gap: 6, borderRadius: rad(12), backgroundColor: colors.card },
+  message: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   bad: { color: colors.stop },
-  line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44, borderBottomWidth: 1, borderBottomColor: colors.line },
-  pick: { padding: 12, gap: 4, borderRadius: 14, backgroundColor: colors.card },
-  empty: { padding: 12, borderRadius: 14, backgroundColor: colors.card, gap: 8 },
+  line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: sz(44), borderBottomWidth: 1, borderBottomColor: colors.line },
+  pick: { padding: 12, gap: 4, borderRadius: rad(14), backgroundColor: colors.card },
+  empty: { padding: 12, borderRadius: rad(14), backgroundColor: colors.card, gap: 8 },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
-  emptyBody: { fontSize: 16, color: colors.text, lineHeight: 22 },
-  item: { padding: 12, gap: 8, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
-  low: { borderWidth: 4, borderColor: colors.caution },
-  order: { borderWidth: 4, borderColor: colors.selected },
+  emptyBody: { fontSize: fs(16), color: colors.text, lineHeight: 22 },
+  item: { padding: 12, gap: 8, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
+  low: { borderWidth: bw(4), borderColor: colors.caution },
+  order: { borderWidth: bw(4), borderColor: colors.selected },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 16, fontWeight: '600', color: colors.muted },
-  unsent: { fontSize: 15, fontWeight: '800', color: colors.stop },
+  meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
+  unsent: { fontSize: fs(15), fontWeight: '800', color: colors.stop },
   count: { minWidth: 72, fontSize: type.big, fontWeight: '800', color: colors.text, textAlign: 'center', textAlignVertical: 'center' },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   grow: { flex: 1 },
-  button: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
-  lowButton: { borderWidth: 4, borderColor: colors.caution },
+  button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: colors.card },
+  lowButton: { borderWidth: bw(4), borderColor: colors.caution },
   primary: { backgroundColor: colors.selected },
   primaryText: { color: colors.onSelected },
   pressed: { backgroundColor: colors.info },
@@ -716,8 +716,8 @@ const styles = StyleSheet.create({
   fields: { gap: 12, paddingBottom: 4 },
   field: { gap: 4 },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
-  input: { minHeight: touch.min, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-  save: { minHeight: touch.bar, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
+  input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: 14, fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
+  save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
 });
