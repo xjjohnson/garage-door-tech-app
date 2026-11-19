@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.21',
+    title: 'Dispatch Sales table: status column',
+    changes: ['Dispatch Sales: the invoice table has a Status column with a colored dot, as in the mock-up, instead of the status in the customer text.'],
+    test: ['Settings > Theme > Dispatch (Restart), open Sales: do you see No., Customer, Status and Amount columns?', 'Still not built: Call, Text and Mark paid buttons on each row of Owner Sales.'],
+  },
+  {
     release: '0.6.20',
     title: 'Owner theme: money dashboard on Home',
     changes: ['Owner Home: Owed to you and Collected this week up top, a bar chart of money collected the last 7 days, then Open jobs, Unpaid and Visits done. Crew today shows what each tech is on, from Odoo. Today\'s visits follow below.'],
