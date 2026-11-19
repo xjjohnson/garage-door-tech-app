@@ -169,6 +169,7 @@ function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRo
         <View style={styles.tHead}>
           <Text style={[styles.tHeadText, styles.tNo]}>No.</Text>
           <Text style={[styles.tHeadText, styles.tMain]}>Customer</Text>
+          <Text style={[styles.tHeadText, styles.tDot]}>Status</Text>
           <Text style={[styles.tHeadText, styles.tEnd]}>Amount</Text>
         </View>
         {rows.map((r) => (
@@ -177,8 +178,11 @@ function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRo
               {r.name.split('/').pop()}
             </Text>
             <Text style={[styles.tCell, styles.tMain, r.warn && styles.warn]} numberOfLines={1}>
-              {r.customer || 'No customer'} · {r.status}
+              {r.customer || 'No customer'}
             </Text>
+            <View style={styles.tDot} accessibilityLabel={r.status}>
+              <View style={[styles.dot, { backgroundColor: r.warn ? colors.stop : isUnpaid(r) ? colors.caution : r.status === 'Paid' ? colors.ok : colors.muted }]} />
+            </View>
             <Text style={[styles.tCell, styles.tEnd, styles.tBold]} numberOfLines={1}>
               {formatMoney(r.refund ? -r.total : r.total)}
             </Text>
@@ -273,6 +277,7 @@ const styles = StyleSheet.create({
   tBold: { fontWeight: '800' },
   tNo: { width: '17%' },
   tMain: { flex: 1 },
+  tDot: { width: 52, alignItems: 'center' },
   tEnd: { width: '27%', textAlign: 'right' },
   aging: { gap: sp(6), padding: sp(12), borderRadius: rad(12), backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
   ageRow: { flexDirection: 'row', alignItems: 'center', gap: sp(8) },
