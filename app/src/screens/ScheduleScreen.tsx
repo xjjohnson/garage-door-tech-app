@@ -18,6 +18,7 @@ import { phoneLink } from '../lib/jobs';
 import { addDays, Appointment, dayLabel, formatTime, freeGaps, mapsLink, onDay, onMyWayText, overlaps, reminderText, slotsFor, startOfDay, upcoming, windowLabel } from '../lib/schedule';
 import { useFsmTemplates } from '../lib/useFsmTemplates';
 import { useCustomers } from '../lib/useCustomers';
+import { useTech } from '../lib/useDepartments';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { NewAppointment, useSchedule } from '../lib/useSchedule';
@@ -58,6 +59,8 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
   const { jobs, loaded: jobsLoaded } = useJobs();
   /** The visit being moved, when booking for a job that already has one. */
   const [editing, setEditing] = useState<string | null>(null);
+  // Moving a visit to another day or time is dispatch's job. A plain tech still sees their visits and can book new ones.
+  const tech = useTech();
   const { customers } = useCustomers();
   const { business } = useInvoices();
   const today = startOfDay(now());
@@ -81,8 +84,9 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
 
   /** Opens the booking sheet on this visit, so its day, time and length can change. */
   const reschedule = (a: Appointment) => {
+    if (tech) return;
     setEditing(a.id);
-    setBooking({ start: a.start, minutes: a.minutes, name: a.name, address: a.address, phone: a.phone, what: a.what, ...(a.jobId ? { jobId: a.jobId } : {}), ...(a.customerId ? { customerId: a.customerId } : {}) });
+    setBooking({ start: a.start, minutes: a.minutes, name: a.name, address: a.address, phone: a.phone || customers.find((c) => c.id === a.customerId)?.phone || '', what: a.what, ...(a.jobId ? { jobId: a.jobId } : {}), ...(a.customerId ? { customerId: a.customerId } : {}) });
   };
 
   useEffect(() => {
@@ -100,6 +104,7 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
     const j = jobs.find((x) => x.id === forJob);
     if (!j) return;
     const v = appointments.find((a) => a.jobId === j.id && a.status === 'booked');
+    if (v && tech) return;
     if (v) {
       setEditing(v.id);
       setDay(startOfDay(v.start));
@@ -109,7 +114,7 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
     }
     // Once, when the job is found; later changes to the schedule mustn't reopen the sheet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forJob, jobsLoaded]);
+  }, [forJob, jobsLoaded, tech]);
 
   return (
     <View style={styles.stack} testID="schedule">
@@ -127,7 +132,7 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
             <Text style={styles.gapBook}>+ Book</Text>
           </Pressable>
         ) : (
-          <Visit key={r.a.id} a={r.a} now={now()} business={business} onStatus={(s) => setStatus(r.a.id, s)} onReschedule={() => reschedule(r.a)} clash={r.a.status === 'booked' && overlaps(appointments, r.a).length > 0} />
+          <Visit key={r.a.id} a={r.a} now={now()} business={business} onStatus={(s) => setStatus(r.a.id, s)} onReschedule={tech ? undefined : () => reschedule(r.a)} clash={r.a.status === 'booked' && overlaps(appointments, r.a).length > 0} />
         ),
       )}
       <Dock>
@@ -145,8 +150,10 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
           setEditing(null);
         }}
         onSave={(a) => {
-          if (editing) update(editing, a);
-          else add(a);
+          if (editing) {
+            if (tech) return;
+            update(editing, a);
+          } else add(a);
           setDay(startOfDay(a.start));
           setBooking(null);
           setEditing(null);
@@ -161,7 +168,7 @@ function blank(day: number, who: Partial<NewAppointment> = {}): NewAppointment {
   return { start: slotsFor(day)[4], minutes: 60, name: '', address: '', phone: '', what: '', ...who };
 }
 
-function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onReschedule: () => void; clash: boolean }) {
+function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onReschedule?: () => void; clash: boolean }) {
   const [eta, setEta] = useState(false);
   const [more, setMore] = useState(false);
   const [sure, setSure] = useState(false);
@@ -202,7 +209,7 @@ function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appoint
           {more ? (
             <View style={styles.menu} testID={`visit-menu-${a.id}`}>
               <MenuItem label="Mark done" onPress={() => { setMore(false); onStatus('done'); }} testID={`visit-done-${a.id}`} />
-              <MenuItem label="Reschedule" onPress={() => { setMore(false); onReschedule(); }} testID={`visit-reschedule-${a.id}`} />
+              {onReschedule ? <MenuItem label="Reschedule" onPress={() => { setMore(false); onReschedule(); }} testID={`visit-reschedule-${a.id}`} /> : null}
               {sure ? (
                 <View style={styles.sure}>
                   <Text style={styles.detail}>Cancel this visit?</Text>
@@ -319,7 +326,7 @@ function BookSheet({
             style={({ pressed }) => [styles.save, !canSave && styles.saveOff, pressed && styles.pressed]}
           >
             <Text style={styles.saveText}>
-              {editing ? 'Move to' : 'Book'} {dayLabel(a.start, today)} {windowLabel(a)}
+              {editing ? `Move to ${dayLabel(a.start, today)} ${formatTime(a.start)}` : `Book ${dayLabel(a.start, today)} ${windowLabel(a)}`}
             </Text>
           </Pressable>
         </View>

@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useTech } from '../lib/useDepartments';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
@@ -53,6 +54,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const { jobs, loaded, setStep, setStatus } = useJobs();
   const { invoices, business } = useInvoices();
   const { appointments } = useSchedule();
+  const tech = useTech();
   const [, tick] = useState(0);
   // Which text the minutes picker is for: the On my way button, or an ETA update.
   const [etaPick, setEtaPick] = useState<false | 'omw' | 'eta'>(false);
@@ -115,8 +117,8 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const visitRow = (
     <NavRow
         label="Visit"
-        detail={visit ? `${dayLabel(visit.start, now())} ${windowLabel(visit)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''} · change` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
-        href={{ pathname: '/schedule', params: { job: job.id } }}
+        detail={visit ? `${dayLabel(visit.start, now())} ${windowLabel(visit)}${job.odooJob ? ` · ${job.odooJob.name} in Odoo` : ''}${tech ? '' : ' · change'}` : job.odooJob ? `Not booked · ${job.odooJob.name} in Odoo` : 'Not booked · book a time'}
+        {...(tech && visit ? { onPress: () => undefined } : { href: { pathname: '/schedule', params: { job: job.id } } as const })}
         testID="job-visit"
       />
   );
@@ -160,7 +162,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
       {layouts.jobDetail === 'assign' ? (
         <>
           {visitRow}
-          <Action label="Reassign or reschedule" onPress={() => router.push({ pathname: '/schedule', params: { job: job.id } })} testID="job-reassign" />
+          {tech ? null : <Action label="Reassign or reschedule" onPress={() => router.push({ pathname: '/schedule', params: { job: job.id } })} testID="job-reassign" />}
         </>
       ) : null}
       {layouts.jobDetail === 'billing' ? (
