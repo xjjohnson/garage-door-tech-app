@@ -149,7 +149,7 @@ describe('schedule screen', () => {
     expect(saved[0].start).toBe(at(addDays(tomorrow, 1), 14));
   });
 
-  it('a tech keeps their visits, Directions, History and Mark done, but cannot reschedule', async () => {
+  it('a tech keeps their visits, Directions, History and Mark done, but cannot reschedule or cancel', async () => {
     await AsyncStorage.clear();
     setRolePreview('tech');
     const tomorrow = addDays(startOfDay(Date.now()), 1);
@@ -161,6 +161,7 @@ describe('schedule screen', () => {
     await fireEvent.press(screen.getByTestId('visit-more-a'));
     expect(screen.getByTestId('visit-done-a')).toBeTruthy();
     expect(screen.queryByTestId('visit-reschedule-a')).toBeNull();
+    expect(screen.queryByTestId('visit-cancel-a')).toBeNull();
     // Booking a new visit is still there.
     expect(screen.getByTestId('schedule-book')).toBeTruthy();
     setRolePreview(null);
