@@ -11,19 +11,16 @@ export function deviceSnapshots(): SnapshotStore {
   const fs = () => require('expo-file-system') as typeof import('expo-file-system');
   return {
     async read(id) {
-      try {
-        const { File, Paths } = fs();
-        const f = new File(Paths.document, fileName(id));
-        return f.exists ? await f.text() : null;
-      } catch {
-        return null;
-      }
+      const { File, Paths } = fs();
+      const f = new File(Paths.document, fileName(id));
+      return f.exists ? await f.text() : null;
     },
     async write(id, text) {
       const { File, Paths } = fs();
       const f = new File(Paths.document, fileName(id));
       if (!f.exists) f.create();
-      f.write(text);
+      // write() is asynchronous: not waiting for it made the read-back check run too early and fail.
+      await f.write(text);
     },
   };
 }
