@@ -17,6 +17,8 @@ import { CustomerOdoo, CustomerTab } from '../components/CustomerOdoo';
 import { CustomerBadgeLine, CustomerEquipmentChips } from '../components/HouseHistory';
 import { OdooNotes } from '../components/OdooNotes';
 import { useOdoo } from '../lib/useOdoo';
+import { isOwner } from '../lib/scorecard';
+import { DeletePlan, planCustomerDelete, runCustomerDelete } from '../lib/customerDelete';
 import { CustomerTypeRow } from '../components/CustomerTypeRow';
 import { addressLine, ContactAddress, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
@@ -38,7 +40,8 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 /** One customer: how to reach them, and every job at their place, newest first. */
 export function CustomerScreen({ customer }: { customer: Customer }) {
   const { jobs } = useJobs();
-  const { update } = useCustomers();
+  const { update, apply } = useCustomers();
+  const { remove: removeJob } = useJobs();
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<CustomerTab>('overview');
   const s = summarize(customer, jobs);
@@ -101,6 +104,7 @@ export function CustomerScreen({ customer }: { customer: Customer }) {
       </View>
 
       {fromOdoo ? <CustomerTypeRow partnerId={customer.odooId!} /> : null}
+      <RemoveCustomer customer={customer} onDone={(plan) => { plan.localJobs.forEach(removeJob); apply((c) => c.filter((x) => x.id !== customer.id)); router.back(); }} />
       {customer.odooId ? <Addresses partnerId={customer.odooId} /> : null}
         </>
       ) : null}
@@ -296,6 +300,61 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, grow && styles.grow, primary && styles.primary, pressed && styles.pressed]}>
       {({ pressed }) => <Text style={[styles.buttonText, primary && !pressed && styles.primaryText]}>{label}</Text>}
     </Pressable>
+  );
+}
+
+/** Owner-only Delete / Archive: checks Odoo first so a customer with invoices is archived, never erased. */
+function RemoveCustomer({ customer, onDone }: { customer: Customer; onDone: (plan: DeletePlan) => void }) {
+  const { client } = useOdoo();
+  const { jobs } = useJobs();
+  const { invoices } = useInvoices();
+  const [owner, setOwner] = useState(false);
+  const [plan, setPlan] = useState<DeletePlan | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let alive = true;
+    if (client) isOwner(client).then((ok) => alive && setOwner(ok), () => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [client]);
+  if (!owner) return null;
+  const check = async () => {
+    setError('');
+    setBusy(true);
+    try {
+      setPlan(await planCustomerDelete(client, customer, jobs, invoices));
+    } catch (e) {
+      setError(`Couldn't check Odoo: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const confirm = async () => {
+    if (!plan || plan.kind === 'blocked') return;
+    setBusy(true);
+    try {
+      await runCustomerDelete(client, customer, plan.kind);
+      onDone(plan);
+    } catch (e) {
+      setError(`Odoo said no: ${e instanceof Error ? e.message : String(e)}`);
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={styles.stack}>
+      {!plan ? <Action label={busy ? 'Checking Odoo...' : 'Delete or archive customer'} onPress={check} testID="customer-remove" /> : null}
+      {plan ? (
+        <View style={styles.job} testID="customer-remove-panel">
+          <Text style={styles.jobTitle}>{plan.kind === 'archive' ? 'Archive this customer' : plan.kind === 'delete' ? 'Delete this customer' : "Can't remove yet"}</Text>
+          <Text style={styles.detail} testID="customer-remove-message">{plan.message}</Text>
+          {plan.kind !== 'blocked' ? <Action primary label={busy ? 'Working...' : plan.kind === 'archive' ? 'Archive customer' : 'Delete customer'} onPress={confirm} testID="customer-remove-confirm" /> : null}
+          <Action label="Cancel" onPress={() => setPlan(null)} testID="customer-remove-cancel" />
+        </View>
+      ) : null}
+      {error ? <Text style={styles.meta}>{error}</Text> : null}
+    </View>
   );
 }
 

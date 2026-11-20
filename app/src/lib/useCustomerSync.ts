@@ -3,6 +3,9 @@ import { finishCustomerSync, planCustomerSync } from './customerSync';
 import { withContactLock } from './odooContactLock';
 import { useCustomers } from './useCustomers';
 import { useOdoo } from './useOdoo';
+import { useJobs } from './useJobs';
+import { useInvoices } from './useInvoices';
+import { resolveGone } from './customerDelete';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -18,6 +21,10 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 export function useCustomerSync(now: () => number = Date.now) {
   const { client } = useOdoo();
   const { customers, apply } = useCustomers();
+  const { jobs, remove: removeJob } = useJobs();
+  const { invoices } = useInvoices();
+  const work = useRef({ jobs, invoices });
+  work.current = { jobs, invoices };
   const latest = useRef(customers);
   latest.current = customers;
   return useCallback(async (opts: { since?: number | null } = {}): Promise<string> => {
@@ -29,10 +36,15 @@ export function useCustomerSync(now: () => number = Date.now) {
       // Customers deleted or archived in Odoo leave the list (unless they have changes still waiting to go up).
       const listed = new Set(partners.map((x) => x.id));
       const gone = new Set<string>();
+      let keptNames: string[] = [];
       const linked = before.filter((c) => c.odooId && !listed.has(c.odooId) && (c.syncedAt ?? 0) >= c.updatedAt);
       if (linked.length && listed.size > 0) {
         const alive = new Set(((await client.call('res.partner', 'search', [[['id', 'in', linked.map((c) => c.odooId!)]]])) as number[]) ?? []);
-        for (const c of linked) if (!alive.has(c.odooId!)) gone.add(c.id);
+        const missing = linked.filter((c) => !alive.has(c.odooId!));
+        const r = resolveGone(missing, work.current.jobs, work.current.invoices);
+        for (const id of r.dropCustomers) gone.add(id);
+        for (const id of r.dropJobs) removeJob(id);
+        keptNames = r.kept;
       }
       if (opts.since != null && !gone.size && !plan.toCreate.length && !plan.toWrite.length && JSON.stringify(plan.customers) === JSON.stringify(before)) return 'Customers already match Odoo.';
       const created: Record<string, number> = {};
@@ -52,9 +64,10 @@ export function useCustomerSync(now: () => number = Date.now) {
         plan.updated ? `updated ${plan.updated} with Odoo's changes` : '',
         plan.toCreate.length ? `added ${plan.toCreate.length} to Odoo` : '',
         gone.size ? `removed ${plural(gone.size, 'customer')} deleted in Odoo` : '',
+        keptNames.length ? `kept ${keptNames.join(', ')} (deleted in Odoo, but has work only on this phone: send or remove it first)` : '',
         plan.toWrite.length ? `sent ${plural(plan.toWrite.length, 'change')} to Odoo` : '',
       ].filter(Boolean);
       return parts.length ? `Done: ${parts.join(', ')}.` : 'Customers already match Odoo.';
     });
-  }, [client, apply, now]);
+  }, [client, apply, now, removeJob]);
 }
