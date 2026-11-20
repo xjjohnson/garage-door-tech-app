@@ -107,6 +107,7 @@ describe('saved jobs in the app', () => {
     await screen.findByTestId('job-j1');
     expect(screen.getByTestId('jobs-count')).toHaveTextContent('1 shown · 1 open');
 
+    await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('Open'));
     await fireEvent.press(screen.getByTestId('job-toggle-j1'));
     expect(screen.queryByTestId('job-call-j1')).toBeNull(); // no phone, no Call button
     await fireEvent.press(screen.getByTestId('job-edit-j1'));

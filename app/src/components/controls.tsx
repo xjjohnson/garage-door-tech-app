@@ -30,6 +30,7 @@ export function ChipRow<T extends string | number>({
   testID,
   compact,
   scroll,
+  fit,
 }: {
   options: ChipOption<T>[];
   value: T;
@@ -38,9 +39,11 @@ export function ChipRow<T extends string | number>({
   compact?: boolean;
   /** One row that scrolls sideways, for long lists like makers. The cut-off chip at the edge shows there's more. */
   scroll?: boolean;
+  /** One row where every chip shares the width, so all of a few short choices stay on screen. */
+  fit?: boolean;
 }) {
   const chips = options.map((o) => (
-    <Chip key={String(o.value)} option={o} selected={o.value === value} onPress={() => onChange(o.value)} role="radio" compact={compact} inline={scroll} />
+    <Chip key={String(o.value)} option={o} selected={o.value === value} onPress={() => onChange(o.value)} role="radio" compact={compact} inline={scroll} fit={fit} />
   ));
   if (scroll) {
     return (
@@ -58,7 +61,7 @@ export function ChipRow<T extends string | number>({
     );
   }
   return (
-    <View style={styles.chips} testID={testID} accessibilityRole="radiogroup">
+    <View style={[styles.chips, fit && styles.chipsFit]} testID={testID} accessibilityRole="radiogroup">
       {chips}
     </View>
   );
@@ -123,6 +126,7 @@ function Chip<T>({
   role,
   compact,
   inline,
+  fit,
 }: {
   option: ChipOption<T>;
   selected: boolean;
@@ -130,6 +134,7 @@ function Chip<T>({
   role: 'radio' | 'checkbox';
   compact?: boolean;
   inline?: boolean;
+  fit?: boolean;
 }) {
   return (
     <Pressable
@@ -137,9 +142,9 @@ function Chip<T>({
       accessibilityRole={role}
       accessibilityState={role === 'radio' ? { selected } : { checked: selected }}
       accessibilityLabel={option.sub ? `${option.label}, ${option.sub}` : option.label}
-      style={({ pressed }) => [styles.chip, compact && styles.chipCompact, inline && styles.chipInline, selected && styles.chipOn, pressed && !selected && styles.chipPressed]}
+      style={({ pressed }) => [styles.chip, compact && styles.chipCompact, inline && styles.chipInline, fit && styles.chipFit, selected && styles.chipOn, pressed && !selected && styles.chipPressed]}
     >
-      <Text style={[styles.chipText, selected && styles.chipTextOn]}>{option.label}</Text>
+      <Text style={[styles.chipText, selected && styles.chipTextOn]} numberOfLines={1} adjustsFontSizeToFit={fit} minimumFontScale={0.8}>{option.label}</Text>
       {option.sub ? <Text style={[styles.chipSub, selected && styles.chipTextOn]}>{option.sub}</Text> : null}
     </Pressable>
   );
@@ -258,6 +263,8 @@ const styles = StyleSheet.create({
   section: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: sp(16), marginBottom: sp(2) },
   sectionFirst: { marginTop: sp(0) },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
+  chipsFit: { flexWrap: 'nowrap', gap: sp(4) },
+  chipFit: { flexBasis: 0, minWidth: 0, paddingHorizontal: sp(4) },
   chip: {
     minHeight: touch.min,
     minWidth: 72,

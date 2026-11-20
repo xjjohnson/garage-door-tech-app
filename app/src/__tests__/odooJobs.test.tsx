@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { OdooJobSync } from '../components/OdooJobSync';
 import { OdooVisitSync } from '../components/OdooVisitSync';
 import { visitsToClose, visitsToCreate } from '../lib/odooVisits';
@@ -603,7 +603,10 @@ describe('the Jobs tab, signed in to Odoo', () => {
     await settle();
 
     expect(screen.getByTestId('odoo-job-600')).toHaveTextContent(/FO0001.*Atx.*9 Elm St, Austin 78701.*Help door trapped/);
-    // Open is the default filter: the done one isn't listed.
+    // All is the default filter and lists the done one; Open hides it.
+    expect(screen.getByTestId('odoo-job-601')).toBeTruthy();
+    await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('Open'));
+    await settle();
     expect(screen.queryByTestId('odoo-job-601')).toBeNull();
     expect(screen.queryByTestId('jobs-empty')).toBeNull();
 
