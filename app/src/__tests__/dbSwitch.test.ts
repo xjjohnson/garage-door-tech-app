@@ -57,6 +57,24 @@ describe('database switch', () => {
     expect(data.has(OWNER_KEY)).toBe(false);
   });
 
+  it('says why when the backup file cannot be written', async () => {
+    const { deps, data } = makeDeps();
+    data.set('jobs/v1', 'LIVE JOBS');
+    deps.snapshots.write = async () => {
+      throw new Error('ENOSPC');
+    };
+    await expect(switchDatabase(deps, live, test, 'k')).rejects.toThrow(/out of storage space/);
+    expect(data.get('jobs/v1')).toBe('LIVE JOBS');
+  });
+
+  it('works when the file write finishes later (real phone files are asynchronous)', async () => {
+    const { deps, data, files } = makeDeps();
+    data.set('jobs/v1', 'LIVE JOBS');
+    deps.snapshots.write = (id, t) => new Promise<void>((r) => setTimeout(() => (files.set(id, t), r()), 20));
+    await switchDatabase(deps, live, test, 'k');
+    expect(JSON.parse(files.get(Object.keys(Object.fromEntries(files))[0])!)['jobs/v1']).toBe('LIVE JOBS');
+  });
+
   it('finishes a swap that was cut off, and never mixes data', async () => {
     const { deps, data, files } = makeDeps();
     data.set('jobs/v1', 'LIVE JOBS');

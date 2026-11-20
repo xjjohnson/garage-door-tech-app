@@ -117,6 +117,8 @@ async function snapshotOf(storage: KeyValueStore): Promise<Record<string, string
   return out;
 }
 
+const why = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 120);
+
 interface Journal {
   from: string;
   to: DbTarget;
@@ -151,9 +153,25 @@ export async function switchDatabase(deps: Deps, from: DbTarget | null, to: DbTa
   if (from) await remember(storage, from, now);
   // 1. Save what the phone holds for the database being left, and prove it reads back.
   if (fromId) {
-    const text = JSON.stringify(await snapshotOf(storage));
-    await snapshots.write(fromId, text);
-    if ((await snapshots.read(fromId)) !== text) throw new Error("Couldn't save this database's data safely, so nothing was changed.");
+    const SAFE = "Couldn't save this database's data safely, so nothing was changed.";
+    let text: string;
+    try {
+      text = JSON.stringify(await snapshotOf(storage));
+    } catch (e) {
+      throw new Error(`${SAFE} The phone couldn't read its own saved data (${why(e)}).`);
+    }
+    try {
+      await snapshots.write(fromId, text);
+    } catch (e) {
+      throw new Error(`${SAFE} The phone couldn't write the backup file (${why(e)}). It may be out of storage space.`);
+    }
+    let back: string | null;
+    try {
+      back = await snapshots.read(fromId);
+    } catch (e) {
+      throw new Error(`${SAFE} The backup file was written but couldn't be read back (${why(e)}).`);
+    }
+    if (back !== text) throw new Error(`${SAFE} The backup file didn't match what was saved${back === null ? ' (it was empty or missing)' : ''}.`);
     const old = await secrets.get(SECRET_KEY);
     if (old) await secrets.set(secretFor(fromId), old);
   }
