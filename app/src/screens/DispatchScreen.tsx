@@ -1,4 +1,5 @@
 import { requestSyncNow } from '../lib/syncNow';
+import { useTech } from '../lib/useDepartments';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
@@ -84,6 +85,11 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<OdooTask | null>(null);
+  // A plain tech sees who is working and when, but giving out jobs is for dispatch and the owner.
+  const tech = useTech();
+  const askAssign = (task: OdooTask) => {
+    if (!tech) setPicking(task);
+  };
   const [showAll, setShowAll] = useState(false);
   // Only the newest load may fill the board, so a slow earlier read can't put old data back.
   const asked = useRef(0);
@@ -195,7 +201,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
       ) : null}
       {!client.canSchedule ? <Text style={styles.note}>This Odoo has no planned start on its jobs, so jobs can be given to a worker but not a time.</Text> : null}
 
-      {part === 'all' || part === 'unassigned' ? (
+      {(part === 'all' || part === 'unassigned') && !tech ? (
       <View style={styles.unassigned} testID="dispatch-unassigned">
         <View style={styles.unHead}>
           <Icon name="warn" size={22} color={colors.warn} />
@@ -211,7 +217,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
               </Text>
               <Text style={styles.cardSub}>{[task.address, task.start ? `${dayLabel(task.start, t)} ${formatTime(task.start)}` : 'No date', task.stage].filter(Boolean).join(' · ')}</Text>
             </View>
-            <Action label="Assign" primary onPress={() => setPicking(task)} testID={`dispatch-assign-${task.id}`} />
+            <Action label="Assign" primary onPress={() => askAssign(task)} testID={`dispatch-assign-${task.id}`} />
           </View>
         ))}
         {unassigned.length > shownN ? <Action label={showAll ? 'Show fewer' : `Show all ${unassigned.length}`} onPress={() => setShowAll((v) => !v)} testID="dispatch-show-all" /> : null}
@@ -234,7 +240,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
                     {[techs.find((w) => task.assignees.includes(w.id))?.name ?? (task.assignees.length ? undefined : 'No tech yet'), task.start ? `${dayLabel(task.start, t)} ${formatTime(task.start)}` : 'No time', task.address].filter(Boolean).join(' · ')}
                   </Text>
                 </View>
-                <Action label="Change" primary onPress={() => setPicking(task)} testID={`dispatch-change-${task.id}`} />
+                <Action label="Change" primary onPress={() => askAssign(task)} testID={`dispatch-change-${task.id}`} />
               </View>
             ));
           })()}
@@ -265,7 +271,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
                   const left = Math.min(98, (from / axis.span) * 100);
                   const wide = Math.max(24, Math.min(100 - left, (((task.minutes ?? 60) / 60) / axis.span) * 100));
                   return (
-                    <Pressable key={task.id} onPress={() => setPicking(task)} accessibilityRole="button" accessibilityLabel={`${task.name}, ${formatTime(task.start!)}`} accessibilityHint="Move or change the time" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.tblock, { left: `${left}%`, width: `${wide}%` }, pressed && styles.pressed]}>
+                    <Pressable key={task.id} onPress={() => askAssign(task)} accessibilityRole="button" accessibilityLabel={`${task.name}, ${formatTime(task.start!)}`} accessibilityHint="Move or change the time" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.tblock, { left: `${left}%`, width: `${wide}%` }, pressed && styles.pressed]}>
                       <Text style={styles.tblockTime} numberOfLines={1}>{formatTime(task.start!)}</Text>
                       <Text style={styles.tblockText} numberOfLines={1}>{task.customer || task.name}</Text>
                     </Pressable>
@@ -275,7 +281,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
               {jobs.some((x) => x.start === undefined) ? (
                 <View style={styles.wrap}>
                   {jobs.filter((x) => x.start === undefined).map((task) => (
-                    <Pressable key={task.id} onPress={() => setPicking(task)} accessibilityRole="button" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.block, pressed && styles.pressed]}>
+                    <Pressable key={task.id} onPress={() => askAssign(task)} accessibilityRole="button" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.block, pressed && styles.pressed]}>
                       <Text style={styles.blockTime}>Any time</Text>
                       <Text style={styles.blockText} numberOfLines={1}>{task.customer || task.name}</Text>
                     </Pressable>
@@ -291,7 +297,7 @@ export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => n
               {jobs.length > 0 ? (
                 <View style={styles.wrap}>
                   {jobs.map((task) => (
-                    <Pressable key={task.id} onPress={() => setPicking(task)} accessibilityRole="button" accessibilityHint="Move or change the time" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.block, pressed && styles.pressed]}>
+                    <Pressable key={task.id} onPress={() => askAssign(task)} accessibilityRole="button" accessibilityHint="Move or change the time" testID={`dispatch-job-${task.id}`} style={({ pressed }) => [styles.block, pressed && styles.pressed]}>
                       <Text style={styles.blockTime}>{task.start ? formatTime(task.start) : 'Any time'}</Text>
                       <Text style={styles.blockText} numberOfLines={1}>
                         {task.customer || task.name}

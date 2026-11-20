@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Linking } from 'react-native';
 import { Fetch, OdooClient, toOdooTime } from '../lib/odoo';
 import { bookedText } from '../screens/DispatchScreen';
+import { setRolePreview } from '../lib/devFlags';
 import { renderApp } from '../testing/renderApp';
 
 type Order = { id: number; name: string; location_id: [number, string]; person_id: [number, string] | false; scheduled_date_start: string | false; scheduled_duration: number; stage_id: [number, string] };
@@ -190,6 +191,18 @@ describe('Jobs › Team', () => {
     } finally {
       layouts.jobsTeamFirst = was;
     }
+  });
+
+  it('hides Not assigned and Assign when looking as a tech', async () => {
+    const o = fakeOdoo();
+    await signInAndOpenJobs(o);
+    await act(async () => setRolePreview('tech'));
+    await settle();
+    await fireEvent.press(within(screen.getByTestId('jobs-whose')).getByText('Team'));
+    await settle();
+    expect(screen.queryByTestId('dispatch-unassigned')).toBeNull();
+    expect(screen.queryByTestId('dispatch-assign-603')).toBeNull();
+    await act(async () => setRolePreview(null));
   });
 
   it('shows unassigned orders and a lane per worker, and assigns one at a time with a text', async () => {
