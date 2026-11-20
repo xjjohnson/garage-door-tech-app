@@ -15,6 +15,7 @@ import { canSendJobs, cleanNotes, olderJobs } from '../lib/odooJobs';
 import { describePending } from '../lib/pending';
 import { Appointment, formatTime, onDay, windowLabel } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
+import { useTech } from '../lib/useDepartments';
 import { useJobs } from '../lib/useJobs';
 import { useLog } from '../lib/useLog';
 import { useOdoo } from '../lib/useOdoo';
@@ -51,6 +52,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   const appointments = useVisits();
   const { jobs } = useJobs();
   const { invoices } = useInvoices();
+  const tech = useTech();
   const startJob = useStartJob();
   const t = now();
 
@@ -96,7 +98,9 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   const rows = layouts.visitRows;
   const lean = home === 'simple';
   const field = home === 'field';
-  const owedNow = invoices.filter((i) => !i.voidedAt && ['unpaid', 'partial'].includes(invoiceStatus(i)));
+  // A tech sees only the unpaid invoices of jobs on their own phone; the office chases the rest.
+  const mine = new Set(jobs.map((j) => j.id));
+  const owedNow = invoices.filter((i) => !i.voidedAt && ['unpaid', 'partial'].includes(invoiceStatus(i)) && (!tech || mine.has(i.jobId)));
   return (
     <View style={[styles.stack, { gap: rowGap(rows) }]} testID="today">
       <SyncLine />

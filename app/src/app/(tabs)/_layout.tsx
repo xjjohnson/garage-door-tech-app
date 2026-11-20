@@ -11,13 +11,14 @@ import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
 import { toolsTotal } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
-import { useDepartments } from '../../lib/useDepartments';
+import { useDepartments, useTech } from '../../lib/useDepartments';
+import { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from '../../config';
 import { dateLine } from '../../lib/schedule';
-import { SECTIONS, TOOL_PAGES } from '../../lib/sections';
+import { SECTIONS, TECH_HIDDEN_HREFS, TECH_SECTION_IDS, TOOL_PAGES } from '../../lib/sections';
 import { colors, radius, touch, type, fs, rad, sp } from '../../theme';
 
 /**
@@ -36,6 +37,12 @@ export default function TabsLayout() {
   const current = tool ?? SECTIONS.find((s) => s.href === pathname) ?? SECTIONS[0];
   const lit = tool ? 'tools' : current.id;
   const { access } = useDepartments();
+  const tech = useTech();
+  const bar = tech ? SECTIONS.filter((x) => TECH_SECTION_IDS.includes(x.id)) : SECTIONS;
+  // A tech who lands on Customers or Sales (an old link) goes Home.
+  useEffect(() => {
+    if (tech && TECH_HIDDEN_HREFS.includes(pathname)) router.replace('/');
+  }, [tech, pathname]);
   const moreCount = toolsTotal(useBadges(), access);
   const { appointments } = useSchedule();
   const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
@@ -82,7 +89,7 @@ export default function TabsLayout() {
       <UpdateReadyBar pending={isUpdatePending} />
       {/* The app's sections, at the bottom where a thumb reaches them. */}
       <View style={styles.nav} accessibilityRole="tablist">
-        {SECTIONS.map((s) => {
+        {bar.map((s) => {
           const on = lit === s.id;
           return (
             <Pressable
@@ -102,7 +109,7 @@ export default function TabsLayout() {
                 ) : null}
               </View>
               <Text style={[styles.navText, on && styles.navTextOn]} numberOfLines={1} adjustsFontSizeToFit>
-                {s.label}
+                {tech && s.id === 'tools' ? 'Tools' : s.label}
               </Text>
             </Pressable>
           );

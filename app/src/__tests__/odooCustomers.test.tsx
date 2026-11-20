@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { setRolePreview } from '../lib/devFlags';
 import { AddressPicker } from '../components/AddressPicker';
 import { OdooProvider } from '../lib/useOdoo';
 import { router } from 'expo-router';
@@ -16,6 +17,10 @@ const NOW = Date.UTC(2026, 10, 11, 20);
 
 const cust = (id: string, f: Partial<Customer>): Customer => ({ id, name: '', phone: '', email: '', address: '', notes: '', createdAt: T0, updatedAt: T0, ...f });
 const partner = (id: number, f: Partial<OdooPartner>): OdooPartner => ({ id, name: '', phone: '', email: '', address: '', notes: '', changedAt: T0, ...f });
+
+// These screens are the owner's tabs; a tech has no Customers or Sales tab.
+beforeEach(() => setRolePreview('owner'));
+afterAll(() => setRolePreview(null));
 
 describe('customer sync with Odoo (plain logic)', () => {
   it('brings in new Odoo customers, links matches, and finds what to send', () => {
