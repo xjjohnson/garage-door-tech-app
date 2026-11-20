@@ -15,6 +15,7 @@ import type { OdooTask } from '../lib/odoo';
 import { whatOf } from '../lib/odooJobs';
 import { dayLabel, formatTime, startOfDay } from '../lib/schedule';
 import { invoiceStatus } from '../lib/invoices';
+import { workDoneLabel } from '../lib/jobSteps';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
@@ -126,9 +127,8 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
           const started = !!phoneJob?.steps?.arrivedAt;
           // Work finished but not paid: say so instead of "In progress".
           const mine = phoneJob ? invoices.filter((i) => i.jobId === phoneJob.id && invoiceStatus(i) !== 'void') : [];
-          const waiting = !!phoneJob?.steps?.workDoneAt && !(mine.length > 0 && mine.every((i) => invoiceStatus(i) === 'paid'));
           const stage = t.stage || 'New';
-          const chip = waiting ? 'Waiting for payment' : started ? 'In progress' : stage;
+          const chip = workDoneLabel(phoneJob, mine) ?? (started ? 'In progress' : stage);
           const day = when !== undefined ? dayLabel(when, t0) : 'No date';
           const past = when !== undefined && when < startOfDay(t0);
           return [
@@ -144,7 +144,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
                   variant={layouts.jobRows}
                   top={t.name}
                   chip={chip}
-                  tone={waiting ? (layouts.jobRows === 'card' ? 'on' : 'warn') : started ? 'on' : 'plain'}
+                  tone={chip === 'Waiting for payment' ? (layouts.jobRows === 'card' ? 'on' : 'warn') : started ? 'on' : 'plain'}
                   name={t.customer || t.name}
                   address={t.address}
                   what={whatOf(t)}

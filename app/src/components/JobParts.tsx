@@ -49,7 +49,8 @@ export function JobParts({ jobId }: { jobId: string }) {
   }, [client, waitingKey]);
   const customer = job?.customer ?? '';
   const fromTicket = ticketParts(job?.ticket, items, used ?? [], jobId, purchases);
-  const missing = unaccountedParts(job?.ticket, items, jobId, purchases).filter((p) => p.why === 'not-on-truck');
+  // Once the work is done the "order it before Create invoice" prompt no longer applies.
+  const missing = job?.steps?.workDoneAt ? [] : unaccountedParts(job?.ticket, items, jobId, purchases).filter((p) => p.why === 'not-on-truck');
   const bought = boughtParts(job?.ticket);
   const markBought = (lineId: string, on: boolean) => setTicket(jobId, (t) => ({ ...t, bought: on ? [...(t.bought ?? []), lineId] : (t.bought ?? []).filter((x) => x !== lineId) }));
 
