@@ -13,7 +13,7 @@ import { jobSteps, nextStep, STEP_LABEL } from '../lib/jobSteps';
 import { log } from '../lib/log';
 import { canSendJobs, cleanNotes, olderJobs } from '../lib/odooJobs';
 import { describePending } from '../lib/pending';
-import { Appointment, formatTime, onDay, windowLabel } from '../lib/schedule';
+import { Appointment, dayLabel, formatTime, onDay, upcoming, visitDone, windowLabel } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
 import { useTech } from '../lib/useDepartments';
 import { useJobs } from '../lib/useJobs';
@@ -57,10 +57,11 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   const t = now();
 
   const today = useMemo(() => onDay(appointments, t).filter((a) => a.status !== 'cancelled'), [appointments, t]);
-  const next = today.find((a) => a.status === 'booked' && a.start + a.minutes * 60000 > t);
+  const next = today.find((a) => a.status === 'booked' && !visitDone(a, jobs) && a.start + a.minutes * 60000 > t);
   // Jobs started on the phone with no visit today still belong on the list.
   const loose = jobs.filter((j) => j.status === 'open' && (j.steps?.onMyWayAt || j.steps?.arrivedAt) && !today.some((a) => a.jobId === j.id));
-  const booked = today.filter((a) => a.status === 'booked');
+  const booked = today.filter((a) => a.status === 'booked' && !visitDone(a, jobs));
+  const allDone = today.length > 0 && !today.some((a) => !visitDone(a, jobs));
 
   // Weather for each stop, when there's signal and the address is on the map. Nothing shows otherwise.
   const { points } = useGeocode(useMemo(() => today.map((a) => a.address), [today]));
@@ -88,7 +89,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
 
   const statusOf = (a: Appointment): { label: string; tone: ChipTone } => {
     const job = a.jobId ? jobs.find((j) => j.id === a.jobId) : undefined;
-    if (a.status === 'done' || job?.status === 'done' || job?.steps?.workDoneAt) return { label: 'Done', tone: 'plain' };
+    if (visitDone(a, jobs)) return { label: 'Done', tone: 'plain' };
     if (job?.steps?.arrivedAt) return { label: 'Working', tone: 'on' };
     if (job?.steps?.onMyWayAt) return { label: 'On the way', tone: 'on' };
     return { label: 'Scheduled', tone: 'plain' };
@@ -107,6 +108,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
       <OlderJobsLine />
       <CrashNotice />
       {home === 'field' && next ? <NextCard visit={next} /> : null}
+      {home === 'field' && !next && allDone ? <AllDoneCard unpaid={owedNow.length} nextDay={upcoming(appointments, t, 1, jobs)[0]} now={t} /> : null}
       {home === 'owner' ? <OwnerKpis now={now} done={doneCount} total={today.length} /> : null}
       {home === 'owner' ? <CrewToday now={now} /> : null}
       {home === 'inbox' ? <Inbox now={now} /> : null}
@@ -187,6 +189,18 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
       <Text style={styles.version} testID="home-version">
         Johnsons {SHORT_VERSION}
       </Text>
+    </View>
+  );
+}
+
+/** Field Home when every visit today is finished: say so, and what is left (unpaid invoices, or the next booked day). */
+function AllDoneCard({ unpaid, nextDay, now }: { unpaid: number; nextDay?: Appointment; now: number }) {
+  const line = unpaid > 0 ? `${unpaid} unpaid invoice${unpaid === 1 ? '' : 's'} to collect` : nextDay ? `Next booked: ${dayLabel(nextDay.start, startOfDay(now))} ${formatTime(nextDay.start)}` : 'Nothing else booked';
+  return (
+    <View style={styles.nextCard} testID="today-all-done">
+      <Text style={styles.nextTop}>ALL DONE FOR TODAY</Text>
+      <Text style={styles.nextName}>Nice work</Text>
+      <Text style={styles.nextSub}>{line}</Text>
     </View>
   );
 }

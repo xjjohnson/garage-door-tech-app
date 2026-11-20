@@ -7,7 +7,8 @@ import { DayStrip } from '../components/DayStrip';
 import { VisitCard } from '../components/VisitCard';
 import { cleanNotes } from '../lib/odooJobs';
 import { formatMoney } from '../lib/prices';
-import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay, windowLabel } from '../lib/schedule';
+import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay, visitDone, windowLabel } from '../lib/schedule';
+import { useJobs } from '../lib/useJobs';
 import { useTech } from '../lib/useDepartments';
 import { useStats } from '../lib/useStats';
 import { useVisits } from '../lib/useVisits';
@@ -24,6 +25,7 @@ import { colors, fs, sp } from '../theme';
  */
 export function WeekScreen({ now = Date.now }: { now?: () => number }) {
   const appointments = useVisits();
+  const { jobs } = useJobs();
   const { stats } = useStats(now);
   const startJob = useStartJob();
   const t = now();
@@ -57,14 +59,14 @@ export function WeekScreen({ now = Date.now }: { now?: () => number }) {
         <VisitCard
           key={a.id}
           top={windowLabel(a).toUpperCase()}
-          chip={a.status === 'done' ? 'Done' : 'Scheduled'}
+          chip={visitDone(a, jobs) ? 'Done' : 'Scheduled'}
           name={a.name}
           address={a.address}
           what={a.what ? cleanNotes(a.what).split('\n')[0] : ''}
           weather={weatherOf(a) ? weatherText(weatherOf(a)!) : undefined}
           weatherTestID={`week-weather-${a.id}`}
           warn={!!weatherOf(a)?.warn}
-          muted={a.status === 'done'}
+          muted={visitDone(a, jobs)}
           onPress={() => startJob(a)}
           testID={`week-visit-${a.id}`}
         />
