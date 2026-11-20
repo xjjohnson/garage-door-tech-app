@@ -45,7 +45,7 @@ export function startOfTomorrow(now: number): number {
   return d.getTime();
 }
 
-export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { filter: 'open' | 'done' | 'all' | 'upcoming'; search: string; /** When given, only jobs the phone has in this set (unpaid or paid ones, for those chips). */ owedJobIds?: Set<string>; now?: () => number }) {
+export function OdooJobsList({ filter, search, owedJobIds, noInvoiceOnly, now = Date.now }: { filter: 'open' | 'done' | 'all' | 'upcoming'; search: string; /** The Estimate chip: done jobs, leaving out these (jobs with an invoice) and cancelled ones. */ noInvoiceOnly?: Set<string>; /** When given, only jobs the phone has in this set (unpaid or paid ones, for those chips). */ owedJobIds?: Set<string>; now?: () => number }) {
   const { client } = useOdoo();
   const { jobs } = useJobs();
   const { invoices } = useInvoices();
@@ -123,6 +123,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
         (rows ?? []).flatMap((t) => {
           const phoneJob = jobs.find((j) => j.odooJob?.id === t.id);
           if (owedJobIds && !(phoneJob && owedJobIds.has(phoneJob.id))) return [];
+          if (noInvoiceOnly && ((phoneJob && noInvoiceOnly.has(phoneJob.id)) || /cancel/i.test(t.stage))) return [];
           const when = t.start ?? t.deadline;
           const started = !!phoneJob?.steps?.arrivedAt;
           // Work finished but not paid: say so instead of "In progress".

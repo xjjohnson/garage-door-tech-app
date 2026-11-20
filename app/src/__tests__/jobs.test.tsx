@@ -107,7 +107,7 @@ describe('saved jobs in the app', () => {
     await screen.findByTestId('job-j1');
     expect(screen.getByTestId('jobs-count')).toHaveTextContent('1 shown · 1 open');
 
-    await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('Open'));
+    await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('To do'));
     await fireEvent.press(screen.getByTestId('job-toggle-j1'));
     expect(screen.queryByTestId('job-call-j1')).toBeNull(); // no phone, no Call button
     await fireEvent.press(screen.getByTestId('job-edit-j1'));
@@ -116,9 +116,9 @@ describe('saved jobs in the app', () => {
     expect(screen.getByText('Needs new rollers')).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('job-status-j1'));
-    // The Open filter now hides it; Done shows it.
+    // To do now hides it; Estimate (done, no invoice) shows it.
     expect(screen.queryByTestId('job-j1')).toBeNull();
-    await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('Done'));
+    await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('Estimate'));
     expect(screen.getByTestId('job-j1')).toBeTruthy();
     expect((await storedJobs())[0]).toMatchObject({ status: 'done', notes: 'Needs new rollers' });
 

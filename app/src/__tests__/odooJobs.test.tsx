@@ -605,7 +605,7 @@ describe('the Jobs tab, signed in to Odoo', () => {
     expect(screen.getByTestId('odoo-job-600')).toHaveTextContent(/FO0001.*Atx.*9 Elm St, Austin 78701.*Help door trapped/);
     // All is the default filter and lists the done one; Open hides it.
     expect(screen.getByTestId('odoo-job-601')).toBeTruthy();
-    await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('Open'));
+    await fireEvent.press(within(screen.getByTestId('jobs-filter')).getByText('To do'));
     await settle();
     expect(screen.queryByTestId('odoo-job-601')).toBeNull();
     expect(screen.queryByTestId('jobs-empty')).toBeNull();
