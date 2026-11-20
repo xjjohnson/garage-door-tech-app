@@ -59,7 +59,7 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
   const { jobs, loaded: jobsLoaded } = useJobs();
   /** The visit being moved, when booking for a job that already has one. */
   const [editing, setEditing] = useState<string | null>(null);
-  // Moving a visit to another day or time is dispatch's job. A plain tech still sees their visits and can book new ones.
+  // Moving or cancelling a visit is dispatch's job. A plain tech still sees their visits and can book new ones.
   const tech = useTech();
   const { customers } = useCustomers();
   const { business } = useInvoices();
@@ -132,7 +132,7 @@ export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () =
             <Text style={styles.gapBook}>+ Book</Text>
           </Pressable>
         ) : (
-          <Visit key={r.a.id} a={r.a} now={now()} business={business} onStatus={(s) => setStatus(r.a.id, s)} onReschedule={tech ? undefined : () => reschedule(r.a)} clash={r.a.status === 'booked' && overlaps(appointments, r.a).length > 0} />
+          <Visit key={r.a.id} a={r.a} now={now()} business={business} onStatus={(s) => { if (tech && s === 'cancelled') return; setStatus(r.a.id, s); }} canCancel={!tech} onReschedule={tech ? undefined : () => reschedule(r.a)} clash={r.a.status === 'booked' && overlaps(appointments, r.a).length > 0} />
         ),
       )}
       <Dock>
@@ -168,7 +168,7 @@ function blank(day: number, who: Partial<NewAppointment> = {}): NewAppointment {
   return { start: slotsFor(day)[4], minutes: 60, name: '', address: '', phone: '', what: '', ...who };
 }
 
-function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onReschedule?: () => void; clash: boolean }) {
+function Visit({ a, now, business, onStatus, onReschedule, canCancel = true, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onReschedule?: () => void; canCancel?: boolean; clash: boolean }) {
   const [eta, setEta] = useState(false);
   const [more, setMore] = useState(false);
   const [sure, setSure] = useState(false);
@@ -210,7 +210,7 @@ function Visit({ a, now, business, onStatus, onReschedule, clash }: { a: Appoint
             <View style={styles.menu} testID={`visit-menu-${a.id}`}>
               <MenuItem label="Mark done" onPress={() => { setMore(false); onStatus('done'); }} testID={`visit-done-${a.id}`} />
               {onReschedule ? <MenuItem label="Reschedule" onPress={() => { setMore(false); onReschedule(); }} testID={`visit-reschedule-${a.id}`} /> : null}
-              {sure ? (
+              {!canCancel ? null : sure ? (
                 <View style={styles.sure}>
                   <Text style={styles.detail}>Cancel this visit?</Text>
                   <View style={styles.row}>
