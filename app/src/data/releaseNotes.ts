@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.25',
+    title: 'Fix blank Tools page after switching role',
+    changes: ['Tools (and the other scrolling pages) could show blank after Look at the app as changed to a role with a shorter page, because the old scroll position was past the end. The page now returns to the end of its content, and to the top when the role changes.'],
+    test: ['Developer > Look at the app as Owner, open Tools and scroll down, then switch to Tech and open Tools: do the tiles show at the top?'],
+  },
+  {
     release: '0.6.24',
     title: 'Field theme: job order, bigger Call and Go, fuller Week',
     changes: ['Field Jobs: days now run Today, then the days ahead, then No date, then Overdue days at the bottom (marked Overdue). Jobs with no date no longer leave an empty time column.', 'Field Customers: Call and Go are big side-by-side buttons under each customer instead of small stacked pills.', 'Field Home > Week: shows the rest of the week under the picked day, and the owed total matches the Sales page.', 'Field Home > Today: a started job shows its Odoo number and start time, so two jobs for the same customer can be told apart.'],
