@@ -7,6 +7,7 @@ import { Fetch, ODOO_STORAGE_KEY } from '../lib/odoo';
 import { JOBS_SINCE_KEY } from '../lib/odooJobs';
 import { CustomersProvider } from '../lib/useCustomers';
 import { JobsProvider } from '../lib/useJobs';
+import { InvoicesProvider } from '../lib/useInvoices';
 import { resetJobsSince } from '../lib/useJobsSince';
 import { OdooProvider } from '../lib/useOdoo';
 
@@ -95,11 +96,13 @@ describe('customer sync in the background', () => {
     );
     shown = await render(
       <JobsProvider>
+        <InvoicesProvider>
         <CustomersProvider>
           <OdooProvider fetchFn={o.fetchFn} secrets={SECRETS}>
             <OdooCustomerBackgroundSync />
           </OdooProvider>
         </CustomersProvider>
+        </InvoicesProvider>
       </JobsProvider>,
     );
     await settle();
