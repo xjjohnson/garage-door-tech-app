@@ -55,6 +55,17 @@ describe('Home layouts', () => {
       if (home === 'classic') expect(screen.getByTestId('today-kpis')).toBeTruthy();
     });
   }
+
+  it('Field Home says All done and drops the Open bar once every visit today is done, but the done visit still opens', async () => {
+    Object.assign(layouts, { home: 'field', visitRows: 'edge' });
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([{ ...appt('a1', Date.now() + 60_000, 'Pat Lee'), status: 'done' }]));
+    await renderApp();
+    expect(await screen.findByTestId('today-all-done')).toHaveTextContent(/ALL DONE FOR TODAY/);
+    expect(screen.queryByTestId('today-next-card')).toBeNull();
+    expect(screen.queryByTestId('field-go-bar')).toBeNull();
+    expect(screen.getByTestId('today-visit-a1')).toBeTruthy();
+  });
 });
 
 type Row = Record<string, unknown>;
