@@ -45,7 +45,7 @@ export function startOfTomorrow(now: number): number {
   return d.getTime();
 }
 
-export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { filter: 'open' | 'done' | 'all' | 'upcoming'; search: string; /** When given, only jobs the phone has an unpaid invoice for. */ owedJobIds?: Set<string>; now?: () => number }) {
+export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { filter: 'open' | 'done' | 'all' | 'upcoming'; search: string; /** When given, only jobs the phone has in this set (unpaid or paid ones, for those chips). */ owedJobIds?: Set<string>; now?: () => number }) {
   const { client } = useOdoo();
   const { jobs } = useJobs();
   const { invoices } = useInvoices();
@@ -144,7 +144,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
                   variant={layouts.jobRows}
                   top={t.name}
                   chip={chip}
-                  tone={chip === 'Waiting for payment' ? (layouts.jobRows === 'card' ? 'on' : 'warn') : started ? 'on' : 'plain'}
+                  tone={chip === 'Waiting for payment' ? (layouts.jobRows === 'card' ? 'on' : 'warn') : started || chip === 'Paid' ? 'on' : 'plain'}
                   name={t.customer || t.name}
                   address={t.address}
                   what={whatOf(t)}

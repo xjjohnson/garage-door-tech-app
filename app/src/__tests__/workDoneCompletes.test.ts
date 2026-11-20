@@ -20,8 +20,11 @@ describe('workDoneLabel', () => {
   it('is empty until the work is done', () => expect(workDoneLabel({ status: 'open', steps: {} } as never, [])).toBeUndefined());
   it('says Estimate for an estimate with no invoice, never Waiting for payment', () => expect(workDoneLabel(withTicket, [])).toBe('Estimate'));
   it('says Waiting for payment only with an unpaid invoice', () => expect(workDoneLabel(withTicket, [inv(100, 0)])).toBe('Waiting for payment'));
-  it('says Done when paid or nothing to bill', () => {
-    expect(workDoneLabel(withTicket, [inv(100, 100)])).toBe('Done');
+  it('says Paid once every invoice is paid', () => {
+    expect(workDoneLabel(withTicket, [inv(100, 100)])).toBe('Paid');
+    expect(workDoneLabel(withTicket, [inv(100, 100), inv(50, 0)])).toBe('Waiting for payment');
+  });
+  it('says Done when nothing to bill', () => {
     expect(workDoneLabel({ status: 'done', steps: {} } as never, [])).toBe('Done');
   });
 });

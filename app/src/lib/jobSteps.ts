@@ -47,12 +47,14 @@ export function jobSteps(job: Job, invoices: Invoice[]): Step[] {
 
 /**
  * What a job whose work is done is waiting for, from its real invoices: "Waiting for payment" only when an
- * invoice exists with money still owed, "Estimate" when there is a ticket or estimate but no invoice
+ * invoice exists with money still owed, "Paid" once every invoice is paid, "Estimate" when there is a ticket or estimate but no invoice
  * yet, otherwise "Done". Undefined while the work isn't done.
  */
 export function workDoneLabel(job: Pick<Job, 'status' | 'steps' | 'ticket'> | undefined, invoices: Invoice[]): string | undefined {
-  if (!job || !(job.steps?.workDoneAt || job.status === 'done')) return undefined;
+  if (!job) return undefined;
   const live = invoices.filter((i) => invoiceStatus(i) !== 'void');
+  if (live.length > 0 && live.every((i) => invoiceStatus(i) === 'paid')) return 'Paid';
+  if (!(job.steps?.workDoneAt || job.status === 'done')) return undefined;
   if (live.some((i) => ['unpaid', 'partial'].includes(invoiceStatus(i)))) return 'Waiting for payment';
   if (live.length === 0 && (job.ticket?.lines.length ?? 0) > 0) return 'Estimate';
   return 'Done';

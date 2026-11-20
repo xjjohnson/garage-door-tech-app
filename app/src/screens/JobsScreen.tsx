@@ -1,3 +1,4 @@
+import { workDoneLabel } from '../lib/jobSteps';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -14,13 +15,14 @@ import { OdooJobsList } from '../components/OdooJobsList';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
-type Filter = JobStatus | 'all' | 'unpaid' | 'upcoming';
+type Filter = JobStatus | 'all' | 'unpaid' | 'paid' | 'upcoming';
 
 const FILTERS: ChipOption<Filter>[] = [
   { label: 'All', value: 'all' },
   { label: 'Open', value: 'open' },
   { label: 'Upcoming', value: 'upcoming' },
   { label: 'Unpaid', value: 'unpaid' },
+  { label: 'Paid', value: 'paid' },
   { label: 'Done', value: 'done' },
 ];
 
@@ -36,20 +38,25 @@ const CONFIRM_MS = 4000;
 export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   const { jobs, loaded, updateDetails, setStatus, remove } = useJobs();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('open');
+  const [filter, setFilter] = useState<Filter>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Job | null>(null);
 
   const { invoices } = useInvoices();
   // Jobs with an invoice that still has a balance, for the Unpaid chip.
   const owedJobIds = useMemo(() => new Set(invoices.filter((i) => i.jobId && ['unpaid', 'partial'].includes(invoiceStatus(i))).map((i) => i.jobId as string)), [invoices]);
+  // Jobs whose invoices are all paid, for the Paid chip.
+  const paidJobIds = useMemo(() => {
+    const live = invoices.filter((i) => i.jobId && invoiceStatus(i) !== 'void');
+    return new Set(live.filter((i) => i.jobId && live.filter((x) => x.jobId === i.jobId).every((x) => invoiceStatus(x) === 'paid')).map((i) => i.jobId as string));
+  }, [invoices]);
   const { status: odooStatus, client } = useOdoo();
   const fromOdoo = odooStatus === 'signedIn' && !!client && client.session.kind !== 'none';
   const shown = useMemo(() => {
     const own = fromOdoo ? jobs.filter((j) => !j.odooJob) : jobs;
-    const byStatus = filter === 'all' ? own : filter === 'upcoming' ? [] : filter === 'unpaid' ? own.filter((j) => owedJobIds.has(j.id)) : own.filter((j) => j.status === filter);
+    const byStatus = filter === 'all' ? own : filter === 'upcoming' ? [] : filter === 'unpaid' ? own.filter((j) => owedJobIds.has(j.id)) : filter === 'paid' ? own.filter((j) => paidJobIds.has(j.id)) : own.filter((j) => j.status === filter);
     return sortJobs(searchJobs(byStatus, query));
-  }, [jobs, filter, query, fromOdoo, owedJobIds]);
+  }, [jobs, filter, query, fromOdoo, owedJobIds, paidJobIds]);
   const openCount = jobs.filter((j) => j.status === 'open').length;
 
   return (
@@ -72,7 +79,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           </Pressable>
         ) : null}
       </View>
-      <ChipRow options={fromOdoo ? FILTERS : FILTERS.filter((f) => f.value !== 'upcoming')} value={filter} onChange={setFilter} compact scroll testID="jobs-filter" />
+      <ChipRow options={fromOdoo ? FILTERS : FILTERS.filter((f) => f.value !== 'upcoming')} value={filter} onChange={setFilter} compact fit testID="jobs-filter" />
 
       {!fromOdoo && loaded && jobs.length === 0 ? (
         <View style={styles.empty} testID="jobs-empty">
@@ -108,7 +115,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         />
       ))}
 
-      {fromOdoo ? <OdooJobsList filter={filter === 'unpaid' ? 'all' : filter} search={query} owedJobIds={filter === 'unpaid' ? owedJobIds : undefined} /> : null}
+      {fromOdoo ? <OdooJobsList filter={filter === 'unpaid' || filter === 'paid' ? 'all' : filter} search={query} owedJobIds={filter === 'unpaid' ? owedJobIds : filter === 'paid' ? paidJobIds : undefined} /> : null}
 
       <JobDetailsSheet
         visible={editing !== null}
@@ -147,6 +154,7 @@ function JobCard({
   const tel = phoneLink(job.phone);
   const name = jobName(job);
   const invoice = useInvoices().invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
+  const paid = workDoneLabel(job, useInvoices().invoices) === 'Paid';
   return (
     <View style={[styles.item, job.status === 'done' && styles.itemDone]} testID={`job-${job.id}`}>
       <Pressable
@@ -161,7 +169,7 @@ function JobCard({
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
-          <Text style={[styles.badge, job.status === 'done' && styles.badgeDone]}>{job.status === 'done' ? 'DONE' : 'OPEN'}</Text>
+          <Text style={[styles.badge, (job.status === 'done' || paid) && styles.badgeDone]}>{paid ? 'PAID' : job.status === 'done' ? 'DONE' : 'OPEN'}</Text>
         </View>
         {job.customer && job.address ? <Text style={styles.address}>{job.address}</Text> : null}
         <Text style={styles.answer}>{job.summaryTitle}</Text>
