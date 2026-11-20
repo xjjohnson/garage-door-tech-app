@@ -1,4 +1,4 @@
-import { claimIfUnowned, dataMatches, dbId, isNotLive, JOURNAL_KEY, knownDatabases, LIVE_KEY, OWNER_KEY, resumeSwitch, SECRET_KEY, switchDatabase, switchWarning, type Deps } from '../lib/dbSwitch';
+import { claimIfUnowned, dataMatches, dbId, isNotLive, JOURNAL_KEY, knownDatabases, LIVE_KEY, OWNER_KEY, resumeSwitch, SECRET_KEY, secretFor, switchDatabase, switchWarning, type Deps } from '../lib/dbSwitch';
 import { ODOO_STORAGE_KEY } from '../lib/odoo';
 
 function makeDeps(failWriteBack = false) {
@@ -100,5 +100,21 @@ describe('database switch', () => {
     expect(isNotLive(dbId(live), test)).toBe(true);
     expect(switchWarning('2 invoices', live, test)).toMatch(/Not sent to Odoo yet: 2 invoices.*does NOT send/);
     expect(switchWarning('', live, test)).toMatch(/None of it is sent to/);
+  });
+
+  it('saves each database key under a name the keystore accepts, and finds it again', async () => {
+    const { deps, data, keys } = makeDeps();
+    const strict = deps.secrets;
+    deps.secrets = {
+      ...strict,
+      // The phone's keystore refuses names with anything but letters, digits, "." "-" "_".
+      set: async (k, v) => (/^[A-Za-z0-9._-]+$/.test(k) ? strict.set(k, v) : undefined),
+    };
+    data.set(ODOO_STORAGE_KEY, JSON.stringify(live));
+    keys.set(SECRET_KEY, 'livekey');
+    await switchDatabase(deps, live, test, 'testkey');
+    expect(keys.get(secretFor(dbId(live)))).toBe('livekey');
+    expect(keys.get(secretFor(dbId(test)))).toBe('testkey');
+    expect(secretFor(dbId(live))).not.toBe(secretFor(dbId(test)));
   });
 });

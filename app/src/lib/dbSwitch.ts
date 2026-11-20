@@ -103,7 +103,11 @@ export function isNotLive(live: string | null, current: Pick<DbTarget, 'url' | '
   return !!live && !!current && live !== dbId(current);
 }
 
-const secretFor = (id: string) => `${SECRET_KEY}@${id}`;
+/**
+ * The keystore only accepts letters, digits, "." "-" and "_" in a key name, so
+ * the address and database are encoded (an "@" or ":" made every save fail).
+ */
+export const secretFor = (id: string) => `${SECRET_KEY}.${id.replace(/[^A-Za-z0-9._-]/g, (c) => `_${c.charCodeAt(0).toString(16)}_`)}`;
 
 /** A key saved for a database the phone has been attached to before. */
 export async function hasSavedSecret(secrets: SecretStore, t: Pick<DbTarget, 'url' | 'db'>): Promise<boolean> {

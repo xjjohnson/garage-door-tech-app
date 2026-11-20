@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { Action } from './Buttons';
 import { deviceSnapshots } from '../lib/dbSnapshots';
-import { dbId, dbLabel, hasSavedSecret, isNotLive, KnownDb, knownDatabases, liveId, setLive, switchDatabase, switchWarning } from '../lib/dbSwitch';
+import { dbId, dbLabel, hasSavedSecret, isNotLive, KnownDb, knownDatabases, liveId, secretFor, setLive, switchDatabase, switchWarning } from '../lib/dbSwitch';
 import { Fetch, OdooClient, OdooError, cleanUrl, guessDb } from '../lib/odoo';
 import { deviceSecrets } from '../lib/secrets';
 import type { SecretStore } from '../lib/secrets';
@@ -51,9 +51,18 @@ export function DatabaseSwitcher({ pendingText, restart, fetchFn, secrets: given
     reload();
   }, [saved?.db, saved?.url]);
 
+  // Start the form on the database the phone is attached to now.
+  useEffect(() => {
+    if (!saved) return;
+    setUrl((v) => v || saved.url);
+    setDb((v) => v || saved.db);
+    setLogin((v) => v || saved.login);
+  }, [saved?.db, saved?.url, saved?.login]);
+
   const here = saved ? dbLabel(saved) : 'Not signed in';
   const notLive = isNotLive(live, saved);
-  const others = known.filter((k) => !saved || k.id !== dbId(saved));
+  const current = saved ? dbId(saved) : null;
+  const others = saved && !known.some((k) => k.id === current) ? [{ ...saved, id: current as string, lastUsed: 0 }, ...known] : known;
 
   const pick = async (k: KnownDb) => {
     setUrl(k.url);
@@ -70,7 +79,7 @@ export function DatabaseSwitcher({ pendingText, restart, fetchFn, secrets: given
     const target = { url: cleanUrl(url), db: db.trim(), login: login.trim() };
     if (!target.url || !target.db || !target.login) return setError('Fill in the address, database and email.');
     if (saved && dbId(saved) === dbId(target)) return setError('The phone is already attached to that database.');
-    const key = secret || (usesSaved ? ((await secrets.get(`odoo.secret@${dbId(target)}`)) ?? '') : '');
+    const key = secret || (usesSaved ? ((await secrets.get(secretFor(dbId(target)))) ?? '') : '');
     if (!key) return setError('Type the API key for that database.');
     setBusy(true);
     try {
@@ -113,7 +122,7 @@ export function DatabaseSwitcher({ pendingText, restart, fetchFn, secrets: given
         <View style={styles.stack}>
           <Text style={styles.label}>Databases this phone has used</Text>
           {others.map((k) => (
-            <Action key={k.id} label={`${dbLabel(k)}${live === k.id ? ' (live)' : ''}`} onPress={() => pick(k)} testID={`dev-db-known-${k.db}`} />
+            <Action key={k.id} label={`${dbLabel(k)}${live === k.id ? ' (live)' : ''}${current === k.id ? ' (this phone now)' : ''}`} onPress={() => pick(k)} testID={`dev-db-known-${k.db}`} />
           ))}
         </View>
       ) : null}
