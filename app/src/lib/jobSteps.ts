@@ -47,13 +47,17 @@ export function jobSteps(job: Job, invoices: Invoice[]): Step[] {
 
 /** The first step not done yet, or null when the job is finished. */
 export function nextStep(steps: Step[]): Step | null {
+  // Once the work is done, only getting paid is left; skipped steps (inspect, ticket) don't count.
+  if (steps.find((x) => x.id === 'work')?.done) return steps.find((x) => x.id === 'paid' && !x.done) ?? null;
   return steps.find((x) => !x.done) ?? null;
 }
 
 /** "0:24" since arriving, for the header. */
-export function onSiteFor(arrivedAt: number | undefined, now: number): string | null {
+export function onSiteFor(arrivedAt: number | undefined, now: number, workDoneAt?: number): string | null {
   if (!arrivedAt || now < arrivedAt) return null;
-  const mins = Math.floor((now - arrivedAt) / 60000);
+  // The clock stops when the work is done.
+  const end = workDoneAt && workDoneAt >= arrivedAt ? Math.min(now, workDoneAt) : now;
+  const mins = Math.floor((end - arrivedAt) / 60000);
   return `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')}`;
 }
 

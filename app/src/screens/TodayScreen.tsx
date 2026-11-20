@@ -88,7 +88,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
 
   const statusOf = (a: Appointment): { label: string; tone: ChipTone } => {
     const job = a.jobId ? jobs.find((j) => j.id === a.jobId) : undefined;
-    if (a.status === 'done' || job?.status === 'done') return { label: 'Done', tone: 'plain' };
+    if (a.status === 'done' || job?.status === 'done' || job?.steps?.workDoneAt) return { label: 'Done', tone: 'plain' };
     if (job?.steps?.arrivedAt) return { label: 'Working', tone: 'on' };
     if (job?.steps?.onMyWayAt) return { label: 'On the way', tone: 'on' };
     return { label: 'Scheduled', tone: 'plain' };

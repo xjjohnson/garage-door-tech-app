@@ -86,6 +86,13 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     setJobs(fn);
   }, []);
 
+  // Jobs marked Work done before this fix were left open (and so sat in New in Odoo). Close them, one job at
+  // a time as the phone loads them; the normal sync then tells Odoo. Nothing is written in bulk.
+  useEffect(() => {
+    if (!loaded || !jobs.some((j) => j.status === 'open' && j.steps?.workDoneAt)) return;
+    change((prev) => prev.map((j) => (j.status === 'open' && j.steps?.workDoneAt ? { ...j, status: 'done', updatedAt: Date.now() } : j)));
+  }, [loaded, jobs, change]);
+
   const add = useCallback<JobsApi['add']>(
     (inputs, details, summary, extra) => {
       const made = createJob(inputs, details, summary, Date.now());
@@ -192,7 +199,9 @@ export function JobsProvider({ children }: { children: ReactNode }) {
           if (at === undefined) delete steps[step];
           else steps[step] = at;
           const { steps: _old, ...rest } = j;
-          return (Object.keys(steps).length ? { ...rest, steps, updatedAt: Date.now() } : { ...rest, updatedAt: Date.now() }) as Job;
+          // Work done closes the job (Odoo moves it to Completed on sync); undoing it reopens it.
+          const status = step === 'workDoneAt' ? (at === undefined ? (j.status === 'done' ? 'open' : j.status) : 'done') : j.status;
+          return (Object.keys(steps).length ? { ...rest, status, steps, updatedAt: Date.now() } : { ...rest, status, updatedAt: Date.now() }) as Job;
         }),
       ),
     [change],

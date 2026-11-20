@@ -125,6 +125,8 @@ describe('job steps', () => {
   it('shows time on site and builds a text link', () => {
     expect(onSiteFor(0, 100)).toBeNull();
     expect(onSiteFor(1000, 1000 + 84 * 60000)).toBe('1:24');
+    // The clock stops at Work done.
+    expect(onSiteFor(1000, 1000 + 600 * 60000, 1000 + 84 * 60000)).toBe('1:24');
     expect(smsLink('(555) 010-0100', 'On my way')).toBe('sms:5550100100?body=On%20my%20way');
     expect(smsLink('', 'x')).toBeUndefined();
   });
