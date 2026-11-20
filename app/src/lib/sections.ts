@@ -23,3 +23,9 @@ export const TOOL_PAGES = [
 ] as const satisfies readonly { id: string; name: string; href: Href; label: string; title: string; subtitle: string }[];
 
 export type SectionId = (typeof SECTIONS)[number]['id'];
+
+/** What a plain technician sees on the bar: no Customers list and no Sales. Both stay open for the other roles. */
+export const TECH_SECTION_IDS: readonly SectionId[] = ['today', 'jobs', 'tools'];
+
+/** Routes a tech is sent home from (old links, notifications); the pages they open from a job stay open. */
+export const TECH_HIDDEN_HREFS: readonly string[] = ['/customers', '/sales'];

@@ -40,3 +40,20 @@ export function useOwner(): { owner: boolean; ready: boolean } {
   if (!client) return { owner: (rolePreview() ?? 'owner') === 'owner', ready: true };
   return { owner: access.owner, ready };
 }
+
+/**
+ * True for a plain technician: signed in (or looking as one) with none of the
+ * owner, dispatch, office or sales roles. Techs get a short bottom bar (Home,
+ * Jobs, Tools) and Needs you only for their own jobs. Not true until Odoo has
+ * answered, so the full bar never flickers into the short one.
+ */
+export function useTech(): boolean {
+  const { status, client } = useOdoo();
+  const { access, ready } = useDepartments();
+  if (status === 'loading' || status === 'signingIn' || !ready) return false;
+  if (!client) {
+    const p = rolePreview();
+    return p !== null && p !== 'owner' && p !== 'dispatcher' && p !== 'office' && p !== 'sales';
+  }
+  return !(access.owner || access.dispatch || access.office || access.sales);
+}

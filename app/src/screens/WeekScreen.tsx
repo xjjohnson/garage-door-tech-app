@@ -8,6 +8,7 @@ import { VisitCard } from '../components/VisitCard';
 import { cleanNotes } from '../lib/odooJobs';
 import { formatMoney } from '../lib/prices';
 import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay, windowLabel } from '../lib/schedule';
+import { useTech } from '../lib/useDepartments';
 import { useStats } from '../lib/useStats';
 import { useVisits } from '../lib/useVisits';
 import { useGeocode } from '../lib/useGeocode';
@@ -38,6 +39,7 @@ export function WeekScreen({ now = Date.now }: { now?: () => number }) {
     const p = points[a.address.trim()];
     return p ? summarize(hoursFor(hours[weatherKey(p)] ?? [], a.start, a.minutes)) : null;
   };
+  const tech = useTech();
   const owed = stats.owed;
   // The rest of the week under the picked day, so the page isn't empty.
   const later = days.filter((d) => d !== picked && d >= picked).flatMap((d) => onDay(live, d).map((a) => ({ a, d })));
@@ -78,7 +80,7 @@ export function WeekScreen({ now = Date.now }: { now?: () => number }) {
         <Text style={styles.count} testID="week-later-none">Nothing else booked this week.</Text>
       ) : null}
       {visits.length === 0 ? <Action label="Open the schedule" onPress={() => router.push('/schedule')} testID="week-schedule" /> : null}
-      {owed > 0 ? <Action label={`${formatMoney(owed)} owed to you · see invoices`} onPress={() => router.push('/sales')} testID="week-owed" /> : null}
+      {owed > 0 && !tech ? <Action label={`${formatMoney(owed)} owed to you · see invoices`} onPress={() => router.push('/sales')} testID="week-owed" /> : null}
       <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="week-wrap-up" />
     </View>
   );
