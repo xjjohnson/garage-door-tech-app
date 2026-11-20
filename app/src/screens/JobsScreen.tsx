@@ -17,11 +17,11 @@ import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
 type Filter = JobStatus | 'all' | 'unpaid' | 'upcoming';
 
 const FILTERS: ChipOption<Filter>[] = [
+  { label: 'All', value: 'all' },
   { label: 'Open', value: 'open' },
   { label: 'Upcoming', value: 'upcoming' },
   { label: 'Unpaid', value: 'unpaid' },
   { label: 'Done', value: 'done' },
-  { label: 'All', value: 'all' },
 ];
 
 const CONFIRM_MS = 4000;
