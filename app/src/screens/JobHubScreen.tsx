@@ -70,7 +70,7 @@ export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => n
   const steps = jobSteps(job, invoices);
   const next = nextStep(steps);
   const inv = jobInvoice(job, invoices);
-  const site = onSiteFor(job.steps?.arrivedAt, now());
+  const site = onSiteFor(job.steps?.arrivedAt, now(), job.steps?.workDoneAt);
   const tel = phoneLink(job.phone);
   const maps = mapsLink(jobAddress(job, customer));
 
