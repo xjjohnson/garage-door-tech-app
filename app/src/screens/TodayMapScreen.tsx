@@ -11,7 +11,8 @@ import { phoneLink } from '../lib/jobs';
 import { DAY_COLORS, MapData, mapHtml, MapPin, parseMapMessage, PinKind, setDataScript } from '../lib/mapHtml';
 import { OdooError, OdooPlace } from '../lib/odoo';
 import { formatMoney } from '../lib/prices';
-import { addDays, Appointment, dayLabel, formatTime, onDay, startOfDay } from '../lib/schedule';
+import { addDays, Appointment, dayLabel, formatTime, JobDoneInfo, onDay, startOfDay, visitDone } from '../lib/schedule';
+import { useJobs } from '../lib/useJobs';
 import { retryGeocode, useGeocode } from '../lib/useGeocode';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
@@ -47,12 +48,12 @@ export interface Place {
 }
 
 /** Today's stops in time order, numbered, and which one is next. */
-export function routeStops(appointments: Appointment[], now: number, onDate: number = now): Place[] {
+export function routeStops(appointments: Appointment[], now: number, onDate: number = now, jobs: readonly JobDoneInfo[] = []): Place[] {
   const day = onDay(appointments, onDate).filter((a) => a.status !== 'cancelled');
-  const next = day.find((a) => a.status === 'booked' && a.start + a.minutes * 60000 > now);
+  const next = day.find((a) => a.status === 'booked' && !visitDone(a, jobs) && a.start + a.minutes * 60000 > now);
   return day.map((a, i) => ({
     id: `stop-${a.id}`,
-    kind: a.status === 'done' ? 'done' : a === next ? 'next' : 'stop',
+    kind: visitDone(a, jobs) ? 'done' : a === next ? 'next' : 'stop',
     label: String(i + 1),
     title: `${i + 1} · ${a.name} · ${formatTime(a.start)}`,
     detail: [a.address, a.what].filter(Boolean).join(' · '),
@@ -71,6 +72,7 @@ export function routeStops(appointments: Appointment[], now: number, onDate: num
  */
 export function TodayMapScreen({ now = Date.now, full = false }: { now?: () => number; full?: boolean }) {
   const appointments = useVisits();
+  const { jobs } = useJobs();
   const { invoices } = useInvoices();
   const { client } = useOdoo();
   const startJob = useStartJob();
@@ -85,12 +87,12 @@ export function TodayMapScreen({ now = Date.now, full = false }: { now?: () => n
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(startOfDay(t), i)), [t]);
   const [picked, setPicked] = useState(days[0]);
   const counts = days.map((d) => onDay(appointments, d).filter((a) => a.status !== 'cancelled').length);
-  const stops = useMemo(() => routeStops(appointments, t, picked), [appointments, t, picked]);
+  const stops = useMemo(() => routeStops(appointments, t, picked, jobs), [appointments, t, picked, jobs]);
   // The whole week on the map: every day's stops, each pin saying its weekday in that day's colour.
   const weekStops = useMemo(
     () =>
       days.flatMap((d, i) =>
-        routeStops(appointments, t, d).map<Place>((p) => ({
+        routeStops(appointments, t, d, jobs).map<Place>((p) => ({
           ...p,
           pinLabel: new Date(d).toLocaleDateString('en-US', { weekday: 'short' }),
           color: DAY_COLORS[i % DAY_COLORS.length],
@@ -99,7 +101,7 @@ export function TodayMapScreen({ now = Date.now, full = false }: { now?: () => n
       ),
     [appointments, t, days, picked],
   );
-  const stopDay = (id: string) => days.find((d) => routeStops(appointments, t, d).some((s) => s.id === id));
+  const stopDay = (id: string) => days.find((d) => routeStops(appointments, t, d, jobs).some((s) => s.id === id));
 
   useEffect(() => {
     if (!nearby || !client) {

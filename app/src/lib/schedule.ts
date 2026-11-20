@@ -124,10 +124,20 @@ export function overlaps(list: Appointment[], a: Pick<Appointment, 'id' | 'start
   return list.filter((b) => b.id !== a.id && b.status === 'booked' && b.start < end && a.start < b.start + b.minutes * 60_000);
 }
 
+/** A job as far as telling whether its visit is finished goes: closed, or the work marked done. */
+export type JobDoneInfo = { id: string; status?: string; steps?: { workDoneAt?: number } };
+
+/** Whether a visit is finished: marked done, or its job is closed or has the work done. A finished visit is never the next stop. */
+export function visitDone(a: Pick<Appointment, 'status' | 'jobId'>, jobs: readonly JobDoneInfo[] = []): boolean {
+  if (a.status === 'done') return true;
+  const job = a.jobId ? jobs.find((j) => j.id === a.jobId) : undefined;
+  return job?.status === 'done' || !!job?.steps?.workDoneAt;
+}
+
 /** The next booked visits from now, soonest first. */
-export function upcoming(list: Appointment[], now: number, limit = 3): Appointment[] {
+export function upcoming(list: Appointment[], now: number, limit = 3, jobs: readonly JobDoneInfo[] = []): Appointment[] {
   return list
-    .filter((a) => a.status === 'booked' && a.start + a.minutes * 60_000 > now)
+    .filter((a) => a.status === 'booked' && !visitDone(a, jobs) && a.start + a.minutes * 60_000 > now)
     .sort((a, b) => a.start - b.start)
     .slice(0, limit);
 }
