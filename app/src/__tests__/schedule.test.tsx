@@ -5,6 +5,7 @@ import { makeBackup, parseBackup } from '../lib/backup';
 import { CUSTOMERS_STORAGE_KEY } from '../lib/customers';
 import { DEFAULT_PRICE_SHEET } from '../lib/prices';
 import { addDays, Appointment, dayLabel, formatTime, freeGaps, mapsLink, mergeSchedule, onDay, onMyWayText, overlaps, parseSchedule, reminderText, SCHEDULE_STORAGE_KEY, slotsFor, startOfDay, upcoming } from '../lib/schedule';
+import { setRolePreview } from '../lib/devFlags';
 import { renderApp } from '../testing/renderApp';
 
 const DAY0 = new Date(2026, 10, 11).getTime(); // Wed, Nov 11
@@ -146,6 +147,23 @@ describe('schedule screen', () => {
     const saved = parseSchedule(await AsyncStorage.getItem(SCHEDULE_STORAGE_KEY));
     expect(saved).toHaveLength(1);
     expect(saved[0].start).toBe(at(addDays(tomorrow, 1), 14));
+  });
+
+  it('a tech keeps their visits, Directions, History and Mark done, but cannot reschedule', async () => {
+    await AsyncStorage.clear();
+    setRolePreview('tech');
+    const tomorrow = addDays(startOfDay(Date.now()), 1);
+    await AsyncStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify([appt('a', at(tomorrow, 9))]));
+    await renderApp('/schedule');
+    await settle();
+    await fireEvent.press(screen.getByTestId(`cal-${new Date(tomorrow).getDate()}`));
+    expect(screen.getByTestId('visit-maps-a')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('visit-more-a'));
+    expect(screen.getByTestId('visit-done-a')).toBeTruthy();
+    expect(screen.queryByTestId('visit-reschedule-a')).toBeNull();
+    // Booking a new visit is still there.
+    expect(screen.getByTestId('schedule-book')).toBeTruthy();
+    setRolePreview(null);
   });
 
   it('keeps Done, Reschedule and Cancel in a More menu, and asks before cancelling', async () => {
