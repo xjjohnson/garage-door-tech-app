@@ -666,6 +666,7 @@ describe('the Jobs tab in each theme layout', () => {
       o.locations.push({ id: 71, name: 'Atx', street: '9 Elm St', city: 'Austin', zip: '78701', phone: '512 555 0100' });
       o.orders.push({ id: 600, name: 'FO0001', location_id: 71, person_id: 41, scheduled_date_start: toOdooTime(at(10, 1)), scheduled_duration: 1, stage_id: [1, 'New'], description: 'Help door trapped' });
       o.orders.push({ id: 602, name: 'FO0003', location_id: 71, person_id: 41, stage_id: [1, 'New'] });
+      o.orders.push({ id: 601, name: 'FO0002', location_id: 71, person_id: 41, scheduled_date_start: toOdooTime(at(15, 0)), scheduled_duration: 1, stage_id: [1, 'New'] });
       jest.spyOn(globalThis, 'fetch').mockImplementation(((url: string, init: Parameters<Fetch>[1]) => o.fetchFn(url, init)) as unknown as typeof fetch);
       const app = await renderApp('/team');
       await settle();
@@ -682,9 +683,17 @@ describe('the Jobs tab in each theme layout', () => {
       if (jobsGroup === 'day') {
         expect(screen.getAllByRole('header', { name: /Tomorrow · 1/ }).length).toBe(1);
         expect(screen.getAllByRole('header', { name: /No date · 1/ }).length).toBe(1);
+        // Days ahead come before jobs with no date.
+        const heads = screen.getAllByRole('header').map((h) => String(h.props.children ?? '').replace(/,/g, ''));
+        expect(heads.findIndex((h) => /Today/.test(h))).toBeLessThan(heads.findIndex((h) => /Tomorrow/.test(h)));
+        expect(heads.findIndex((h) => /Tomorrow/.test(h))).toBeLessThan(heads.findIndex((h) => /No date/.test(h)));
       }
-      if (jobsRail) expect(screen.getByTestId('odoo-job-time-600')).toHaveTextContent(/10:00/);
-      if (jobsGroup === 'status') expect(screen.getAllByRole('header', { name: /New · 2/ }).length).toBe(1);
+      if (jobsRail) {
+        expect(screen.getByTestId('odoo-job-time-600')).toHaveTextContent(/10:00/);
+        // No empty time column for a job with no date.
+        expect(screen.queryByTestId('odoo-job-time-602')).toBeNull();
+      }
+      if (jobsGroup === 'status') expect(screen.getAllByRole('header', { name: /New · 3/ }).length).toBe(1);
       if (jobRows === 'table') expect(screen.getByText('Address')).toBeTruthy();
       await fireEvent.press(screen.getByTestId('odoo-job-600'));
       await settle();

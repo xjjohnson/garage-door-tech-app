@@ -44,20 +44,27 @@ export function CustomerLayouts({ layout, rows }: { layout: Exclude<CustomersLay
 function Big({ rows }: { rows: CustomerRow[] }) {
   return (
     <View style={styles.stack} testID="customers-big">
-      {rows.map((c) => (
-        <Pressable key={c.id} onPress={() => go(c.id)} accessibilityRole="button" testID={`customer-${c.id}`} style={({ pressed }) => [styles.bigRow, pressed && styles.pressed]}>
-          <Text style={styles.avatar}>{initials(c.name)}</Text>
-          <View style={styles.grow}>
-            <Text style={styles.bigName} numberOfLines={2}>{c.name}</Text>
-            <Text style={styles.meta} numberOfLines={1}>{sub(c)}</Text>
-            {c.owed > 0 ? <Text style={styles.owes}>owes {formatMoney(c.owed)}</Text> : null}
+      {rows.map((c) => {
+        const call = phoneLink(c.phone);
+        return (
+          <View key={c.id} style={styles.bigRow}>
+            <Pressable onPress={() => go(c.id)} accessibilityRole="button" testID={`customer-${c.id}`} style={({ pressed }) => [styles.bigTop, pressed && styles.pressed]}>
+              <Text style={styles.avatar}>{initials(c.name)}</Text>
+              <View style={styles.grow}>
+                <Text style={styles.bigName} numberOfLines={2}>{c.name}</Text>
+                <Text style={styles.meta} numberOfLines={1}>{sub(c)}</Text>
+                {c.owed > 0 ? <Text style={styles.owes}>owes {formatMoney(c.owed)}</Text> : null}
+              </View>
+            </Pressable>
+            {call || c.address ? (
+              <View style={styles.pair}>
+                {call ? <Pressable onPress={() => open(call)} accessibilityRole="button" accessibilityLabel={`Call ${c.name}`} testID={`customer-call-${c.id}`} style={styles.pill}><Text style={styles.pillText}>Call</Text></Pressable> : null}
+                {c.address ? <Pressable onPress={() => open(googleNavLink(c.address))} accessibilityRole="button" accessibilityLabel={`Directions to ${c.name}`} testID={`customer-go-${c.id}`} style={styles.pill}><Text style={styles.pillText}>Go</Text></Pressable> : null}
+              </View>
+            ) : null}
           </View>
-          <View style={styles.pair}>
-            {phoneLink(c.phone) ? <Pressable onPress={() => open(phoneLink(c.phone))} accessibilityRole="button" accessibilityLabel={`Call ${c.name}`} testID={`customer-call-${c.id}`} style={styles.pill}><Text style={styles.pillText}>Call</Text></Pressable> : null}
-            {c.address ? <Pressable onPress={() => open(googleNavLink(c.address))} accessibilityRole="button" accessibilityLabel={`Directions to ${c.name}`} testID={`customer-go-${c.id}`} style={styles.pill}><Text style={styles.pillText}>Go</Text></Pressable> : null}
-          </View>
-        </Pressable>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -165,15 +172,16 @@ const styles = StyleSheet.create({
   grow: { flex: 1, minWidth: 0 },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: sp(8) },
   head: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.6, color: colors.muted },
-  bigRow: { minHeight: touch.min + 30, flexDirection: 'row', alignItems: 'center', gap: sp(12), padding: sp(12), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card },
+  bigRow: { gap: sp(10), padding: sp(12), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card },
+  bigTop: { flexDirection: 'row', alignItems: 'center', gap: sp(12) },
   avatar: { width: 44, height: 44, borderRadius: rad(22), textAlign: 'center', textAlignVertical: 'center', lineHeight: 44, overflow: 'hidden', fontSize: fs(15), fontWeight: '800', color: colors.selected, backgroundColor: colors.info },
   bigName: { fontSize: fs(18), fontWeight: '800', color: colors.text },
   name: { fontSize: fs(17), fontWeight: '800', color: colors.text, flexShrink: 1 },
   meta: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
   owes: { fontSize: fs(15), fontWeight: '800', color: colors.warn },
-  pair: { gap: sp(6) },
-  pill: { minHeight: sz(40), minWidth: 64, paddingHorizontal: sp(12), borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.info },
-  pillText: { fontSize: fs(15), fontWeight: '800', color: colors.selected },
+  pair: { flexDirection: 'row', gap: sp(10) },
+  pill: { flex: 1, minHeight: sz(52), paddingHorizontal: sp(12), borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.info },
+  pillText: { fontSize: fs(17), fontWeight: '800', color: colors.selected },
   pressed: { backgroundColor: colors.info },
   table: { borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, overflow: 'hidden' },
   tr: { flexDirection: 'row', alignItems: 'center', gap: sp(8), paddingHorizontal: sp(12), paddingVertical: sp(8) },

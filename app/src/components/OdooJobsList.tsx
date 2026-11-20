@@ -13,7 +13,7 @@ import { Text } from './AppText';
 import { log } from '../lib/log';
 import type { OdooTask } from '../lib/odoo';
 import { whatOf } from '../lib/odooJobs';
-import { dayLabel, formatTime } from '../lib/schedule';
+import { dayLabel, formatTime, startOfDay } from '../lib/schedule';
 import { invoiceStatus } from '../lib/invoices';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
@@ -130,10 +130,12 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
           const stage = t.stage || 'New';
           const chip = waiting ? 'Waiting for payment' : started ? 'In progress' : stage;
           const day = when !== undefined ? dayLabel(when, t0) : 'No date';
+          const past = when !== undefined && when < startOfDay(t0);
           return [
             {
               key: t.id,
-              heading: layouts.jobsGroup === 'status' ? chip : layouts.jobsGroup === 'day' ? day : '',
+              heading: layouts.jobsGroup === 'status' ? chip : layouts.jobsGroup === 'day' ? (past ? `Overdue · ${day}` : day) : '',
+              at: when,
               node: wrapRail(
                 when,
                 t.id,
@@ -154,6 +156,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
             },
           ];
         }),
+      t0,
       )}
       {more ? (
         <Pressable onPress={() => load(rows?.length ?? 0)} disabled={busy} accessibilityRole="button" testID="odoo-jobs-more" style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
@@ -166,7 +169,7 @@ export function OdooJobsList({ filter, search, owedJobIds, now = Date.now }: { f
 
 /** Field: the job's start time in a column on the left, like a day plan. */
 function wrapRail(when: number | undefined, id: number, node: ReactNode): ReactNode {
-  if (!layouts.jobsRail) return node;
+  if (!layouts.jobsRail || when === undefined) return node;
   return (
     <View key={id} style={styles.railRow}>
       <Text style={styles.railTime} testID={`odoo-job-time-${id}`}>{when !== undefined ? formatTime(when).replace(' ', '\n') : ''}</Text>
@@ -176,7 +179,7 @@ function wrapRail(when: number | undefined, id: number, node: ReactNode): ReactN
 }
 
 /** Puts a heading above each run of jobs when the theme groups them (by day or by status), else just the jobs. */
-function groupJobs(items: { key: number; heading: string; node: ReactNode }[]): ReactNode {
+function groupJobs(items: { key: number; heading: string; at?: number; node: ReactNode }[], today: number): ReactNode {
   if (layouts.jobsGroup === 'none') return items.map((i) => i.node);
   const order: string[] = [];
   const by = new Map<string, typeof items>();
@@ -186,6 +189,16 @@ function groupJobs(items: { key: number; heading: string; node: ReactNode }[]): 
       order.push(i.heading);
     }
     by.get(i.heading)!.push(i);
+  }
+  if (layouts.jobsGroup === 'day') {
+    // Today first, then the days ahead in order, then jobs with no date, then overdue days (newest first).
+    const rank = (h: string) => {
+      const at = by.get(h)![0]?.at;
+      if (at === undefined) return [2, 0];
+      const d = startOfDay(at);
+      return d < startOfDay(today) ? [3, -d] : [0, d];
+    };
+    order.sort((a, b) => rank(a)[0]! - rank(b)[0]! || rank(a)[1]! - rank(b)[1]!);
   }
   return order.map((h) => (
     <View key={h} style={[styles.group, layouts.jobRows === 'tile' && styles.tiles, { gap: rowGap(layouts.jobRows) }]}>
