@@ -15,15 +15,15 @@ import { OdooJobsList } from '../components/OdooJobsList';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
 
-type Filter = JobStatus | 'all' | 'unpaid' | 'paid' | 'upcoming';
+type Filter = 'all' | 'todo' | 'estimate' | 'unpaid' | 'paid';
 
+// Every job sits in one of To do, Estimate, Unpaid or Paid (cancelled ones only show under All).
 const FILTERS: ChipOption<Filter>[] = [
   { label: 'All', value: 'all' },
-  { label: 'Open', value: 'open' },
-  { label: 'Upcoming', value: 'upcoming' },
+  { label: 'To do', value: 'todo' },
+  { label: 'Estimate', value: 'estimate' },
   { label: 'Unpaid', value: 'unpaid' },
   { label: 'Paid', value: 'paid' },
-  { label: 'Done', value: 'done' },
 ];
 
 const CONFIRM_MS = 4000;
@@ -54,7 +54,16 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
   const fromOdoo = odooStatus === 'signedIn' && !!client && client.session.kind !== 'none';
   const shown = useMemo(() => {
     const own = fromOdoo ? jobs.filter((j) => !j.odooJob) : jobs;
-    const byStatus = filter === 'all' ? own : filter === 'upcoming' ? [] : filter === 'unpaid' ? own.filter((j) => owedJobIds.has(j.id)) : filter === 'paid' ? own.filter((j) => paidJobIds.has(j.id)) : own.filter((j) => j.status === filter);
+    const byStatus =
+      filter === 'all'
+        ? own
+        : filter === 'unpaid'
+          ? own.filter((j) => owedJobIds.has(j.id))
+          : filter === 'paid'
+            ? own.filter((j) => paidJobIds.has(j.id))
+            : filter === 'todo'
+              ? own.filter((j) => j.status === 'open')
+              : own.filter((j) => j.status === 'done' && !owedJobIds.has(j.id) && !paidJobIds.has(j.id));
     return sortJobs(searchJobs(byStatus, query));
   }, [jobs, filter, query, fromOdoo, owedJobIds, paidJobIds]);
   const openCount = jobs.filter((j) => j.status === 'open').length;
@@ -79,7 +88,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
           </Pressable>
         ) : null}
       </View>
-      <ChipRow options={fromOdoo ? FILTERS : FILTERS.filter((f) => f.value !== 'upcoming')} value={filter} onChange={setFilter} compact fit testID="jobs-filter" />
+      <ChipRow options={FILTERS} value={filter} onChange={setFilter} compact fit testID="jobs-filter" />
 
       {!fromOdoo && loaded && jobs.length === 0 ? (
         <View style={styles.empty} testID="jobs-empty">
@@ -115,7 +124,7 @@ export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
         />
       ))}
 
-      {fromOdoo ? <OdooJobsList filter={filter === 'unpaid' || filter === 'paid' ? 'all' : filter} search={query} owedJobIds={filter === 'unpaid' ? owedJobIds : filter === 'paid' ? paidJobIds : undefined} /> : null}
+      {fromOdoo ? <OdooJobsList filter={filter === 'todo' ? 'open' : filter === 'estimate' ? 'done' : 'all'} search={query} owedJobIds={filter === 'unpaid' ? owedJobIds : filter === 'paid' ? paidJobIds : undefined} noInvoiceOnly={filter === 'estimate' ? new Set([...owedJobIds, ...paidJobIds]) : undefined} /> : null}
 
       <JobDetailsSheet
         visible={editing !== null}

@@ -144,7 +144,7 @@ function Chip<T>({
       accessibilityLabel={option.sub ? `${option.label}, ${option.sub}` : option.label}
       style={({ pressed }) => [styles.chip, compact && styles.chipCompact, inline && styles.chipInline, fit && styles.chipFit, selected && styles.chipOn, pressed && !selected && styles.chipPressed]}
     >
-      <Text style={[styles.chipText, selected && styles.chipTextOn]} numberOfLines={1} adjustsFontSizeToFit={fit} minimumFontScale={0.8}>{option.label}</Text>
+      <Text style={[styles.chipText, selected && styles.chipTextOn]} numberOfLines={1} adjustsFontSizeToFit={fit} minimumFontScale={0.85}>{option.label}</Text>
       {option.sub ? <Text style={[styles.chipSub, selected && styles.chipTextOn]}>{option.sub}</Text> : null}
     </Pressable>
   );
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   sectionFirst: { marginTop: sp(0) },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
   chipsFit: { flexWrap: 'nowrap', gap: sp(4) },
-  chipFit: { flexBasis: 0, minWidth: 0, paddingHorizontal: sp(4) },
+  chipFit: { flexBasis: 0, minWidth: 0, paddingHorizontal: sp(2) },
   chip: {
     minHeight: touch.min,
     minWidth: 72,
