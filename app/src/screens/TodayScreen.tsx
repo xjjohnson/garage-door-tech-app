@@ -156,7 +156,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
           <VisitCard
             key={j.id}
             variant={rows}
-            top="Started"
+            top={[j.odooJob?.name, `Started ${formatTime(j.steps?.arrivedAt ?? j.steps?.onMyWayAt ?? 0)}`].filter(Boolean).join(' · ').toUpperCase()}
             chip={j.steps?.arrivedAt ? 'Working' : 'On the way'}
             tone="on"
             name={jobName(j)}

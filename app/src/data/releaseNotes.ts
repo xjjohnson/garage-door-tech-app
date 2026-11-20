@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.24',
+    title: 'Field theme: job order, bigger Call and Go, fuller Week',
+    changes: ['Field Jobs: days now run Today, then the days ahead, then No date, then Overdue days at the bottom (marked Overdue). Jobs with no date no longer leave an empty time column.', 'Field Customers: Call and Go are big side-by-side buttons under each customer instead of small stacked pills.', 'Field Home > Week: shows the rest of the week under the picked day, and the owed total matches the Sales page.', 'Field Home > Today: a started job shows its Odoo number and start time, so two jobs for the same customer can be told apart.'],
+    test: ['Field theme, Jobs: is Today first and No date after the days ahead? Is Overdue last?', 'Customers: are Call and Go easy to hit with a thumb?', 'Home > Week: does the page show the rest of the week?'],
+  },
+  {
     release: '0.6.23',
     title: 'Dispatch Jobs lanes readable, Customers owed from Odoo',
     changes: ['Dispatch Jobs: the hour numbers now line up with the lane, each visit block shows its time and customer name instead of a cut-off "F…", and Not assigned shows 2 jobs with Show all instead of filling the screen.', 'Customers (Dispatch and Office): money owed now comes from Odoo\'s unpaid invoices, so it matches the customer page. Customers with no jobs show blank cells and a dimmer name instead of 0 and a dash.'],
