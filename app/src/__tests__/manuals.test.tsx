@@ -101,6 +101,8 @@ describe('searchManuals', () => {
   it('finds per-model opener entries, current and older', () => {
     const top = (q: string) => searchManuals(q).map((h) => h.link.id);
     expect(top('6690L')).toContain('liftmaster-6690l');
+    expect(top('387lm')).toContain('liftmaster-remotes-keypads');
+    expect(top('387 LM')).toContain('liftmaster-remotes-keypads');
     expect(top('8165W')).toContain('liftmaster-8165w');
     expect(top('3280')).toContain('liftmaster-3280');
     expect(top('WD962KD')).toContain('chamberlain-wd962kd');
