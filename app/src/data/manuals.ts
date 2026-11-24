@@ -1236,6 +1236,17 @@ export const MANUAL_LINKS: ManualLink[] = [
     checked: '2026-11-10',
   },
   {
+    id: 'liftmaster-remotes-keypads',
+    brand: 'liftmaster',
+    title: 'Remotes and wireless keypads (387LM, 387LMC, 390 and similar)',
+    kind: 'library',
+    category: 'opener',
+    models: ['387LM', '387LMC', '390', 'universal wireless keypad', 'keypad', 'remote', 'Security+ 2.0'],
+    note: 'Type 387LM into the search on the page. The page has the keypad instructions and programming steps.',
+    url: 'https://support.chamberlaingroup.com/s/manuals-parts#t=All',
+    checked: '2026-11-24',
+  },
+  {
     id: 'liftmaster-6690l',
     brand: 'liftmaster',
     title: '6690L: install manual, user\'s guide, product guide',
