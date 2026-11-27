@@ -15,6 +15,24 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.42',
+    title: 'Sales theme and a sales-only app',
+    changes: [
+      'A new Sales theme in Settings: square, compact and indigo, with desk tables that put the dollars and the age of each row up front.',
+      'A person whose only role is Sales now gets a sales bar: Home, Quotes, Invoices, Customers and More. Home shows open quote dollars, how many went quiet and what was won this month, with New job and Request parts buttons and the quotes to chase.',
+      'Quotes has Quiet, Open, Won and Lost tables. Invoices has Unpaid and Overdue tables. Tap a row for its buttons: Call, Text, Email again, Mark lost, Record payment. Every change in Odoo still waits for a second press.',
+      'Request parts: pick the customer, the parts and how many, when they are needed and a note. It is saved in Odoo as a to-do on the customer. Nothing is ordered from there.',
+      'Purchasing has a new Parts requests page where the buyer sees what sales asked for and taps Mark ordered once they have ordered it.',
+    ],
+    test: [
+      'Settings, pick the Sales theme, restart: the Sales area pages (quiet and open quotes) turn into tables.',
+      'Look as sales (Developer): the bar is Home, Quotes, Invoices, Customers, More.',
+      'Home: tap New job, then Request parts, and send a request for one part.',
+      'Purchasing as the buyer: Parts requests shows it; Mark ordered completes the to-do in Odoo.',
+      'Quotes, tap a row: Mark lost asks for a reason first. Invoices, Record payment shows its panel first.',
+    ],
+  },
+  {
     release: '0.6.41',
     title: 'Dispatcher-only app',
     changes: [

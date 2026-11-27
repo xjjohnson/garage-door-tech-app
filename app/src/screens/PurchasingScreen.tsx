@@ -8,6 +8,8 @@ import { PricelistEditor } from '../components/PricelistEditor';
 import { ChipRow } from '../components/controls';
 import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
 import { useBadges } from '../lib/useBadges';
+import { partsRequests } from '../lib/odooOffice';
+import { ActivityList } from './CarePages';
 import { OdooClient } from '../lib/odoo';
 import {
   cancelPurchase,
@@ -43,8 +45,8 @@ import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, sp } from '../theme';
 
-type Tab = 'order' | 'orders' | 'vendors' | 'prices' | 'lists' | 'usage';
-const LABELS: Record<Tab, string> = { order: 'To order', orders: 'Purchase orders', vendors: 'Vendors', prices: 'Cost and price', lists: 'Pricelists', usage: 'Reorder levels' };
+type Tab = 'order' | 'requests' | 'orders' | 'vendors' | 'prices' | 'lists' | 'usage';
+const LABELS: Record<Tab, string> = { order: 'To order', requests: 'Parts requests', orders: 'Purchase orders', vendors: 'Vendors', prices: 'Cost and price', lists: 'Pricelists', usage: 'Reorder levels' };
 
 /**
  * The buyer's area: what is under minimum across the warehouse and every truck,
@@ -73,6 +75,7 @@ export function PurchasingScreen() {
       title: 'Ordering',
       items: [
         { id: 'order', label: 'To order', detail: 'Under minimum, counting what is on order', badge: badges.toOrder },
+        { id: 'requests', label: 'Parts requests', detail: 'Asked for by sales' },
         { id: 'orders', label: 'Purchase orders', detail: 'Review, confirm and email', badge: badges.drafts + badges.late },
         { id: 'vendors', label: 'Vendors', detail: 'Contacts and their prices' },
       ],
@@ -95,6 +98,7 @@ export function PurchasingScreen() {
       {tab !== null ? (
         <SectionPage area="Purchasing" title={LABELS[tab]} onBack={back} testID="purchasing-back">
         {tab === 'order' ? <ToOrder client={client} /> : null}
+        {tab === 'requests' ? <ActivityList client={client} load={() => partsRequests(client)} empty="No one has asked for parts." doneLabel="Mark ordered" testID="requests" /> : null}
         {tab === 'orders' ? <Orders client={client} /> : null}
         {tab === 'vendors' ? <Vendors client={client} /> : null}
         {tab === 'prices' ? <CostAndPrice client={client} canEdit={access.pricing} /> : null}
