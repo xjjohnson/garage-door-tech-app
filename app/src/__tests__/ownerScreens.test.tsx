@@ -49,11 +49,20 @@ describe('owner-only screens', () => {
     expect(screen.getByTestId('tools-springs')).toBeTruthy();
   });
 
+  it('The owner bar keeps Tools to the field and day tools: business numbers, price book and departments live in Money, Areas and Manage', async () => {
+    held = ['base.group_system'];
+    await render(<ToolsScreen />);
+    expect(await screen.findByTestId('tools-springs')).toBeTruthy();
+    expect(screen.getByTestId('open-time-log')).toBeTruthy();
+    expect(screen.queryByTestId('tools-scorecard')).toBeNull();
+    expect(screen.queryByTestId('tools-price-book')).toBeNull();
+    expect(screen.queryByTestId('tools-warehouse')).toBeNull();
+    expect(screen.queryByTestId('stats-card')).toBeNull();
+  });
+
   it('Look as a tech takes the owner rows and departments away at once, and Developer still opens for the owner', async () => {
     held = ['base.group_system'];
     await render(<ToolsScreen />);
-    expect(await screen.findByTestId('tools-scorecard')).toBeTruthy();
-    expect(screen.getByTestId('tools-warehouse')).toBeTruthy();
     await act(async () => setRolePreview('tech'));
     await waitFor(() => expect(screen.queryByTestId('tools-scorecard')).toBeNull());
     expect(screen.queryByTestId('tools-warehouse')).toBeNull();

@@ -9,7 +9,7 @@ import { followUps } from '../lib/followups';
 import { isLow } from '../lib/stock';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
-import { useDepartments, useOwner } from '../lib/useDepartments';
+import { useDepartments, useOwner, useOwnerBar } from '../lib/useDepartments';
 import { useStock } from '../lib/useStock';
 import { useBadges } from '../lib/useBadges';
 import { dispatchTotal, officeTotal, overviewTotal, purchasingTotal, salesTotal } from '../lib/deptBadges';
@@ -29,6 +29,8 @@ export function ToolsScreen() {
   const low = items.filter(isLow).length;
   const { access } = useDepartments();
   const { owner } = useOwner();
+  // The owner bar has Money, Areas and Manage, so Tools keeps only the field and day tools (no second copy of the business numbers, price book or departments).
+  const ownerBar = useOwnerBar();
   const badges = useBadges();
   const buying = purchasingTotal(badges);
   const mode = layouts.tools;
@@ -58,7 +60,7 @@ export function ToolsScreen() {
   return (
     <View style={styles.stack} testID="tools">
       {mode === 'shop' ? departments : null}
-      {owner ? <StatsCard /> : null}
+      {owner && !ownerBar ? <StatsCard /> : null}
       {badges.ready > 0 ? <AlertBanner testID="parts-ready-alert" title={`${badges.ready} job order${badges.ready === 1 ? '' : 's'} ready at the warehouse`} detail="Pick them up, then tap Got it on the job" action="Jobs" onPress={() => router.push('/jobs')} /> : null}
       {low > 0 ? <AlertBanner testID="stock-alert" title={`Truck stock: ${low} low`} detail="Check what to reorder" action="Review" onPress={() => router.push('/stock')} /> : null}
       <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />
@@ -70,7 +72,7 @@ export function ToolsScreen() {
         </View>
       ) : null}
 
-      {mode === 'business' ? businessGroup : null}
+      {mode === 'business' && !ownerBar ? businessGroup : null}
 
       {mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop' ? (
         <>
@@ -104,9 +106,9 @@ export function ToolsScreen() {
         <IconRow icon="cal" label="Schedule" detail="Book and move visits" href="/schedule" testID="tools-schedule" last />
       </RowGroup>
 
-      {mode === 'business' ? null : businessGroup}
+      {mode === 'business' || ownerBar ? null : businessGroup}
 
-      {mode === 'shop' ? null : departments}
+      {mode === 'shop' || ownerBar ? null : departments}
 
       <Text style={styles.version}>Version {SHORT_VERSION} · tap the gear for Settings</Text>
     </View>

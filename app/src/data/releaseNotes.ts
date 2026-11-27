@@ -15,6 +15,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.47',
+    title: 'Owner Tools: field and day tools only',
+    changes: [
+      'On the owner bar, Tools (the Areas page opens it) now keeps just the field and day tools: spring calculator, door weight, diagnose, manuals, truck stock, time, follow-ups and schedule. The business numbers, price book and departments are no longer repeated there, since they live in Money, Areas and Manage.',
+    ],
+    test: [
+      'Sign in as the owner, Areas, Tools: field and day tools only, no Departments or Business list.',
+      'Areas and Manage still open every department, the price book and business numbers.',
+    ],
+  },
+  {
     release: '0.6.46',
     title: 'Warehouse theme: shop Home, one Orders list, stock table, Ready for a tech',
     changes: [
