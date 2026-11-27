@@ -15,7 +15,7 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
-    release: '0.6.44',
+    release: '0.6.46',
     title: 'Warehouse theme: shop Home, one Orders list, stock table, Ready for a tech',
     changes: [
       'New Warehouse theme (Settings > Theme): amber, big buttons. Home lists what to do at the shop: receive, hand job parts to a tech, order what is under minimum, count trucks that are due.',
@@ -29,6 +29,42 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       'Settings > Theme > Warehouse, restart: Home shows the three count tiles and the Do now cards.',
       'Warehouse > Stock: red numbers are under minimum, tap a part to see its page.',
       'Receive a job order, then Warehouse > Ready for a tech: Hand to the truck. Does the tech\'s job show it without moving it a second time?',
+    ],
+  },
+  {
+    release: '0.6.45',
+    title: 'Owner app: money board, Areas and Manage',
+    changes: [
+      'The owner now gets their own bar: Home, Jobs, Money, Areas and Manage. Everything else is still one tap away (Customers, Sales, Tools and every area), so the owner can do it all.',
+      'Home is a money board: collected this month against last month, what you are owed and how much is over 30 days, the last 7 days, and one Needs your OK list (parts that cost more than the price book, plus every red number from every area). Today and your crew sit under it.',
+      'Money shows collected this week and month, what is owed by age, quotes out, and who to chase, with a link to every money page.',
+      'Areas has a tile for Dispatch, Office, Sales, Warehouse and Purchasing with a color light and its key number, then Customers, Follow-ups, Schedule, Truck stock and Tools.',
+      'Manage has the approvals (cost changes) and all the setup: Management, price book, business numbers, scorecard, setup check, team and settings.',
+      'The Owner theme is now warm cream with gold in light mode and charcoal with gold numbers in dark mode, under the Johnsons green header.',
+      'Not in yet: approvals for stock count differences and time sheets. Odoo has no approval step for them to read, so the app does not pretend. Pay and commission shows as Later.',
+    ],
+    test: [
+      'Sign in as the owner: the bar is Home, Jobs, Money, Areas, Manage. Look as a tech (Developer) still shows the short tech bar.',
+      'Home: the month number, what you owe, the 7-day bars and the Needs your OK list show real Odoo numbers. Tap Review on a cost increase: Purchasing opens.',
+      'Areas: tap each tile (Dispatch, Office, Sales, Warehouse, Purchasing) and Customers and Tools under Also here. The bar keeps Areas lit.',
+      'Manage: open Management, price book, business numbers and settings.',
+      'Settings, pick the Owner theme, restart. Try light and dark.',
+    ],
+  },
+  {
+    release: '0.6.44',
+    title: 'Office: money and people, and an office-only app',
+    changes: [
+      'Office now has four tabs: Money, People, Customers and Setup. Money opens on dollar tiles (Overdue, To invoice, Quotes out), a search box, a Do next list and the money lists with their dollars.',
+      'Office lists are tight tables: one line per invoice or quote with the dollars and age, and a tap shows the buttons. Invoice lists have age chips (Current, 1-30, 31-60, 60+) with dollars, and a search box.',
+      'People tab: who is clocked in now, hours this week for each person, and a Time sheets page with each day. It reads Odoo Attendances; nothing here changes Odoo.',
+      'A person whose only role is Office gets an office bar: Home, Office, Customers and More. Home is the money board read from Odoo. The Office theme Home shows the same board for anyone with Office access.',
+    ],
+    test: [
+      'Look as Office (Developer): are the bar tabs Home, Office, Customers, More?',
+      'Office > Money: do the three dollar tiles match Odoo? Type a customer name in the search box.',
+      'Office > Money lists > Unpaid invoices: tap an age chip, tap a row, then Record payment (nothing saves until the second press).',
+      'Office > People: are the people clocked in right? Open Time sheets and check one person\'s days against Odoo.',
     ],
   },
   {

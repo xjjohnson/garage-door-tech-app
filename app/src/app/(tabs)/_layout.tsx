@@ -11,14 +11,14 @@ import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
 import { dispatchTotal, toolsTotal } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
-import { useDepartments, useDispatcherOnly, useSalesOnly, useTech } from '../../lib/useDepartments';
+import { useDepartments, useDispatcherOnly, useOfficeOnly, useOwnerBar, useSalesOnly, useTech } from '../../lib/useDepartments';
 import { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from '../../config';
 import { dateLine } from '../../lib/schedule';
-import { barFor, DISPATCH_ONLY_HREFS, SALES_ONLY_HREFS, SECTIONS, TECH_HIDDEN_HREFS, TOOL_PAGES } from '../../lib/sections';
+import { barFor, DISPATCH_ONLY_HREFS, OFFICE_ONLY_HREFS, OWNER_AREAS_HREFS, OWNER_ONLY_HREFS, SALES_ONLY_HREFS, SECTIONS, TECH_HIDDEN_HREFS, TOOL_PAGES } from '../../lib/sections';
 import { colors, radius, touch, type, fs, rad, sp } from '../../theme';
 
 /**
@@ -35,19 +35,24 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const tool = TOOL_PAGES.find((t) => t.href === pathname);
   const current = tool ?? SECTIONS.find((s) => s.href === pathname) ?? SECTIONS[0];
-  const lit = tool ? 'tools' : current.id;
   const { access } = useDepartments();
+  const ownerBar = useOwnerBar();
+  // The owner bar keeps Areas lit on the pages it opens (Customers, Sales, Tools and the tool pages).
+  const lit = ownerBar && (tool || OWNER_AREAS_HREFS.includes(pathname)) ? 'areas' : tool ? 'tools' : current.id;
   const tech = useTech();
   const dispatcher = useDispatcherOnly();
   const salesOnly = useSalesOnly();
-  const ids = barFor(dispatcher ? 'dispatcher' : salesOnly ? 'sales' : tech ? 'tech' : 'other');
+  const officeOnly = useOfficeOnly();
+  const ids = barFor(ownerBar ? 'owner' : dispatcher ? 'dispatcher' : salesOnly ? 'sales' : officeOnly ? 'office' : tech ? 'tech' : 'other');
   const bar = SECTIONS.filter((x) => ids.includes(x.id));
   // A tech or dispatcher who lands on Customers or Sales (an old link) goes Home; Needs you and Week are only on the dispatcher bar.
   useEffect(() => {
     if ((tech || dispatcher) && TECH_HIDDEN_HREFS.includes(pathname)) router.replace('/');
     if (!dispatcher && DISPATCH_ONLY_HREFS.includes(pathname)) router.replace('/');
     if (!salesOnly && SALES_ONLY_HREFS.includes(pathname)) router.replace('/');
-  }, [tech, dispatcher, salesOnly, pathname]);
+    if (!officeOnly && OFFICE_ONLY_HREFS.includes(pathname)) router.replace('/');
+    if (!ownerBar && OWNER_ONLY_HREFS.includes(pathname)) router.replace('/');
+  }, [tech, dispatcher, salesOnly, officeOnly, ownerBar, pathname]);
   const badges = useBadges();
   const moreCount = dispatcher ? 0 : toolsTotal(badges, access);
   const needsCount = dispatchTotal(badges);
@@ -55,7 +60,7 @@ export default function TabsLayout() {
   const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
   const subtitle = current.id === 'today' ? `${dateLine(Date.now())} · ${visits === 0 ? 'no visits' : `${visits} visit${visits === 1 ? '' : 's'}`}` : current.subtitle;
   // Today, Jobs, Customers and Sales carry their own action in the header. Settings is only the gear on Tools. The version lives at the bottom of Home and in Settings.
-  const action = !tool && current.id === 'today' && salesOnly ? <NewJobPill /> : !tool && current.id === 'today' ? <BookPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : !tool && current.id === 'sales' ? <SyncPill label="Sync all" testID="sales-sync-all" /> : null;
+  const action = !tool && current.id === 'today' && (salesOnly || officeOnly) ? <NewJobPill /> : !tool && current.id === 'today' ? <BookPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : !tool && current.id === 'sales' ? <SyncPill label="Sync all" testID="sales-sync-all" /> : null;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
@@ -158,7 +163,7 @@ function NewJobPill() {
   );
 }
 
-const ICONS = { today: 'clock', jobs: 'wrench', needs: 'warn', week: 'cal', quotes: 'tag', invoices: 'mail', customers: 'users', sales: 'dollar', tools: 'gear' } as const;
+const ICONS = { today: 'clock', officedesk: 'dollar', jobs: 'wrench', money: 'dollar', areas: 'chart', manage: 'gear', needs: 'warn', week: 'cal', quotes: 'tag', invoices: 'mail', customers: 'users', sales: 'dollar', tools: 'gear' } as const;
 
 const MARK = require('../../../assets/brand/mark.png');
 
