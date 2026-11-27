@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.42',
+    title: 'Dispatcher More: a way back',
+    changes: ['Pages opened from the dispatcher More tab (Waiting to be booked, Follow-ups, Who\'s working, Time off, Truck parts alerts) now have a "‹ More" button at the top, so you can go back to the list.'],
+    test: ['Look as Dispatcher > More > Waiting to be booked: does "‹ More" take you back to the list?'],
+  },
+  {
     release: '0.6.41',
     title: 'Dispatcher-only app',
     changes: [
