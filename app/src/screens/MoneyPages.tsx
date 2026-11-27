@@ -22,7 +22,7 @@ type Mode = { kind: 'pay'; row: MoneyRow } | { kind: 'email'; row: MoneyRow; to:
  * (shows who it goes to first), Text (opens the phone's messages), Call, and Mark lost for
  * quotes. Every Odoo write waits for a second press on a panel that shows what will change.
  */
-export function MoneyList({ client, load, empty, invoice, lost, header, testID }: { client: OdooClient; load: () => Promise<MoneyRow[]>; empty: string; invoice: boolean; lost?: boolean; header?: (rows: MoneyRow[]) => string; testID: string }) {
+export function MoneyList({ client, load, empty, invoice, lost, table, header, testID }: { client: OdooClient; load: () => Promise<MoneyRow[]>; empty: string; invoice: boolean; lost?: boolean; table?: boolean; header?: (rows: MoneyRow[]) => string; testID: string }) {
   const { data, error, reload } = usePageRows(load, [client]);
   const { business } = useInvoices();
   const [mode, setMode] = useState<Mode>(null);
@@ -46,8 +46,9 @@ export function MoneyList({ client, load, empty, invoice, lost, header, testID }
       data?.map((r) => ({
         key: `${r.model}-${r.id}`,
         title: r.customer || r.name,
-        sub: [r.name, formatMoney(r.cents) + (invoice ? ' owed' : ''), r.ref].filter(Boolean).join(' · '),
-        ...(invoice && r.days > 0 ? { bad: r.text } : { lines: [r.text] }),
+        sub: table ? r.name : [r.name, formatMoney(r.cents) + (invoice ? ' owed' : ''), r.ref].filter(Boolean).join(' · '),
+        ...(table ? { amount: formatMoney(r.cents), age: r.text } : {}),
+        ...(invoice && r.days > 0 ? { bad: r.text } : table ? { lines: r.ref ? [r.ref] : [] } : { lines: [r.text] }),
         actions: [
           ...(invoice ? [{ label: 'Record payment', primary: true, onPress: () => { setMode({ kind: 'pay', row: r }); setAmount((r.cents / 100).toFixed(2)); setRef(''); } }] : []),
           { label: 'Open', primary: !invoice, onPress: () => open(r) },
@@ -142,7 +143,7 @@ export function MoneyList({ client, load, empty, invoice, lost, header, testID }
           </Row>
         </Card>
       ) : null}
-      <RowList rows={rows} empty={empty} testID={testID} header={total ? <Note testID={`${testID}-total`}>{total}</Note> : undefined} />
+      <RowList rows={rows} empty={empty} testID={testID} table={table} header={total ? <Note testID={`${testID}-total`}>{total}</Note> : undefined} />
     </View>
   );
 }
