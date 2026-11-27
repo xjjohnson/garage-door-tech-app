@@ -243,9 +243,11 @@ describe('Jobs › Team', () => {
     expect(o.calls.filter((c) => c.method === 'write').at(-1)).toEqual({ model: 'fsm.order', method: 'write', args: [[604], { person_id: 41, scheduled_date_start: toOdooTime(at(10, 0, 1)) }] });
     expect(screen.getByTestId('dispatch-lane-41')).toHaveTextContent(/Pat Smith/);
 
-    await fireEvent.press(within(screen.getByTestId('jobs-whose')).getByText('Mine'));
-    expect(screen.queryByTestId('dispatch')).toBeNull();
-    expect(screen.getByTestId('jobs-search')).toBeTruthy();
+    // A dispatcher-only person has no Mine list: the switch is Team, Not assigned and Upcoming.
+    expect(within(screen.getByTestId('jobs-whose')).queryByText('Mine')).toBeNull();
+    await fireEvent.press(within(screen.getByTestId('jobs-whose')).getByText('Upcoming'));
+    await settle();
+    expect(screen.getByTestId('dispatch-alerts-upcoming')).toBeTruthy();
   });
 
   it('takes a worker off a job so it goes back to Not assigned, and only offers that when it has a worker', async () => {

@@ -15,6 +15,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.41',
+    title: 'Dispatcher-only app',
+    changes: [
+      'A person whose only role is Dispatcher now gets a dispatcher bar: Today, Jobs, Needs you, Week and More. No Sales, Customers or field tools.',
+      'Today opens on the map with four counts across the top (not assigned, late, no time, double booked). Tap one to open Needs you.',
+      'Jobs opens on the team board, with Not assigned and Upcoming one tap away.',
+      'Needs you puts late, not assigned, double booked and no time jobs on one page, most urgent first. Week shows every tech for 7 days.',
+      'More keeps only dispatcher items: Waiting to be booked, Follow-ups, Who\'s working, Time off, Truck parts alerts, and Time and miles.',
+      'Owners, office, sales, warehouse and buyers and techs keep the bars they had.',
+    ],
+    test: ['Developer > Look at the app as Dispatcher: is the bar Today, Jobs, Needs you, Week, More?', 'Tap a red count on Today: does Needs you open?', 'Open Jobs: is it the team board? Open More: only dispatcher rows?', 'Look as Owner: is the usual bar back, with no Needs you or Week tab?'],
+  },
+  {
     release: '0.6.25',
     title: 'Fix blank Tools page after switching role',
     changes: ['Tools (and the other scrolling pages) could show blank after Look at the app as changed to a role with a shorter page, because the old scroll position was past the end. The page now returns to the end of its content, and to the top when the role changes.'],
