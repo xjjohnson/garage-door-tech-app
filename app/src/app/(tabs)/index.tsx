@@ -7,8 +7,9 @@ import { TodayMapScreen } from '../../screens/TodayMapScreen';
 import { TodayScreen } from '../../screens/TodayScreen';
 import { WeekScreen } from '../../screens/WeekScreen';
 import { useBadges } from '../../lib/useBadges';
-import { useDispatcherOnly, useSalesOnly } from '../../lib/useDepartments';
+import { useDispatcherOnly, useOfficeOnly, useSalesOnly } from '../../lib/useDepartments';
 import { SalesHome } from '../../screens/SalesDesk';
+import { OfficeHomePage } from '../../screens/OfficeAreaScreen';
 import { DispatchChips } from '../../components/DispatchChips';
 import { colors, layouts, sp } from '../../theme';
 
@@ -22,10 +23,19 @@ const VIEWS: ChipOption<View_>[] = [
 export default function TodayRoute() {
   const dispatcherOnly = useDispatcherOnly();
   const salesOnly = useSalesOnly();
+  const officeOnly = useOfficeOnly();
   const startsOnMap = layouts.homeStartsOnMap || dispatcherOnly;
   const [view, setView] = useState<View_>(startsOnMap ? 'map' : 'today');
   useBadges();
   const switcher = <Segmented options={VIEWS} value={view} onChange={setView} testID="today-view" />;
+  // An office person's Home: the money board, not a day of visits.
+  if (officeOnly) {
+    return (
+      <SectionScroll>
+        <OfficeHomePage />
+      </SectionScroll>
+    );
+  }
   // A salesperson's Home: quote numbers and the quotes to chase, not a day of visits.
   if (salesOnly) {
     return (
