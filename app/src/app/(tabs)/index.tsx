@@ -7,8 +7,9 @@ import { TodayMapScreen } from '../../screens/TodayMapScreen';
 import { TodayScreen } from '../../screens/TodayScreen';
 import { WeekScreen } from '../../screens/WeekScreen';
 import { useBadges } from '../../lib/useBadges';
-import { useDispatcherOnly, useSalesOnly } from '../../lib/useDepartments';
+import { useDispatcherOnly, useOwnerBar, useSalesOnly } from '../../lib/useDepartments';
 import { SalesHome } from '../../screens/SalesDesk';
+import { OwnerHome } from '../../screens/OwnerDesk';
 import { DispatchChips } from '../../components/DispatchChips';
 import { colors, layouts, sp } from '../../theme';
 
@@ -22,10 +23,19 @@ const VIEWS: ChipOption<View_>[] = [
 export default function TodayRoute() {
   const dispatcherOnly = useDispatcherOnly();
   const salesOnly = useSalesOnly();
+  const ownerBar = useOwnerBar();
   const startsOnMap = layouts.homeStartsOnMap || dispatcherOnly;
   const [view, setView] = useState<View_>(startsOnMap ? 'map' : 'today');
   useBadges();
   const switcher = <Segmented options={VIEWS} value={view} onChange={setView} testID="today-view" />;
+  // The owner's Home: the money board and what needs the owner, not a day of visits (Jobs has those).
+  if (ownerBar) {
+    return (
+      <SectionScroll>
+        <OwnerHome />
+      </SectionScroll>
+    );
+  }
   // A salesperson's Home: quote numbers and the quotes to chase, not a day of visits.
   if (salesOnly) {
     return (

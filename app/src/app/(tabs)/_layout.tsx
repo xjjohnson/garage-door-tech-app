@@ -11,14 +11,14 @@ import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
 import { dispatchTotal, toolsTotal } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
-import { useDepartments, useDispatcherOnly, useSalesOnly, useTech } from '../../lib/useDepartments';
+import { useDepartments, useDispatcherOnly, useOwnerBar, useSalesOnly, useTech } from '../../lib/useDepartments';
 import { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from '../../config';
 import { dateLine } from '../../lib/schedule';
-import { barFor, DISPATCH_ONLY_HREFS, SALES_ONLY_HREFS, SECTIONS, TECH_HIDDEN_HREFS, TOOL_PAGES } from '../../lib/sections';
+import { barFor, DISPATCH_ONLY_HREFS, OWNER_AREAS_HREFS, OWNER_ONLY_HREFS, SALES_ONLY_HREFS, SECTIONS, TECH_HIDDEN_HREFS, TOOL_PAGES } from '../../lib/sections';
 import { colors, radius, touch, type, fs, rad, sp } from '../../theme';
 
 /**
@@ -35,19 +35,22 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const tool = TOOL_PAGES.find((t) => t.href === pathname);
   const current = tool ?? SECTIONS.find((s) => s.href === pathname) ?? SECTIONS[0];
-  const lit = tool ? 'tools' : current.id;
   const { access } = useDepartments();
+  const ownerBar = useOwnerBar();
+  // The owner bar keeps Areas lit on the pages it opens (Customers, Sales, Tools and the tool pages).
+  const lit = ownerBar && (tool || OWNER_AREAS_HREFS.includes(pathname)) ? 'areas' : tool ? 'tools' : current.id;
   const tech = useTech();
   const dispatcher = useDispatcherOnly();
   const salesOnly = useSalesOnly();
-  const ids = barFor(dispatcher ? 'dispatcher' : salesOnly ? 'sales' : tech ? 'tech' : 'other');
+  const ids = barFor(ownerBar ? 'owner' : dispatcher ? 'dispatcher' : salesOnly ? 'sales' : tech ? 'tech' : 'other');
   const bar = SECTIONS.filter((x) => ids.includes(x.id));
   // A tech or dispatcher who lands on Customers or Sales (an old link) goes Home; Needs you and Week are only on the dispatcher bar.
   useEffect(() => {
     if ((tech || dispatcher) && TECH_HIDDEN_HREFS.includes(pathname)) router.replace('/');
     if (!dispatcher && DISPATCH_ONLY_HREFS.includes(pathname)) router.replace('/');
     if (!salesOnly && SALES_ONLY_HREFS.includes(pathname)) router.replace('/');
-  }, [tech, dispatcher, salesOnly, pathname]);
+    if (!ownerBar && OWNER_ONLY_HREFS.includes(pathname)) router.replace('/');
+  }, [tech, dispatcher, salesOnly, ownerBar, pathname]);
   const badges = useBadges();
   const moreCount = dispatcher ? 0 : toolsTotal(badges, access);
   const needsCount = dispatchTotal(badges);
@@ -158,7 +161,7 @@ function NewJobPill() {
   );
 }
 
-const ICONS = { today: 'clock', jobs: 'wrench', needs: 'warn', week: 'cal', quotes: 'tag', invoices: 'mail', customers: 'users', sales: 'dollar', tools: 'gear' } as const;
+const ICONS = { today: 'clock', jobs: 'wrench', money: 'dollar', areas: 'chart', manage: 'gear', needs: 'warn', week: 'cal', quotes: 'tag', invoices: 'mail', customers: 'users', sales: 'dollar', tools: 'gear' } as const;
 
 const MARK = require('../../../assets/brand/mark.png');
 
