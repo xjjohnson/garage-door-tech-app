@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.48',
+    title: 'Each role starts in its own theme',
+    changes: ['The first time the app knows your role it switches to that role\'s theme (Owner, Dispatch, Office, Sales or Warehouse) and restarts once. With several roles: owner, then dispatcher, office, sales, warehouse or buyer. Technicians and anyone who already picked a theme are left as they are. Pick any other theme in Settings and it is kept.'],
+    test: ['Sign in as an Office person with no theme picked: does it open in the Office theme after one restart? Pick Classic in Settings, restart: does it stay Classic?'],
+  },
+  {
     release: '0.6.47',
     title: 'Office More: no field or truck tools',
     changes: ['The More tab for an Office-only person now shows only Office, Follow-ups, Price book and Time and miles. The spring, door weight, diagnose and manuals tools, Truck stock, Schedule and "Wrap up the day" are gone from it.'],

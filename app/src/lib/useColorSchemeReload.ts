@@ -25,7 +25,7 @@ export async function reloadAlreadyTried(target: string, now = Date.now()): Prom
 }
 
 /** Restarts the app's JS to repaint in `target` colors, at most once per RELOAD_GUARD_MS for the same colors. Returns whether it restarted. */
-export async function repaintRestart(target: 'light' | 'dark', restart: () => Promise<unknown> = () => Updates.reloadAsync()): Promise<boolean> {
+export async function repaintRestart(target: string, restart: () => Promise<unknown> = () => Updates.reloadAsync()): Promise<boolean> {
   if (await reloadAlreadyTried(target)) return false;
   try {
     await AsyncStorage.setItem(RELOAD_GUARD_KEY, `${target}:${Date.now()}`);

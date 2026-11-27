@@ -173,3 +173,17 @@ export interface LookPick {
   theme: ThemeId;
   palette: Palette;
 }
+
+/**
+ * The theme made for a person's role. When someone has several roles the first of
+ * these that fits wins: owner, dispatcher, office, sales, then warehouse or buyer.
+ * A plain technician gets none (their theme is left as it is).
+ */
+export function roleDefaultTheme(access: { owner: boolean; dispatch: boolean; office: boolean; sales: boolean; warehouse: boolean; purchasing: boolean }): ThemeId | null {
+  if (access.owner) return 'owner';
+  if (access.dispatch) return 'dispatch';
+  if (access.office) return 'office';
+  if (access.sales) return 'sales';
+  if (access.warehouse || access.purchasing) return 'warehouse';
+  return null;
+}

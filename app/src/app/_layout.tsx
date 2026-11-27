@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { RoleThemeSync } from '../components/RoleThemeSync';
 import { OdooCustomerBackgroundSync } from '../components/OdooCustomerBackgroundSync';
 import { OdooInvoicesSync } from '../components/OdooSales';
 import { OdooJobSync } from '../components/OdooJobSync';
@@ -72,6 +73,7 @@ export default function RootLayout() {
                           <StockLock />
                           <CalculatorLinkProvider>
                             <StatusBar style={isDark ? 'light' : 'dark'} />
+                            <RoleThemeSync />
                             <OdooCustomerBackgroundSync />
                             <OdooJobSync />
                             <OdooVisitSync />

@@ -12,7 +12,7 @@ import { loadShareLocation, saveShareLocation } from '../lib/locationPref';
 import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
 import { loadLook, saveLook } from '../lib/lookPref';
 import { PALETTES } from '../lib/themeLook';
-import { DEFAULT_THEME, LookPick, THEMES } from '../lib/themes';
+import { DEFAULT_THEME, LookPick, roleDefaultTheme, THEMES } from '../lib/themes';
 import { useInvoices } from '../lib/useInvoices';
 import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
@@ -142,7 +142,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
       />
 
       <Caption>Theme</Caption>
-      <Text style={styles.shareNote}>A theme sets how every screen is arranged, how big things are and the colors. Light and dark are above.</Text>
+      <Text style={styles.shareNote}>A theme sets how every screen is arranged, how big things are and the colors. Your role's theme is used until you pick another; your pick is kept. Light and dark are above.</Text>
       {THEMES.map((t) => {
         const on = lookPick.theme === t.id;
         return (
@@ -162,7 +162,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
                 ))}
               </View>
             </View>
-            <Text style={styles.themeWho}>{t.who}{t.id === 'warehouse' && access.warehouse ? ' · Made for your role' : ''}</Text>
+            <Text style={styles.themeWho}>{t.who}{t.id === roleDefaultTheme(access) ? ' · Made for your role' : ''}</Text>
             <Text style={styles.shareNote}>{t.detail}</Text>
           </Pressable>
         );
