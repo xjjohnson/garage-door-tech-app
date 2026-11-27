@@ -53,7 +53,15 @@ export interface ThemeDef {
   /** Three dots shown on the picker card. */
   swatch: [string, string, string];
   layouts: Layouts;
+  /** Own page, card and text colors per light/dark mode (the header stays Johnsons green). Null keeps the app's own. */
+  colors?: { light: Record<string, string>; dark: Record<string, string> };
 }
+
+/** The Owner theme's colors: warm cream with gold in light, executive charcoal with gold numbers in dark. */
+export const OWNER_COLORS = {
+  light: { bg: '#F6F4EC', card: '#FFFFFF', line: '#E2DCCB', border: '#CFC7AE', text: '#222018', muted: '#6C6650', info: '#F3EAC8', head: '#002D04', head2: '#001A03', brand: '#002D04' },
+  dark: { bg: '#14171A', card: '#1E2327', line: '#2D3338', border: '#3A4147', text: '#E8E6DF', muted: '#8D948F', info: '#2A2412', head: '#002D04', head2: '#001A03', brand: '#002D04' },
+};
 
 const CLASSIC_LAYOUTS: Layouts = { visitRows: 'card', jobRows: 'card', jobsGroup: 'none', jobsRail: false, jobsTeamFirst: false, jobsMap: false, home: 'classic', homeStartsOnMap: false, sales: 'classic', customers: 'classic', tools: 'classic', jobDetail: 'steps' };
 
@@ -96,10 +104,11 @@ export const THEMES: ThemeDef[] = [
     id: 'owner',
     label: 'Owner',
     who: 'Owner',
-    detail: 'Money first: dashboard on Home, jobs grouped by status, a list of who to chase.',
+    detail: 'Money board and what needs you on Home, tabs for Money, Areas and Manage. Warm cream and gold in light, charcoal and gold in dark.',
     shape: 'round',
     size: 'compact',
     accent: '#8A6A12',
+    colors: OWNER_COLORS,
     swatch: ['#3A2F0F', '#E3B341', '#52C48A'],
     layouts: { visitRows: 'edge', jobRows: 'edge', jobsGroup: 'status', jobsRail: false, jobsTeamFirst: false, jobsMap: false, home: 'owner', homeStartsOnMap: false, sales: 'chase', customers: 'owed', tools: 'business', jobDetail: 'billing' },
   },

@@ -15,6 +15,26 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.45',
+    title: 'Owner app: money board, Areas and Manage',
+    changes: [
+      'The owner now gets their own bar: Home, Jobs, Money, Areas and Manage. Everything else is still one tap away (Customers, Sales, Tools and every area), so the owner can do it all.',
+      'Home is a money board: collected this month against last month, what you are owed and how much is over 30 days, the last 7 days, and one Needs your OK list (parts that cost more than the price book, plus every red number from every area). Today and your crew sit under it.',
+      'Money shows collected this week and month, what is owed by age, quotes out, and who to chase, with a link to every money page.',
+      'Areas has a tile for Dispatch, Office, Sales, Warehouse and Purchasing with a color light and its key number, then Customers, Follow-ups, Schedule, Truck stock and Tools.',
+      'Manage has the approvals (cost changes) and all the setup: Management, price book, business numbers, scorecard, setup check, team and settings.',
+      'The Owner theme is now warm cream with gold in light mode and charcoal with gold numbers in dark mode, under the Johnsons green header.',
+      'Not in yet: approvals for stock count differences and time sheets. Odoo has no approval step for them to read, so the app does not pretend. Pay and commission shows as Later.',
+    ],
+    test: [
+      'Sign in as the owner: the bar is Home, Jobs, Money, Areas, Manage. Look as a tech (Developer) still shows the short tech bar.',
+      'Home: the month number, what you owe, the 7-day bars and the Needs your OK list show real Odoo numbers. Tap Review on a cost increase: Purchasing opens.',
+      'Areas: tap each tile (Dispatch, Office, Sales, Warehouse, Purchasing) and Customers and Tools under Also here. The bar keeps Areas lit.',
+      'Manage: open Management, price book, business numbers and settings.',
+      'Settings, pick the Owner theme, restart. Try light and dark.',
+    ],
+  },
+  {
     release: '0.6.44',
     title: 'Office: money and people, and an office-only app',
     changes: [

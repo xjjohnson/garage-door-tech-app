@@ -86,6 +86,20 @@ export function useSalesOnly(): boolean {
 }
 
 /**
+ * True for the owner, signed in: the app then shows the owner bar
+ * (Home, Jobs, Money, Areas, Manage). Every other screen stays open from Areas and Manage, so the
+ * owner can still do everything. Not true until Odoo has answered, and not for the phone-only,
+ * signed-out use, which keeps the full bar it had. Look as the owner (Developer) works signed in.
+ */
+export function useOwnerBar(): boolean {
+  const { status, client } = useOdoo();
+  const { access, ready } = useDepartments();
+  if (status === 'loading' || status === 'signingIn' || !ready) return false;
+  if (!client) return false;
+  return access.owner;
+}
+
+/**
  * True for a person whose only app role is Office: the app then shows the office bar
  * (Home, Office, Customers, More). Someone who also holds the owner, dispatcher, sales,
  * warehouse or buyer role keeps the full bar. Not true until Odoo has answered.

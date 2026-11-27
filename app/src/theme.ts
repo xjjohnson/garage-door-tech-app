@@ -123,7 +123,10 @@ function startColors(): typeof light {
   // The company's own color from Odoo (saved by companyBrand.ts) wins when the tech chose it. None saved: the theme's own color.
   const brand = look.palette === 'brand' ? cleanBrandColor(readStartValue('brandcolor')) : null;
   const tint = brand ?? themeDef.accent;
-  return tint ? { ...base, ...brandPalette(tint, isDark) } : base;
+  const tinted = tint ? { ...base, ...brandPalette(tint, isDark) } : base;
+  // A theme with its own colors (Owner) lays them over the tint: its page, cards and text, and a green header.
+  const own = themeDef.colors?.[isDark ? 'dark' : 'light'];
+  return own ? { ...tinted, ...own } : tinted;
 }
 export const colors: typeof light = startColors();
 

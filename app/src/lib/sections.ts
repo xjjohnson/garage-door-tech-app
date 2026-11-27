@@ -11,6 +11,9 @@ export const SECTIONS = [
   { id: 'week', name: 'week', href: '/week', label: 'Week', title: 'Week', subtitle: 'Every tech, the next 7 days' },
   { id: 'quotes', name: 'quotes', href: '/quotes', label: 'Quotes', title: 'Quotes', subtitle: 'Quiet, open, won and lost' },
   { id: 'invoices', name: 'sales-invoices', href: '/sales-invoices', label: 'Invoices', title: 'Invoices', subtitle: 'Unpaid and overdue' },
+  { id: 'money', name: 'money', href: '/money', label: 'Money', title: 'Money', subtitle: 'In, out, owed and who to chase' },
+  { id: 'areas', name: 'areas', href: '/areas', label: 'Areas', title: 'Areas', subtitle: 'Every part of the business' },
+  { id: 'manage', name: 'manage', href: '/manage', label: 'Manage', title: 'Manage', subtitle: 'Approvals and setup, owner only' },
   { id: 'officedesk', name: 'office-desk', href: '/office-desk', label: 'Office', title: 'Office', subtitle: 'Money, people and customers' },
   { id: 'customers', name: 'customers', href: '/customers', label: 'Customers', title: 'Customers', subtitle: 'Doors, history and contact' },
   { id: 'sales', name: 'sales', href: '/sales', label: 'Sales', title: 'Sales', subtitle: 'Owed, quotes and follow-ups' },
@@ -52,6 +55,18 @@ export const SALES_ONLY_IDS: readonly SectionId[] = ['quotes', 'invoices'];
 /** Routes only the sales-only bar uses; anyone else who lands on one goes Home. */
 export const SALES_ONLY_HREFS: readonly string[] = ['/quotes', '/sales-invoices'];
 
+/** The owner bar: Home, Jobs, Money, Areas, Manage. Customers, Sales and Tools stay open from Areas, so the owner can still do everything. */
+export const OWNER_SECTION_IDS: readonly SectionId[] = ['today', 'jobs', 'money', 'areas', 'manage'];
+
+/** Tabs that only the owner bar shows. */
+export const OWNER_ONLY_IDS: readonly SectionId[] = ['money', 'areas', 'manage'];
+
+/** Routes only the owner bar uses; anyone else who lands on one goes Home. */
+export const OWNER_ONLY_HREFS: readonly string[] = ['/money', '/areas', '/manage'];
+
+/** Pages the owner opens from Areas (they keep the owner bar, with Areas lit). */
+export const OWNER_AREAS_HREFS: readonly string[] = ['/customers', '/sales', '/tools'];
+
 /** The office-only bar: Home, Office, Customers and More. No Jobs board or field tools. */
 export const OFFICE_SECTION_IDS: readonly SectionId[] = ['today', 'officedesk', 'customers', 'tools'];
 
@@ -62,10 +77,11 @@ export const OFFICE_ONLY_IDS: readonly SectionId[] = ['officedesk'];
 export const OFFICE_ONLY_HREFS: readonly string[] = ['/office-desk'];
 
 /** The bar for a person: dispatcher-only, sales-only, office-only, a plain tech, or everyone else. */
-export function barFor(kind: 'dispatcher' | 'sales' | 'office' | 'tech' | 'other'): readonly SectionId[] {
+export function barFor(kind: 'owner' | 'dispatcher' | 'sales' | 'office' | 'tech' | 'other'): readonly SectionId[] {
+  if (kind === 'owner') return OWNER_SECTION_IDS;
   if (kind === 'dispatcher') return DISPATCH_SECTION_IDS;
   if (kind === 'sales') return SALES_SECTION_IDS;
   if (kind === 'office') return OFFICE_SECTION_IDS;
   if (kind === 'tech') return TECH_SECTION_IDS;
-  return SECTIONS.map((x) => x.id).filter((id) => !DISPATCH_ONLY_IDS.includes(id) && !SALES_ONLY_IDS.includes(id) && !OFFICE_ONLY_IDS.includes(id));
+  return SECTIONS.map((x) => x.id).filter((id) => !DISPATCH_ONLY_IDS.includes(id) && !SALES_ONLY_IDS.includes(id) && !OFFICE_ONLY_IDS.includes(id) && !OWNER_ONLY_IDS.includes(id));
 }
