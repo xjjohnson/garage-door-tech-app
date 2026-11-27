@@ -4,7 +4,8 @@ import { StyleSheet, View } from 'react-native';
 import { ChipOption, Segmented } from '../../components/controls';
 import { SectionScroll } from '../../components/SectionScroll';
 import { useCalculatorLink } from '../../lib/useCalculatorLink';
-import { DispatchScreen, useCanDispatch } from '../../screens/DispatchScreen';
+import { useDispatcherOnly } from '../../lib/useDepartments';
+import { DispatchScreen, Part, useCanDispatch } from '../../screens/DispatchScreen';
 import { JobsScreen } from '../../screens/JobsScreen';
 import { TodayMapScreen } from '../../screens/TodayMapScreen';
 import { layouts, sp } from '../../theme';
@@ -15,7 +16,32 @@ const WHOSE: ChipOption<Whose>[] = [
   { label: 'Team', value: 'team' },
 ];
 
+type Board = 'all' | 'unassigned' | 'upcoming';
+const BOARD: ChipOption<Board>[] = [
+  { label: 'Team', value: 'all' },
+  { label: 'Not assigned', value: 'unassigned' },
+  { label: 'Upcoming', value: 'upcoming' },
+];
+
+/** The dispatcher-only Jobs tab: the team board first, with Not assigned and Upcoming one tap away. */
+function DispatcherJobs() {
+  const [board, setBoard] = useState<Board>('all');
+  return (
+    <SectionScroll>
+      <View style={styles.switch}>
+        <Segmented options={BOARD} value={board} onChange={setBoard} testID="jobs-whose" />
+      </View>
+      <DispatchScreen part={board as Part} />
+    </SectionScroll>
+  );
+}
+
 export default function JobsRoute() {
+  const dispatcherOnly = useDispatcherOnly();
+  return dispatcherOnly ? <DispatcherJobs /> : <AllJobs />;
+}
+
+function AllJobs() {
   const { requestOpen } = useCalculatorLink();
   // Team (the dispatch board) only shows for an Odoo dispatcher, manager or admin.
   const canDispatch = useCanDispatch();
