@@ -64,6 +64,12 @@ describe('team roles', () => {
     expect(people[4]).toEqual([]);
   });
 
+  it('gives a warehouse manager Odoo\'s Purchase User group too, so ordering is accepted', async () => {
+    const { client, people } = fake({ actingGroups: [1], people: { 4: [] } });
+    expect(await saveRoles(client, 4, { ...none, warehouse: true })).toEqual({ ...none, warehouse: true, buyer: true });
+    expect(people[4]!.sort()).toEqual([3, 4]);
+  });
+
   it('says so when Odoo does not keep a change', async () => {
     const { client } = fake({ actingGroups: [1], people: { 4: [] }, refuseWrite: true });
     await expect(saveRoles(client, 4, { ...none, warehouse: true })).rejects.toThrow(/did not keep/);

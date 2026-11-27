@@ -5,6 +5,7 @@ import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { StepChips } from '../components/StepChips';
 import { CrewToday } from '../components/CrewToday';
+import { WarehouseHome } from '../components/WarehouseHome';
 import { ChipTone, VisitCard } from '../components/VisitCard';
 import { lastCrash } from '../lib/crash';
 import { jobName } from '../lib/jobs';
@@ -103,6 +104,14 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
   // A tech sees only the unpaid invoices of jobs on their own phone; the office chases the rest.
   const mine = new Set(jobs.map((j) => j.id));
   const owedNow = invoices.filter((i) => !i.voidedAt && ['unpaid', 'partial'].includes(invoiceStatus(i)) && (!tech || mine.has(i.jobId)));
+  if (home === 'warehouse') {
+    return (
+      <View style={styles.stack} testID="today">
+        <SyncLine />
+        <WarehouseHome now={now} />
+      </View>
+    );
+  }
   return (
     <View style={[styles.stack, { gap: rowGap(rows) }]} testID="today">
       <SyncLine />

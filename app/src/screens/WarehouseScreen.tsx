@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../components/AppText';
@@ -6,6 +7,9 @@ import { Action } from '../components/Buttons';
 import { Card, dateText, Message, Meta, Note, NumBox, PartsSummary, Row, TextBox, Title, toNum, useRun } from '../components/Dept';
 import { ChipRow } from '../components/controls';
 import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
+import { ReadyCard } from '../components/ReadyForTech';
+import { StockTable } from '../components/StockTable';
+import { Orders, ToOrder } from './PurchasingScreen';
 import { useBadges } from '../lib/useBadges';
 import { OdooClient } from '../lib/odoo';
 import { findProductByCode } from '../lib/odooStock';
@@ -29,6 +33,8 @@ import {
   PlaceSummary,
   readPlace,
   receiveInto,
+  readyForTech,
+  ReadyOrder,
   recentPartsUsed,
   transferStock,
 } from '../lib/odooWarehouse';
@@ -36,8 +42,9 @@ import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, sp } from '../theme';
 
-type Tab = 'overview' | 'count' | 'move' | 'receive' | 'jobs' | 'log';
-const LABELS: Record<Tab, string> = { overview: 'Overview', count: 'Count', move: 'Move parts', receive: 'Receive', jobs: 'Parts on jobs', log: 'History' };
+type Tab = 'overview' | 'stock' | 'ready' | 'orders' | 'count' | 'move' | 'receive' | 'jobs' | 'log';
+const LABELS: Record<Tab, string> = { overview: 'Overview', stock: 'Stock', ready: 'Ready for a tech', orders: 'Orders', count: 'Count', move: 'Move parts', receive: 'Receive', jobs: 'Parts on jobs', log: 'History' };
+const TABS = Object.keys(LABELS) as Tab[];
 
 const DAY = 86400000;
 
@@ -50,7 +57,12 @@ const DAY = 86400000;
 export function WarehouseScreen() {
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
-  const [tab, setTab] = useState<Tab | null>(null);
+  // Home cards open a tab straight away (/warehouse?tab=receive).
+  const { tab: asked } = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab | null>(TABS.includes(asked as Tab) ? (asked as Tab) : null);
+  useEffect(() => {
+    if (TABS.includes(asked as Tab)) setTab(asked as Tab);
+  }, [asked]);
   const back = useCallback(() => setTab(null), []);
   const badges = useBadges();
   const [places, setPlaces] = useState<Place[] | null>(null);
@@ -84,7 +96,15 @@ export function WarehouseScreen() {
       title: 'Right now',
       items: [
         { id: 'overview', label: 'Overview', detail: 'The warehouse and every truck at a glance' },
+        { id: 'ready', label: 'Ready for a tech', detail: 'Job parts waiting at the warehouse', badge: badges.warehouse.handOver },
         { id: 'receive', label: 'Receive', detail: 'Purchase orders on their way in', badge: badges.warehouse.receive },
+      ],
+    },
+    {
+      title: 'Stock and ordering',
+      items: [
+        { id: 'stock', label: 'Stock', detail: 'Every part at the shop and on each truck' },
+        ...(access.purchasing ? [{ id: 'orders' as const, label: 'Orders', detail: 'What to order, purchase orders, confirm and email', badge: badges.purchasing.toOrder + badges.purchasing.drafts }] : []),
       ],
     },
     {
@@ -116,6 +136,9 @@ export function WarehouseScreen() {
         {places && tab === 'overview' ? <Overview client={client} places={places} onCount={goCount} /> : null}
         {places && tab === 'count' ? <Count client={client} places={places} start={countAt} by={client.session.name} /> : null}
         {places && tab === 'move' ? <Move client={client} places={places} /> : null}
+        {places && tab === 'stock' ? <StockTable client={client} places={places} onCount={goCount} onMove={() => setTab('move')} onOrder={() => setTab('orders')} /> : null}
+        {tab === 'ready' ? <Ready client={client} places={places ?? []} /> : null}
+        {tab === 'orders' && access.purchasing ? <OrdersHub client={client} /> : null}
         {tab === 'receive' ? <Receive client={client} /> : null}
         {tab === 'jobs' ? <PartsOnJobs client={client} /> : null}
         {tab === 'log' ? <History client={client} /> : null}
@@ -516,3 +539,41 @@ const styles = StyleSheet.create({
   bad: { color: colors.stop, fontSize: fs(16), fontWeight: '800' },
   diff: { fontSize: fs(22), fontWeight: '800', color: colors.text },
 });
+
+// ---- Ready for a tech ----
+
+function Ready({ client, places }: { client: OdooClient; places: Place[] }) {
+  const [rows, setRows] = useState<ReadyOrder[] | null>(null);
+  const load = useCallback(() => readyForTech(client, places).then(setRows, () => setRows([])), [client, places]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const trucks = places.filter((p) => p.truck);
+  const now = Date.now();
+  return (
+    <View style={styles.stack} testID="warehouse-ready">
+      <Meta>Parts that came in for a job and are waiting at the warehouse.</Meta>
+      {!rows ? <Note>Reading Odoo…</Note> : null}
+      {rows && rows.length === 0 ? <Note testID="ready-empty">No job parts are waiting.</Note> : null}
+      {(rows ?? []).map((o) => (
+        <ReadyCard key={o.poId} client={client} order={o} trucks={trucks} now={now} onDone={load} />
+      ))}
+    </View>
+  );
+}
+
+// ---- Orders: to order, purchase orders and receiving on one screen ----
+
+type Hub = 'order' | 'pos' | 'receive';
+
+function OrdersHub({ client }: { client: OdooClient }) {
+  const [part, setPart] = useState<Hub>('order');
+  return (
+    <View style={styles.stack} testID="warehouse-orders">
+      <ChipRow options={[{ label: 'To order', value: 'order' as const }, { label: 'Purchase orders', value: 'pos' as const }, { label: 'Receive', value: 'receive' as const }]} value={part} onChange={setPart} testID="orders-hub" compact />
+      {part === 'order' ? <ToOrder client={client} /> : null}
+      {part === 'pos' ? <Orders client={client} /> : null}
+      {part === 'receive' ? <Receive client={client} /> : null}
+    </View>
+  );
+}

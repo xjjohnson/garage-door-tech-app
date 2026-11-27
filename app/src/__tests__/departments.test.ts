@@ -53,9 +53,9 @@ describe('who sees which area', () => {
     expect(await departmentAccess(f.client)).toEqual({ warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true });
   });
 
-  it('keeps the warehouse manager and the buyer separate', async () => {
+  it('lets the warehouse manager buy too, but not edit cost and prices', async () => {
     const wh = await departmentAccess(fake({ 'res.users.has_group': groups(['stock.group_stock_manager']) }).client);
-    expect(wh).toMatchObject({ warehouse: true, purchasing: false, pricing: false, owner: false });
+    expect(wh).toMatchObject({ warehouse: true, purchasing: true, pricing: false, owner: false });
     const buyer = await departmentAccess(fake({ 'res.users.has_group': groups(['purchase.group_purchase_user']) }).client);
     expect(buyer).toMatchObject({ warehouse: false, purchasing: true, pricing: false });
     // One person can hold both.

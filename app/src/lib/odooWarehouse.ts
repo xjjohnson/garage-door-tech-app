@@ -98,7 +98,7 @@ export async function realAccess(client: OdooClient): Promise<Access> {
     access = { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true };
   } else {
     const [warehouse, purchasing, buyManager, salesManager, dispatch, office] = await Promise.all([held(ROLE_GROUPS.warehouse), held(ROLE_GROUPS.purchasing), held(ROLE_GROUPS.pricing), inGroup(client, 'sales_team.group_sale_manager', seen), held(ROLE_GROUPS.dispatch), held(ROLE_GROUPS.office)]);
-    access = { warehouse, purchasing: purchasing || buyManager, pricing: buyManager && salesManager, dispatch, office, sales: salesManager, owner: false };
+    access = { warehouse, purchasing: purchasing || buyManager || warehouse, pricing: buyManager && salesManager, dispatch, office, sales: salesManager, owner: false };
   }
   if (!seen.answered && !owner) return (await readCache(client)) ?? access;
   if (seen.answered || owner) AsyncStorage.setItem(cacheKey(client), JSON.stringify(access)).catch(() => undefined);
@@ -118,7 +118,7 @@ export function previewAccess(p: NonNullable<ReturnType<typeof rolePreview>>): A
     case 'sales':
       return { ...none, sales: true };
     case 'warehouse':
-      return { ...none, warehouse: true };
+      return { ...none, warehouse: true, purchasing: true };
     case 'buyer':
       return { ...none, purchasing: true };
     default:
@@ -509,4 +509,148 @@ export async function adjustmentLog(client: OdooClient, filter: { person?: strin
 export function adjustmentText(a: Adjustment): string {
   const into = /inventory adjustment|virtual/i.test(a.from);
   return into ? `Added ${a.qty} to ${a.to}` : `Removed ${a.qty} from ${a.from}`;
+}
+
+// ---- Ready for a tech ----
+
+export interface ReadyOrder {
+  poId: number;
+  name: string;
+  vendor: string;
+  /** The job this was bought for, as Odoo names it. */
+  job: string;
+  /** The tech on that job, when Odoo has one. */
+  tech: string;
+  /** When the warehouse received it. */
+  at?: number;
+  /** Where the parts are now (the warehouse). */
+  placeId: number;
+  lines: { productId: number; name: string; qty: number }[];
+}
+
+/** The note the app puts on a purchase order once the parts went to a tech's truck, so the tech's phone doesn't move them a second time. */
+export const HANDOVER_NOTE = 'Johnsons app handed over to';
+
+/** Whether this order's parts were already handed to a truck (the note above is on it). */
+export async function handedOver(client: OdooClient, poId: number): Promise<boolean> {
+  try {
+    const n = await client.call('mail.message', 'search_count', [[['model', '=', 'purchase.order'], ['res_id', '=', poId], ['body', 'ilike', HANDOVER_NOTE]]]);
+    return Number(n) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Orders bought for a job (they name a job in their Source, or carry an
+ * Field Service order) that the warehouse has received and nobody has taken
+ * to a truck yet. Read from Odoo, so it is the same list on every phone.
+ */
+export async function readyForTech(client: OdooClient, places?: Place[]): Promise<ReadyOrder[]> {
+  const where = places ?? (await listPlaces(client));
+  const trucks = new Set(where.filter((p) => p.truck).map((p) => p.id));
+  let pos: Record<string, unknown>[];
+  try {
+    pos = (await client.call('purchase.order', 'search_read', [[['state', 'in', ['purchase', 'done']], '|', ['origin', 'ilike', 'job'], ['origin', 'ilike', 'pickup']]], { fields: ['name', 'partner_id', 'origin', 'picking_ids'], order: 'id desc', limit: 60 })) as Record<string, unknown>[];
+  } catch {
+    return [];
+  }
+  const pickIds = pos.flatMap((p) => (Array.isArray(p.picking_ids) ? (p.picking_ids as number[]) : []));
+  if (pickIds.length === 0) return [];
+  const picks = (await client.call('stock.picking', 'read', [pickIds], { fields: ['state', 'location_dest_id', 'date_done'] })) as Record<string, unknown>[];
+  const moves = (await client.call('stock.move', 'search_read', [[['picking_id', 'in', pickIds]]], { fields: ['picking_id', 'product_id', 'quantity', 'product_uom_qty'] })) as Record<string, unknown>[];
+  const out: ReadyOrder[] = [];
+  for (const po of pos) {
+    const mine = picks.filter((p) => ((po.picking_ids as number[]) ?? []).includes(p.id as number) && p.state !== 'cancel');
+    if (mine.length === 0 || !mine.every((p) => p.state === 'done')) continue;
+    const dest = m2o(mine[0]!.location_dest_id)?.[0];
+    if (!dest || trucks.has(dest)) continue;
+    if (await handedOver(client, po.id as number)) continue;
+    const ids = mine.map((p) => p.id);
+    const origin = str(po.origin);
+    out.push({
+      poId: po.id as number,
+      name: str(po.name),
+      vendor: m2o(po.partner_id)?.[1] ?? '',
+      job: /^(job|pickup|delivery)/i.test(origin) ? origin.replace(/^(job|pickup|delivery)[:\s-]*/i, '').trim() || origin : origin,
+      tech: '',
+      at: odooMs(mine[0]!.date_done),
+      placeId: dest,
+      lines: moves.filter((m) => ids.includes(m2o(m.picking_id)?.[0])).map((m) => ({ productId: m2o(m.product_id)?.[0] ?? 0, name: m2o(m.product_id)?.[1] ?? '', qty: num(m.quantity) || num(m.product_uom_qty) })),
+    });
+  }
+  // The tech on each job, when Odoo names one (Field Service's worker on the order).
+  try {
+    const names = [...new Set(out.map((o) => o.job).filter(Boolean))];
+    if (names.length) {
+      const jobs = (await client.call('fsm.order', 'search_read', [[['name', 'in', names]]], { fields: ['name', 'person_id'] })) as Record<string, unknown>[];
+      for (const o of out) o.tech = m2o(jobs.find((j) => str(j.name) === o.job)?.person_id)?.[1] ?? '';
+    }
+  } catch {
+    // No worker shown; the manager picks the truck.
+  }
+  return out;
+}
+
+/** Moves a received order's parts from where they are to a tech's truck, then notes it on the order so it is not moved twice. */
+export async function handOver(client: OdooClient, order: ReadyOrder, truck: Place): Promise<TransferResult> {
+  const r = await transferStock(client, order.placeId, truck.id, order.lines.filter((l) => l.productId), `handover ${order.name}`);
+  if (r.done) {
+    await client.call('purchase.order', 'message_post', [[order.poId]], { body: `${HANDOVER_NOTE} ${truck.name} (from the app).`, message_type: 'comment', subtype_xmlid: 'mail.mt_note' }).catch(() => undefined);
+  }
+  return r;
+}
+
+// ---- Stock table (every location side by side) ----
+
+export interface StockRow {
+  productId: number;
+  name: string;
+  code?: string;
+  /** Quantity at each place, by place id. */
+  qty: Record<number, number>;
+  /** The smallest minimum set on any place; 0 when there is none. */
+  min: number;
+  /** Under minimum at the warehouse (first place) or any place. */
+  low: boolean;
+}
+
+/** Every part with what each place holds, for one table. Places that can't be read show nothing. */
+export async function stockTable(client: OdooClient, places: Place[]): Promise<StockRow[]> {
+  const rows = new Map<number, StockRow>();
+  for (const pl of places) {
+    let lines: CountLine[] = [];
+    try {
+      lines = await readPlace(client, pl.id);
+    } catch {
+      continue;
+    }
+    for (const l of lines) {
+      const r = rows.get(l.id) ?? { productId: l.id, name: l.name, ...(l.code ? { code: l.code } : {}), qty: {}, min: 0, low: false };
+      r.qty[pl.id] = l.qty;
+      if (l.min && l.min > 0) r.min = Math.max(r.min, l.min);
+      if (isBelowMin(l)) r.low = true;
+      rows.set(l.id, r);
+    }
+  }
+  return [...rows.values()].sort((a, b) => Number(b.low) - Number(a.low) || a.name.localeCompare(b.name));
+}
+
+export interface PartOnOrder {
+  name: string;
+  vendor: string;
+  qty: number;
+  expected?: number;
+}
+
+/** What is on open purchase orders for one part, and not yet received. */
+export async function partOnOrder(client: OdooClient, productId: number): Promise<PartOnOrder[]> {
+  try {
+    const lines = (await client.call('purchase.order.line', 'search_read', [[['product_id', '=', productId], ['order_id.state', '=', 'purchase']]], { fields: ['order_id', 'partner_id', 'product_qty', 'qty_received', 'date_planned'], limit: 20 })) as Record<string, unknown>[];
+    return lines
+      .map((l) => ({ name: m2o(l.order_id)?.[1] ?? '', vendor: m2o(l.partner_id)?.[1] ?? '', qty: num(l.product_qty) - num(l.qty_received), expected: odooMs(l.date_planned) }))
+      .filter((l) => l.qty > 0);
+  } catch {
+    return [];
+  }
 }

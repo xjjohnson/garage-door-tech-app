@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { log } from './log';
 import type { OdooClient } from './odoo';
-import { transferStock } from './odooWarehouse';
+import { handedOver, transferStock } from './odooWarehouse';
 import { movesAvailable } from './partMovesGate';
 import { partMovesSupport, recordPartMoves } from './odooPartMoves';
 import { useJobsList } from './useJobs';
@@ -430,7 +430,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
       const st = await jobOrderStatus(client, po.odooId);
       if (!st || !st.received) throw new Error(`${po.name} is not received at the warehouse yet. The warehouse marks it received first.`);
       const truck = latest.current.truck?.locationId;
-      if (truck && st.placeId && st.placeId !== truck) {
+      if (truck && st.placeId && st.placeId !== truck && !(await handedOver(client, po.odooId))) {
         const lines = po.lines.flatMap((l) => {
           const it = latest.current.items.find((i) => i.id === l.itemId);
           return it?.odooId ? [{ productId: it.odooId, name: it.name, qty: l.qty }] : [];

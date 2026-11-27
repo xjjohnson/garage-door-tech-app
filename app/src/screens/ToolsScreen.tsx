@@ -42,8 +42,22 @@ export function ToolsScreen() {
       </RowGroup>
     </>
   );
+  const departments = access.warehouse || access.purchasing || access.dispatch || access.office || access.sales || access.owner ? (
+        <>
+          <Caption>Departments</Caption>
+          <RowGroup>
+            {access.owner ? <IconRow icon="chart" label="Owner overview" detail="Everything that needs you, in one list" href="/overview" testID="tools-overview" badge={overviewTotal(badges) > 0 ? `${overviewTotal(badges)} to look at` : undefined} warn={overviewTotal(badges) > 0} /> : null}
+            {access.office ? <IconRow icon="tag" label="Office" detail="Invoices, payments, quotes, customers, warranty" href="/office" testID="tools-office" badge={officeTotal(badges) > 0 ? `${officeTotal(badges)} to look at` : undefined} warn={officeTotal(badges) > 0} /> : null}
+            {access.sales ? <IconRow icon="star" label="Sales" detail="Quotes, follow-ups, renewals, repairs not sold" href="/sales-area" testID="tools-sales" badge={salesTotal(badges) > 0 ? `${salesTotal(badges)} to look at` : undefined} warn={salesTotal(badges) > 0} /> : null}
+            {access.dispatch ? <IconRow icon="cal" label="Dispatch" detail="Give out jobs, see each tech's day" href="/dispatch" testID="tools-dispatch" badge={dispatchTotal(badges) > 0 ? `${dispatchTotal(badges)} to look at` : undefined} warn={dispatchTotal(badges) > 0} last={!access.warehouse && !access.purchasing} /> : null}
+            {access.warehouse ? <IconRow icon="truck" label="Warehouse" detail="Stock, order, receive, count, move parts" href="/warehouse" testID="tools-warehouse" badge={badges.warehouse.receive + badges.warehouse.handOver > 0 ? `${badges.warehouse.receive + badges.warehouse.handOver} to do` : undefined} warn={badges.warehouse.receive + badges.warehouse.handOver > 0} last={!access.purchasing} /> : null}
+            {access.purchasing ? <IconRow icon="tag" label="Purchasing" detail="What to order, purchase orders, cost and prices" href="/purchasing" testID="tools-purchasing" badge={buying > 0 ? `${buying} to do` : undefined} warn={buying > 0} last /> : null}
+          </RowGroup>
+        </>
+      ) : null;
   return (
     <View style={styles.stack} testID="tools">
+      {mode === 'shop' ? departments : null}
       {owner ? <StatsCard /> : null}
       {badges.ready > 0 ? <AlertBanner testID="parts-ready-alert" title={`${badges.ready} job order${badges.ready === 1 ? '' : 's'} ready at the warehouse`} detail="Pick them up, then tap Got it on the job" action="Jobs" onPress={() => router.push('/jobs')} /> : null}
       {low > 0 ? <AlertBanner testID="stock-alert" title={`Truck stock: ${low} low`} detail="Check what to reorder" action="Review" onPress={() => router.push('/stock')} /> : null}
@@ -58,7 +72,7 @@ export function ToolsScreen() {
 
       {mode === 'business' ? businessGroup : null}
 
-      {mode === 'compact' || mode === 'business' || mode === 'calc' ? (
+      {mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop' ? (
         <>
           <Caption>{mode === 'calc' ? 'All tools' : 'In the field'}</Caption>
           <RowGroup>
@@ -92,19 +106,7 @@ export function ToolsScreen() {
 
       {mode === 'business' ? null : businessGroup}
 
-      {access.warehouse || access.purchasing || access.dispatch || access.office || access.sales || access.owner ? (
-        <>
-          <Caption>Departments</Caption>
-          <RowGroup>
-            {access.owner ? <IconRow icon="chart" label="Owner overview" detail="Everything that needs you, in one list" href="/overview" testID="tools-overview" badge={overviewTotal(badges) > 0 ? `${overviewTotal(badges)} to look at` : undefined} warn={overviewTotal(badges) > 0} /> : null}
-            {access.office ? <IconRow icon="tag" label="Office" detail="Invoices, payments, quotes, customers, warranty" href="/office" testID="tools-office" badge={officeTotal(badges) > 0 ? `${officeTotal(badges)} to look at` : undefined} warn={officeTotal(badges) > 0} /> : null}
-            {access.sales ? <IconRow icon="star" label="Sales" detail="Quotes, follow-ups, renewals, repairs not sold" href="/sales-area" testID="tools-sales" badge={salesTotal(badges) > 0 ? `${salesTotal(badges)} to look at` : undefined} warn={salesTotal(badges) > 0} /> : null}
-            {access.dispatch ? <IconRow icon="cal" label="Dispatch" detail="Give out jobs, see each tech's day" href="/dispatch" testID="tools-dispatch" badge={dispatchTotal(badges) > 0 ? `${dispatchTotal(badges)} to look at` : undefined} warn={dispatchTotal(badges) > 0} last={!access.warehouse && !access.purchasing} /> : null}
-            {access.warehouse ? <IconRow icon="truck" label="Warehouse" detail="Count, move parts, receive, parts on jobs" href="/warehouse" testID="tools-warehouse" badge={badges.warehouse.receive > 0 ? `${badges.warehouse.receive} to receive` : undefined} warn={badges.warehouse.receive > 0} last={!access.purchasing} /> : null}
-            {access.purchasing ? <IconRow icon="tag" label="Purchasing" detail="What to order, purchase orders, cost and prices" href="/purchasing" testID="tools-purchasing" badge={buying > 0 ? `${buying} to do` : undefined} warn={buying > 0} last /> : null}
-          </RowGroup>
-        </>
-      ) : null}
+      {mode === 'shop' ? null : departments}
 
       <Text style={styles.version}>Version {SHORT_VERSION} · tap the gear for Settings</Text>
     </View>

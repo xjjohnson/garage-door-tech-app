@@ -40,10 +40,50 @@ export function Message({ msg, testID }: { msg: Msg | null; testID?: string }) {
   );
 }
 
-export function Card({ children, warn, testID }: { children: ReactNode; warn?: boolean; testID?: string }) {
+export type Tone = 'bad' | 'warn' | 'ok' | 'plain';
+
+/** A white card. `edge` paints a colored strip down its left side (red: act now, amber: watch, green: fine) so a list reads at a glance. */
+export function Card({ children, warn, edge, testID }: { children: ReactNode; warn?: boolean; edge?: Tone; testID?: string }) {
   return (
-    <View style={[styles.card, warn && styles.warn]} testID={testID}>
+    <View style={[styles.card, warn && styles.warn, edge && edge !== 'plain' && { borderLeftWidth: bw(6), borderLeftColor: toneColor(edge) }]} testID={testID}>
       {children}
+    </View>
+  );
+}
+
+const toneColor = (t: Tone) => (t === 'bad' ? colors.stop : t === 'warn' ? colors.caution : t === 'ok' ? colors.ok : colors.border);
+
+/** A short status label: Late 3 days, Draft, Counted. */
+export function Pill({ text, tone = 'plain', testID }: { text: string; tone?: Tone; testID?: string }) {
+  const bg = tone === 'bad' ? colors.stop : tone === 'warn' ? colors.warnBg : tone === 'ok' ? colors.info : colors.line;
+  const fg = tone === 'bad' ? colors.onStop : tone === 'warn' ? colors.warn : tone === 'ok' ? colors.ok : colors.muted;
+  return (
+    <View style={[styles.pill, { backgroundColor: bg }]} testID={testID}>
+      <Text style={[styles.pillText, { color: fg }]}>{text}</Text>
+    </View>
+  );
+}
+
+/** A title with a status pill on its right. */
+export function TitleRow({ title, pill, tone, testID }: { title: string; pill?: string; tone?: Tone; testID?: string }) {
+  return (
+    <View style={styles.titleRow}>
+      <Text style={[styles.title, styles.titleGrow]}>{title}</Text>
+      {pill ? <Pill text={pill} tone={tone} testID={testID} /> : null}
+    </View>
+  );
+}
+
+/** Big numbers across the top: what needs a look. A number above zero in a red or amber tile reads as work to do. */
+export function Tiles({ items, testID }: { items: { value: string | number; label: string; tone?: Tone; onPress?: () => void; testID?: string }[]; testID?: string }) {
+  return (
+    <View style={styles.tiles} testID={testID}>
+      {items.map((t) => (
+        <Pressable key={t.label} onPress={t.onPress} disabled={!t.onPress} accessibilityRole={t.onPress ? 'button' : undefined} accessibilityLabel={`${t.value} ${t.label}`} testID={t.testID} style={styles.tile}>
+          <Text style={[styles.tileValue, { color: t.tone === 'bad' ? colors.stop : t.tone === 'warn' ? colors.warn : t.tone === 'ok' ? colors.ok : colors.text }]}>{String(t.value)}</Text>
+          <Text style={styles.tileLabel}>{t.label.toUpperCase()}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -123,5 +163,13 @@ const styles = StyleSheet.create({
   note: { fontSize: fs(16), color: colors.text, lineHeight: fs(22) },
   input: { minHeight: touch.min - 8, borderRadius: radius.field, borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(12), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   wide: { alignSelf: 'stretch' },
+  pill: { borderRadius: radius.card, paddingHorizontal: sp(8), paddingVertical: sp(2) },
+  pillText: { fontSize: fs(12), fontWeight: '800' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: sp(8), justifyContent: 'space-between' },
+  titleGrow: { flex: 1 },
+  tiles: { flexDirection: 'row', gap: sp(8) },
+  tile: { flex: 1, backgroundColor: colors.card, borderRadius: radius.card, paddingVertical: sp(10), paddingHorizontal: sp(4), alignItems: 'center', gap: sp(2) },
+  tileValue: { fontSize: fs(28), fontWeight: '800' },
+  tileLabel: { fontSize: fs(11), fontWeight: '800', color: colors.muted, textAlign: 'center' },
   row: { flexDirection: 'row', gap: sp(8), alignItems: 'center', flexWrap: 'wrap' },
 });

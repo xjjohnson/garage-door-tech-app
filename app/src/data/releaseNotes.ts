@@ -15,6 +15,23 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.46',
+    title: 'Warehouse theme: shop Home, one Orders list, stock table, Ready for a tech',
+    changes: [
+      'New Warehouse theme (Settings > Theme): amber, big buttons. Home lists what to do at the shop: receive, hand job parts to a tech, order what is under minimum, count trucks that are due.',
+      'The Warehouse role now opens everything inventory and also ordering, purchase orders (confirm and email) and receiving. Team roles gives Odoo Purchase User with Warehouse manager. Cost, prices and pricelists stay with Buyer or the owner.',
+      'Warehouse > Stock: every part with the shop and each truck side by side (red is under minimum). Tap a part for stock, what is on order, what jobs used, and Count, Move or Order.',
+      'Warehouse > Ready for a tech: received job orders waiting at the warehouse, with a button that moves the parts onto the tech\'s truck in Odoo. The tech\'s Got it does not move them twice.',
+      'Warehouse > Orders puts To order, Purchase orders and Receive on one screen.',
+    ],
+    test: [
+      'Sign in as a warehouse manager: Tools shows Warehouse and Purchasing. Open Warehouse > Orders: To order, Purchase orders and Receive are chips on one screen.',
+      'Settings > Theme > Warehouse, restart: Home shows the three count tiles and the Do now cards.',
+      'Warehouse > Stock: red numbers are under minimum, tap a part to see its page.',
+      'Receive a job order, then Warehouse > Ready for a tech: Hand to the truck. Does the tech\'s job show it without moving it a second time?',
+    ],
+  },
+  {
     release: '0.6.45',
     title: 'Owner app: money board, Areas and Manage',
     changes: [

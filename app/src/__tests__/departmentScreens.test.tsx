@@ -92,7 +92,7 @@ describe('Warehouse area', () => {
 
 describe('Purchasing area', () => {
   it('is closed to someone without the Purchase group', async () => {
-    held = ['stock.group_stock_manager'];
+    held = ['fieldservice.group_fsm_dispatcher'];
     await render(<PurchasingScreen />);
     expect(await screen.findByTestId('purchasing-no-access')).toBeTruthy();
   });

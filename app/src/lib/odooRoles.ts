@@ -12,12 +12,12 @@ type Client = Pick<OdooClient, 'call' | 'session'>;
 
 export type RoleId = 'owner' | 'dispatch' | 'office' | 'sales' | 'warehouse' | 'buyer';
 
-export const ROLE_INFO: { id: RoleId; label: string; detail: string; add: string; remove: string[] }[] = [
+export const ROLE_INFO: { id: RoleId; label: string; detail: string; add: string; /** Other groups given with it. */ also?: string[]; remove: string[] }[] = [
   { id: 'owner', label: 'Owner', detail: 'Management, business numbers, scorecard, Developer', add: 'fieldservice.group_fsm_manager', remove: ['fieldservice.group_fsm_manager'] },
   { id: 'dispatch', label: 'Dispatcher', detail: 'Dispatch: give out jobs, see each tech\'s day (the owner has this too)', add: 'fieldservice.group_fsm_dispatcher', remove: ['fieldservice.group_fsm_dispatcher'] },
   { id: 'office', label: 'Office', detail: 'Office: invoices, payments, quotes, customers. Gives Odoo Billing Administrator, which can do more in Odoo than a tech can.', add: 'account.group_account_manager', remove: ['account.group_account_manager'] },
   { id: 'sales', label: 'Sales', detail: 'Sales: quotes, follow-ups, renewals. Gives Odoo Sales Administrator, which can do more in Odoo than a tech can.', add: 'sales_team.group_sale_manager', remove: ['sales_team.group_sale_manager'] },
-  { id: 'warehouse', label: 'Warehouse manager', detail: 'Warehouse: counts, moves, receiving', add: 'stock.group_stock_manager', remove: ['stock.group_stock_manager'] },
+  { id: 'warehouse', label: 'Warehouse manager', detail: 'Warehouse: everything inventory, plus ordering, purchase orders and receiving. Also gives Odoo Purchase User.', add: 'stock.group_stock_manager', also: ['purchase.group_purchase_user'], remove: ['stock.group_stock_manager'] },
   { id: 'buyer', label: 'Buyer', detail: 'Purchasing: what to order and purchase orders', add: 'purchase.group_purchase_user', remove: ['purchase.group_purchase_user', 'purchase.group_purchase_manager'] },
 ];
 
@@ -55,7 +55,7 @@ async function groupField(c: Client): Promise<string> {
   return 'groups_id';
 }
 
-const ALL = [ADMIN, ...ROLE_INFO.flatMap((r) => [r.add, ...r.remove])].filter((x, i, a) => a.indexOf(x) === i);
+const ALL = [ADMIN, ...ROLE_INFO.flatMap((r) => [r.add, ...(r.also ?? []), ...r.remove])].filter((x, i, a) => a.indexOf(x) === i);
 
 function rolesOf(held: Set<number>, ids: Record<string, number>): Roles {
   const has = (x: string) => ids[x] !== undefined && held.has(ids[x]!);
@@ -104,19 +104,26 @@ export async function listPeople(c: Client): Promise<Person[]> {
  * person back afterwards so a change Odoo quietly refused isn't reported as
  * saved. Returns the roles Odoo now shows.
  */
-export async function saveRoles(c: Client, personId: number, want: Roles): Promise<Roles> {
+export async function saveRoles(c: Client, personId: number, asked: Roles): Promise<Roles> {
+  // A warehouse manager orders and purchases too, so Odoo needs the Purchase User group as well: Buyer comes with it.
+  const want: Roles = asked.warehouse ? { ...asked, buyer: true } : asked;
   if (!(await canChangeRoles(c))) throw new Error('Only an Odoo administrator can change roles.');
   const ids = await groupIds(c, ALL);
   const field = await groupField(c);
   const [now] = (await c.call('res.users', 'read', [[personId]], { fields: [field] })) as Record<string, unknown>[];
   const held = new Set(Array.isArray(now?.[field]) ? (now![field] as number[]) : []);
   const cmds: [number, number][] = [];
+  const add = (g: number) => {
+    if (!cmds.some((c) => c[0] === 4 && c[1] === g)) cmds.push([4, g]);
+  };
   for (const r of ROLE_INFO) {
     const has = rolesOf(held, ids)[r.id];
     if (want[r.id] && !has) {
       const g = ids[r.add];
       if (g === undefined) throw new Error(`${r.label} needs an Odoo app that isn't installed here.`);
-      cmds.push([4, g]);
+      add(g);
+      // Odoo only accepts the orders a warehouse manager makes if they can purchase too.
+      for (const x of r.also ?? []) if (ids[x] !== undefined && !held.has(ids[x]!)) add(ids[x]!);
     } else if (!want[r.id] && has) {
       for (const x of r.remove) if (ids[x] !== undefined && held.has(ids[x]!)) cmds.push([3, ids[x]!]);
     }
