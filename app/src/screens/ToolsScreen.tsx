@@ -130,7 +130,7 @@ function TimeRow() {
 }
 
 /** Follow-ups, with how many fall due in the next week. */
-function FollowUpsRow() {
+export function FollowUpsRow() {
   const { invoices, business } = useInvoices();
   const { settings, dismissed } = useFollowUps();
   const due = useMemo(() => followUps(invoices, settings, business, Date.now(), dismissed).filter((f) => f.due <= Date.now() + 7 * 24 * 3600 * 1000).length, [invoices, settings, business, dismissed]);

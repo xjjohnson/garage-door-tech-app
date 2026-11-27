@@ -48,7 +48,8 @@ const mockClient = {
   },
 };
 jest.mock('../lib/useOdoo', () => ({ useOdoo: () => (mockSignedIn ? { status: 'signedIn', client: mockClient } : { status: 'signedOut', client: null }) }));
-jest.mock('../lib/useInvoices', () => ({ useInvoices: () => ({ business: { name: 'Johnsons' } }) }));
+jest.mock('../lib/useInvoices', () => ({ useInvoices: () => ({ business: { name: 'Johnsons' }, invoices: [] }) }));
+jest.mock('../lib/useFollowUps', () => ({ useFollowUps: () => ({ settings: {}, dismissed: [] }) }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 beforeEach(() => {
@@ -153,5 +154,15 @@ describe('Request parts', () => {
     expect(JSON.stringify(made)).toContain('Parts request: 1 x Torsion spring .243');
     expect(JSON.stringify(made)).toContain('"res_id":9');
     expect(await screen.findByTestId('parts-sent')).toBeTruthy();
+  });
+});
+
+describe('Sales More tab', () => {
+  it('keeps what Sales uses and drops the field and truck tools', async () => {
+    const { SalesMore } = require('../screens/SalesMore') as typeof import('../screens/SalesMore');
+    await render(<SalesMore />);
+    for (const id of ['more-sales-area', 'tools-followups', 'more-request-parts', 'more-price-book', 'more-schedule']) expect(screen.getByTestId(id)).toBeTruthy();
+    for (const id of ['tools-springs', 'tools-door-weight', 'tools-diagnose', 'tools-manuals', 'open-stock', 'open-time-log', 'tools-end-of-day']) expect(screen.queryByTestId(id)).toBeNull();
+    expect(screen.queryByText('Wrap up the day')).toBeNull();
   });
 });

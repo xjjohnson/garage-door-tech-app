@@ -15,6 +15,15 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.47',
+    title: 'Sales More tab without field tools',
+    changes: [
+      'The More tab for a Sales-only person no longer shows the field tools (Spring calculator, Door weight, Diagnose, Manuals), Truck stock, Time and miles or Wrap up the day.',
+      'It now holds what Sales uses: the Sales area, Follow-ups, Request parts, the Price book and the Schedule.',
+    ],
+    test: ['Look as sales (Developer): open More. Only Sales, Follow-ups, Request parts, Price book and Schedule show.'],
+  },
+  {
     release: '0.6.46',
     title: 'Warehouse theme: shop Home, one Orders list, stock table, Ready for a tech',
     changes: [
