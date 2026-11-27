@@ -204,6 +204,8 @@ export function lostByReason(list: LostRow[]): { reason: string; count: number }
 
 export const COMPLAINT = 'Complaint:';
 export const REPAIR = 'Offer repair:';
+/** A salesperson's ask for a part: a to-do on the customer whose title starts "Parts request:". The buyer finds it under Purchasing. */
+export const PARTS_REQUEST = 'Parts request:';
 
 export interface ActivityRow {
   id: number;
@@ -222,9 +224,10 @@ async function activities(c: Client, domain: unknown[], limit = 100): Promise<Ac
 }
 
 /** Follow-up calls due today or earlier (complaints and repairs not sold have their own pages). */
-export const followUpsDue = (c: Client, now: number) => activities(c, [['date_deadline', '<=', dayOf(now)], ['summary', 'not ilike', COMPLAINT], ['summary', 'not ilike', REPAIR]]);
+export const followUpsDue = (c: Client, now: number) => activities(c, [['date_deadline', '<=', dayOf(now)], ['summary', 'not ilike', COMPLAINT], ['summary', 'not ilike', REPAIR], ['summary', 'not ilike', PARTS_REQUEST]]);
 export const openComplaints = (c: Client) => activities(c, [['summary', 'ilike', COMPLAINT]]);
 export const flaggedRepairs = (c: Client) => activities(c, [['summary', 'ilike', REPAIR]]);
+export const partsRequests = (c: Client) => activities(c, [['summary', 'ilike', PARTS_REQUEST]]);
 export const finishActivity = completeActivity;
 
 /** A complaint is a to-do on the customer's contact whose title starts "Complaint:". */

@@ -6,11 +6,11 @@
  */
 import type { Palette, SizeName, Shape } from './themeLook';
 
-export type ThemeId = 'classic' | 'field' | 'dispatch' | 'office' | 'owner' | 'map' | 'simple' | 'warehouse';
+export type ThemeId = 'classic' | 'field' | 'dispatch' | 'office' | 'owner' | 'map' | 'simple' | 'sales' | 'warehouse';
 
 /** How one visit or job is drawn in a list. */
 export type RowStyle = 'card' | 'dense' | 'edge' | 'tile' | 'big' | 'table';
-export type HomeLayout = 'classic' | 'field' | 'inbox' | 'owner' | 'map' | 'simple' | 'warehouse';
+export type HomeLayout = 'classic' | 'field' | 'inbox' | 'owner' | 'map' | 'simple' | 'sales' | 'warehouse';
 export type JobsGroup = 'none' | 'status' | 'day';
 export type CustomersLayout = 'classic' | 'big' | 'table' | 'owed' | 'near';
 export type ToolsLayout = 'classic' | 'tiles' | 'compact' | 'business' | 'calc' | 'shop';
@@ -124,6 +124,17 @@ export const THEMES: ThemeDef[] = [
     accent: null,
     swatch: ['#0F3D26', '#52C48A', '#FFFFFF'],
     layouts: { visitRows: 'big', jobRows: 'tile', jobsGroup: 'none', jobsRail: false, jobsTeamFirst: false, jobsMap: false, home: 'simple', homeStartsOnMap: false, sales: 'dense', customers: 'big', tools: 'tiles', jobDetail: 'steps' },
+  },
+  {
+    id: 'sales',
+    label: 'Sales',
+    who: 'Sales and estimates',
+    detail: 'Desk tables for quotes, invoices and customers, with dollars and ages up front. Square, compact, indigo.',
+    shape: 'square',
+    size: 'compact',
+    accent: '#3F3D9E',
+    swatch: ['#2B2A6B', '#8F8DE3', '#F2B33D'],
+    layouts: { visitRows: 'dense', jobRows: 'table', jobsGroup: 'none', jobsRail: false, jobsTeamFirst: false, jobsMap: false, home: 'sales', homeStartsOnMap: false, sales: 'table', customers: 'table', tools: 'compact', jobDetail: 'billing' },
   },
   {
     id: 'warehouse',

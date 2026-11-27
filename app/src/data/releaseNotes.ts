@@ -15,7 +15,7 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
-    release: '0.6.41',
+    release: '0.6.44',
     title: 'Warehouse theme: shop Home, one Orders list, stock table, Ready for a tech',
     changes: [
       'New Warehouse theme (Settings > Theme): amber, big buttons. Home lists what to do at the shop: receive, hand job parts to a tech, order what is under minimum, count trucks that are due.',
@@ -30,6 +30,43 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       'Warehouse > Stock: red numbers are under minimum, tap a part to see its page.',
       'Receive a job order, then Warehouse > Ready for a tech: Hand to the truck. Does the tech\'s job show it without moving it a second time?',
     ],
+  },
+  {
+    release: '0.6.43',
+    title: 'Dispatcher More: a way back',
+    changes: ['Pages opened from the dispatcher More tab (Waiting to be booked, Follow-ups, Who\'s working, Time off, Truck parts alerts) now have a "‹ More" button at the top, so you can go back to the list.'],
+    test: ['Look as Dispatcher > More > Waiting to be booked: does "‹ More" take you back to the list?'],
+  },
+  {
+    release: '0.6.42',
+    title: 'Sales theme and a sales-only app',
+    changes: [
+      'A new Sales theme in Settings: square, compact and indigo, with desk tables that put the dollars and the age of each row up front.',
+      'A person whose only role is Sales now gets a sales bar: Home, Quotes, Invoices, Customers and More. Home shows open quote dollars, how many went quiet and what was won this month, with New job and Request parts buttons and the quotes to chase.',
+      'Quotes has Quiet, Open, Won and Lost tables. Invoices has Unpaid and Overdue tables. Tap a row for its buttons: Call, Text, Email again, Mark lost, Record payment. Every change in Odoo still waits for a second press.',
+      'Request parts: pick the customer, the parts and how many, when they are needed and a note. It is saved in Odoo as a to-do on the customer. Nothing is ordered from there.',
+      'Purchasing has a new Parts requests page where the buyer sees what sales asked for and taps Mark ordered once they have ordered it.',
+    ],
+    test: [
+      'Settings, pick the Sales theme, restart: the Sales area pages (quiet and open quotes) turn into tables.',
+      'Look as sales (Developer): the bar is Home, Quotes, Invoices, Customers, More.',
+      'Home: tap New job, then Request parts, and send a request for one part.',
+      'Purchasing as the buyer: Parts requests shows it; Mark ordered completes the to-do in Odoo.',
+      'Quotes, tap a row: Mark lost asks for a reason first. Invoices, Record payment shows its panel first.',
+    ],
+  },
+  {
+    release: '0.6.41',
+    title: 'Dispatcher-only app',
+    changes: [
+      'A person whose only role is Dispatcher now gets a dispatcher bar: Today, Jobs, Needs you, Week and More. No Sales, Customers or field tools.',
+      'Today opens on the map with four counts across the top (not assigned, late, no time, double booked). Tap one to open Needs you.',
+      'Jobs opens on the team board, with Not assigned and Upcoming one tap away.',
+      'Needs you puts late, not assigned, double booked and no time jobs on one page, most urgent first. Week shows every tech for 7 days.',
+      'More keeps only dispatcher items: Waiting to be booked, Follow-ups, Who\'s working, Time off, Truck parts alerts, and Time and miles.',
+      'Owners, office, sales, warehouse and buyers and techs keep the bars they had.',
+    ],
+    test: ['Developer > Look at the app as Dispatcher: is the bar Today, Jobs, Needs you, Week, More?', 'Tap a red count on Today: does Needs you open?', 'Open Jobs: is it the team board? Open More: only dispatcher rows?', 'Look as Owner: is the usual bar back, with no Needs you or Week tab?'],
   },
   {
     release: '0.6.25',

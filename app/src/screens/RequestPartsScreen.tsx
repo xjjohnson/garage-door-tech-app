@@ -1,0 +1,144 @@
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/AppText';
+import { Action } from '../components/Buttons';
+import { Card, Message, Meta, Note, NumBox, Row, TextBox, Title, toNum, useRun } from '../components/Dept';
+import { ChipRow } from '../components/controls';
+import { DAY_MS, findCustomers } from '../lib/odooOffice';
+import { requestParts, RequestedPart } from '../lib/odooPartsRequests';
+import { searchProducts, StockProduct } from '../lib/odooStock';
+import { useOdoo } from '../lib/useOdoo';
+import { colors, fs, radius, sp } from '../theme';
+
+const WHEN = [
+  { label: 'Today', value: 0 },
+  { label: 'Tomorrow', value: 1 },
+  { label: 'In 3 days', value: 3 },
+  { label: 'Next week', value: 7 },
+];
+
+/**
+ * Request parts: pick the customer, the parts and how many, when they are needed, and a note.
+ * It is saved in Odoo as a to-do on the customer for the buyer. Nothing is ordered from here.
+ */
+export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
+  const { client } = useOdoo();
+  const { busy, msg, run } = useRun();
+  const [custTerm, setCustTerm] = useState('');
+  const [custs, setCusts] = useState<{ id: number; name: string }[]>([]);
+  const [cust, setCust] = useState<{ id: number; name: string } | null>(null);
+  const [partTerm, setPartTerm] = useState('');
+  const [found, setFound] = useState<StockProduct[]>([]);
+  const [parts, setParts] = useState<(RequestedPart & { key: string })[]>([]);
+  const [days, setDays] = useState(1);
+  const [note, setNote] = useState('');
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    if (!client || cust) return;
+    let alive = true;
+    findCustomers(client, custTerm).then((r) => alive && setCusts(r), () => alive && setCusts([]));
+    return () => {
+      alive = false;
+    };
+  }, [client, custTerm, cust]);
+  useEffect(() => {
+    if (!client) return;
+    let alive = true;
+    searchProducts(client, partTerm, 8).then((r) => alive && setFound(r), () => alive && setFound([]));
+    return () => {
+      alive = false;
+    };
+  }, [client, partTerm]);
+
+  if (!client) return <Note testID="parts-signin">Sign in to Odoo to request parts. The request is saved there for the buyer.</Note>;
+  if (sent) {
+    return (
+      <Card testID="parts-sent">
+        <Title>Sent to the buyer</Title>
+        <Note>{msg?.text ?? 'Saved in Odoo as a to-do on the customer.'} Nothing has been ordered yet: the buyer sees it under Purchasing.</Note>
+        <Action label="Request more parts" primary onPress={() => { setSent(false); setParts([]); setNote(''); setCust(null); setCustTerm(''); }} testID="parts-again" />
+      </Card>
+    );
+  }
+  const needed = now() + days * DAY_MS;
+  const byText = new Date(needed).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const add = (p: StockProduct) => {
+    setParts((l) => (l.some((x) => x.key === String(p.id)) ? l.map((x) => (x.key === String(p.id) ? { ...x, qty: x.qty + 1 } : x)) : [...l, { key: String(p.id), name: p.name, qty: 1 }]));
+    setPartTerm('');
+  };
+  return (
+    <View style={styles.stack} testID="request-parts">
+      <Text style={styles.label}>CUSTOMER</Text>
+      {cust ? (
+        <Card testID="parts-customer">
+          <Row>
+            <Title>{cust.name}</Title>
+            <Action label="Change" onPress={() => setCust(null)} testID="parts-change-customer" />
+          </Row>
+        </Card>
+      ) : (
+        <View style={styles.stack}>
+          <TextBox value={custTerm} onChange={setCustTerm} label="Search customers" testID="parts-customer-search" />
+          {custs.map((c) => (
+            <Pressable key={c.id} onPress={() => setCust(c)} accessibilityRole="button" testID={`parts-customer-${c.id}`} style={styles.pick}>
+              <Text style={styles.pickText}>{c.name}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      <Text style={styles.label}>PARTS</Text>
+      {parts.map((p) => (
+        <Card key={p.key} testID={`parts-line-${p.key}`}>
+          <Title>{p.name}</Title>
+          <Row>
+            <NumBox value={String(p.qty)} onChange={(v) => setParts((l) => l.map((x) => (x.key === p.key ? { ...x, qty: toNum(v) ?? 0 } : x)))} label="Qty" testID={`parts-qty-${p.key}`} width={80} />
+            <Action label="Remove" onPress={() => setParts((l) => l.filter((x) => x.key !== p.key))} testID={`parts-remove-${p.key}`} />
+          </Row>
+        </Card>
+      ))}
+      <TextBox value={partTerm} onChange={setPartTerm} label="Search parts to add" testID="parts-search" />
+      {partTerm.trim() ? (
+        found.length ? (
+          found.map((p) => (
+            <Pressable key={p.id} onPress={() => add(p)} accessibilityRole="button" testID={`parts-pick-${p.id}`} style={styles.pick}>
+              <Text style={styles.pickText}>{p.name}</Text>
+              {p.code ? <Meta>{p.code}</Meta> : null}
+            </Pressable>
+          ))
+        ) : (
+          <Note>No part matches that.</Note>
+        )
+      ) : null}
+
+      <Text style={styles.label}>NEEDED BY</Text>
+      <ChipRow options={WHEN} value={days} onChange={(v) => setDays(Number(v))} testID="parts-when" />
+      <Meta>{byText}</Meta>
+      <Text style={styles.label}>NOTE TO BUYER</Text>
+      <TextBox value={note} onChange={setNote} label="For Tuesday's job, any brand" testID="parts-note" />
+      <Message msg={sent ? null : msg} testID="parts-msg" />
+      <Action
+        label="Send to buyer"
+        primary
+        disabled={busy !== null || !cust || !parts.some((p) => p.qty > 0)}
+        testID="parts-send"
+        onPress={() =>
+          run('send', async () => {
+            await requestParts(client, cust!.id, parts, needed, note, byText);
+            setSent(true);
+            return `Request for ${cust!.name} saved in Odoo.`;
+          })
+        }
+      />
+      <Meta>Saved in Odoo as a to-do on the customer. The buyer orders it. Nothing is ordered from here.</Meta>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  stack: { gap: sp(8) },
+  label: { fontSize: fs(12), fontWeight: '800', letterSpacing: 1, color: colors.muted, marginTop: sp(6) },
+  pick: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingHorizontal: sp(12), paddingVertical: sp(10), minHeight: 44, justifyContent: 'center' },
+  pickText: { fontSize: fs(16), fontWeight: '700', color: colors.text },
+});

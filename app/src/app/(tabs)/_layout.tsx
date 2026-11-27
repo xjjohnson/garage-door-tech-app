@@ -9,16 +9,16 @@ import { onDay } from '../../lib/schedule';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
-import { toolsTotal } from '../../lib/deptBadges';
+import { dispatchTotal, toolsTotal } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
-import { useDepartments, useTech } from '../../lib/useDepartments';
+import { useDepartments, useDispatcherOnly, useSalesOnly, useTech } from '../../lib/useDepartments';
 import { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
 import { APK_MANIFEST_URL } from '../../config';
 import { dateLine } from '../../lib/schedule';
-import { SECTIONS, TECH_HIDDEN_HREFS, TECH_SECTION_IDS, TOOL_PAGES } from '../../lib/sections';
+import { barFor, DISPATCH_ONLY_HREFS, SALES_ONLY_HREFS, SECTIONS, TECH_HIDDEN_HREFS, TOOL_PAGES } from '../../lib/sections';
 import { colors, radius, touch, type, fs, rad, sp } from '../../theme';
 
 /**
@@ -38,17 +38,24 @@ export default function TabsLayout() {
   const lit = tool ? 'tools' : current.id;
   const { access } = useDepartments();
   const tech = useTech();
-  const bar = tech ? SECTIONS.filter((x) => TECH_SECTION_IDS.includes(x.id)) : SECTIONS;
-  // A tech who lands on Customers or Sales (an old link) goes Home.
+  const dispatcher = useDispatcherOnly();
+  const salesOnly = useSalesOnly();
+  const ids = barFor(dispatcher ? 'dispatcher' : salesOnly ? 'sales' : tech ? 'tech' : 'other');
+  const bar = SECTIONS.filter((x) => ids.includes(x.id));
+  // A tech or dispatcher who lands on Customers or Sales (an old link) goes Home; Needs you and Week are only on the dispatcher bar.
   useEffect(() => {
-    if (tech && TECH_HIDDEN_HREFS.includes(pathname)) router.replace('/');
-  }, [tech, pathname]);
-  const moreCount = toolsTotal(useBadges(), access);
+    if ((tech || dispatcher) && TECH_HIDDEN_HREFS.includes(pathname)) router.replace('/');
+    if (!dispatcher && DISPATCH_ONLY_HREFS.includes(pathname)) router.replace('/');
+    if (!salesOnly && SALES_ONLY_HREFS.includes(pathname)) router.replace('/');
+  }, [tech, dispatcher, salesOnly, pathname]);
+  const badges = useBadges();
+  const moreCount = dispatcher ? 0 : toolsTotal(badges, access);
+  const needsCount = dispatchTotal(badges);
   const { appointments } = useSchedule();
   const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
   const subtitle = current.id === 'today' ? `${dateLine(Date.now())} · ${visits === 0 ? 'no visits' : `${visits} visit${visits === 1 ? '' : 's'}`}` : current.subtitle;
   // Today, Jobs, Customers and Sales carry their own action in the header. Settings is only the gear on Tools. The version lives at the bottom of Home and in Settings.
-  const action = !tool && current.id === 'today' ? <BookPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : !tool && current.id === 'sales' ? <SyncPill label="Sync all" testID="sales-sync-all" /> : null;
+  const action = !tool && current.id === 'today' && salesOnly ? <NewJobPill /> : !tool && current.id === 'today' ? <BookPill /> : !tool && current.id === 'jobs' ? <NewJobPill /> : !tool && current.id === 'customers' ? <AddPill /> : !tool && current.id === 'sales' ? <SyncPill label="Sync all" testID="sales-sync-all" /> : null;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
@@ -102,6 +109,11 @@ export default function TabsLayout() {
             >
               <View>
                 <Icon name={ICONS[s.id]} color={on ? colors.selected : colors.muted} />
+                {s.id === 'needs' && needsCount > 0 ? (
+                  <View style={styles.navBadge} pointerEvents="none">
+                    <CountBadge n={needsCount} testID="needs-tab-badge" />
+                  </View>
+                ) : null}
                 {s.id === 'tools' && moreCount > 0 ? (
                   <View style={styles.navBadge} pointerEvents="none">
                     <CountBadge n={moreCount} testID="tools-tab-badge" />
@@ -146,7 +158,7 @@ function NewJobPill() {
   );
 }
 
-const ICONS = { today: 'clock', jobs: 'wrench', customers: 'users', sales: 'dollar', tools: 'gear' } as const;
+const ICONS = { today: 'clock', jobs: 'wrench', needs: 'warn', week: 'cal', quotes: 'tag', invoices: 'mail', customers: 'users', sales: 'dollar', tools: 'gear' } as const;
 
 const MARK = require('../../../assets/brand/mark.png');
 
