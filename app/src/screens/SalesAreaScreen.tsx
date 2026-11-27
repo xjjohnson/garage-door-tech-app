@@ -14,7 +14,7 @@ import { useBadges } from '../lib/useBadges';
 import { useLimits } from '../lib/useLimits';
 import { ActivityList, phonesFor } from './CarePages';
 import { MoneyList } from './MoneyPages';
-import { sp } from '../theme';
+import { layouts, sp } from '../theme';
 
 export type SalesTab = 'quiet' | 'followups' | 'open' | 'won' | 'lost' | 'renew' | 'notseen' | 'flagged';
 const LABELS: Record<SalesTab, string> = {
@@ -38,7 +38,7 @@ function Won({ client, now }: { client: OdooClient; now: () => number }) {
   return <RowList rows={rows} empty="No quote has been approved this month yet." testID="won" header={data?.length ? <Note testID="won-total">{`${formatMoney(total)} from ${data.length} approved ${data.length === 1 ? 'quote' : 'quotes'}`}</Note> : undefined} />;
 }
 
-function Lost({ client }: { client: OdooClient }) {
+export function Lost({ client }: { client: OdooClient }) {
   const { data, error } = usePageRows(() => lostQuotes(client), [client]);
   if (error) return <PageError what="Lost, and why" error={error} />;
   const rows: RowItem[] | null = data?.map((l) => ({ key: `lost-${l.orderId}`, title: l.customer || l.name, sub: l.name, lines: [`${l.reason}${l.at ? ` · ${dateText(l.at)}` : ''}`] })) ?? null;
@@ -136,9 +136,9 @@ export function SalesAreaScreen({ initial, now = Date.now }: { initial?: SalesTa
       page={(tab, client) => {
         switch (tab) {
           case 'quiet':
-            return <MoneyList client={client} invoice={false} lost load={() => quotesQuiet(client, limits, now())} empty="No quote has gone quiet." testID="quiet" />;
+            return <MoneyList client={client} invoice={false} lost table={layouts.sales === 'table'} load={() => quotesQuiet(client, limits, now())} empty="No quote has gone quiet." testID="quiet" />;
           case 'open':
-            return <MoneyList client={client} invoice={false} lost load={() => quotesWaiting(client, now())} empty="No quote is waiting." testID="openquotes" />;
+            return <MoneyList client={client} invoice={false} lost table={layouts.sales === 'table'} load={() => quotesWaiting(client, now())} empty="No quote is waiting." testID="openquotes" />;
           case 'followups':
             return <ActivityList client={client} load={() => followUpsDue(client, now())} empty="No follow-up calls are due." doneLabel="Mark done" testID="followups" />;
           case 'won':

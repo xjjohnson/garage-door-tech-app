@@ -1,9 +1,9 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
 import { Action } from './Buttons';
 import { Card, Meta, Note, Title } from './Dept';
-import { colors, fs, sp } from '../theme';
+import { colors, fs, radius, sp } from '../theme';
 
 /** A row on one of the Office or Sales lists: who and what, a few lines, and the buttons that apply. */
 export interface RowAction {
@@ -19,11 +19,56 @@ export interface RowItem {
   lines?: string[];
   /** A line shown in red (how late). */
   bad?: string;
+  /** Table rows: the dollar amount on the right, and the age line ("Quiet 6 days"). */
+  amount?: string;
+  age?: string;
   actions?: RowAction[];
 }
 
-export function RowList({ rows, empty, header, testID }: { rows: RowItem[] | null; empty: string; header?: ReactNode; testID?: string }) {
+export function RowList({ rows, empty, header, testID, table }: { rows: RowItem[] | null; empty: string; header?: ReactNode; testID?: string; table?: boolean }) {
+  const [openKey, setOpenKey] = useState<string | null>(null);
   if (rows === null) return <Note>Reading Odoo…</Note>;
+  if (table) {
+    // The desk table: one tight line per row (who, dollars, age). Tapping a row opens its buttons.
+    return (
+      <View style={styles.stack} testID={testID}>
+        {header}
+        {rows.length === 0 ? <Note testID={testID ? `${testID}-empty` : undefined}>{empty}</Note> : null}
+        {rows.length > 0 ? (
+          <View style={styles.table}>
+            {rows.map((r, i) => {
+              const on = openKey === r.key;
+              return (
+                <View key={r.key} testID={`row-${r.key}`} style={[i > 0 && styles.tline, on && styles.tOpen]}>
+                  <Pressable onPress={() => setOpenKey(on ? null : r.key)} accessibilityRole="button" accessibilityState={{ expanded: on }} accessibilityLabel={`${r.title}${r.amount ? `, ${r.amount}` : ''}`} testID={`row-${r.key}-toggle`} style={styles.trow}>
+                    <View style={styles.tmain}>
+                      <Text style={styles.tname} numberOfLines={1}>{r.title}</Text>
+                      <Text style={[styles.tsub, r.bad ? styles.bad : null]} numberOfLines={1}>{[r.sub, r.bad ?? r.age ?? r.lines?.[0]].filter(Boolean).join(' · ')}</Text>
+                    </View>
+                    {r.amount ? <Text style={styles.tamt}>{r.amount}</Text> : null}
+                  </Pressable>
+                  {on ? (
+                    <View style={styles.tdetail}>
+                      {r.lines?.map((l, j) => (
+                        <Text key={j} style={styles.line}>{l}</Text>
+                      ))}
+                      {r.actions?.length ? (
+                        <View style={styles.actions}>
+                          {r.actions.map((a) => (
+                            <Action key={a.label} label={a.label} primary={a.primary} disabled={a.disabled} onPress={a.onPress} testID={`row-${r.key}-${a.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} />
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+      </View>
+    );
+  }
   return (
     <View style={styles.stack} testID={testID}>
       {header}
@@ -84,4 +129,13 @@ const styles = StyleSheet.create({
   line: { fontSize: fs(16), color: colors.text, lineHeight: fs(22) },
   bad: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
+  table: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
+  tline: { borderTopWidth: 1, borderTopColor: colors.line },
+  tOpen: { backgroundColor: colors.info },
+  trow: { flexDirection: 'row', alignItems: 'center', gap: sp(10), paddingHorizontal: sp(12), paddingVertical: sp(10), minHeight: 44 },
+  tmain: { flex: 1, gap: sp(1) },
+  tname: { fontSize: fs(16), fontWeight: '800', color: colors.text },
+  tsub: { fontSize: fs(13), color: colors.muted },
+  tamt: { fontSize: fs(16), fontWeight: '800', color: colors.text },
+  tdetail: { paddingHorizontal: sp(12), paddingBottom: sp(10), gap: sp(8) },
 });
