@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.47',
+    title: 'Warehouse and Buyer Tools page: no field tools',
+    changes: ['For someone whose only roles are Warehouse or Buyer, the Tools page no longer shows Wrap up the day, the Spring calculator, Door weight, Diagnose, Manuals, Follow-ups or Schedule. It keeps Warehouse, Purchasing, Truck stock, Time and miles and Price book.'],
+    test: ['Developer > Look at the app as Warehouse, open More: only the shop tools are listed.', 'Sign in as a warehouse manager: More shows Warehouse and Purchasing and no spring calculator.'],
+  },
+  {
     release: '0.6.46',
     title: 'Warehouse theme: shop Home, one Orders list, stock table, Ready for a tech',
     changes: [

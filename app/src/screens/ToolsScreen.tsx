@@ -9,7 +9,7 @@ import { followUps } from '../lib/followups';
 import { isLow } from '../lib/stock';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
-import { useDepartments, useOwner } from '../lib/useDepartments';
+import { useDepartments, useOwner, useShopOnly } from '../lib/useDepartments';
 import { useStock } from '../lib/useStock';
 import { useBadges } from '../lib/useBadges';
 import { dispatchTotal, officeTotal, overviewTotal, purchasingTotal, salesTotal } from '../lib/deptBadges';
@@ -28,6 +28,7 @@ export function ToolsScreen() {
   const { items } = useStock();
   const low = items.filter(isLow).length;
   const { access } = useDepartments();
+  const shopOnly = useShopOnly();
   const { owner } = useOwner();
   const badges = useBadges();
   const buying = purchasingTotal(badges);
@@ -59,11 +60,11 @@ export function ToolsScreen() {
     <View style={styles.stack} testID="tools">
       {mode === 'shop' ? departments : null}
       {owner ? <StatsCard /> : null}
-      {badges.ready > 0 ? <AlertBanner testID="parts-ready-alert" title={`${badges.ready} job order${badges.ready === 1 ? '' : 's'} ready at the warehouse`} detail="Pick them up, then tap Got it on the job" action="Jobs" onPress={() => router.push('/jobs')} /> : null}
+      {badges.ready > 0 && !shopOnly ? <AlertBanner testID="parts-ready-alert" title={`${badges.ready} job order${badges.ready === 1 ? '' : 's'} ready at the warehouse`} detail="Pick them up, then tap Got it on the job" action="Jobs" onPress={() => router.push('/jobs')} /> : null}
       {low > 0 ? <AlertBanner testID="stock-alert" title={`Truck stock: ${low} low`} detail="Check what to reorder" action="Review" onPress={() => router.push('/stock')} /> : null}
-      <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />
+      {shopOnly ? null : <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />}
 
-      {mode === 'calc' ? (
+      {mode === 'calc' && !shopOnly ? (
         <View style={styles.pair}>
           <Action primary label="Spring calc" onPress={() => router.push('/springs')} testID="tools-springs-big" grow />
           <Action primary label="Parts and truck" onPress={() => router.push('/stock')} testID="tools-stock-big" grow />
@@ -72,6 +73,8 @@ export function ToolsScreen() {
 
       {mode === 'business' ? businessGroup : null}
 
+      {shopOnly ? null : (
+      <>
       {mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop' ? (
         <>
           <Caption>{mode === 'calc' ? 'All tools' : 'In the field'}</Caption>
@@ -95,13 +98,15 @@ export function ToolsScreen() {
           </View>
         </>
       )}
+      </>
+      )}
 
       <Caption>Truck and day</Caption>
       <RowGroup>
-        {mode === 'tiles' ? null : <IconRow icon="truck" label="Truck stock" detail="Parts on the truck" href="/stock" testID="open-stock" badge={low > 0 ? `${low} low` : undefined} warn={low > 0} />}
-        {mode === 'tiles' ? null : <TimeRow />}
-        <FollowUpsRow />
-        <IconRow icon="cal" label="Schedule" detail="Book and move visits" href="/schedule" testID="tools-schedule" last />
+        {mode === 'tiles' && !shopOnly ? null : <IconRow icon="truck" label="Truck stock" detail="Parts on the truck" href="/stock" testID="open-stock" badge={low > 0 ? `${low} low` : undefined} warn={low > 0} />}
+        {mode === 'tiles' && !shopOnly ? null : <TimeRow />}
+        {shopOnly ? null : <FollowUpsRow />}
+        {shopOnly ? null : <IconRow icon="cal" label="Schedule" detail="Book and move visits" href="/schedule" testID="tools-schedule" last />}
       </RowGroup>
 
       {mode === 'business' ? null : businessGroup}

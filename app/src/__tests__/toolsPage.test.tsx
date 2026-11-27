@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { NO_BADGES, setBadges } from '../lib/deptBadges';
+import { setRolePreview } from '../lib/devFlags';
 import { loadProfile, teamHours } from '../lib/odooProfile';
 import { STOCK_STORAGE_KEY } from '../lib/stock';
 import { renderApp } from '../testing/renderApp';
@@ -24,6 +25,19 @@ describe('Tools page layout', () => {
     expect(screen.queryByTestId('stock-alert')).toBeNull();
     await fireEvent.press(screen.getByTestId('open-settings'));
     expect(app.getPathname()).toBe('/settings');
+  });
+
+  it('leaves the field tools off the Tools page for a warehouse manager, and keeps the shop\'s own', async () => {
+    setRolePreview('warehouse');
+    try {
+      await renderApp('/tools');
+      await settle();
+      for (const id of ['tools-end-of-day', 'tools-springs', 'tools-door-weight', 'tools-diagnose', 'tools-manuals', 'tools-schedule']) expect(screen.queryByTestId(id)).toBeNull();
+      expect(screen.getByTestId('open-stock')).toBeTruthy();
+      expect(screen.getByTestId('tools-price-book')).toBeTruthy();
+    } finally {
+      setRolePreview(null);
+    }
   });
 
   it('shows one alert banner with a Review button when truck stock runs low', async () => {
