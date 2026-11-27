@@ -15,7 +15,7 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
-    release: '0.6.43',
+    release: '0.6.45',
     title: 'Owner app: money board, Areas and Manage',
     changes: [
       'The owner now gets their own bar: Home, Jobs, Money, Areas and Manage. Everything else is still one tap away (Customers, Sales, Tools and every area), so the owner can do it all.',
@@ -33,6 +33,28 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       'Manage: open Management, price book, business numbers and settings.',
       'Settings, pick the Owner theme, restart. Try light and dark.',
     ],
+  },
+  {
+    release: '0.6.44',
+    title: 'Office: money and people, and an office-only app',
+    changes: [
+      'Office now has four tabs: Money, People, Customers and Setup. Money opens on dollar tiles (Overdue, To invoice, Quotes out), a search box, a Do next list and the money lists with their dollars.',
+      'Office lists are tight tables: one line per invoice or quote with the dollars and age, and a tap shows the buttons. Invoice lists have age chips (Current, 1-30, 31-60, 60+) with dollars, and a search box.',
+      'People tab: who is clocked in now, hours this week for each person, and a Time sheets page with each day. It reads Odoo Attendances; nothing here changes Odoo.',
+      'A person whose only role is Office gets an office bar: Home, Office, Customers and More. Home is the money board read from Odoo. The Office theme Home shows the same board for anyone with Office access.',
+    ],
+    test: [
+      'Look as Office (Developer): are the bar tabs Home, Office, Customers, More?',
+      'Office > Money: do the three dollar tiles match Odoo? Type a customer name in the search box.',
+      'Office > Money lists > Unpaid invoices: tap an age chip, tap a row, then Record payment (nothing saves until the second press).',
+      'Office > People: are the people clocked in right? Open Time sheets and check one person\'s days against Odoo.',
+    ],
+  },
+  {
+    release: '0.6.43',
+    title: 'Dispatcher More: a way back',
+    changes: ['Pages opened from the dispatcher More tab (Waiting to be booked, Follow-ups, Who\'s working, Time off, Truck parts alerts) now have a "‹ More" button at the top, so you can go back to the list.'],
+    test: ['Look as Dispatcher > More > Waiting to be booked: does "‹ More" take you back to the list?'],
   },
   {
     release: '0.6.42',

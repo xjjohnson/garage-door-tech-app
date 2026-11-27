@@ -98,3 +98,16 @@ export function useOwnerBar(): boolean {
   if (!client) return false;
   return access.owner;
 }
+
+/**
+ * True for a person whose only app role is Office: the app then shows the office bar
+ * (Home, Office, Customers, More). Someone who also holds the owner, dispatcher, sales,
+ * warehouse or buyer role keeps the full bar. Not true until Odoo has answered.
+ */
+export function useOfficeOnly(): boolean {
+  const { status, client } = useOdoo();
+  const { access, ready } = useDepartments();
+  if (status === 'loading' || status === 'signingIn' || !ready) return false;
+  if (!client) return rolePreview() === 'office';
+  return access.office && !(access.owner || access.dispatch || access.sales || access.warehouse || access.purchasing);
+}

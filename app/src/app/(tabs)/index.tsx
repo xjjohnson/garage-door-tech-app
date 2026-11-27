@@ -7,9 +7,10 @@ import { TodayMapScreen } from '../../screens/TodayMapScreen';
 import { TodayScreen } from '../../screens/TodayScreen';
 import { WeekScreen } from '../../screens/WeekScreen';
 import { useBadges } from '../../lib/useBadges';
-import { useDispatcherOnly, useOwnerBar, useSalesOnly } from '../../lib/useDepartments';
+import { useDispatcherOnly, useOfficeOnly, useOwnerBar, useSalesOnly } from '../../lib/useDepartments';
 import { SalesHome } from '../../screens/SalesDesk';
 import { OwnerHome } from '../../screens/OwnerDesk';
+import { OfficeHomePage } from '../../screens/OfficeAreaScreen';
 import { DispatchChips } from '../../components/DispatchChips';
 import { colors, layouts, sp } from '../../theme';
 
@@ -24,6 +25,7 @@ export default function TodayRoute() {
   const dispatcherOnly = useDispatcherOnly();
   const salesOnly = useSalesOnly();
   const ownerBar = useOwnerBar();
+  const officeOnly = useOfficeOnly();
   const startsOnMap = layouts.homeStartsOnMap || dispatcherOnly;
   const [view, setView] = useState<View_>(startsOnMap ? 'map' : 'today');
   useBadges();
@@ -33,6 +35,14 @@ export default function TodayRoute() {
     return (
       <SectionScroll>
         <OwnerHome />
+      </SectionScroll>
+    );
+  }
+  // An office person's Home: the money board, not a day of visits.
+  if (officeOnly) {
+    return (
+      <SectionScroll>
+        <OfficeHomePage />
       </SectionScroll>
     );
   }

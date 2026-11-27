@@ -6,6 +6,7 @@ import { Card, Message, Meta, Note, NumBox, Row, TextBox, Title, toCents, useRun
 import { ChipRow } from '../components/controls';
 import { PageError, RowItem, RowList, usePageRows } from '../components/DeptRows';
 import { callLink, quoteText, reminderText, textLink } from '../lib/deptActions';
+import { Age, AGE_LABEL, AGES, ageTotals, inAge, searchRows } from '../lib/officeBoard';
 import { PAY_LABEL, PAY_METHODS, PayMethod } from '../lib/invoices';
 import type { OdooClient } from '../lib/odoo';
 import { LOST_REASONS, markLost, MoneyRow } from '../lib/odooOffice';
@@ -22,8 +23,17 @@ type Mode = { kind: 'pay'; row: MoneyRow } | { kind: 'email'; row: MoneyRow; to:
  * (shows who it goes to first), Text (opens the phone's messages), Call, and Mark lost for
  * quotes. Every Odoo write waits for a second press on a panel that shows what will change.
  */
-export function MoneyList({ client, load, empty, invoice, lost, table, header, testID }: { client: OdooClient; load: () => Promise<MoneyRow[]>; empty: string; invoice: boolean; lost?: boolean; table?: boolean; header?: (rows: MoneyRow[]) => string; testID: string }) {
-  const { data, error, reload } = usePageRows(load, [client]);
+export function MoneyList({ client, load, rows: preRows, onChanged, empty, invoice, lost, header, filters, table, testID }: { client: OdooClient; load?: () => Promise<MoneyRow[]>; /** Rows the page above already read. */ rows?: MoneyRow[] | null; /** Called after a write so the page above reads again. */ onChanged?: () => void; empty: string; /** Left out: each row is judged by what it is (an invoice or a quote). */ invoice?: boolean; lost?: boolean; header?: (rows: MoneyRow[]) => string; /** Age chips with dollars (invoice lists) and a search box. */ filters?: boolean; /** The tight desk table (tap a row for its buttons). */ table?: boolean; testID: string }) {
+  const own = usePageRows(load ?? (async () => [] as MoneyRow[]), [client]);
+  const data = preRows !== undefined ? preRows : own.data;
+  const error = preRows !== undefined ? null : own.error;
+  const reload = () => {
+    own.reload();
+    onChanged?.();
+  };
+  const [age, setAge] = useState<Age>('all');
+  const [term, setTerm] = useState('');
+  const isInvoice = (r: MoneyRow) => invoice ?? r.model === 'account.move';
   const { business } = useInvoices();
   const [mode, setMode] = useState<Mode>(null);
   const { busy, msg, run } = useRun();
@@ -33,7 +43,7 @@ export function MoneyList({ client, load, empty, invoice, lost, table, header, t
 
   const open = (r: MoneyRow) => router.push({ pathname: '/odoo-record/[kind]/[id]', params: { kind: r.model === 'account.move' ? 'invoices' : 'quotations', id: String(r.id) } });
   const text = (r: MoneyRow) => {
-    const link = textLink(r.phone, invoice ? reminderText(r, business.name) : quoteText(r, business.name));
+    const link = textLink(r.phone, isInvoice(r) ? reminderText(r, business.name) : quoteText(r, business.name));
     if (link) Linking.openURL(link).catch(() => undefined);
   };
   const call = (r: MoneyRow) => {
@@ -41,29 +51,35 @@ export function MoneyList({ client, load, empty, invoice, lost, table, header, t
     if (link) Linking.openURL(link).catch(() => undefined);
   };
 
+  const shown = useMemo(() => (data ? searchRows(filters ? inAge(data, age) : data, filters ? term : '') : null), [data, age, term, filters]);
   const rows: RowItem[] | null = useMemo(
     () =>
-      data?.map((r) => ({
-        key: `${r.model}-${r.id}`,
-        title: r.customer || r.name,
-        sub: table ? r.name : [r.name, formatMoney(r.cents) + (invoice ? ' owed' : ''), r.ref].filter(Boolean).join(' · '),
-        ...(table ? { amount: formatMoney(r.cents), age: r.text } : {}),
-        ...(invoice && r.days > 0 ? { bad: r.text } : table ? { lines: r.ref ? [r.ref] : [] } : { lines: [r.text] }),
-        actions: [
-          ...(invoice ? [{ label: 'Record payment', primary: true, onPress: () => { setMode({ kind: 'pay', row: r }); setAmount((r.cents / 100).toFixed(2)); setRef(''); } }] : []),
-          { label: 'Open', primary: !invoice, onPress: () => open(r) },
-          { label: 'Email again', onPress: () => void run('prep', async () => { const to = await partnerEmail(client, r.partnerId); setMode({ kind: 'email', row: r, to }); return { text: '' }; }) },
-          ...(r.phone && textLink(r.phone, 'x') ? [{ label: 'Text', onPress: () => text(r) }] : []),
-          ...(r.phone && callLink(r.phone) ? [{ label: 'Call', onPress: () => call(r) }] : []),
-          ...(lost ? [{ label: 'Mark lost', onPress: () => setMode({ kind: 'lost', row: r }) }] : []),
-        ],
-      })) ?? null,
+      shown?.map((r) => {
+        const inv = isInvoice(r);
+        return {
+          key: `${r.model}-${r.id}`,
+          title: r.customer || r.name,
+          sub: table ? r.name : [r.name, r.ref].filter(Boolean).join(' · '),
+          amount: formatMoney(r.cents),
+          ...(table ? { age: r.text } : {}),
+          ...(inv && r.days > 0 && table ? { bad: r.text } : table ? { lines: r.ref ? [r.ref] : [] } : inv ? {} : { lines: [r.text] }),
+          actions: [
+            ...(inv ? [{ label: 'Record payment', primary: true, onPress: () => { setMode({ kind: 'pay', row: r }); setAmount((r.cents / 100).toFixed(2)); setRef(''); } }] : []),
+            { label: 'Open', primary: !inv, onPress: () => open(r) },
+            { label: 'Email again', onPress: () => void run('prep', async () => { const to = await partnerEmail(client, r.partnerId); setMode({ kind: 'email', row: r, to }); return { text: '' }; }) },
+            ...(r.phone && textLink(r.phone, 'x') ? [{ label: 'Text', onPress: () => text(r) }] : []),
+            ...(r.phone && callLink(r.phone) ? [{ label: 'Call', onPress: () => call(r) }] : []),
+            ...(lost ? [{ label: 'Mark lost', onPress: () => setMode({ kind: 'lost', row: r }) }] : []),
+          ],
+        };
+      }) ?? null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, business.name],
+    [shown, business.name],
   );
   if (error) return <PageError what="This list" error={error} />;
 
-  const total = data && header ? header(data) : '';
+  const total = data && header && !filters ? header(data) : '';
+  const totals = data ? ageTotals(data) : null;
   return (
     <View style={{ gap: sp(10) }}>
       <Message msg={msg} />
@@ -143,7 +159,13 @@ export function MoneyList({ client, load, empty, invoice, lost, table, header, t
           </Row>
         </Card>
       ) : null}
-      <RowList rows={rows} empty={empty} testID={testID} table={table} header={total ? <Note testID={`${testID}-total`}>{total}</Note> : undefined} />
+      {filters && totals ? (
+        <View style={{ gap: sp(8) }}>
+          <TextBox value={term} onChange={setTerm} label="Search customer or number" testID={`${testID}-search`} />
+          {invoice === true ? <ChipRow options={AGES.filter((a) => a === 'all' || totals[a].count > 0).map((a) => ({ label: `${AGE_LABEL[a]} ${formatMoney(totals[a].cents)}`, value: a }))} value={age} onChange={setAge} compact scroll testID={`${testID}-age`} /> : null}
+        </View>
+      ) : null}
+      <RowList table={table} rows={rows} empty={empty} testID={testID} header={total ? <Note testID={`${testID}-total`}>{total}</Note> : undefined} />
     </View>
   );
 }
