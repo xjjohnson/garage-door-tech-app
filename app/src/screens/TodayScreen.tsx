@@ -15,7 +15,8 @@ import { canSendJobs, cleanNotes, olderJobs } from '../lib/odooJobs';
 import { describePending } from '../lib/pending';
 import { Appointment, dayLabel, formatTime, onDay, upcoming, visitDone, windowLabel } from '../lib/schedule';
 import { useInvoices } from '../lib/useInvoices';
-import { useTech } from '../lib/useDepartments';
+import { useDepartments, useTech } from '../lib/useDepartments';
+import { OfficeHome } from './OfficeAreaScreen';
 import { useJobs } from '../lib/useJobs';
 import { useLog } from '../lib/useLog';
 import { useOdoo } from '../lib/useOdoo';
@@ -111,7 +112,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
       {home === 'field' && !next && allDone ? <AllDoneCard unpaid={owedNow.length} nextDay={upcoming(appointments, t, 1, jobs)[0]} now={t} /> : null}
       {home === 'owner' ? <OwnerKpis now={now} done={doneCount} total={today.length} /> : null}
       {home === 'owner' ? <CrewToday now={now} /> : null}
-      {home === 'inbox' ? <Inbox now={now} /> : null}
+      {home === 'inbox' ? <OfficeInbox now={now} /> : null}
       {today.length > 0 && !lean && !field && home !== 'owner' ? (
         <View style={styles.kpis} testID="today-kpis">
           <Kpi value={`${doneCount} / ${today.length}`} label="Visits done" testID="today-kpi-done" />
@@ -250,6 +251,14 @@ function OwnerKpis({ now, done, total }: { now: () => number; done: number; tota
 }
 
 /** Office Home: what is waiting on you, with one tap to each. */
+/** Office Home: Odoo's money board when this person is in Office, otherwise the phone's own list. */
+function OfficeInbox({ now }: { now: () => number }) {
+  const { client } = useOdoo();
+  const { access } = useDepartments();
+  if (client && (access.office || access.owner)) return <OfficeHome client={client} now={now} />;
+  return <Inbox now={now} />;
+}
+
 function Inbox({ now }: { now: () => number }) {
   const { invoices, business } = useInvoices();
   const { settings, dismissed } = useFollowUps();

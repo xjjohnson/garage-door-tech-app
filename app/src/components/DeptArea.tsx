@@ -12,7 +12,7 @@ import { sp } from '../theme';
  * The shell Office, Sales and Owner overview share: sign-in and access checks, the grouped list,
  * and one opened page with a back row. Pages draw themselves; nothing is kept on the phone.
  */
-export function DeptArea<T extends string>({ area, who, need, groups, labels, page, initial, prefix }: { area: string; who: string; need: keyof Access; groups: MenuGroup<T>[]; labels: Record<T, string>; page: (tab: T, client: OdooClient) => ReactNode; initial?: T; prefix: string }) {
+export function DeptArea<T extends string>({ area, who, need, groups, labels, page, initial, prefix, front }: { area: string; who: string; need: keyof Access; groups: MenuGroup<T>[]; labels: Record<T, string>; page: (tab: T, client: OdooClient) => ReactNode; initial?: T; prefix: string; /** Draws the front page itself, in place of the grouped list. */ front?: (open: (id: T) => void, client: OdooClient) => ReactNode }) {
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
   const [tab, setTab] = useState<T | null>(initial ?? null);
@@ -29,7 +29,8 @@ export function DeptArea<T extends string>({ area, who, need, groups, labels, pa
   }
   return (
     <View style={styles.stack} testID={`${prefix}-area`}>
-      {tab === null ? <SectionMenu groups={groups} onPick={setTab} testID={`${prefix}-tabs`} rowTestID={(id) => `${prefix}-tab-${id}`} /> : null}
+      {tab === null && front ? front(setTab, client) : null}
+      {tab === null && !front ? <SectionMenu groups={groups} onPick={setTab} testID={`${prefix}-tabs`} rowTestID={(id) => `${prefix}-tab-${id}`} /> : null}
       {tab !== null ? (
         <SectionPage area={area} title={labels[tab]} onBack={back} testID={`${prefix}-back`}>
           {page(tab, client)}
