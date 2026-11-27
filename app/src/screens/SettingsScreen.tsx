@@ -14,7 +14,7 @@ import { loadLook, saveLook } from '../lib/lookPref';
 import { PALETTES } from '../lib/themeLook';
 import { DEFAULT_THEME, LookPick, THEMES } from '../lib/themes';
 import { useInvoices } from '../lib/useInvoices';
-import { useOwner } from '../lib/useDepartments';
+import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, look as drawnLook, themeDef, scheme, touch, type, bw, fs, rad, sp } from '../theme';
 
@@ -39,6 +39,7 @@ const CHECK_NOTE: Record<OtaCheck, string> = {
  * for team jobs, and backups. Day-to-day buttons stay on Jobs.
  */
 export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAsync(), buildInfo = BUILD_INFO, channel = UPDATE_CHANNEL }: Props) {
+  const { access } = useDepartments();
   const { business } = useInvoices();
   const odoo = useOdoo();
   const { owner } = useOwner();
@@ -161,7 +162,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
                 ))}
               </View>
             </View>
-            <Text style={styles.themeWho}>{t.who}</Text>
+            <Text style={styles.themeWho}>{t.who}{t.id === 'warehouse' && access.warehouse ? ' · Made for your role' : ''}</Text>
             <Text style={styles.shareNote}>{t.detail}</Text>
           </Pressable>
         );

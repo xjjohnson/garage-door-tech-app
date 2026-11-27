@@ -24,9 +24,9 @@ describe('themes', () => {
     expect(c.layouts).toEqual({ visitRows: 'card', jobRows: 'card', jobsGroup: 'none', jobsRail: false, jobsTeamFirst: false, jobsMap: false, home: 'classic', homeStartsOnMap: false, sales: 'classic', customers: 'classic', tools: 'classic', jobDetail: 'steps' });
   });
 
-  it('defines six themes besides Classic, each with a unique id and a plain description', () => {
-    expect(THEMES).toHaveLength(7);
-    expect(new Set(THEMES.map((t) => t.id)).size).toBe(7);
+  it('defines seven themes besides Classic, each with a unique id and a plain description', () => {
+    expect(THEMES).toHaveLength(8);
+    expect(new Set(THEMES.map((t) => t.id)).size).toBe(8);
     for (const t of THEMES) {
       expect(t.label).toBeTruthy();
       expect(t.detail.length).toBeGreaterThan(10);
@@ -71,6 +71,8 @@ describe('theme start values', () => {
     expect(load('simple').layouts.jobRows).toBe('tile');
     expect(load('dispatch').layouts.jobsTeamFirst).toBe(true);
     expect(load('map').layouts.homeStartsOnMap).toBe(true);
+    expect(load('warehouse').layouts).toMatchObject({ home: 'warehouse', tools: 'shop' });
+    expect(load('warehouse').look).toMatchObject({ shape: 'round', size: 'comfortable' });
   });
 
   it('tints the colors with the theme accent, or the company color when chosen', () => {

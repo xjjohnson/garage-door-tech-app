@@ -108,7 +108,7 @@ export function PurchasingScreen() {
 
 // ---- To order ----
 
-function ToOrder({ client }: { client: OdooClient }) {
+export function ToOrder({ client }: { client: OdooClient }) {
   const [groups, setGroups] = useState<VendorOrder[] | null>(null);
   const [qty, setQty] = useState<Record<number, string>>({});
   const { busy, msg, run, setMsg } = useRun();
@@ -161,7 +161,7 @@ function ToOrder({ client }: { client: OdooClient }) {
 
 const GROUPS: PoGroup[] = ['draft', 'sent', 'receive', 'done'];
 
-function Orders({ client }: { client: OdooClient }) {
+export function Orders({ client }: { client: OdooClient }) {
   const [rows, setRows] = useState<PoRow[] | null>(null);
   const [group, setGroup] = useState<PoGroup>('draft');
   const [open, setOpen] = useState<PoDetail | null>(null);

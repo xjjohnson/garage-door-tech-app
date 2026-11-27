@@ -6,14 +6,14 @@
  */
 import type { Palette, SizeName, Shape } from './themeLook';
 
-export type ThemeId = 'classic' | 'field' | 'dispatch' | 'office' | 'owner' | 'map' | 'simple';
+export type ThemeId = 'classic' | 'field' | 'dispatch' | 'office' | 'owner' | 'map' | 'simple' | 'warehouse';
 
 /** How one visit or job is drawn in a list. */
 export type RowStyle = 'card' | 'dense' | 'edge' | 'tile' | 'big' | 'table';
-export type HomeLayout = 'classic' | 'field' | 'inbox' | 'owner' | 'map' | 'simple';
+export type HomeLayout = 'classic' | 'field' | 'inbox' | 'owner' | 'map' | 'simple' | 'warehouse';
 export type JobsGroup = 'none' | 'status' | 'day';
 export type CustomersLayout = 'classic' | 'big' | 'table' | 'owed' | 'near';
-export type ToolsLayout = 'classic' | 'tiles' | 'compact' | 'business' | 'calc';
+export type ToolsLayout = 'classic' | 'tiles' | 'compact' | 'business' | 'calc' | 'shop';
 /** What the top of an opened job puts first: its steps, the visit and who has it, the money, or directions. */
 export type JobDetailLayout = 'steps' | 'assign' | 'billing' | 'directions';
 export type SalesLayout = 'classic' | 'dense' | 'table' | 'aging' | 'chase' | 'grouped';
@@ -124,6 +124,17 @@ export const THEMES: ThemeDef[] = [
     accent: null,
     swatch: ['#0F3D26', '#52C48A', '#FFFFFF'],
     layouts: { visitRows: 'big', jobRows: 'tile', jobsGroup: 'none', jobsRail: false, jobsTeamFirst: false, jobsMap: false, home: 'simple', homeStartsOnMap: false, sales: 'dense', customers: 'big', tools: 'tiles', jobDetail: 'steps' },
+  },
+  {
+    id: 'warehouse',
+    label: 'Warehouse',
+    who: 'Warehouse manager and buyer',
+    detail: 'Home lists what to do at the shop: receive, hand parts to a tech, order, count. Stock table, one Orders list, amber and big buttons.',
+    shape: 'round',
+    size: 'comfortable',
+    accent: '#B8620A',
+    swatch: ['#3A1F05', '#B8620A', '#F4EEE6'],
+    layouts: { visitRows: 'edge', jobRows: 'edge', jobsGroup: 'status', jobsRail: false, jobsTeamFirst: false, jobsMap: false, home: 'warehouse', homeStartsOnMap: false, sales: 'dense', customers: 'table', tools: 'shop', jobDetail: 'steps' },
   },
 ];
 

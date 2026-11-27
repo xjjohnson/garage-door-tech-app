@@ -38,7 +38,7 @@ describe('add a person', () => {
   it('makes the user and gives them the chosen roles, emailing nothing', async () => {
     const { client, calls } = fake({ actingGroups: [1] });
     const p = await createPerson(client, { name: ' Sam Lee ', email: 'sam@x.test', roles: { ...none, warehouse: true } });
-    expect(p).toMatchObject({ id: 10, name: 'Sam Lee', login: 'sam@x.test', roles: { ...none, warehouse: true } });
+    expect(p).toMatchObject({ id: 10, name: 'Sam Lee', login: 'sam@x.test', roles: { ...none, warehouse: true, buyer: true } });
     expect(calls.find((c) => c[1] === 'create')![2][0]).toEqual({ name: 'Sam Lee', login: 'sam@x.test', email: 'sam@x.test' });
     expect(calls.some((c) => c[1] === 'action_reset_password')).toBe(false);
   });
