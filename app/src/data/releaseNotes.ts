@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.47',
+    title: 'Office More: no field or truck tools',
+    changes: ['The More tab for an Office-only person now shows only Office, Follow-ups, Price book and Time and miles. The spring, door weight, diagnose and manuals tools, Truck stock, Schedule and "Wrap up the day" are gone from it.'],
+    test: ['Look as Office > More: are the field and truck groups gone? Does Office still open from there?'],
+  },
+  {
     release: '0.6.46',
     title: 'Warehouse theme: shop Home, one Orders list, stock table, Ready for a tech',
     changes: [
