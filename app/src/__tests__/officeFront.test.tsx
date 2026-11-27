@@ -49,10 +49,12 @@ describe('Office front page', () => {
     await render(<OfficeAreaScreen now={() => NOW} />);
     expect(await screen.findByTestId('tile-overdue')).toHaveTextContent(/\$150/);
     expect(screen.getByTestId('tile-toinvoice')).toHaveTextContent(/\$400/);
+    expect(await screen.findByTestId('row-account.move-70')).toBeTruthy();
+    expect(screen.getByTestId('row-sale.order-80')).toBeTruthy();
+    // Each row is one tight line; its buttons show when it is tapped.
+    expect(screen.queryByTestId('row-account.move-70-record-payment')).toBeNull();
+    await fireEvent.press(screen.getByTestId('row-account.move-70-toggle'));
     expect(await screen.findByTestId('row-account.move-70-record-payment')).toBeTruthy();
-    expect(screen.getByTestId('row-sale.order-80-open')).toBeTruthy();
-    // The rest of the buttons wait behind More.
-    expect(screen.queryByTestId('row-account.move-70-email-again')).toBeNull();
   });
 
   it('searches the lists by customer name', async () => {

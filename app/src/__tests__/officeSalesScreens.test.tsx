@@ -58,6 +58,7 @@ describe('Office area', () => {
   it('lists a late invoice and records the payment only on the second press', async () => {
     held = ['account.group_account_manager'];
     await render(<OfficeAreaScreen initial="overdue" />);
+    await fireEvent.press(await screen.findByTestId('row-account.move-70-toggle'));
     await fireEvent.press(await screen.findByTestId('row-account.move-70-record-payment'));
     expect(await screen.findByTestId('pay-panel')).toBeTruthy();
     expect(wrote('action_create_payments')).toBe(false);
@@ -68,7 +69,7 @@ describe('Office area', () => {
   it('shows who an email goes to and sends nothing until Send is pressed', async () => {
     held = ['account.group_account_manager'];
     await render(<OfficeAreaScreen initial="overdue" />);
-    await fireEvent.press(await screen.findByTestId('row-account.move-70-more'));
+    await fireEvent.press(await screen.findByTestId('row-account.move-70-toggle'));
     await fireEvent.press(await screen.findByTestId('row-account.move-70-email-again'));
     expect(await screen.findByTestId('email-panel')).toBeTruthy();
     expect(calls.some((c) => c[1] === 'action_send_mail' || c[1] === 'message_post')).toBe(false);
@@ -85,7 +86,6 @@ describe('Sales area', () => {
   it('marks a quiet quote lost only after a reason is picked', async () => {
     held = ['sales_team.group_sale_manager'];
     await render(<SalesAreaScreen initial="quiet" />);
-    await fireEvent.press(await screen.findByTestId('row-sale.order-80-more'));
     await fireEvent.press(await screen.findByTestId('row-sale.order-80-mark-lost'));
     expect(await screen.findByTestId('lost-panel')).toBeTruthy();
     expect(wrote('action_cancel')).toBe(false);

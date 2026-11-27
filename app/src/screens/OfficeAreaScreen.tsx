@@ -11,6 +11,7 @@ import type { OdooClient } from '../lib/odoo';
 import { doNext, searchRows, sumCents } from '../lib/officeBoard';
 import { formatMoney } from '../lib/prices';
 import { useDepartments } from '../lib/useDepartments';
+import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, sp } from '../theme';
 import { PeopleFront, TimeSheets } from './OfficePeople';
 import { useBadges } from '../lib/useBadges';
@@ -233,4 +234,11 @@ export function OfficeHome({ client, now = Date.now }: { client: OdooClient | nu
       <Text onPress={() => router.push('/office')} accessibilityRole="button" testID="office-home-open" style={styles.link}>Open Office  ›</Text>
     </View>
   );
+}
+
+/** The office-only bar's Home: signs in through the same checks, then the money board. */
+export function OfficeHomePage() {
+  const { client } = useOdoo();
+  if (!client) return <Note testID="office-home-signin">Sign in to Odoo to see the money board.</Note>;
+  return <OfficeHome client={client} />;
 }

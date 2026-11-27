@@ -162,7 +162,7 @@ export function MoneyList({ client, load, rows: preRows, onChanged, empty, invoi
       {filters && totals ? (
         <View style={{ gap: sp(8) }}>
           <TextBox value={term} onChange={setTerm} label="Search customer or number" testID={`${testID}-search`} />
-          <ChipRow options={AGES.filter((a) => a === 'all' || totals[a].count > 0).map((a) => ({ label: `${AGE_LABEL[a]} ${formatMoney(totals[a].cents)}`, value: a }))} value={age} onChange={setAge} compact scroll testID={`${testID}-age`} />
+          {invoice === true ? <ChipRow options={AGES.filter((a) => a === 'all' || totals[a].count > 0).map((a) => ({ label: `${AGE_LABEL[a]} ${formatMoney(totals[a].cents)}`, value: a }))} value={age} onChange={setAge} compact scroll testID={`${testID}-age`} /> : null}
         </View>
       ) : null}
       <RowList table={table} rows={rows} empty={empty} testID={testID} header={total ? <Note testID={`${testID}-total`}>{total}</Note> : undefined} />
