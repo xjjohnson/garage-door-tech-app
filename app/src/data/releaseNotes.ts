@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.58',
+    title: 'The logo is the loading bar',
+    changes: ['The Opening screen now shows the Johnsons logo as the loading bar: its four door bars at the start, then one lifts away at each step (25%, 50%, 75%) until only the roof and star are left at 100% and the app opens. It is drawn in the app, so it adds nothing to the start time. If Odoo is slow it still gives up after 6 seconds and opens.'],
+    test: ['Close and reopen the app: do the door bars on the logo lift away as it loads, with only the roof and star left at 100%? Does it still feel quick?'],
+  },
+  {
     release: '0.6.57',
     title: 'Role counts show at once',
     changes: ['The red counts on the role bubbles are now saved on the phone and shown the moment the app opens, then refreshed from Odoo in the background (like the roles).'],
