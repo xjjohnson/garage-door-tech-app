@@ -53,9 +53,10 @@ import { useCustomerTypes } from '../lib/useInvoices';
 import { TextsTab } from './TextsTab';
 import { LimitsTab } from './LimitsTab';
 import { IndustryTab } from './IndustryTab';
+import { ColorsTab } from './ColorsTab';
 import { makeStyles } from '../lib/makeStyles';
 
-type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business' | 'limits' | 'industry';
+type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business' | 'limits' | 'industry' | 'colors';
 const GROUPS: MenuGroup<Tab>[] = [
   {
     title: 'Jobs and scheduling',
@@ -98,6 +99,7 @@ const GROUPS: MenuGroup<Tab>[] = [
     items: [
       { id: 'business', label: 'Your business', detail: 'Name, payment handles, review link' },
       { id: 'industry', label: 'Industry', detail: 'Which tools your business uses' },
+      { id: 'colors', label: 'Colors', detail: 'The app color for your company' },
     ],
   },
 ];
@@ -149,6 +151,7 @@ export function ManagementScreen() {
           {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
           {tab === 'limits' ? <LimitsTab client={client} canEdit={owner === true} /> : null}
           {tab === 'industry' ? <IndustryTab client={client} canEdit={owner === true} /> : null}
+          {tab === 'colors' ? <ColorsTab client={client} canEdit={owner === true} /> : null}
           {tab === 'checklists' ? <ChecklistsScreen /> : null}
           {tab === 'business' ? <BusinessScreen /> : null}
         </SectionPage>

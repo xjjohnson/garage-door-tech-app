@@ -19,6 +19,8 @@ import { useRoles } from '../../lib/useRoles';
 import { useDepartments, useDispatcherOnly, useOfficeOnly, useOwnerBar, useSalesOnly, useTech } from '../../lib/useDepartments';
 import { useEffect, useRef, useState } from 'react';
 import { useOdoo } from '../../lib/useOdoo';
+import { firstRunEnabled } from '../../lib/firstRun';
+import { FirstRunSetup } from '../../screens/FirstRunSetup';
 import { useAllAccess } from '../../lib/useDepartments';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
@@ -38,7 +40,7 @@ import { makeStyles } from '../../lib/makeStyles';
  * its inputs and search.
  */
 export default function TabsLayout() {
-  const { status, client } = useOdoo();
+  const { status, client, saved } = useOdoo();
   const { ready } = useAllAccess();
   const { needsPick } = useRoles();
   // Until Odoo says which roles this person has, the look and bar are a guess, so hold a plain
@@ -74,6 +76,12 @@ export default function TabsLayout() {
   }, [waiting]);
   // The door (Johnsons) or the underline (FS Crew) is the progress bar: each real loading step lifts one bar away or fills a quarter (25, 50, 75, 100%).
   const stage = finished || needsPick || gaveUp ? 4 : status === 'loading' ? 0 : status === 'signingIn' ? 1 : client && !ready ? 2 : 3;
+  // A phone with no saved Odoo sign-in starts on the setup screen. Decided once, when loading ends.
+  const [firstRun, setFirstRun] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (firstRun === null && status !== 'loading' && status !== 'signingIn') setFirstRun(firstRunEnabled() && status === 'signedOut' && !saved);
+  }, [firstRun, status, saved]);
+  if (firstRun) return <FirstRunSetup onDone={() => setFirstRun(false)} />;
   if (!shown) return <OpeningScreen stage={stage} />;
   return <TabsShell />;
 }
