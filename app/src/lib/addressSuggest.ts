@@ -6,6 +6,7 @@
  * point, so a picked one needs no lookup later. Kept free of React; the
  * network call is passed in, so tests use a fake.
  */
+import { currentFlavor } from '../flavor';
 import type { Customer } from './customers';
 import type { GeoFetch, Point } from './geocode';
 
@@ -75,7 +76,7 @@ export function fromPhoton(f: PhotonFeature, number = ''): AddressSuggestion | n
 /** Addresses for what's been typed, best first, no repeats, with the typed house number. Throws when the network or Photon fails. */
 export async function suggestAddresses(fetchFn: GeoFetch, q: string, near: Point = HOME_AREA): Promise<AddressSuggestion[]> {
   if (!worthAsking(q)) return [];
-  const res = await fetchFn(photonUrl(q, near), { headers: { Accept: 'application/json', 'User-Agent': 'Johnsons-field-app (garage door service)' } });
+  const res = await fetchFn(photonUrl(q, near), { headers: { Accept: 'application/json', 'User-Agent': `${currentFlavor().appName.replace(/\s+/g, "")}-field-app (field service)` } });
   if (!res.ok) throw new Error('Photon error');
   const data = (await res.json()) as { features?: PhotonFeature[] };
   const seen = new Set<string>();

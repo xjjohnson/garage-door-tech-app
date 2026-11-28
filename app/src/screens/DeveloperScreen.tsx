@@ -31,6 +31,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { usePending, usePendingItems } from '../lib/usePending';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 import { makeStyles } from '../lib/makeStyles';
+import { currentFlavor } from '../flavor';
 
 type Filter = LogFilter;
 const FILTERS = [
@@ -239,7 +240,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       now: t,
       entries: logger.entries(),
     });
-    const ok = await share(`johnsons-diagnostics-${new Date(t).toISOString().slice(0, 10)}.txt`, text).catch(() => false);
+    const ok = await share(`${currentFlavor().fileStem}-diagnostics-${new Date(t).toISOString().slice(0, 10)}.txt`, text).catch(() => false);
     if (!ok) setNote("Couldn't open sharing on this phone.");
   };
 
@@ -255,7 +256,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
   const use = useMemo(() => photoUse(photos, fileSize), [photos, fileSize]);
 
   const shareLines = async (lines: typeof entries, name: string) => {
-    const text = formatLog(lines, ['Johnsons app log (part)', buildInfo, `${lines.length} line${lines.length === 1 ? '' : 's'}${query.trim() ? ` matching "${query.trim()}"` : ''}`]);
+    const text = formatLog(lines, [`${currentFlavor().appName} app log (part)`, buildInfo, `${lines.length} line${lines.length === 1 ? '' : 's'}${query.trim() ? ` matching "${query.trim()}"` : ''}`]);
     const ok = await share(`${name}-${new Date(now()).toISOString().slice(0, 10)}.txt`, text).catch(() => false);
     if (!ok) setNote("Couldn't open sharing on this phone.");
   };
@@ -502,7 +503,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       ) : null}
 
       <SectionTitle>Testing tools</SectionTitle>
-      <DevTestTools release={details.release} shareText={share} logText={() => formatLog(logger.entries(), ['Johnsons app log', buildInfo])} />
+      <DevTestTools release={details.release} shareText={share} logText={() => formatLog(logger.entries(), [`${currentFlavor().appName} app log`, buildInfo])} />
       {FEATURE_FLAGS.map((f) => (
         <View key={f.id}>
           <View style={styles.switchRow}>
@@ -538,7 +539,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       <Text style={styles.meta}>Last 7 days on this phone. Passwords and keys are blanked out. Share diagnostics sends the build, phone, Odoo setup, what's waiting and this log in one file, with no keys.</Text>
       <View style={styles.row}>
         <Action label="Share diagnostics" primary grow onPress={shareDiagnostics} testID="dev-share-log" />
-        <Action label="Share these lines" grow onPress={() => shareLines(filtered, 'johnsons-log')} testID="dev-share-lines" />
+        <Action label="Share these lines" grow onPress={() => shareLines(filtered, `${currentFlavor().fileStem}-log`)} testID="dev-share-lines" />
         <Action label="Clear" onPress={() => logger.clear()} testID="dev-clear-log" />
       </View>
       {note ? (
@@ -562,7 +563,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
       <View style={styles.log} testID="dev-log">
         {shown.length === 0 ? <Text style={styles.logLine}>Nothing logged yet.</Text> : null}
         {shown.map((e, i) => (
-          <Pressable key={`${e.t}-${i}`} onPress={() => shareLines([e], 'johnsons-log-line')} accessibilityRole="button" accessibilityLabel={`Share this log line: ${e.area} ${e.msg}`} testID={`dev-log-line-${i}`}>
+          <Pressable key={`${e.t}-${i}`} onPress={() => shareLines([e], `${currentFlavor().fileStem}-log-line`)} accessibilityRole="button" accessibilityLabel={`Share this log line: ${e.area} ${e.msg}`} testID={`dev-log-line-${i}`}>
             <Text style={[styles.logLine, e.level === 'error' && styles.logError, e.level === 'warn' && styles.logWarn]}>
               {stamp(e.t)} {e.area} {e.msg}
             </Text>

@@ -5,6 +5,7 @@
  * lives in memory and a restart puts the app back to normal. Ticks stay on
  * the phone only.
  */
+import { currentFlavor } from '../flavor';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text, TextInput } from './AppText';
@@ -68,7 +69,7 @@ export function DevTestTools({ release, shareText, logText, notes = RELEASE_NOTE
     if (m === 'problem') {
       const item = current.test[i];
       const text = [`Problem found while testing release ${current.release}`, `Item: ${item}`, '', logText()].join('\n');
-      const ok = await shareText(`johnsons-problem-${current.release}.txt`, text).catch(() => false);
+      const ok = await shareText(`${currentFlavor().fileStem}-problem-${current.release}.txt`, text).catch(() => false);
       setNote(ok ? null : "Couldn't open sharing on this phone.");
     }
   };

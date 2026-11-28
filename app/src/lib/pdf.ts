@@ -47,7 +47,7 @@ function page(title: string, body: string): string {
 }
 
 function header(business: Business, right: string): string {
-  return `<div class="top"><div><h1>${escapeHtml(business.name || 'Garage door service')}</h1>${business.phone ? `<div class="muted">${escapeHtml(business.phone)}</div>` : ''}</div><div class="right">${right}</div></div>`;
+  return `<div class="top"><div><h1>${escapeHtml(business.name || 'Service')}</h1>${business.phone ? `<div class="muted">${escapeHtml(business.phone)}</div>` : ''}</div><div class="right">${right}</div></div>`;
 }
 
 export function signatureBlock(sig: Signature | undefined, what: string): string {

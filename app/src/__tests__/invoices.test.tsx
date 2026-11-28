@@ -185,7 +185,7 @@ describe('review requests', () => {
     expect(reviewLink({ reviewUrl: 'g.page/r/abc/review' })).toBe('https://g.page/r/abc/review');
     expect(reviewLink({ reviewUrl: 'not a link' })).toBe('');
     expect(reviewRequestText({ billTo: 'Pat Smith' }, { ...BIZ, reviewUrl: 'https://g.page/r/abc' })).toBe(
-      "Hi Pat, thanks for choosing Ace Doors! If you're happy with the work on your garage door, a quick review helps a lot: https://g.page/r/abc",
+      "Hi Pat, thanks for choosing Ace Doors! If you're happy with the work, a quick review helps a lot: https://g.page/r/abc",
     );
   });
 

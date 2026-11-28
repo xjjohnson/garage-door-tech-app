@@ -3,6 +3,7 @@
  * so they can be tested. Nothing here ever includes a key or password.
  */
 import type { PendingItems } from './pending';
+import { currentFlavor } from '../flavor';
 import { formatLog, LogEntry, redact } from './log';
 import type { CheckResult } from './setupCheck';
 
@@ -90,7 +91,7 @@ export interface DiagnosticsInput {
 export function diagnosticsText(d: DiagnosticsInput): string {
   const setup = d.setup ? d.setup.map((r) => `  ${r.state === 'ok' ? 'OK     ' : r.state === 'warn' ? 'LOOK   ' : 'MISSING'} ${r.label}: ${r.detail}`) : ['  not run'];
   return redact(formatLog(d.entries, [
-    'Johnsons diagnostics',
+    `${currentFlavor().appName} diagnostics`,
     d.buildInfo,
     `Release ${d.update.release} · APK ${d.update.runtimeVersion ?? 'development'} · update ${d.update.embedded ? 'as installed' : `${d.update.updateId ?? '?'} (${fmtDate(d.update.publishedAt)})`}`,
     `Channel: ${d.beta ? 'beta' : d.update.channel ?? 'none'}`,

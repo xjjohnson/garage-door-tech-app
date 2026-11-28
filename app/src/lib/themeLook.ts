@@ -7,6 +7,8 @@
  * "Legacy" shape + size is exactly the app as it was before looks existed:
  * every helper returns its input unchanged there.
  */
+import { currentFlavor } from '../flavor';
+
 export type Shape = 'round' | 'square';
 export type SizeName = 'legacy' | 'comfortable' | 'compact' | 'tight';
 export type Palette = 'johnsons' | 'brand';
@@ -24,7 +26,7 @@ export const SIZES: { value: SizeName; label: string; detail: string }[] = [
 ];
 
 export const PALETTES: { value: Palette; label: string }[] = [
-  { value: 'johnsons', label: 'Johnsons green' },
+  { value: 'johnsons', label: `${currentFlavor().appName} green` },
   { value: 'brand', label: 'Company brand (Odoo)' },
 ];
 
@@ -49,7 +51,8 @@ export const LEGACY_LOOK: Look = { shape: 'round', size: 'legacy', palette: 'joh
 
 export const parseShape = (v: unknown): Shape => (v === 'square' ? 'square' : 'round');
 export const parseSize = (v: unknown): SizeName => (v === 'comfortable' || v === 'compact' || v === 'tight' ? v : 'legacy');
-export const parsePalette = (v: unknown): Palette => (v === 'brand' ? 'brand' : 'johnsons');
+/** A saved choice, or (for an unsaved one) the app's own default: Johnsons green for Johnsons, the company's Odoo color for FS Crew. */
+export const parsePalette = (v: unknown): Palette => (v === 'brand' ? 'brand' : v === 'johnsons' ? 'johnsons' : currentFlavor().defaultPalette);
 
 /** A corner radius for this look. Pills (very large radii) stay pills; square caps the rest. */
 export function scaleRadius(n: number, shape: Shape): number {

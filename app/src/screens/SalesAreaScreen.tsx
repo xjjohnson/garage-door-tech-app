@@ -11,6 +11,7 @@ import { dateText } from '../components/Dept';
 import { DAY_MS, flaggedRepairs, followUpsDue, lostByReason, lostQuotes, notSeenPlaces, plansAboutToRenew, quotesQuiet, quotesWaiting, wonThisMonth } from '../lib/odooOffice';
 import { formatMoney } from '../lib/prices';
 import { useBadges } from '../lib/useBadges';
+import { useInvoices } from '../lib/useInvoices';
 import { useLimits } from '../lib/useLimits';
 import { ActivityList, phonesFor } from './CarePages';
 import { MoneyList } from './MoneyPages';
@@ -66,6 +67,8 @@ function Renewals({ client, limits, now }: { client: OdooClient; limits: DeptLim
 }
 
 function NotSeen({ client, limits, now }: { client: OdooClient; limits: DeptLimits; now: () => number }) {
+  const { business } = useInvoices();
+  const who = business.name.trim() || 'your service team';
   const { data, error } = usePageRows(async () => {
     const t = now();
     const list = (await notSeenPlaces(client, limits, t)).slice(0, 60);
@@ -79,7 +82,7 @@ function NotSeen({ client, limits, now }: { client: OdooClient; limits: DeptLimi
   if (error) return <PageError what="Not seen in a while" error={error} />;
   const rows: RowItem[] | null = data?.list.map((v) => {
     const phone = data.phones.get(v.place) ?? '';
-    const body = `Hi, it's Johnsons. It has been a while since we looked at your garage door. Want us to stop by for a tune-up? Reply here any time.`;
+    const body = `Hi, it's ${who}. It has been a while since we last visited. Want us to stop by for a check-up? Reply here any time.`;
     return {
       key: `seen-${v.place}`,
       title: v.placeName,
@@ -97,6 +100,8 @@ function NotSeen({ client, limits, now }: { client: OdooClient; limits: DeptLimi
  * inspections that were never sold.
  */
 export function SalesAreaScreen({ initial, now = Date.now }: { initial?: SalesTab; now?: () => number }) {
+  const { business: biz } = useInvoices();
+  const whoAmI = biz.name.trim() || 'your service team';
   const b = useBadges().sales;
   const limits = useLimits();
   const groups: MenuGroup<SalesTab>[] = [
@@ -150,7 +155,7 @@ export function SalesAreaScreen({ initial, now = Date.now }: { initial?: SalesTa
           case 'notseen':
             return <NotSeen client={client} limits={limits} now={now} />;
           case 'flagged':
-            return <ActivityList client={client} load={() => flaggedRepairs(client)} empty="No repair is waiting to be offered." doneLabel="Mark sold or dismiss" testID="flagged" textBody={(a) => `Hi, it's Johnsons. When we inspected your door we noted: ${a.summary.replace(/^Offer repair:\s*/i, '')}. Want us to take care of it? Reply here any time.`} />;
+            return <ActivityList client={client} load={() => flaggedRepairs(client)} empty="No repair is waiting to be offered." doneLabel="Mark sold or dismiss" testID="flagged" textBody={(a) => `Hi, it's ${whoAmI}. When we inspected we noted: ${a.summary.replace(/^Offer repair:\s*/i, '')}. Want us to take care of it? Reply here any time.`} />;
         }
       }}
     />

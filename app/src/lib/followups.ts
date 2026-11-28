@@ -130,7 +130,7 @@ export function followUps(
 ): FollowUp[] {
   const from = now - 365 * DAY;
   const to = now + aheadDays * DAY;
-  const who = business.name || 'your garage door tech';
+  const who = business.name || 'your service team';
   const out: FollowUp[] = [];
   // Only the latest invoice at each job counts; an older one was replaced by new work.
   const latest = new Map<string, Invoice>();
@@ -156,7 +156,7 @@ export function followUps(
       `Hi ${name}, it's ${who}. The springs we put in are getting close to their rated life. Replacing them before one breaks saves a stuck door. Want a quote?`,
     );
     const w = warrantyFor(inv, s);
-    if (w.partsUntil) add('warranty', w.partsUntil - 30 * DAY, `Spring warranty ends ${monthYear(w.partsUntil)}`, `Hi ${name}, it's ${who}. The warranty on your garage door springs ends soon. If anything seems off, now's the time to have it checked at no charge.`);
+    if (w.partsUntil) add('warranty', w.partsUntil - 30 * DAY, `Parts warranty ends ${monthYear(w.partsUntil)}`, `Hi ${name}, it's ${who}. The warranty on the parts we installed ends soon. If anything seems off, now's the time to have it checked at no charge.`);
   }
   return out.sort((a, b) => a.due - b.due);
 }

@@ -131,7 +131,7 @@ describe('inspection (plain logic)', () => {
 
   it('writes a text summary for the customer', () => {
     const text = inspectionText(sample(), 'Pat Smith');
-    expect(text).toMatch(/^Garage door inspection for Pat Smith/);
+    expect(text).toMatch(/^Inspection for Pat Smith/);
     expect(text).toContain('- Door 1, Cables: Poor. Frayed at the bottom → Replace cables');
     expect(text).toContain('Score: 50%');
     expect(text).toContain('- Lift cables (pair): $45');

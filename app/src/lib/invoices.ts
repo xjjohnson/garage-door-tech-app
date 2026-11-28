@@ -202,7 +202,7 @@ export function createInvoice(
 /** Text the customer can read: what was done, what's owed, and how to pay. */
 export function invoiceText(inv: Invoice, business: Business): string {
   const out: string[] = [];
-  out.push(`${business.name || 'Garage door service'}: invoice ${invoiceNo(inv)}`);
+  out.push(`${business.name || 'Service'}: invoice ${invoiceNo(inv)}`);
   out.push(`${inv.billTo || 'Customer'}${inv.address ? `, ${inv.address}` : ''} · ${formatJobDate(inv.createdAt)}`);
   out.push('');
   for (const l of inv.lines) out.push(l.display === 'section' ? `${l.label}:` : l.display === 'note' ? `  ${l.label}` : `- ${l.label}: ${formatMoney(l.cents)}`);
@@ -348,7 +348,7 @@ export function parseBusiness(raw: string | null | object): Business {
   }
   if (!data || typeof data !== 'object') return EMPTY_BUSINESS;
   const d = data as Record<string, unknown>;
-  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(str(d.textConfirm) ? { textConfirm: str(d.textConfirm) } : {}), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}), ...(Array.isArray(d.customerTypes) && d.customerTypes.some((x) => typeof x === 'string' && x.trim()) ? { customerTypes: d.customerTypes.flatMap((x): string[] => (typeof x === 'string' && x.trim() ? [x.trim()] : [])) } : {}), ...(d.useOdooLogo === true ? { useOdooLogo: true } : {}) };
+  return { name: str(d.name), phone: str(d.phone), cashtag: str(d.cashtag), venmo: str(d.venmo), zelle: str(d.zelle), reviewUrl: str(d.reviewUrl), textOnMyWay: str(d.textOnMyWay), textEta: str(d.textEta), textReview: str(d.textReview), ...(str(d.textConfirm) ? { textConfirm: str(d.textConfirm) } : {}), ...(parseDiscounts(d.discounts) ? { discounts: parseDiscounts(d.discounts) } : {}), ...(str(d.planHeading) ? { planHeading: str(d.planHeading) } : {}), ...(str(d.paymentsHeading) ? { paymentsHeading: str(d.paymentsHeading) } : {}), ...(Array.isArray(d.customerTypes) && d.customerTypes.some((x) => typeof x === 'string' && x.trim()) ? { customerTypes: d.customerTypes.flatMap((x): string[] => (typeof x === 'string' && x.trim() ? [x.trim()] : [])) } : {}), ...(typeof d.useOdooLogo === 'boolean' ? { useOdooLogo: d.useOdooLogo } : {}) };
 }
 
 /** A backup's invoices merged into the phone's: nothing deleted, the copy changed last wins. */

@@ -93,11 +93,24 @@ export function lineValues(lines: QuoteLine[], links: Record<string, OdooLink>, 
 /** Lines that need the fallback service product. */
 const needsService = (lines: QuoteLine[], links: Record<string, OdooLink>) => lines.some((l) => l.cents !== 0 && !(l.key && links[l.key]) && !l.productId);
 
+/** What the catch-all service product is called. Older Odoos made it "Garage door service"; that name alone is changed, and one the owner renamed is left as it is. */
+export const SERVICE_PRODUCT_NAME = 'Service';
+const OLD_SERVICE_PRODUCT_NAME = 'Garage door service';
+
 /** Finds, or makes the first time, the service product for lines that aren't linked to an Odoo product. */
 export async function serviceProduct(client: OdooClient): Promise<number> {
   const found = (await client.call('product.product', 'search', [[['default_code', '=', SERVICE_PRODUCT_CODE]]], { limit: 1 })) as number[];
-  if (found[0]) return found[0];
-  return (await client.call('product.product', 'create', [{ name: 'Garage door service', default_code: SERVICE_PRODUCT_CODE, type: 'service', sale_ok: true, list_price: 0, taxes_id: [[6, 0, []]] }])) as number;
+  if (found[0]) {
+    // One quiet rename of the old name; one the owner changed, or a user without the right to edit products, is left alone.
+    try {
+      const [row] = (await client.call('product.product', 'read', [[found[0]]], { fields: ['name'] })) as { name?: unknown }[];
+      if (row?.name === OLD_SERVICE_PRODUCT_NAME) await client.call('product.product', 'write', [[found[0]], { name: SERVICE_PRODUCT_NAME }]);
+    } catch {
+      // Keep the name it has.
+    }
+    return found[0];
+  }
+  return (await client.call('product.product', 'create', [{ name: SERVICE_PRODUCT_NAME, default_code: SERVICE_PRODUCT_CODE, type: 'service', sale_ok: true, list_price: 0, taxes_id: [[6, 0, []]] }])) as number;
 }
 
 async function prepare(client: OdooClient, lines: QuoteLine[], links: Record<string, OdooLink>, qtyField: 'product_uom_qty' | 'quantity') {

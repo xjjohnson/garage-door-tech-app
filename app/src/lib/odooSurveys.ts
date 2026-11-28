@@ -24,6 +24,7 @@ import {
   RATING_LABEL,
   SCALES,
 } from './inspection';
+import { currentFlavor } from '../flavor';
 import type { OdooClient } from './odoo';
 
 export type SurveyKind = 'door' | 'opener' | 'gate';
@@ -67,7 +68,7 @@ export function surveyPlans(): SurveyPlan[] {
       kind: 'door',
       title: 'Garage door inspection',
       marker: markerFor('door'),
-      intro: 'One filled-in survey per door. Made by the Johnsons app from the job; edit the questions here.',
+      intro: `One filled-in survey per door. Made by the ${currentFlavor().appName} app from the job; edit the questions here.`,
       questions: [
         ...info(
           { kind: 'char', title: 'Door number' },
@@ -88,7 +89,7 @@ export function surveyPlans(): SurveyPlan[] {
       kind: 'opener',
       title: 'Opener inspection',
       marker: markerFor('opener'),
-      intro: 'One filled-in survey per opener (motor). Made by the Johnsons app from the job; edit the questions here.',
+      intro: `One filled-in survey per opener (motor). Made by the ${currentFlavor().appName} app from the job; edit the questions here.`,
       questions: [
         ...info({ kind: 'char', title: 'Door number' }, { kind: 'char', title: 'Opener number' }, { ...makers(MOTOR_MAKERS), title: 'Opener manufacturer' }, { kind: 'char', title: 'Opener build date' }),
         { kind: 'page', title: 'Opener condition' },
@@ -101,7 +102,7 @@ export function surveyPlans(): SurveyPlan[] {
       kind: 'gate',
       title: 'Gate inspection',
       marker: markerFor('gate'),
-      intro: 'One filled-in survey per gate. Made by the Johnsons app from the job; edit the questions here.',
+      intro: `One filled-in survey per gate. Made by the ${currentFlavor().appName} app from the job; edit the questions here.`,
       questions: [
         ...info({ kind: 'choice', title: 'Gate type', choices: [{ label: 'Swing', score: 0 }, { label: 'Slide', score: 0 }] }),
         { kind: 'page', title: 'UL 325' },

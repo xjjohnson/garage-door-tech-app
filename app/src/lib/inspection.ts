@@ -479,7 +479,7 @@ export function doorLine(d: Door): string {
 
 /** A short text report: what needs attention, then the score. */
 export function inspectionText(insp: Inspection, customer: string): string {
-  const out = [`Garage door inspection${customer ? ` for ${customer}` : ''}, ${formatJobDate(insp.at)}`];
+  const out = [`Inspection${customer ? ` for ${customer}` : ''}, ${formatJobDate(insp.at)}`];
   const s = summary(insp);
   const f = flags(insp);
   if (f.length > 0) {

@@ -197,6 +197,15 @@ attachment `app-industry.json`, with a copy on the phone. Until an owner picks,
 Johnsons is on garage doors and FS Crew is on Other, with a nudge on the Tools
 page for the owner.
 
+**Look and logo by version.** Until a person picks, Johnsons starts on Johnsons
+green and its own logo, and FS Crew starts on the company's Odoo brand color
+(`res.company.primary_color`) and Odoo logo (`logo_web`), with green when Odoo
+has no color. A saved choice always wins (Settings > look, Management > Your
+business). FS Crew shows an FS mark with a filling underline while loading;
+Johnsons keeps the opening door. The catch-all Odoo product (code
+`GDT-SERVICE`) is called "Service"; an older "Garage door service" is renamed
+once.
+
 **When a new APK is needed, the app says so.** Each build also puts a small
 `version.json` on the Latest APK release, holding the `version` from
 `app.json` and the APK's link. When the app opens, it reads that file

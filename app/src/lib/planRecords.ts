@@ -4,6 +4,7 @@
  * customer page (change, pause, cancel, renew) and by Follow-ups (plans about
  * to end). Kept free of React; the client is passed in.
  */
+import { currentFlavor } from '../flavor';
 import { DAY } from './followups';
 import type { MaintenancePlan } from './maintenancePlans';
 import type { OdooClient } from './odoo';
@@ -159,7 +160,7 @@ export async function ensureRenewalTodo(c: Client, partnerId: number, r: { agree
   const [model] = (await c.call('ir.model', 'search', [[['model', '=', 'res.partner']]], { limit: 1 })) as number[];
   if (!model) throw new Error('Odoo has no contact model to put the to-do on.');
   const type = await todoType(c);
-  const note = `<p>${r.name} ends ${r.end}. Call or text ${r.customer} about renewing it, then renew it in the Johnsons app.</p><p><small>${mark}</small></p>`;
+  const note = `<p>${r.name} ends ${r.end}. Call or text ${r.customer} about renewing it, then renew it in the ${currentFlavor().appName} app.</p><p><small>${mark}</small></p>`;
   return (await c.call('mail.activity', 'create', [
     { res_model_id: model, res_id: partnerId, summary: `Renew ${r.name}`, note, date_deadline: r.end, user_id: c.session.uid, ...(type ? { activity_type_id: type } : {}) },
   ])) as number;
