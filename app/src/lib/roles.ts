@@ -1,8 +1,8 @@
 /**
  * The roles a person can work in, one bubble each on the start screen. Each role has its own
- * theme and bottom bar. Kept free of React. A person with no Odoo role is just a Tech;
- * anyone with another role can also pick Tech; the owner holds every role; Buyer is
- * part of Warehouse (the warehouse does all the buying).
+ * theme and bottom bar. Kept free of React. Tech is Odoo's Field Service User group (dispatchers
+ * and the owner get it too); a person with no role at all is a tech; the owner holds every role;
+ * Buyer is part of Warehouse (the warehouse does all the buying).
  */
 import type { Access } from './odooWarehouse';
 import { NO_ACCESS } from './odooWarehouse';
@@ -33,7 +33,9 @@ export function rolesFor(a: Access): RoleKey[] {
   if (a.office) held.add('office');
   if (a.sales) held.add('sales');
   if (a.warehouse || a.purchasing) held.add('warehouse');
-  held.add('tech');
+  if (a.tech) held.add('tech');
+  // A person with no role at all is a tech: nobody is left without one.
+  if (held.size === 0) held.add('tech');
   return ROLE_KEYS.filter((r) => held.has(r));
 }
 
@@ -43,7 +45,7 @@ export function accessForRole(role: RoleKey, real: Access): Access {
     case 'owner':
       return real.owner ? real : { ...real, owner: true };
     case 'dispatch':
-      return { ...NO_ACCESS, dispatch: true };
+      return { ...NO_ACCESS, dispatch: true, tech: true };
     case 'office':
       return { ...NO_ACCESS, office: true };
     case 'sales':
@@ -51,7 +53,7 @@ export function accessForRole(role: RoleKey, real: Access): Access {
     case 'warehouse':
       return { ...NO_ACCESS, warehouse: true, purchasing: true };
     default:
-      return { ...NO_ACCESS };
+      return { ...NO_ACCESS, tech: true };
   }
 }
 

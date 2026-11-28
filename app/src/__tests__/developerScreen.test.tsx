@@ -256,9 +256,9 @@ describe('network, storage, call trace, flags and role preview', () => {
 describe('testing tools (0.6.8)', () => {
   it('each role preview opens only its own area, and never calls Odoo', async () => {
     const { previewAccess, departmentAccess } = require('../lib/odooWarehouse');
-    expect(previewAccess('buyer')).toMatchObject({ purchasing: true, warehouse: false, owner: false, dispatch: false });
+    expect(previewAccess('warehouse')).toMatchObject({ purchasing: true, warehouse: true, owner: false, dispatch: false });
     expect(previewAccess('dispatcher')).toMatchObject({ dispatch: true, purchasing: false });
-    expect(previewAccess('tech')).toMatchObject({ owner: false, dispatch: false, office: false, sales: false, warehouse: false, purchasing: false });
+    expect(previewAccess('tech')).toMatchObject({ tech: true, owner: false, dispatch: false, office: false, sales: false, warehouse: false, purchasing: false });
     expect(previewAccess('owner').owner).toBe(true);
     const calls: string[] = [];
     const client = { session: { uid: 1 }, call: async (m: string) => { calls.push(m); return true; } } as never;
@@ -323,8 +323,8 @@ describe('testing tools (0.6.8)', () => {
   it('shows a Test mode label while a switch is on', async () => {
     const { testModeLabels } = require('../components/TestModeBanner');
     expect(testModeLabels()).toEqual([]);
-    setRolePreview('buyer');
-    expect(testModeLabels()).toEqual(['Viewing as Buyer']);
+    setRolePreview('warehouse');
+    expect(testModeLabels()).toEqual(['Viewing as Warehouse']);
     setRolePreview(null);
   });
 });

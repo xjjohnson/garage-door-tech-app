@@ -21,14 +21,13 @@ export function onDevFlags(l: () => void): () => void {
 }
 
 /** The roles Developer > Look at the app as can show. */
-export type Preview = 'owner' | 'dispatcher' | 'office' | 'sales' | 'warehouse' | 'buyer' | 'tech';
+export type Preview = 'owner' | 'dispatcher' | 'office' | 'sales' | 'warehouse' | 'tech';
 export const PREVIEWS: { id: Preview; label: string }[] = [
   { id: 'owner', label: 'Owner' },
   { id: 'dispatcher', label: 'Dispatcher' },
   { id: 'office', label: 'Office' },
   { id: 'sales', label: 'Sales' },
   { id: 'warehouse', label: 'Warehouse' },
-  { id: 'buyer', label: 'Buyer' },
   { id: 'tech', label: 'Tech' },
 ];
 

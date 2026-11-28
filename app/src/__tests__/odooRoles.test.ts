@@ -1,6 +1,6 @@
 import { canChangeRoles, listPeople, saveRoles } from '../lib/odooRoles';
 
-const GROUPS: Record<string, number> = { 'base.group_system': 1, 'fieldservice.group_fsm_manager': 2, 'stock.group_stock_manager': 3, 'purchase.group_purchase_user': 4, 'purchase.group_purchase_manager': 5, 'fieldservice.group_fsm_dispatcher': 6 };
+const GROUPS: Record<string, number> = { 'base.group_system': 1, 'fieldservice.group_fsm_manager': 2, 'stock.group_stock_manager': 3, 'purchase.group_purchase_user': 4, 'purchase.group_purchase_manager': 5, 'fieldservice.group_fsm_dispatcher': 6, 'fieldservice.group_fsm_user': 7 };
 type Call = [string, string, unknown[], Record<string, unknown>?];
 
 function fake(opts: { actingGroups: number[]; people: Record<number, number[]>; refuseWrite?: boolean }) {
@@ -27,7 +27,7 @@ function fake(opts: { actingGroups: number[]; people: Record<number, number[]>; 
   };
   return { client, calls, people };
 }
-const none = { owner: false, dispatch: false, office: false, sales: false, warehouse: false, buyer: false };
+const none = { tech: false, owner: false, dispatch: false, office: false, sales: false, warehouse: false };
 
 describe('team roles', () => {
   it('lists who holds which role', async () => {
@@ -35,14 +35,14 @@ describe('team roles', () => {
     const p = await listPeople(client);
     expect(p.find((x) => x.id === 1)).toMatchObject({ admin: true });
     expect(p.find((x) => x.id === 2)!.roles).toEqual({ ...none, warehouse: true });
-    expect(p.find((x) => x.id === 3)!.roles).toEqual({ ...none, buyer: true });
+    expect(p.find((x) => x.id === 3)!.roles).toEqual({ ...none, warehouse: true }); // a Purchase User is the warehouse: it does the buying
     expect(p.find((x) => x.id === 4)!.roles).toEqual(none);
   });
 
   it('only an Odoo admin can change roles, and nothing is written for anyone else', async () => {
     const { client, calls } = fake({ actingGroups: [2], people: { 4: [] } });
     expect(await canChangeRoles(client)).toBe(false);
-    await expect(saveRoles(client, 4, { ...none, buyer: true })).rejects.toThrow(/administrator/);
+    await expect(saveRoles(client, 4, { ...none, warehouse: true })).rejects.toThrow(/administrator/);
     expect(calls.some((c) => c[1] === 'write')).toBe(false);
   });
 
@@ -66,7 +66,7 @@ describe('team roles', () => {
 
   it('gives a warehouse manager Odoo\'s Purchase User group too, so ordering is accepted', async () => {
     const { client, people } = fake({ actingGroups: [1], people: { 4: [] } });
-    expect(await saveRoles(client, 4, { ...none, warehouse: true })).toEqual({ ...none, warehouse: true, buyer: true });
+    expect(await saveRoles(client, 4, { ...none, warehouse: true })).toEqual({ ...none, warehouse: true });
     expect(people[4]!.sort()).toEqual([3, 4]);
   });
 
@@ -133,5 +133,24 @@ describe('employee and worker links', () => {
     await expect(linkEmployee(b.client, 7)).rejects.toThrow(/administrator/);
     await expect(linkWorker(b.client, 7)).rejects.toThrow(/administrator/);
     expect(b.calls.some((c) => c[1] === 'create' || c[1] === 'write')).toBe(false);
+  });
+
+  it('Tech is Odoo\'s Field Service User group', async () => {
+    const { client, people } = fake({ actingGroups: [1], people: { 4: [] } });
+    expect(await saveRoles(client, 4, { ...none, tech: true })).toEqual({ ...none, tech: true });
+    expect(people[4]).toEqual([7]);
+    expect((await listPeople(client)).find((x) => x.id === 4)!.roles.tech).toBe(true);
+  });
+
+  it('takes Warehouse (and its buying) away together', async () => {
+    const { client, people } = fake({ actingGroups: [1], people: { 4: [3, 4] } });
+    expect(await saveRoles(client, 4, none)).toEqual(none);
+    expect(people[4]).toEqual([]);
+  });
+
+  it('keeps Tech while the person is a dispatcher, since Odoo gives dispatchers Tech', async () => {
+    const { client, people } = fake({ actingGroups: [1], people: { 4: [6, 7] } });
+    await saveRoles(client, 4, { ...none, dispatch: true });
+    expect(people[4]!.sort()).toEqual([6, 7]);
   });
 });

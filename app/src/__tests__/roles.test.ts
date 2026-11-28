@@ -11,15 +11,22 @@ describe('roles a person can work in', () => {
     expect(effectiveRole(NO_ACCESS, null)).toBe('tech');
   });
 
-  it('shows only the roles held, plus Tech', () => {
-    expect(rolesFor(a({ dispatch: true, sales: true }))).toEqual(['tech', 'dispatch', 'sales']);
+  it('shows only the roles held; Tech only when assigned (or for the owner)', () => {
+    expect(rolesFor(a({ dispatch: true, sales: true }))).toEqual(['dispatch', 'sales']);
+    expect(rolesFor(a({ dispatch: true, sales: true, tech: true }))).toEqual(['tech', 'dispatch', 'sales']);
     expect(effectiveRole(a({ dispatch: true, sales: true }), null)).toBeNull(); // needs the start screen
     expect(effectiveRole(a({ dispatch: true, sales: true }), 'sales')).toBe('sales');
   });
 
+  it('a person with only one role goes straight in', () => {
+    expect(effectiveRole(a({ sales: true }), null)).toBe('sales');
+    expect(effectiveRole(a({ warehouse: true }), null)).toBe('warehouse');
+    expect(effectiveRole(a({ tech: true }), null)).toBe('tech');
+  });
+
   it('Buyer is part of Warehouse', () => {
-    expect(rolesFor(a({ purchasing: true }))).toEqual(['tech', 'warehouse']);
-    expect(rolesFor(a({ warehouse: true }))).toEqual(['tech', 'warehouse']);
+    expect(rolesFor(a({ purchasing: true }))).toEqual(['warehouse']);
+    expect(rolesFor(a({ warehouse: true }))).toEqual(['warehouse']);
   });
 
   it('the owner holds every role', () => {
@@ -27,7 +34,7 @@ describe('roles a person can work in', () => {
   });
 
   it('ignores a saved role the person no longer holds', () => {
-    expect(effectiveRole(a({ dispatch: true }), 'owner')).toBeNull();
+    expect(effectiveRole(a({ dispatch: true }), 'owner')).toBe('dispatch');
     const real = a({ dispatch: true, sales: true });
     expect(narrowAccess(real, 'owner')).toBe(real);
   });
@@ -36,9 +43,19 @@ describe('roles a person can work in', () => {
     const real = a({ dispatch: true, sales: true });
     expect(narrowAccess(real, 'sales')).toMatchObject({ sales: true, dispatch: false });
     expect(narrowAccess(real, 'dispatch')).toMatchObject({ sales: false, dispatch: true });
-    expect(narrowAccess(real, 'tech')).toEqual(NO_ACCESS);
+    expect(narrowAccess(a({ tech: true, sales: true }), 'tech')).toEqual({ ...NO_ACCESS, tech: true });
     expect(accessForRole('warehouse', real)).toMatchObject({ warehouse: true, purchasing: true, dispatch: false });
     expect(narrowAccess(a({ owner: true, dispatch: true, office: true, sales: true, warehouse: true }), 'owner').owner).toBe(true);
+  });
+
+  it('roles combine: a person holds the union and each role opens only its own areas', () => {
+    const real = a({ tech: true, dispatch: true, sales: true, office: true, warehouse: true, purchasing: true });
+    expect(rolesFor(real)).toEqual(['tech', 'dispatch', 'office', 'sales', 'warehouse']);
+    for (const r of rolesFor(real)) {
+      const n = narrowAccess(real, r);
+      const open = (['dispatch', 'office', 'sales', 'warehouse', 'owner'] as const).filter((k) => n[k]);
+      expect(open).toEqual(r === 'tech' ? [] : [r]);
+    }
   });
 
   it('every role has its own theme', () => {

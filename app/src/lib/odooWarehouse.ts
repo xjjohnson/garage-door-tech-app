@@ -21,7 +21,7 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const num = (v: unknown) => (typeof v === 'number' ? v : 0);
 const m2o = (v: unknown): [number, string] | undefined => (Array.isArray(v) && typeof v[0] === 'number' ? [v[0], str(v[1])] : undefined);
 
-export type Role = 'warehouse' | 'purchasing' | 'pricing' | 'dispatch' | 'office' | 'sales';
+export type Role = 'warehouse' | 'purchasing' | 'pricing' | 'dispatch' | 'office' | 'sales' | 'tech';
 
 /** Odoo groups that open each area. The owner (an Odoo admin or Field Service manager) sees everything. */
 export const ROLE_GROUPS: Record<Role, string[]> = {
@@ -34,6 +34,8 @@ export const ROLE_GROUPS: Record<Role, string[]> = {
   // Techs already hold Sales User and Billing (the app writes their quotes and invoices as them), so these two use the Administrator groups.
   office: ['account.group_account_manager'],
   sales: ['sales_team.group_sale_manager'],
+  // Working jobs in the field: Odoo's Field Service User group (dispatchers and the owner get it too).
+  tech: ['fieldservice.group_fsm_user'],
 };
 
 /** Odoo groups that make someone the owner. */
@@ -51,8 +53,10 @@ export interface Access {
   /** The Sales area: Odoo's Sales Administrator group (or the owner). */
   sales: boolean;
   owner: boolean;
+  /** A Field Service user: can work jobs in the field. Odoo gives it to dispatchers and the owner too. */
+  tech: boolean;
 }
-export const NO_ACCESS: Access = { warehouse: false, purchasing: false, pricing: false, dispatch: false, office: false, sales: false, owner: false };
+export const NO_ACCESS: Access = { warehouse: false, purchasing: false, pricing: false, dispatch: false, office: false, sales: false, owner: false, tech: false };
 
 /** Asks Odoo about one group. `seen.answered` turns true once Odoo has given a real yes or no, so "couldn't reach Odoo" isn't mistaken for "no". */
 async function inGroup(client: OdooClient, group: string, seen: { answered: boolean }): Promise<boolean> {
@@ -73,7 +77,7 @@ async function readCache(client: OdooClient): Promise<Access | null> {
     const raw = await AsyncStorage.getItem(cacheKey(client));
     const d = raw ? JSON.parse(raw) : null;
     // A role saved by an older version has no dispatch answer yet: that means no.
-    if (d && ['warehouse', 'purchasing', 'pricing', 'owner'].every((k) => typeof d[k] === 'boolean')) return { dispatch: false, office: false, sales: false, ...d } as Access;
+    if (d && ['warehouse', 'purchasing', 'pricing', 'owner'].every((k) => typeof d[k] === 'boolean')) return { dispatch: false, office: false, sales: false, tech: false, ...d } as Access;
   } catch {
     // No saved role.
   }
@@ -95,10 +99,10 @@ export async function realAccess(client: OdooClient): Promise<Access> {
   const owner = (await held(OWNER_GROUPS)) || (typeof client.inAnyGroup === 'function' && (await client.inAnyGroup(OWNER_GROUPS).catch(() => false)));
   let access: Access;
   if (owner) {
-    access = { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true };
+    access = { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true, tech: true };
   } else {
-    const [warehouse, purchasing, buyManager, salesManager, dispatch, office] = await Promise.all([held(ROLE_GROUPS.warehouse), held(ROLE_GROUPS.purchasing), held(ROLE_GROUPS.pricing), inGroup(client, 'sales_team.group_sale_manager', seen), held(ROLE_GROUPS.dispatch), held(ROLE_GROUPS.office)]);
-    access = { warehouse, purchasing: purchasing || buyManager || warehouse, pricing: buyManager && salesManager, dispatch, office, sales: salesManager, owner: false };
+    const [warehouse, purchasing, buyManager, salesManager, dispatch, office, tech] = await Promise.all([held(ROLE_GROUPS.warehouse), held(ROLE_GROUPS.purchasing), held(ROLE_GROUPS.pricing), inGroup(client, 'sales_team.group_sale_manager', seen), held(ROLE_GROUPS.dispatch), held(ROLE_GROUPS.office), held(ROLE_GROUPS.tech)]);
+    access = { warehouse, purchasing: purchasing || buyManager || warehouse, pricing: buyManager && salesManager, dispatch, office, sales: salesManager, owner: false, tech: tech || dispatch };
   }
   if (!seen.answered && !owner) return (await readCache(client)) ?? access;
   if (seen.answered || owner) AsyncStorage.setItem(cacheKey(client), JSON.stringify(access)).catch(() => undefined);
@@ -110,19 +114,17 @@ export function previewAccess(p: NonNullable<ReturnType<typeof rolePreview>>): A
   const none = { ...NO_ACCESS };
   switch (p) {
     case 'owner':
-      return { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true };
+      return { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true, tech: true };
     case 'dispatcher':
-      return { ...none, dispatch: true };
+      return { ...none, dispatch: true, tech: true };
     case 'office':
       return { ...none, office: true };
     case 'sales':
       return { ...none, sales: true };
     case 'warehouse':
       return { ...none, warehouse: true, purchasing: true };
-    case 'buyer':
-      return { ...none, purchasing: true };
     default:
-      return none;
+      return { ...none, tech: true };
   }
 }
 

@@ -1,7 +1,7 @@
 import { createPerson, looksLikeEmail, sendInvite } from '../lib/odooRoles';
 
 const GROUPS: Record<string, number> = { 'base.group_system': 1, 'fieldservice.group_fsm_manager': 2, 'stock.group_stock_manager': 3, 'purchase.group_purchase_user': 4, 'purchase.group_purchase_manager': 5 };
-const none = { owner: false, dispatch: false, office: false, sales: false, warehouse: false, buyer: false };
+const none = { tech: false, owner: false, dispatch: false, office: false, sales: false, warehouse: false };
 
 function fake(opts: { actingGroups: number[]; logins?: string[]; refuseCreate?: string }) {
   const calls: [string, string, unknown[]][] = [];
@@ -38,7 +38,7 @@ describe('add a person', () => {
   it('makes the user and gives them the chosen roles, emailing nothing', async () => {
     const { client, calls } = fake({ actingGroups: [1] });
     const p = await createPerson(client, { name: ' Sam Lee ', email: 'sam@x.test', roles: { ...none, warehouse: true } });
-    expect(p).toMatchObject({ id: 10, name: 'Sam Lee', login: 'sam@x.test', roles: { ...none, warehouse: true, buyer: true } });
+    expect(p).toMatchObject({ id: 10, name: 'Sam Lee', login: 'sam@x.test', roles: { ...none, warehouse: true } });
     expect(calls.find((c) => c[1] === 'create')![2][0]).toEqual({ name: 'Sam Lee', login: 'sam@x.test', email: 'sam@x.test' });
     expect(calls.some((c) => c[1] === 'action_reset_password')).toBe(false);
   });
