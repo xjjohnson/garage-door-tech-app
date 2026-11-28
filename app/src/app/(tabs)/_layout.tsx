@@ -9,7 +9,7 @@ import { onDay } from '../../lib/schedule';
 import { Image, Pressable, View } from 'react-native';
 import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
-import { dispatchTotal, toolsTotal } from '../../lib/deptBadges';
+import { tabBadges } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
 import { OpeningDoor, stagePercent } from '../../components/OpeningDoor';
 import { RoleChip } from '../../components/RoleChip';
@@ -114,8 +114,8 @@ function TabsShell() {
     if (!ownerBar && OWNER_ONLY_HREFS.includes(pathname)) router.replace('/');
   }, [tech, dispatcher, salesOnly, officeOnly, ownerBar, pathname]);
   const badges = useBadges();
-  const moreCount = dispatcher ? 0 : toolsTotal(badges, access);
-  const needsCount = dispatchTotal(badges);
+  // One number per tab, each on the tab that opens it (see tabBadges).
+  const tabCounts = tabBadges(ownerBar ? 'owner' : dispatcher ? 'dispatcher' : salesOnly ? 'sales' : officeOnly ? 'office' : tech ? 'tech' : 'other', badges, access);
   const { appointments } = useSchedule();
   const visits = onDay(appointments, Date.now()).filter((a) => a.status !== 'cancelled').length;
   const subtitle = current.id === 'today' ? `${dateLine(Date.now())} · ${visits === 0 ? 'no visits' : `${visits} visit${visits === 1 ? '' : 's'}`}` : current.subtitle;
@@ -176,14 +176,9 @@ function TabsShell() {
             >
               <View>
                 <Icon name={ICONS[s.id]} color={on ? colors.selected : colors.muted} />
-                {s.id === 'needs' && needsCount > 0 ? (
+                {(tabCounts[s.id] ?? 0) > 0 ? (
                   <View style={styles.navBadge} pointerEvents="none">
-                    <CountBadge n={needsCount} testID="needs-tab-badge" />
-                  </View>
-                ) : null}
-                {s.id === 'tools' && moreCount > 0 ? (
-                  <View style={styles.navBadge} pointerEvents="none">
-                    <CountBadge n={moreCount} testID="tools-tab-badge" />
+                    <CountBadge n={tabCounts[s.id]} testID={s.id === 'needs' ? 'needs-tab-badge' : s.id === 'tools' ? 'tools-tab-badge' : `${s.id}-tab-badge`} />
                   </View>
                 ) : null}
               </View>

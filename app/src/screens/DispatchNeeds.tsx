@@ -26,7 +26,7 @@ export function NeedsYouScreen() {
   const total = dispatchTotal(b);
   return (
     <View style={styles.stack} testID="needs-you">
-      <Text style={styles.sum}>{total === 0 ? 'Nothing needs you right now.' : `${total} job${total === 1 ? '' : 's'} need you, most urgent first`}</Text>
+      <Text style={styles.sum}>{total === 0 ? 'Nothing needs you right now.' : `${total} thing${total === 1 ? '' : 's'} to look at, most urgent first`}</Text>
       {GROUPS.map((g) => (
         <View key={g.part} testID={`needs-${g.part}`}>
           <View style={styles.head}>

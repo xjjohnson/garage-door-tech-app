@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Note } from '../components/Dept';
 import { IconRow, RowGroup, Caption } from '../components/ToolRows';
 import { SectionPage } from '../components/SectionMenu';
+import { useBadges } from '../lib/useBadges';
 import { useOdoo } from '../lib/useOdoo';
 import { DispatchScreen } from './DispatchScreen';
 import { FollowUpsDue, TimeOff, TruckAlerts, WhoIsWorking } from './DispatchTeamPages';
@@ -18,6 +19,7 @@ export function DispatchMore() {
   const styles = useStyles();
   const { client } = useOdoo();
   const [page, setPage] = useState<Page | null>(null);
+  const waiting = useBadges().dispatch.waiting;
   if (!client) return <Note testID="dispatch-more-signin">Sign in to Odoo to use Dispatch.</Note>;
   if (page) {
     return (
@@ -37,7 +39,7 @@ export function DispatchMore() {
     <View style={styles.stack} testID="dispatch-more">
       <Caption>Coming up</Caption>
       <RowGroup>
-        <IconRow icon="cal" label="Waiting to be booked" detail="Open jobs with no date" onPress={() => setPage('waiting')} testID="more-waiting" />
+        <IconRow icon="cal" label="Waiting to be booked" detail="Open jobs with no date" badge={waiting > 0 ? `${waiting} to book` : undefined} warn={waiting > 0} onPress={() => setPage('waiting')} testID="more-waiting" />
         <IconRow icon="bell" label="Follow-ups due" detail="Calls to make today" onPress={() => setPage('followups')} testID="more-followups" last />
       </RowGroup>
       <Caption>Your team</Caption>

@@ -10,6 +10,7 @@ import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
 import { ReadyCard } from '../components/ReadyForTech';
 import { StockTable } from '../components/StockTable';
 import { Orders, ToOrder } from './PurchasingScreen';
+import { purchasingTotal, refreshBadges } from '../lib/deptBadges';
 import { useBadges } from '../lib/useBadges';
 import { OdooClient } from '../lib/odoo';
 import { findProductByCode } from '../lib/odooStock';
@@ -65,7 +66,10 @@ export function WarehouseScreen() {
   useEffect(() => {
     if (TABS.includes(asked as Tab)) setTab(asked as Tab);
   }, [asked]);
-  const back = useCallback(() => setTab(null), []);
+  const back = useCallback(() => {
+    setTab(null);
+    refreshBadges();
+  }, []);
   const badges = useBadges();
   const [places, setPlaces] = useState<Place[] | null>(null);
   const [countAt, setCountAt] = useState<number | null>(null);
@@ -106,7 +110,7 @@ export function WarehouseScreen() {
       title: 'Stock and ordering',
       items: [
         { id: 'stock', label: 'Stock', detail: 'Every part at the shop and on each truck' },
-        ...(access.purchasing ? [{ id: 'orders' as const, label: 'Orders', detail: 'What to order, purchase orders, confirm and email', badge: badges.purchasing.toOrder + badges.purchasing.drafts }] : []),
+        ...(access.purchasing ? [{ id: 'orders' as const, label: 'Orders', detail: 'What to order, purchase orders, confirm and email', badge: purchasingTotal(badges) }] : []),
       ],
     },
     {
@@ -577,10 +581,12 @@ type Hub = 'order' | 'pos' | 'receive';
 
 function OrdersHub({ client }: { client: OdooClient }) {
   const styles = useStyles();
+  const badges = useBadges();
+  const count = (label: string, n: number) => (n > 0 ? `${label} (${n})` : label);
   const [part, setPart] = useState<Hub>('order');
   return (
     <View style={styles.stack} testID="warehouse-orders">
-      <ChipRow options={[{ label: 'To order', value: 'order' as const }, { label: 'Purchase orders', value: 'pos' as const }, { label: 'Receive', value: 'receive' as const }]} value={part} onChange={setPart} testID="orders-hub" compact />
+      <ChipRow options={[{ label: count('To order', badges.purchasing.toOrder), value: 'order' as const }, { label: count('Purchase orders', badges.purchasing.drafts + badges.purchasing.late), value: 'pos' as const }, { label: count('Receive', badges.warehouse.receive), value: 'receive' as const }]} value={part} onChange={setPart} testID="orders-hub" compact />
       {part === 'order' ? <ToOrder client={client} /> : null}
       {part === 'pos' ? <Orders client={client} /> : null}
       {part === 'receive' ? <Receive client={client} /> : null}

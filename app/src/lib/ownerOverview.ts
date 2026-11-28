@@ -52,7 +52,7 @@ export function overviewGroups(b: Badges): OverviewGroup[] {
         { label: 'Repairs found, not sold', n: b.sales.flagged, tab: 'flagged' },
       ],
     },
-    { area: 'warehouse', title: 'Warehouse', lines: [{ label: 'Parts to receive', n: b.warehouse.receive, tab: 'receive' }] },
+    { area: 'warehouse', title: 'Warehouse', lines: [{ label: 'Parts to receive', n: b.warehouse.receive, tab: 'receive' }, { label: 'Parts ready for a tech', n: b.warehouse.handOver, tab: 'ready' }] },
     {
       area: 'purchasing',
       title: 'Purchasing',
@@ -60,6 +60,7 @@ export function overviewGroups(b: Badges): OverviewGroup[] {
         { label: 'Under minimum, to order', n: b.purchasing.toOrder, tab: 'toorder' },
         { label: 'Draft orders to review', n: b.purchasing.drafts, tab: 'orders' },
         { label: 'Orders past their date', n: b.purchasing.late, tab: 'orders' },
+        { label: 'Parts asked for by sales', n: b.purchasing.requests, tab: 'requests' },
       ],
     },
   ];

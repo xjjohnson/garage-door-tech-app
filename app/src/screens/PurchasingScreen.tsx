@@ -7,6 +7,7 @@ import { Card, dateText, Message, Meta, money, PartsSummary, Note, NumBox, Row, 
 import { PricelistEditor } from '../components/PricelistEditor';
 import { ChipRow } from '../components/controls';
 import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
+import { refreshBadges } from '../lib/deptBadges';
 import { useBadges } from '../lib/useBadges';
 import { partsRequests } from '../lib/odooOffice';
 import { ActivityList } from './CarePages';
@@ -60,7 +61,10 @@ export function PurchasingScreen() {
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
   const [tab, setTab] = useState<Tab | null>(null);
-  const back = useCallback(() => setTab(null), []);
+  const back = useCallback(() => {
+    setTab(null);
+    refreshBadges();
+  }, []);
   const badges = useBadges().purchasing;
   if (status === 'loading' || status === 'signingIn' || (client && !ready)) return <Note>Checking your Odoo access…</Note>;
   if (!client) return <Note testID="purchasing-signin">Sign in to Odoo to use purchasing. Orders and prices are kept in Odoo.</Note>;
@@ -77,7 +81,7 @@ export function PurchasingScreen() {
       title: 'Ordering',
       items: [
         { id: 'order', label: 'To order', detail: 'Under minimum, counting what is on order', badge: badges.toOrder },
-        { id: 'requests', label: 'Parts requests', detail: 'Asked for by sales' },
+        { id: 'requests', label: 'Parts requests', detail: 'Asked for by sales', badge: badges.requests },
         { id: 'orders', label: 'Purchase orders', detail: 'Review, confirm and email', badge: badges.drafts + badges.late },
         { id: 'vendors', label: 'Vendors', detail: 'Contacts and their prices' },
       ],

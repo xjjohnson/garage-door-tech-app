@@ -214,8 +214,8 @@ export function OwnerAreas() {
     { id: 'dispatch', title: 'Dispatch', n: dispatchTotal(b), sub: b.dispatch.unassigned > 0 ? `${b.dispatch.unassigned} with no tech` : 'jobs and techs', href: '/dispatch' },
     { id: 'office', title: 'Office', n: officeTotal(b), sub: b.office.overdue > 0 ? `${b.office.overdue} overdue` : 'money and people', href: '/office' },
     { id: 'sales', title: 'Sales', n: salesTotal(b), sub: b.sales.quiet > 0 ? `${b.sales.quiet} quotes quiet` : 'quotes and follow-ups', href: '/sales-area' },
-    { id: 'warehouse', title: 'Warehouse', n: b.warehouse.receive, sub: b.warehouse.receive > 0 ? `${b.warehouse.receive} to receive` : 'nothing to receive', href: '/warehouse' },
-    { id: 'purchasing', title: 'Purchasing', n: purchasingTotal(b), sub: b.purchasing.drafts > 0 ? `${b.purchasing.drafts} orders to review` : 'orders and costs', href: '/purchasing' },
+    { id: 'warehouse', title: 'Warehouse', n: b.warehouse.receive + b.warehouse.handOver, sub: b.warehouse.receive > 0 ? `${b.warehouse.receive} to receive` : b.warehouse.handOver > 0 ? `${b.warehouse.handOver} ready for a tech` : 'nothing to receive', href: '/warehouse' },
+    { id: 'purchasing', title: 'Purchasing', n: purchasingTotal(b), sub: b.purchasing.drafts > 0 ? `${b.purchasing.drafts} orders to review` : b.purchasing.requests > 0 ? `${b.purchasing.requests} parts asked for` : 'orders and costs', href: '/purchasing' },
     { id: 'overview', title: 'Everything', n: 0, sub: 'one list of all of it', href: '/overview' },
   ];
   return (

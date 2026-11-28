@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { Card, Note, Title } from '../components/Dept';
 import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
+import { refreshBadges } from '../lib/deptBadges';
 import { useBadges } from '../lib/useBadges';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
@@ -40,7 +41,10 @@ export function DispatchAreaScreen() {
   const { access, ready } = useDepartments();
   const badges = useBadges();
   const [tab, setTab] = useState<Tab | null>(null);
-  const back = useCallback(() => setTab(null), []);
+  const back = useCallback(() => {
+    setTab(null);
+    refreshBadges();
+  }, []);
 
   if (status === 'loading' || status === 'signingIn' || (client && !ready)) return <Note>Checking your Odoo access…</Note>;
   if (!client) return <Note testID="dispatch-signin">Sign in to Odoo to use Dispatch. Jobs and workers are kept in Odoo Field Service.</Note>;

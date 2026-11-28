@@ -1,5 +1,6 @@
 import { ReactNode, useCallback, useState } from 'react';
 import { View } from 'react-native';
+import { refreshBadges } from '../lib/deptBadges';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import type { Access } from '../lib/odooWarehouse';
@@ -18,7 +19,11 @@ export function DeptArea<T extends string>({ area, who, need, groups, labels, pa
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
   const [tab, setTab] = useState<T | null>(initial ?? null);
-  const back = useCallback(() => setTab(null), []);
+  // Leaving a page asks for fresh counts, so what was just done (an invoice sent, a quote chased) comes off the red number.
+  const back = useCallback(() => {
+    setTab(null);
+    refreshBadges();
+  }, []);
   if (status === 'loading' || status === 'signingIn' || (client && !ready)) return <Note>Checking your Odoo access…</Note>;
   if (!client) return <Note testID={`${prefix}-signin`}>Sign in to Odoo to use {area}. Everything here is read from Odoo.</Note>;
   if (!access[need]) {

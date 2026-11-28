@@ -7,7 +7,7 @@ import { PageError, RowItem, RowList, usePageRows } from '../components/DeptRows
 import { callLink, textLink } from '../lib/deptActions';
 import type { DeptLimits } from '../lib/deptLimits';
 import type { OdooClient } from '../lib/odoo';
-import { ActivityRow, callbacks, Covered, finishActivity, findCustomers, logComplaint, openComplaints, readVisits, warrantyList, DAY_MS } from '../lib/odooOffice';
+import { ActivityRow, Covered, finishActivity, findCustomers, logComplaint, openComplaints, recentCallbacks, warrantyList, DAY_MS } from '../lib/odooOffice';
 import { sp } from '../theme';
 
 const open = (url: string | undefined) => url && Linking.openURL(url).catch(() => undefined);
@@ -62,7 +62,7 @@ export const ComplaintsList = ({ client }: { client: OdooClient }) => <ActivityL
 
 /** Jobs at a house that had a job just before: the same rule the Scorecard counts, now showing the jobs. */
 export function CameBack({ client, limits, now = Date.now }: { client: OdooClient; limits: DeptLimits; now?: () => number }) {
-  const { data, error } = usePageRows(async () => callbacks(await readVisits(client, now() - 3 * limits.callbackDays * DAY_MS), limits.callbackDays).slice(0, 50), [client, limits.callbackDays]);
+  const { data, error } = usePageRows(async () => (await recentCallbacks(client, limits, now())).slice(0, 50), [client, limits.callbackDays]);
   if (error) return <PageError what="Came back" error={error} />;
   const rows: RowItem[] | null = data?.map((c) => ({
     key: `back-${c.again.id}`,

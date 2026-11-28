@@ -6,7 +6,7 @@
  * shown by the Tools tab and the areas' lists.
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { computeBadges, getBadges, loadSavedBadges, NO_BADGES, saveBadges, setBadges } from '../lib/deptBadges';
+import { computeBadges, getBadges, loadSavedBadges, NO_BADGES, onBadgeRefresh, saveBadges, setBadges } from '../lib/deptBadges';
 import { DEFAULT_LIMITS, readLimits } from '../lib/deptLimits';
 import { log } from '../lib/log';
 import { onSyncNow } from '../lib/syncNow';
@@ -39,7 +39,7 @@ export function DeptBadgeSync() {
         if ((await s.jobOrderState(client, p.id).catch(() => 'gone' as const)) === 'ready') readyCount++;
       }
       const limits = access.office || access.sales ? await readLimits(client) : DEFAULT_LIMITS;
-      const fresh = await computeBadges(client, access, readyCount, Date.now(), limits);
+      const fresh = await computeBadges(client, access, readyCount, Date.now(), limits, getBadges());
       setBadges(fresh);
       saveBadges(client, fresh);
     } catch (e) {
@@ -78,6 +78,14 @@ export function DeptBadgeSync() {
   useEffect(() => {
     if (!online) return;
     return onSyncNow(pass);
+  }, [online, pass]);
+
+  // A screen asks for a fresh count after the person changed something.
+  useEffect(() => {
+    if (!online) return;
+    return onBadgeRefresh(() => {
+      pass();
+    });
   }, [online, pass]);
 
   return null;
