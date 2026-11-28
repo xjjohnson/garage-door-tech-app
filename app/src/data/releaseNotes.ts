@@ -16,9 +16,9 @@ export interface ReleaseNote {
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
     release: '0.6.58',
-    title: 'A garage door opens while the app starts',
-    changes: ['The green Opening screen now shows a small garage door rolling up and down instead of the still logo. It is drawn in the app, so it adds nothing to the start time.'],
-    test: ['Close and reopen the app: do you see the door roll up while it opens? Does it feel quick, not slower?'],
+    title: 'A garage door is the loading bar',
+    changes: ['The green Opening screen now shows a small garage door that is the loading bar: four bars at the start, then one lifts away at each step (25%, 50%, 75%) until the door is gone at 100% and the app opens. It is drawn in the app, so it adds nothing to the start time. If Odoo is slow it still gives up after 6 seconds and opens.'],
+    test: ['Close and reopen the app: do the bars lift away as it loads, and is the door gone at 100%? Does it still feel quick?'],
   },
   {
     release: '0.6.57',
