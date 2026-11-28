@@ -11,11 +11,11 @@ import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
 import { dispatchTotal, toolsTotal } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
-import { OpeningDoor } from '../../components/OpeningDoor';
+import { OpeningDoor, stagePercent } from '../../components/OpeningDoor';
 import { RoleChip } from '../../components/RoleChip';
 import { useRoles } from '../../lib/useRoles';
 import { useDepartments, useDispatcherOnly, useOfficeOnly, useOwnerBar, useSalesOnly, useTech } from '../../lib/useDepartments';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useOdoo } from '../../lib/useOdoo';
 import { useAllAccess } from '../../lib/useDepartments';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,23 +45,39 @@ export default function TabsLayout() {
   const [gaveUp, setGaveUp] = useState(false);
   // Only at launch: once the tabs have shown, signing in or refreshing later must not tear them down.
   const [shown, setShown] = useState(false);
+  const hadPick = useRef(false);
+  const startedAt = useRef(Date.now());
+  if (needsPick) hadPick.current = true;
+  const finished = (!waiting || gaveUp) && !needsPick;
   useEffect(() => {
-    if (!waiting && !needsPick) setShown(true);
-  }, [waiting, needsPick]);
+    if (!finished) return;
+    // A moment with the door fully open (100%), but only when the load was slow enough to watch it;
+    // a quick start, or the role screen as the next stop, goes straight on.
+    if (hadPick.current || Date.now() - startedAt.current < 500) {
+      setShown(true);
+      return;
+    }
+    const t = setTimeout(() => setShown(true), 300);
+    return () => clearTimeout(t);
+  }, [finished]);
   useEffect(() => {
     if (!waiting) return;
     const t = setTimeout(() => setGaveUp(true), 6000);
     return () => clearTimeout(t);
   }, [waiting]);
-  if (!shown && ((waiting && !gaveUp) || needsPick)) return <OpeningScreen />;
+  // The door is the progress bar: each real loading step lifts one bar away (25, 50, 75, 100%).
+  const stage = finished || needsPick || gaveUp ? 4 : status === 'loading' ? 0 : status === 'signingIn' ? 1 : client && !ready ? 2 : 3;
+  if (!shown) return <OpeningScreen stage={stage} />;
   return <TabsShell />;
 }
 
-function OpeningScreen() {
+function OpeningScreen({ stage }: { stage: number }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#002D04' }} testID="opening-screen">
-      <OpeningDoor />
-      <Text style={{ color: '#FFFFFF', marginTop: 20, fontSize: 16, fontWeight: '700' }}>Opening…</Text>
+      <OpeningDoor stage={stage} />
+      <Text style={{ color: '#FFFFFF', marginTop: 20, fontSize: 16, fontWeight: '700' }} testID="opening-percent">
+        Opening… {stagePercent(stage)}%
+      </Text>
     </View>
   );
 }
