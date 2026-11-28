@@ -13,7 +13,7 @@ type Client = Pick<OdooClient, 'call' | 'session'>;
 export type RoleId = 'tech' | 'owner' | 'dispatch' | 'office' | 'sales' | 'warehouse';
 
 export const ROLE_INFO: { id: RoleId; label: string; detail: string; add: string; /** Other groups given with it. */ also?: string[]; remove: string[] }[] = [
-  { id: 'tech', label: 'Tech', detail: 'Field work: jobs, inspections, tickets, truck stock. Odoo gives this to dispatchers and the owner too.', add: 'fieldservice.group_fsm_user', remove: ['fieldservice.group_fsm_user'] },
+  { id: 'tech', label: 'Tech', detail: 'Field work: jobs, inspections, tickets, truck stock. Odoo gives this group to dispatchers and the owner too, but the app does not treat a dispatcher as a tech.', add: 'fieldservice.group_fsm_user', remove: ['fieldservice.group_fsm_user'] },
   { id: 'owner', label: 'Owner', detail: 'Management, business numbers, scorecard, Developer', add: 'fieldservice.group_fsm_manager', remove: ['fieldservice.group_fsm_manager'] },
   { id: 'dispatch', label: 'Dispatcher', detail: 'Dispatch: give out jobs, see each tech\'s day (the owner has this too)', add: 'fieldservice.group_fsm_dispatcher', remove: ['fieldservice.group_fsm_dispatcher'] },
   { id: 'office', label: 'Office', detail: 'Office: invoices, payments, quotes, customers. Gives Odoo Billing Administrator, which can do more in Odoo than a tech can.', add: 'account.group_account_manager', remove: ['account.group_account_manager'] },
