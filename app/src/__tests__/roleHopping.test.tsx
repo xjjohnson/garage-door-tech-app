@@ -1,5 +1,6 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { RoleChip } from '../components/RoleChip';
+import { NO_BADGES, setBadges } from '../lib/deptBadges';
 import { resetLaunchPicked, setActiveRole } from '../lib/activeRole';
 import { setRolePreviews } from '../lib/devFlags';
 import { useDispatcherOnly, useSalesOnly, useTech } from '../lib/useDepartments';
@@ -94,6 +95,18 @@ describe('working in more than one role', () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
     const { result } = await renderHook(() => useRoles());
     await waitFor(() => expect(result.current.current).toBe('sales'));
+  });
+
+  it('each role bubble carries a red count of what needs a look in that role', async () => {
+    held = [DISPATCH, SALES];
+    setBadges({ ...NO_BADGES, dispatch: { ...NO_BADGES.dispatch, unassigned: 2, late: 1 }, sales: { quiet: 4, followUps: 1, renewals: 0, flagged: 0 } });
+    await render(<RolesScreen />);
+    await waitFor(() => expect(screen.getByTestId('role-big')).toBeTruthy());
+    expect(screen.getByTestId('role-big-badge')).toHaveTextContent('3');
+    expect(screen.getByTestId('role-sales-badge')).toHaveTextContent('5');
+    expect(screen.queryByTestId('role-owner-badge')).toBeNull();
+    setBadges(NO_BADGES);
+    await waitFor(() => expect(screen.queryByTestId('role-sales-badge')).toBeNull());
   });
 
   it('the role chip shows the current role and hops through a sheet', async () => {

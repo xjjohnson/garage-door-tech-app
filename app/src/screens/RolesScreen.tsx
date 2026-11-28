@@ -3,7 +3,9 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pressable } from 'react-native';
 import { Text } from '../components/AppText';
-import { RoleBubbleRow } from '../components/RoleBubbles';
+import { RoleBadge, RoleBubbleRow } from '../components/RoleBubbles';
+import { roleBadge } from '../lib/deptBadges';
+import { useBadges } from '../lib/useBadges';
 import { ROLE_CARDS, RoleKey } from '../lib/roles';
 import { switchRole } from '../lib/roleSwitch';
 import { useRoles } from '../lib/useRoles';
@@ -25,6 +27,7 @@ export function greeting(hour: number): string {
 export function RolesScreen() {
   const styles = useStyles();
   const { roles, last } = useRoles();
+  const badges = useBadges();
   const main = last ?? FIRST.find((r) => roles.includes(r)) ?? 'tech';
   const card = ROLE_CARDS[main];
   const go = async (r: RoleKey) => {
@@ -42,6 +45,7 @@ export function RolesScreen() {
         <Text style={styles.bigName}>
           {card.icon} {card.label}
         </Text>
+        <RoleBadge n={roleBadge(badges, main)} testID="role-big-badge" />
       </Pressable>
       {roles.length > 1 ? (
         <View style={styles.others}>

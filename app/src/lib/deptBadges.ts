@@ -44,6 +44,24 @@ export const dispatchTotal = (b: Badges): number => b.dispatch.unassigned + b.di
 /** Every red number the owner overview lists, as one number for its row. */
 export const overviewTotal = (b: Badges): number => officeTotal(b) + salesTotal(b) + purchasingTotal(b) + dispatchTotal(b) + b.warehouse.receive + b.warehouse.handOver;
 
+/** The one number a role's bubble shows: what needs a look in that role. */
+export function roleBadge(b: Badges, role: 'tech' | 'dispatch' | 'office' | 'sales' | 'warehouse' | 'owner'): number {
+  switch (role) {
+    case 'tech':
+      return b.ready;
+    case 'dispatch':
+      return dispatchTotal(b);
+    case 'office':
+      return officeTotal(b);
+    case 'sales':
+      return salesTotal(b);
+    case 'warehouse':
+      return purchasingTotal(b) + b.warehouse.receive + b.warehouse.handOver;
+    case 'owner':
+      return overviewTotal(b);
+  }
+}
+
 /** What the department rows and the More tab show: the sum of what the person's roles own, plus parts ready for them. */
 export function toolsTotal(b: Badges, access: Pick<Access, 'warehouse' | 'purchasing'> & { dispatch?: boolean; office?: boolean; sales?: boolean }): number {
   return (access.office ? officeTotal(b) : 0) + (access.sales ? salesTotal(b) : 0) + (access.purchasing ? purchasingTotal(b) : 0) + (access.warehouse ? b.warehouse.receive + b.warehouse.handOver : 0) + (access.dispatch ? dispatchTotal(b) : 0) + b.ready;

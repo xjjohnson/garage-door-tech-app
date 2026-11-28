@@ -11,7 +11,7 @@ import { DEFAULT_LIMITS, readLimits } from '../lib/deptLimits';
 import { log } from '../lib/log';
 import { onSyncNow } from '../lib/syncNow';
 import { useAppForeground } from '../lib/useAppForeground';
-import { useDepartments } from '../lib/useDepartments';
+import { useAllAccess } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { useStock } from '../lib/useStock';
 
@@ -19,7 +19,8 @@ const EVERY_MS = 5 * 60_000;
 
 export function DeptBadgeSync() {
   const { status, client } = useOdoo();
-  const { access, ready } = useDepartments();
+  // Counts every role the person holds (not just the one in use), so the role screen can show a badge on each.
+  const { access, ready } = useAllAccess();
   const stock = useStock();
   const latest = useRef(stock);
   latest.current = stock;

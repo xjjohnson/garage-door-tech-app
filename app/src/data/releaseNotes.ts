@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.56',
+    title: 'Red counts on the role bubbles',
+    changes: ['Each role bubble on the role screen (and in the round role button\'s sheet) now shows a red count of what needs a look in that role: unassigned or late jobs for Dispatch, invoices and complaints for Office, quiet quotes and follow-ups for Sales, orders and receipts for Warehouse, parts ready for Tech, and everything for Owner. The numbers refresh every few minutes in the background.'],
+    test: ['Open the app: do the bubbles show red numbers that match what you see inside each role?', 'A role with nothing waiting should show no number.'],
+  },
+  {
     release: '0.6.55',
     title: 'Role screen first, quicker start',
     changes: [
