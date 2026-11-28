@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { onDevFlags, rolePreview } from './devFlags';
-import { Access, departmentAccess, NO_ACCESS } from './odooWarehouse';
+import { onDevFlags, rolePreview, rolePreviews } from './devFlags';
+import { Access, cachedAccess, departmentAccess, NO_ACCESS } from './odooWarehouse';
 import { useActiveRole } from './activeRole';
 import { narrowAccess } from './roles';
 import { useOdoo } from './useOdoo';
@@ -19,9 +19,22 @@ export function useAllAccess(): { access: Access; ready: boolean } {
       return;
     }
     setState({ access: NO_ACCESS, ready: false });
+    // Start from the roles saved on the phone so the first screen is quick, then take Odoo's answer.
+    let fresh = false;
+    if (rolePreviews().length === 0) {
+      cachedAccess(client).then((saved) => {
+        if (alive && !fresh && saved) setState({ access: saved, ready: true });
+      });
+    }
     departmentAccess(client).then(
-      (access) => alive && setState({ access, ready: true }),
-      () => alive && setState({ access: NO_ACCESS, ready: true }),
+      (access) => {
+        fresh = true;
+        if (alive) setState({ access, ready: true });
+      },
+      () => {
+        fresh = true;
+        if (alive) setState((s) => (s.ready ? s : { access: NO_ACCESS, ready: true }));
+      },
     );
     return () => {
       alive = false;

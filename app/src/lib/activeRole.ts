@@ -7,6 +7,8 @@ import { isRoleKey, RoleKey } from './roles';
 import { readStartValue, writeStartValue } from './themeStart';
 
 let active: RoleKey | null | undefined;
+/** True once a role was chosen in this run of the app: the start screen shows on every launch until then. */
+let pickedThisLaunch = false;
 const listeners = new Set<() => void>();
 
 export function getActiveRole(): RoleKey | null {
@@ -19,6 +21,7 @@ export function getActiveRole(): RoleKey | null {
 
 export function setActiveRole(role: RoleKey | null) {
   active = role;
+  if (role) pickedThisLaunch = true;
   writeStartValue('activerole', role);
   listeners.forEach((l) => l());
 }
@@ -33,4 +36,14 @@ export function useActiveRole(): RoleKey | null {
     };
   }, []);
   return getActiveRole();
+}
+
+export function useLaunchPicked(): boolean {
+  useActiveRole();
+  return pickedThisLaunch;
+}
+
+/** For tests: forget that a role was chosen in this run. */
+export function resetLaunchPicked() {
+  pickedThisLaunch = false;
 }

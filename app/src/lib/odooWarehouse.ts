@@ -72,6 +72,11 @@ async function inGroup(client: OdooClient, group: string, seen: { answered: bool
 
 const cacheKey = (client: OdooClient) => `roles.last.${client.session.url}|${client.session.db}|${client.session.login}`;
 
+/** The roles last seen for this login, read from the phone at once. Null when none were saved. */
+export async function cachedAccess(client: OdooClient): Promise<Access | null> {
+  return readCache(client);
+}
+
 async function readCache(client: OdooClient): Promise<Access | null> {
   try {
     const raw = await AsyncStorage.getItem(cacheKey(client));

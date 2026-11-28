@@ -14,7 +14,9 @@ import { useBadges } from '../../lib/useBadges';
 import { RoleChip } from '../../components/RoleChip';
 import { useRoles } from '../../lib/useRoles';
 import { useDepartments, useDispatcherOnly, useOfficeOnly, useOwnerBar, useSalesOnly, useTech } from '../../lib/useDepartments';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useOdoo } from '../../lib/useOdoo';
+import { useAllAccess } from '../../lib/useDepartments';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApkUpdateBanner } from '../../components/ApkUpdateBanner';
 import { UpdateReadyBar } from '../../components/UpdateReadyBar';
@@ -33,6 +35,37 @@ import { makeStyles } from '../../lib/makeStyles';
  * its inputs and search.
  */
 export default function TabsLayout() {
+  const { status, client } = useOdoo();
+  const { ready } = useAllAccess();
+  const { needsPick } = useRoles();
+  // Until Odoo says which roles this person has, the look and bar are a guess, so hold a plain
+  // screen instead of flashing the wrong one. Never longer than a few seconds (slow or no signal).
+  const waiting = status === 'loading' || status === 'signingIn' || (!!client && !ready);
+  const [gaveUp, setGaveUp] = useState(false);
+  // Only at launch: once the tabs have shown, signing in or refreshing later must not tear them down.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!waiting && !needsPick) setShown(true);
+  }, [waiting, needsPick]);
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setTimeout(() => setGaveUp(true), 6000);
+    return () => clearTimeout(t);
+  }, [waiting]);
+  if (!shown && ((waiting && !gaveUp) || needsPick)) return <OpeningScreen />;
+  return <TabsShell />;
+}
+
+function OpeningScreen() {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#002D04' }} testID="opening-screen">
+      <Image source={MARK} style={{ width: 96, height: 96 }} accessibilityLabel="Johnsons" />
+      <Text style={{ color: '#FFFFFF', marginTop: 16, fontSize: 16 }}>Opening…</Text>
+    </View>
+  );
+}
+
+function TabsShell() {
   const styles = useStyles();
   // Turns true when expo-updates finishes downloading an update by itself at launch.
   const { isUpdatePending } = Updates.useUpdates();

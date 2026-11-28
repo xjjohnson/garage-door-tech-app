@@ -15,6 +15,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.55',
+    title: 'Role screen first, quicker start',
+    changes: [
+      'Anyone with more than one role now sees the role screen first on every launch, with their last role as the big button. One role goes straight in.',
+      'The app no longer flashes the Home screen while it works out your roles. It shows a short "Opening" screen instead.',
+      'Roles are read from the phone first and refreshed from Odoo in the background, so the start is quicker.',
+    ],
+    test: ['Close and reopen the app: do you see the role screen first (if you have 2+ roles)?', 'Does it appear fast, with no Home flash?', 'Pick a role: does it open that role\'s look and bar?'],
+  },
+  {
     release: '0.6.54',
     title: 'Tech and Dispatcher can be combined',
     changes: [
