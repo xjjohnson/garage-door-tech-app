@@ -11,6 +11,8 @@ import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
 import { dispatchTotal, toolsTotal } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
+import { RoleChip } from '../../components/RoleChip';
+import { useRoles } from '../../lib/useRoles';
 import { useDepartments, useDispatcherOnly, useOfficeOnly, useOwnerBar, useSalesOnly, useTech } from '../../lib/useDepartments';
 import { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,6 +42,11 @@ export default function TabsLayout() {
   // The owner bar keeps Areas lit on the pages it opens (Customers, Sales, Tools and the tool pages).
   const lit = ownerBar && (tool || OWNER_AREAS_HREFS.includes(pathname)) ? 'areas' : tool ? 'tools' : current.id;
   const tech = useTech();
+  const { roles, current: currentRole, needsPick } = useRoles();
+  // Someone with more than one role who hasn't chosen yet starts on the role screen.
+  useEffect(() => {
+    if (needsPick) router.replace('/roles');
+  }, [needsPick]);
   const dispatcher = useDispatcherOnly();
   const salesOnly = useSalesOnly();
   const officeOnly = useOfficeOnly();
@@ -70,6 +77,8 @@ export default function TabsLayout() {
           <Pressable onPress={() => router.navigate('/tools')} accessibilityRole="button" accessibilityLabel="Back to Tools" testID="back-to-tools" style={({ pressed }) => [styles.back, pressed && styles.headPressed]}>
             <Text style={styles.backText}>‹ Tools</Text>
           </Pressable>
+        ) : roles.length > 1 && currentRole ? (
+          <RoleChip roles={roles} current={currentRole} />
         ) : (
           <Image source={MARK} style={styles.mark} accessibilityLabel="Johnsons" testID="brand-mark" />
         )}

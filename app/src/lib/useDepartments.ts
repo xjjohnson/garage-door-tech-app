@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { onDevFlags, rolePreview } from './devFlags';
 import { Access, departmentAccess, NO_ACCESS } from './odooWarehouse';
+import { useActiveRole } from './activeRole';
+import { narrowAccess } from './roles';
 import { useOdoo } from './useOdoo';
 
-/** Which department areas the signed-in Odoo user may open. Nothing until Odoo answers, and for anyone not signed in. */
-export function useDepartments(): { access: Access; ready: boolean } {
+/** Everything the signed-in Odoo user holds (or the Developer preview's roles), whichever role is in use. */
+export function useAllAccess(): { access: Access; ready: boolean } {
   const { client } = useOdoo();
   // Look as a tech turns on or off while the app is open: ask again.
   const [flagTick, setFlagTick] = useState(0);
@@ -26,6 +28,17 @@ export function useDepartments(): { access: Access; ready: boolean } {
     };
   }, [client, flagTick]);
   return state;
+}
+
+/**
+ * Which department areas the signed-in Odoo user may open, narrowed to the role they are working in
+ * (the start screen's pick). With no pick, everything they hold. Nothing until Odoo answers, and for
+ * anyone not signed in.
+ */
+export function useDepartments(): { access: Access; ready: boolean } {
+  const { access, ready } = useAllAccess();
+  const active = useActiveRole();
+  return { access: narrowAccess(access, active), ready };
 }
 
 /**

@@ -12,7 +12,7 @@
  * Kept free of React; the client is passed in, so tests use a fake server.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { rolePreview } from './devFlags';
+import { rolePreview, rolePreviews } from './devFlags';
 import { OdooClient } from './odoo';
 import { readProducts, setTruckQty, StockProduct } from './odooStock';
 import { orderInfoByName } from './odooPurchasing';
@@ -126,10 +126,17 @@ export function previewAccess(p: NonNullable<ReturnType<typeof rolePreview>>): A
   }
 }
 
+/** Several roles at once: a person holds whatever any one of them opens. */
+export function mergeAccess(list: Access[]): Access {
+  const out = { ...NO_ACCESS };
+  for (const a of list) for (const k of Object.keys(out) as (keyof Access)[]) out[k] = out[k] || a[k];
+  return out;
+}
+
 /** The access to act on: the real one, or the imitated role's while Developer > Look at the app as is on. */
 export async function departmentAccess(client: OdooClient): Promise<Access> {
-  const p = rolePreview();
-  if (p) return previewAccess(p);
+  const list = rolePreviews();
+  if (list.length) return mergeAccess(list.map(previewAccess));
   return realAccess(client);
 }
 

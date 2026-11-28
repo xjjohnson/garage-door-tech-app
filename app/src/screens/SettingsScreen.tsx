@@ -12,7 +12,7 @@ import { loadShareLocation, saveShareLocation } from '../lib/locationPref';
 import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
 import { loadLook, saveLook } from '../lib/lookPref';
 import { PALETTES } from '../lib/themeLook';
-import { DEFAULT_THEME, LookPick, roleDefaultTheme, THEMES } from '../lib/themes';
+import { LookPick } from '../lib/themes';
 import { useInvoices } from '../lib/useInvoices';
 import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
@@ -77,7 +77,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
   useEffect(() => {
     loadLook().then(setLookPick);
   }, []);
-  const changed = lookPick.theme !== themeDef.id || lookPick.palette !== drawnLook.palette;
+  const changed = lookPick.palette !== drawnLook.palette;
   const chooseLook = async (next: LookPick) => {
     setLookPick(next);
     await saveLook(next);
@@ -141,39 +141,11 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
         onChange={chooseTheme}
       />
 
-      <Caption>Theme</Caption>
-      <Text style={styles.shareNote}>A theme sets how every screen is arranged, how big things are and the colors. Your role's theme is used until you pick another; your pick is kept. Light and dark are above.</Text>
-      {THEMES.map((t) => {
-        const on = lookPick.theme === t.id;
-        return (
-          <Pressable
-            key={t.id}
-            onPress={() => chooseLook({ ...lookPick, theme: t.id })}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: on }}
-            testID={`settings-theme-${t.id}`}
-            style={({ pressed }) => [styles.themeCard, on && styles.themeCardOn, pressed && styles.themePressed]}
-          >
-            <View style={styles.themeTop}>
-              <Text style={styles.themeName}>{t.label}</Text>
-              <View style={styles.swatch}>
-                {t.swatch.map((c) => (
-                  <View key={c} style={[styles.dot, { backgroundColor: c }]} />
-                ))}
-              </View>
-            </View>
-            <Text style={styles.themeWho}>{t.who}{t.id === roleDefaultTheme(access) ? ' · Made for your role' : ''}</Text>
-            <Text style={styles.shareNote}>{t.detail}</Text>
-          </Pressable>
-        );
-      })}
+      <Text style={styles.shareNote}>The look of every screen is set by your role. People with more than one role switch with the role button at the top left of Home.</Text>
       <Text style={styles.shareNote}>Colors</Text>
       <Segmented<LookPick['palette']> testID="settings-look-palette" options={PALETTES} value={lookPick.palette} onChange={(palette) => chooseLook({ ...lookPick, palette })} />
       <Text style={styles.shareNote}>Company brand uses the color set on your company in Odoo (and falls back to the theme's own color if there is none).</Text>
-      {changed ? <Action label="Restart to use this theme" primary onPress={() => restart().catch(() => setRestartFailed(true))} testID="settings-look-restart" /> : null}
-      {lookPick.theme === DEFAULT_THEME && lookPick.palette === 'johnsons' ? null : (
-        <Action label="Back to Classic" onPress={() => chooseLook({ theme: DEFAULT_THEME, palette: 'johnsons' })} testID="settings-look-legacy" />
-      )}
+      {changed ? <Action label="Restart to use this color" primary onPress={() => restart().catch(() => setRestartFailed(true))} testID="settings-look-restart" /> : null}
 
       <Caption>This phone</Caption>
       <RowGroup>

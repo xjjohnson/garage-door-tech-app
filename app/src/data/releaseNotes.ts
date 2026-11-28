@@ -15,6 +15,21 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.49',
+    title: 'Role start screen and role switching',
+    changes: [
+      'Someone with more than one role (the owner has them all) sees a start screen the first time: their main role as a big button and a bubble for each other role. After that the app opens in the last role, and a round role button at the top left of Home opens a sheet to hop to another one.',
+      'Each role has its own look and bottom bar (Tech uses the Field theme, Warehouse also covers buying). Switching restarts the app for about a second to repaint. One role means no start screen and no button.',
+      'The theme picker is gone from Settings; the look follows your role. Light, dark and the color choice stay. A theme you picked by hand before is replaced by your role\'s.',
+      'Developer > Look at the app as: tap several roles to test someone with more than one. The role screen and role button then work as they do for that person, and the test view survives the role switch restart.',
+    ],
+    test: [
+      'Developer > Look at the app as: tick Dispatcher and Sales. Does the role screen show Dispatch, Sales and Tech? Tap Sales: does it restart in the Sales look and bar?',
+      'Tap the round role button at top left: do the bubbles show and does switching to Dispatch change the look and bar? Is "Viewing as Dispatcher + Sales" still showing after?',
+      'Tick only Dispatcher: no role button and no start screen? Settings: no theme list?',
+    ],
+  },
+  {
     release: '0.6.48',
     title: 'Each role starts in its own theme',
     changes: ['The first time the app knows your role it switches to that role\'s theme (Owner, Dispatch, Office, Sales or Warehouse) and restarts once. With several roles: owner, then dispatcher, office, sales, warehouse or buyer. Technicians and anyone who already picked a theme are left as they are. Pick any other theme in Settings and it is kept.'],

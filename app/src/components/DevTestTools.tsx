@@ -11,7 +11,7 @@ import { Text, TextInput } from './AppText';
 import { Action } from './Buttons';
 import { ChipRow, SectionTitle } from './controls';
 import { RELEASE_NOTES, newerThan, type ReleaseNote } from '../data/releaseNotes';
-import { onDevFlags, pretendTime, Preview, PREVIEWS, rolePreview, setPretendTime, setRolePreview, setWeakSignal, Signal, weakSignal } from '../lib/devFlags';
+import { onDevFlags, pretendTime, Preview, PREVIEWS, rolePreviews, setPretendTime, setRolePreviews, setWeakSignal, Signal, weakSignal } from '../lib/devFlags';
 import { doneCount, loadSeenRelease, loadTicks, saveSeenRelease, setTick, Ticks } from '../lib/testChecklist';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 
@@ -30,8 +30,6 @@ const SIGNALS: { value: Signal; label: string }[] = [
   { value: 'slow', label: 'Slow' },
   { value: 'flaky', label: 'Drops some' },
 ];
-
-const ROLE_OPTIONS: { value: Preview | 'off'; label: string }[] = [{ value: 'off', label: 'Me' }, ...PREVIEWS.map((p) => ({ value: p.id, label: p.label }))];
 
 export function DevTestTools({ release, shareText, logText, notes = RELEASE_NOTES }: Props) {
   const [, tick] = useState(0);
@@ -59,7 +57,7 @@ export function DevTestTools({ release, shareText, logText, notes = RELEASE_NOTE
 
   const fresh = seenLoaded ? newerThan(seen, notes) : [];
   const freshIds = new Set(fresh.map((n) => n.release));
-  const preview = rolePreview();
+  const previews = rolePreviews();
   const pt = pretendTime();
 
   const mark = async (i: number, m: 'pass' | 'problem') => {
@@ -82,8 +80,17 @@ export function DevTestTools({ release, shareText, logText, notes = RELEASE_NOTE
   return (
     <View style={styles.stack}>
       <SectionTitle>Look at the app as</SectionTitle>
-      <ChipRow options={ROLE_OPTIONS} value={preview ?? 'off'} onChange={(v) => setRolePreview(v === 'off' ? null : v)} scroll testID="dev-role" />
-      <Text style={styles.meta}>{preview ? `Viewing as ${PREVIEWS.find((p) => p.id === preview)?.label}. ` : ''}Shows only what that role opens. It only changes what this phone shows: nothing is written to Odoo, and a restart turns it off.</Text>
+      <View style={styles.roleChips} testID="dev-role">
+        <ChipRow options={[{ value: 'off', label: 'Me' }]} value={previews.length ? '' : 'off'} onChange={() => setRolePreviews([])} compact testID="dev-role-off" />
+        <ChipRow
+          options={PREVIEWS.map((p) => ({ value: p.id, label: previews.includes(p.id) ? `✓ ${p.label}` : p.label }))}
+          value={'' as Preview}
+          onChange={(v) => setRolePreviews(previews.includes(v) ? previews.filter((x) => x !== v) : [...previews, v])}
+          scroll
+          testID="dev-role-pick"
+        />
+      </View>
+      <Text style={styles.meta}>{previews.length ? `Viewing as ${previews.map((id) => PREVIEWS.find((p) => p.id === id)?.label).join(' + ')}. ` : ''}Tap several to test someone with more than one role: the role screen and the switch button then work like they do for that person. Shows only what those roles open. It only changes what this phone shows: nothing is written to Odoo, and a restart turns it off.</Text>
 
       <SectionTitle>Weak signal</SectionTitle>
       <ChipRow options={SIGNALS} value={weakSignal()} onChange={setWeakSignal} compact testID="dev-signal" />
@@ -144,6 +151,7 @@ export function DevTestTools({ release, shareText, logText, notes = RELEASE_NOTE
 
 const styles = StyleSheet.create({
   stack: { gap: sp(12) },
+  roleChips: { gap: sp(8) },
   row: { flexDirection: 'row', gap: sp(8), alignItems: 'center' },
   grow: { flex: 1 },
   meta: { color: colors.muted, fontSize: fs(15), fontWeight: '600' },

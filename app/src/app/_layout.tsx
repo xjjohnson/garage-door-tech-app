@@ -92,6 +92,7 @@ export default function RootLayout() {
                             <OdooInvoicesSync />
                             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                               <Stack.Screen name="(tabs)" />
+                              <Stack.Screen name="roles" options={{ gestureEnabled: false }} />
                               <Stack.Screen name="price-book" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="ticket/[id]" options={{ presentation: 'modal' }} />
                               <Stack.Screen name="ticket-add" options={{ presentation: 'modal' }} />

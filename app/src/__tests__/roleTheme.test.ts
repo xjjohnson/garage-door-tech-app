@@ -26,15 +26,15 @@ describe('role default theme', () => {
     expect(await pendingRoleTheme(null)).toBeNull();
   });
 
-  it('never replaces a theme the person picked', async () => {
+  it('replaces an old hand-picked theme: the look follows the role now', async () => {
     await saveLook({ theme: 'classic', palette: 'johnsons' });
-    expect(await loadLookSource()).toBe('manual');
-    expect(await pendingRoleTheme('owner')).toBeNull();
+    expect(await pendingRoleTheme('owner')).toBe('owner');
   });
 
-  it('keeps an old saved pick (saved before this change) as the person\'s own', async () => {
+  it('keeps the saved palette when the theme changes', async () => {
     await AsyncStorage.setItem('johnsons.theme', JSON.stringify({ theme: 'field', palette: 'brand' }));
-    expect(await pendingRoleTheme('sales')).toBeNull();
+    expect(await pendingRoleTheme('sales')).toBe('sales');
+    expect((await loadLook()).palette).toBe('brand');
   });
 
   it('saves the role theme as automatic, keeps the palette, and does not repeat', async () => {
