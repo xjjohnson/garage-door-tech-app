@@ -12,8 +12,8 @@ type Client = Pick<OdooClient, 'call' | 'session'>;
 
 export type RoleId = 'tech' | 'owner' | 'dispatch' | 'office' | 'sales' | 'warehouse';
 
-export const ROLE_INFO: { id: RoleId; label: string; detail: string; add: string; /** Other groups given with it. */ also?: string[]; remove: string[] }[] = [
-  { id: 'tech', label: 'Tech', detail: 'Field work: jobs, inspections, tickets, truck stock. Odoo gives this group to dispatchers and the owner too, but the app does not treat a dispatcher as a tech.', add: 'fieldservice.group_fsm_user', remove: ['fieldservice.group_fsm_user'] },
+export const ROLE_INFO: { id: RoleId; label: string; detail: string; add: string; /** Other groups given with it. */ also?: string[]; /** An Odoo group of our own, made the first time an administrator gives this role. */ makeGroup?: string; remove: string[] }[] = [
+  { id: 'tech', label: 'Tech', detail: 'Field work: jobs, inspections, tickets, truck stock. Its own group, so someone can be a tech and a dispatcher. Also gives Odoo Field Service User.', add: 'johnsons_app.group_tech', also: ['fieldservice.group_fsm_user'], makeGroup: 'Johnsons: Tech', remove: ['johnsons_app.group_tech'] },
   { id: 'owner', label: 'Owner', detail: 'Management, business numbers, scorecard, Developer', add: 'fieldservice.group_fsm_manager', remove: ['fieldservice.group_fsm_manager'] },
   { id: 'dispatch', label: 'Dispatcher', detail: 'Dispatch: give out jobs, see each tech\'s day (the owner has this too)', add: 'fieldservice.group_fsm_dispatcher', remove: ['fieldservice.group_fsm_dispatcher'] },
   { id: 'office', label: 'Office', detail: 'Office: invoices, payments, quotes, customers. Gives Odoo Billing Administrator, which can do more in Odoo than a tech can.', add: 'account.group_account_manager', remove: ['account.group_account_manager'] },
@@ -44,6 +44,23 @@ async function groupIds(c: Client, xmlids: string[]): Promise<Record<string, num
   return out;
 }
 
+/**
+ * Makes one of the app's own Odoo groups (for example "Johnsons: Tech") the first time an administrator
+ * gives that role, and names it by an external id so the app can always find it again. Only a
+ * plain group: it gives no access by itself. Returns the group's id.
+ */
+async function makeOdooGroup(c: Client, xmlid: string, name: string): Promise<number> {
+  const [module, short] = xmlid.split('.') as [string, string];
+  try {
+    const id = (await c.call('res.groups', 'create', [{ name }])) as number;
+    if (typeof id !== 'number') throw new Error('no id');
+    await c.call('ir.model.data', 'create', [{ module, name: short, model: 'res.groups', res_id: id, noupdate: true }]);
+    return id;
+  } catch (e) {
+    throw new Error(`Odoo would not make the "${name}" group (${e instanceof Error ? e.message : String(e)}). In Odoo, Settings, Users, Groups, you can make one named ${name} by hand.`);
+  }
+}
+
 /** Odoo 19 calls the user's group field group_ids; older ones groups_id. */
 async function groupField(c: Client): Promise<string> {
   try {
@@ -60,7 +77,7 @@ const ALL = [ADMIN, ...ROLE_INFO.flatMap((r) => [r.add, ...(r.also ?? []), ...r.
 function rolesOf(held: Set<number>, ids: Record<string, number>): Roles {
   const has = (x: string) => ids[x] !== undefined && held.has(ids[x]!);
   return {
-    tech: has('fieldservice.group_fsm_user'),
+    tech: has('johnsons_app.group_tech'),
     owner: has('fieldservice.group_fsm_manager'),
     dispatch: has('fieldservice.group_fsm_dispatcher'),
     office: has('account.group_account_manager'),
@@ -119,22 +136,20 @@ export async function saveRoles(c: Client, personId: number, asked: Roles): Prom
   for (const r of ROLE_INFO) {
     const has = rolesOf(held, ids)[r.id];
     if (want[r.id] && !has) {
+      if (ids[r.add] === undefined && r.makeGroup) ids[r.add] = await makeOdooGroup(c, r.add, r.makeGroup);
       const g = ids[r.add];
-      if (g === undefined && r.id === 'tech') continue; // No Field Service app here: nothing to add.
       if (g === undefined) throw new Error(`${r.label} needs an Odoo app that isn't installed here.`);
       add(g);
       // Odoo only accepts the orders a warehouse manager makes if they can purchase too.
       for (const x of r.also ?? []) if (ids[x] !== undefined && !held.has(ids[x]!)) add(ids[x]!);
     } else if (!want[r.id] && has) {
-      // Odoo hands Tech to dispatchers and the owner, so it can't be taken away while either is on.
-      if (r.id === 'tech' && (want.dispatch || want.owner)) continue;
       for (const x of r.remove) if (ids[x] !== undefined && held.has(ids[x]!)) cmds.push([3, ids[x]!]);
     }
   }
   if (cmds.length) await c.call('res.users', 'write', [[personId], { [field]: cmds }]);
   const [after] = (await c.call('res.users', 'read', [[personId]], { fields: [field] })) as Record<string, unknown>[];
   const got = rolesOf(new Set(Array.isArray(after?.[field]) ? (after![field] as number[]) : []), ids);
-  for (const r of ROLE_INFO) if (got[r.id] !== want[r.id] && !(r.id === 'dispatch' && got.owner) && !(r.id === 'tech' && (got.dispatch || got.owner))) throw new Error(`Odoo did not keep the ${r.label} change. Check the user in Odoo's Settings, Users.`);
+  for (const r of ROLE_INFO) if (got[r.id] !== want[r.id] && !(r.id === 'dispatch' && got.owner)) throw new Error(`Odoo did not keep the ${r.label} change. Check the user in Odoo's Settings, Users.`);
   return got;
 }
 

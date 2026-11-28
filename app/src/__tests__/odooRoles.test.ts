@@ -1,6 +1,7 @@
 import { canChangeRoles, listPeople, saveRoles } from '../lib/odooRoles';
 
 const GROUPS: Record<string, number> = { 'base.group_system': 1, 'fieldservice.group_fsm_manager': 2, 'stock.group_stock_manager': 3, 'purchase.group_purchase_user': 4, 'purchase.group_purchase_manager': 5, 'fieldservice.group_fsm_dispatcher': 6, 'fieldservice.group_fsm_user': 7 };
+const TECH_GROUP = 'johnsons_app.group_tech';
 type Call = [string, string, unknown[], Record<string, unknown>?];
 
 function fake(opts: { actingGroups: number[]; people: Record<number, number[]>; refuseWrite?: boolean }) {
@@ -13,6 +14,8 @@ function fake(opts: { actingGroups: number[]; people: Record<number, number[]>; 
       const k = `${model}.${method}`;
       if (k === 'res.users.has_group') return opts.actingGroups.includes(GROUPS[args[1] as string] ?? -1);
       if (k === 'ir.model.data.search_read') return Object.entries(GROUPS).map(([x, id]) => ({ module: x.split('.')[0], name: x.split('.')[1], res_id: id }));
+      if (k === 'res.groups.create') { GROUPS[TECH_GROUP] = 8; return 8; }
+      if (k === 'ir.model.data.create') return 1;
       if (k === 'res.users.fields_get') return { group_ids: {} };
       if (k === 'res.users.search_read') return Object.entries(people).map(([id, g]) => ({ id: Number(id), name: `User ${id}`, login: `u${id}`, group_ids: g }));
       if (k === 'res.users.read') return [{ id: (args[0] as number[])[0], group_ids: people[(args[0] as number[])[0]!] ?? [] }];
@@ -135,22 +138,27 @@ describe('employee and worker links', () => {
     expect(b.calls.some((c) => c[1] === 'create' || c[1] === 'write')).toBe(false);
   });
 
-  it('Tech is Odoo\'s Field Service User group', async () => {
-    const { client, people } = fake({ actingGroups: [1], people: { 4: [] } });
+  it('Tech is the app\'s own group, made the first time it is needed, and adds Field Service User', async () => {
+    delete GROUPS[TECH_GROUP];
+    const { client, people, calls } = fake({ actingGroups: [1], people: { 4: [] } });
     expect(await saveRoles(client, 4, { ...none, tech: true })).toEqual({ ...none, tech: true });
-    expect(people[4]).toEqual([7]);
+    expect(calls.some((c) => c[0] === 'res.groups' && c[1] === 'create')).toBe(true);
+    expect(people[4]!.sort()).toEqual([7, 8]);
     expect((await listPeople(client)).find((x) => x.id === 4)!.roles.tech).toBe(true);
+  });
+
+  it('a person can be a tech and a dispatcher together', async () => {
+    GROUPS[TECH_GROUP] = 8;
+    const { client, people } = fake({ actingGroups: [1], people: { 4: [6, 7] } });
+    expect(await saveRoles(client, 4, { ...none, dispatch: true, tech: true })).toEqual({ ...none, dispatch: true, tech: true });
+    expect(people[4]!.sort()).toEqual([6, 7, 8]);
+    expect(await saveRoles(client, 4, { ...none, dispatch: true })).toEqual({ ...none, dispatch: true });
+    expect(people[4]!.sort()).toEqual([6, 7]);
   });
 
   it('takes Warehouse (and its buying) away together', async () => {
     const { client, people } = fake({ actingGroups: [1], people: { 4: [3, 4] } });
     expect(await saveRoles(client, 4, none)).toEqual(none);
     expect(people[4]).toEqual([]);
-  });
-
-  it('keeps Tech while the person is a dispatcher, since Odoo gives dispatchers Tech', async () => {
-    const { client, people } = fake({ actingGroups: [1], people: { 4: [6, 7] } });
-    await saveRoles(client, 4, { ...none, dispatch: true });
-    expect(people[4]!.sort()).toEqual([6, 7]);
   });
 });

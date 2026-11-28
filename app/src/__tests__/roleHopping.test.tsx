@@ -20,7 +20,7 @@ jest.mock('expo-router', () => ({ ...jest.requireActual('expo-router'), router: 
 
 const DISPATCH = 'fieldservice.group_fsm_dispatcher';
 const SALES = 'sales_team.group_sale_manager';
-const TECH = 'fieldservice.group_fsm_user';
+const TECH = 'johnsons_app.group_tech';
 
 beforeEach(() => {
   held = [];
