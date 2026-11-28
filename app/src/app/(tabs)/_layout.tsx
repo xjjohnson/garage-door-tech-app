@@ -73,9 +73,9 @@ export default function TabsLayout() {
 
 function OpeningScreen({ stage }: { stage: number }) {
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#002D04' }} testID="opening-screen">
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EAF0EA' }} testID="opening-screen">
       <OpeningDoor stage={stage} />
-      <Text style={{ color: '#FFFFFF', marginTop: 20, fontSize: 16, fontWeight: '700' }} testID="opening-percent">
+      <Text style={{ color: '#002D04', marginTop: 24, fontSize: 16, fontWeight: '700' }} testID="opening-percent">
         Opening… {stagePercent(stage)}%
       </Text>
     </View>
