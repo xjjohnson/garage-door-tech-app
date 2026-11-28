@@ -11,6 +11,7 @@ import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
 import { dispatchTotal, toolsTotal } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
+import { OpeningDoor } from '../../components/OpeningDoor';
 import { RoleChip } from '../../components/RoleChip';
 import { useRoles } from '../../lib/useRoles';
 import { useDepartments, useDispatcherOnly, useOfficeOnly, useOwnerBar, useSalesOnly, useTech } from '../../lib/useDepartments';
@@ -59,8 +60,8 @@ export default function TabsLayout() {
 function OpeningScreen() {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#002D04' }} testID="opening-screen">
-      <Image source={MARK} style={{ width: 96, height: 96 }} accessibilityLabel="Johnsons" />
-      <Text style={{ color: '#FFFFFF', marginTop: 16, fontSize: 16 }}>Opening…</Text>
+      <OpeningDoor />
+      <Text style={{ color: '#FFFFFF', marginTop: 20, fontSize: 16, fontWeight: '700' }}>Opening…</Text>
     </View>
   );
 }

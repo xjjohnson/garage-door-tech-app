@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.58',
+    title: 'A garage door opens while the app starts',
+    changes: ['The green Opening screen now shows a small garage door rolling up and down instead of the still logo. It is drawn in the app, so it adds nothing to the start time.'],
+    test: ['Close and reopen the app: do you see the door roll up while it opens? Does it feel quick, not slower?'],
+  },
+  {
     release: '0.6.57',
     title: 'Role counts show at once',
     changes: ['The red counts on the role bubbles are now saved on the phone and shown the moment the app opens, then refreshed from Odoo in the background (like the roles).'],
