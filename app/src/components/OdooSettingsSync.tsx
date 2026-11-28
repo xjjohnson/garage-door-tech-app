@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { refreshBrandIfStale } from '../lib/companyBrand';
+import { refreshIndustry } from '../lib/industry';
 import { log } from '../lib/log';
 import { sameBusiness, readSettings, writeSettings } from '../lib/odooSettings';
 import { clearPending, onQueued, pendingBusiness } from '../lib/settingsSync';
@@ -32,6 +33,7 @@ export function OdooSettingsSync() {
     running.current = true;
     try {
       await refreshBrandIfStale(client);
+      await refreshIndustry(client).catch((e) => log.warn('odoo', `industry sync: ${message(e)}`));
       const edit = pendingBusiness();
       if (edit) {
         await writeSettings(client, { business: edit });

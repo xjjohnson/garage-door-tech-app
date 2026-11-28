@@ -52,9 +52,10 @@ import { DiscountsTab } from './DiscountsTab';
 import { useCustomerTypes } from '../lib/useInvoices';
 import { TextsTab } from './TextsTab';
 import { LimitsTab } from './LimitsTab';
+import { IndustryTab } from './IndustryTab';
 import { makeStyles } from '../lib/makeStyles';
 
-type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business' | 'limits';
+type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business' | 'limits' | 'industry';
 const GROUPS: MenuGroup<Tab>[] = [
   {
     title: 'Jobs and scheduling',
@@ -94,7 +95,10 @@ const GROUPS: MenuGroup<Tab>[] = [
   },
   {
     title: 'Business',
-    items: [{ id: 'business', label: 'Your business', detail: 'Name, payment handles, review link' }],
+    items: [
+      { id: 'business', label: 'Your business', detail: 'Name, payment handles, review link' },
+      { id: 'industry', label: 'Industry', detail: 'Which tools your business uses' },
+    ],
   },
 ];
 const LABELS = Object.fromEntries(GROUPS.flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<Tab, string>;
@@ -144,6 +148,7 @@ export function ManagementScreen() {
           {tab === 'pricelists' ? <PricelistEditor client={client} canEdit={owner === true} /> : null}
           {tab === 'texts' ? <TextsTab canEdit={owner === true} /> : null}
           {tab === 'limits' ? <LimitsTab client={client} canEdit={owner === true} /> : null}
+          {tab === 'industry' ? <IndustryTab client={client} canEdit={owner === true} /> : null}
           {tab === 'checklists' ? <ChecklistsScreen /> : null}
           {tab === 'business' ? <BusinessScreen /> : null}
         </SectionPage>

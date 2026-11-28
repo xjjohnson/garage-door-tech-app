@@ -18,6 +18,8 @@ import { formatHours, openShift, shiftMs } from '../lib/worklog';
 import { colors, fs, layouts, sp } from '../theme';
 import { StatsCard } from './StatsScreen';
 import { makeStyles } from '../lib/makeStyles';
+import { useGarageTools, useIndustryPicked } from '../lib/industry';
+import { currentFlavor } from '../flavor';
 
 /**
  * Everything that isn't a job, a sale or a customer. The week's numbers on
@@ -34,6 +36,8 @@ export function ToolsScreen() {
   const badges = useBadges();
   const buying = purchasingTotal(badges);
   const mode = layouts.tools;
+  const garage = useGarageTools();
+  const picked = useIndustryPicked();
   const businessGroup = (
     <>
       <Caption>Business</Caption>
@@ -63,18 +67,19 @@ export function ToolsScreen() {
       {owner ? <StatsCard /> : null}
       {badges.ready > 0 ? <AlertBanner testID="parts-ready-alert" title={`${badges.ready} job order${badges.ready === 1 ? '' : 's'} ready at the warehouse`} detail="Pick them up, then tap Got it on the job" action="Jobs" onPress={() => router.push('/jobs')} /> : null}
       {low > 0 ? <AlertBanner testID="stock-alert" title={`Truck stock: ${low} low`} detail="Check what to reorder" action="Review" onPress={() => router.push('/stock')} /> : null}
+      {owner && !picked && currentFlavor().id === 'fscrew' ? <AlertBanner testID="industry-nudge" title="Pick your industry" detail="It decides which tools your crew sees. Management > Industry" action="Choose" onPress={() => router.push('/manage')} /> : null}
       <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />
 
       {mode === 'calc' ? (
         <View style={styles.pair}>
-          <Action primary label="Spring calc" onPress={() => router.push('/springs')} testID="tools-springs-big" grow />
+          {garage ? <Action primary label="Spring calc" onPress={() => router.push('/springs')} testID="tools-springs-big" grow /> : null}
           <Action primary label="Parts and truck" onPress={() => router.push('/stock')} testID="tools-stock-big" grow />
         </View>
       ) : null}
 
       {mode === 'business' ? businessGroup : null}
 
-      {mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop' ? (
+      {(mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop') && garage ? (
         <>
           <Caption>{mode === 'calc' ? 'All tools' : 'In the field'}</Caption>
           <RowGroup>
@@ -84,14 +89,14 @@ export function ToolsScreen() {
             <IconRow icon="book" label="Manuals" detail="Install and owner's manuals" href="/manuals" testID="tools-manuals" last={mode === 'calc' ? false : true} />
           </RowGroup>
         </>
-      ) : (
+      ) : mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop' || (!garage && mode !== 'tiles') ? null : (
         <>
           <Caption>In the field</Caption>
           <View style={styles.tiles}>
-            <ToolTile icon="calc" label="Spring calculator" detail="Match old, size, extension" href="/springs" testID="tools-springs" />
-            <ToolTile icon="weight" label="Door weight" detail="Estimate from size and type" href="/door-weight" testID="tools-door-weight" />
-            <ToolTile icon="diag" label="Diagnose" detail="Opener codes and symptoms" href="/diagnose" testID="tools-diagnose" />
-            <ToolTile icon="book" label="Manuals" detail="Install and owner's manuals" href="/manuals" testID="tools-manuals" />
+            {garage ? <ToolTile icon="calc" label="Spring calculator" detail="Match old, size, extension" href="/springs" testID="tools-springs" /> : null}
+            {garage ? <ToolTile icon="weight" label="Door weight" detail="Estimate from size and type" href="/door-weight" testID="tools-door-weight" /> : null}
+            {garage ? <ToolTile icon="diag" label="Diagnose" detail="Opener codes and symptoms" href="/diagnose" testID="tools-diagnose" /> : null}
+            {garage ? <ToolTile icon="book" label="Manuals" detail="Install and owner's manuals" href="/manuals" testID="tools-manuals" /> : null}
             {mode === 'tiles' ? <ToolTile icon="truck" label="Truck stock" detail={low > 0 ? `${low} low` : 'Parts on the truck'} href="/stock" testID="open-stock-tile" /> : null}
             {mode === 'tiles' ? <ToolTile icon="clock" label="Time and miles" detail="Clock in, clock out, trip log" href="/time-log" testID="open-time-log-tile" /> : null}
           </View>

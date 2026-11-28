@@ -176,6 +176,27 @@ and drum tables. Anything native still needs a new APK: a new library with
 native code, an Expo SDK upgrade, or a change to native settings in
 `app.json` (icon, package name, permissions).
 
+**Two versions of the app, one code base.** The build makes an APK for each
+version listed in `flavors.js`: **Johnsons** (today's name, icon and Android id,
+so Johnsons phones update in place) and **FS Crew** (the public app). They are
+separate apps with their own icon and name and can sit on one phone. Both use
+the same runtime version, the same signing key and the same `beta` and
+`production` update channels, so one over-the-air update reaches both. Each
+build sets `APP_FLAVOR` (`app.config.js`); a plain build is Johnsons. The
+Latest APK release holds `spring-calc.apk` and `version.json` (Johnsons) and
+`fs-crew.apk` and `fs-crew-version.json` (FS Crew); a phone checks only its
+own file. At run time the app tells which version it is from its own Android
+id (`src/flavor.ts`), and an APK made before this existed counts as Johnsons.
+To add a business, add an entry to `flavors.js` and to `src/flavor.ts`, and an
+icon set under `assets/`.
+
+**Industry.** Management > Industry (owner) picks the tool pack. *Garage doors
+and gates* shows the spring calculator, door weight, diagnose and manuals;
+*Other* hides them (nothing is deleted). It is saved in Odoo as the company
+attachment `app-industry.json`, with a copy on the phone. Until an owner picks,
+Johnsons is on garage doors and FS Crew is on Other, with a nudge on the Tools
+page for the owner.
+
 **When a new APK is needed, the app says so.** Each build also puts a small
 `version.json` on the Latest APK release, holding the `version` from
 `app.json` and the APK's link. When the app opens, it reads that file
