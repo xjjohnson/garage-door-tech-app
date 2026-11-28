@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Fetch, ODOO_STORAGE_KEY, OdooClient, OdooError, OdooLogin } from './odoo';
 import { loadFeatureFlags } from './featureFlags';
+import { loadIndustry } from './industry';
 import { claimIfUnowned, dataMatches, resumeSwitch, SECRET_KEY } from './dbSwitch';
 import { deviceSnapshots } from './dbSnapshots';
 import { deviceSecrets, SecretStore } from './secrets';
@@ -81,6 +82,7 @@ export function OdooProvider({ children, fetchFn, secrets: givenSecrets }: { chi
   useEffect(() => {
     let alive = true;
     loadFeatureFlags().catch(() => undefined);
+    loadIndustry().catch(() => undefined);
     (async () => {
       // Finish a database switch the app was closed in the middle of, before anything reads the phone's data.
       await resumeSwitch({ storage: AsyncStorage, snapshots: deviceSnapshots(), secrets }).catch(() => false);

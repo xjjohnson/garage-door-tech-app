@@ -1,10 +1,11 @@
-# Builds an installable Android APK of the spring calculator app.
+# Builds an installable Android APK of each version of the app: Johnsons and
+# FS Crew (app/flavors.js), from the same code.
 #
 # Runs on every push to main that touches the app or the math, and by hand
 # from the Actions tab ("Run workflow"). Pull requests that touch them run only
 # the Tests job; the slow APK build waits until the change is merged. The APK
-# is attached to the run as an artifact named spring-calc-apk-<run number>
-# (a zip). Builds from main also replace the APK on the "Latest APK" release
+# is attached to the run as artifacts named spring-calc-apk-<run number>
+# (Johnsons) and fs-crew-apk-<run number> (FS Crew), each a zip. Builds from main also replace the APK on the "Latest APK" release
 # (tag latest-apk), which is the easy place to download it from a phone.
 #
 # The APK itself is built without EAS: the native Android project is generated
@@ -90,7 +91,7 @@ jobs:
           npm run typecheck
 
   apk:
-    name: Build APK
+    name: Build APK (${{ matrix.flavor }})
     needs: test
     # Pull requests only run the tests. The APK builds after the merge, on the
     # push to main (or from "Run workflow").
@@ -99,8 +100,20 @@ jobs:
     permissions:
       contents: write # only used to update the Latest APK release from main
     timeout-minutes: 60
+    # One APK for each version of the app (app/flavors.js): same code, own
+    # name, icon and Android id. Both use the same signing key and the same
+    # runtime version, so one over-the-air update reaches both.
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - flavor: johnsons
+            apk_base: spring-calc
+          - flavor: fscrew
+            apk_base: fs-crew
     env:
       CI: 1
+      APP_FLAVOR: ${{ matrix.flavor }}
       # Each run gets a higher version code, so a new APK installs over the old one.
       ANDROID_VERSION_CODE: ${{ github.run_number }}
       # The key's name inside the keystore. Not a secret. Override it with a
@@ -208,48 +221,79 @@ jobs:
         run: rm -f "$RUNNER_TEMP/release-key.p12"
 
       - name: Name the APK
-        run: cp app/android/app/build/outputs/apk/release/app-release.apk "spring-calc-${{ github.run_number }}.apk"
+        run: |
+          cp app/android/app/build/outputs/apk/release/app-release.apk "${{ matrix.apk_base }}-${{ github.run_number }}.apk"
+          echo "${{ steps.signature.outputs.sha256 }}" > "${{ matrix.apk_base }}-cert.txt"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: spring-calc-apk-${{ github.run_number }}
-          path: spring-calc-${{ github.run_number }}.apk
+          name: ${{ matrix.apk_base }}-apk-${{ github.run_number }}
+          path: |
+            ${{ matrix.apk_base }}-${{ github.run_number }}.apk
+            ${{ matrix.apk_base }}-cert.txt
           retention-days: 30
           if-no-files-found: error
 
-      # version.json tells installed apps which native version the newest APK
-      # is and where to get it. The app offers the download when this version
-      # is newer than its own (app/src/lib/apkUpdate.ts). The APK is also
-      # attached under a fixed name so that link never changes.
-      - name: Write version.json
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        run: |
-          cp "spring-calc-${{ github.run_number }}.apk" spring-calc.apk
-          node -e '
-            const version = require("./app/app.json").expo.version;
-            const apkUrl = `https://github.com/${process.env.REPO}/releases/download/latest-apk/spring-calc.apk`;
-            require("fs").writeFileSync("version.json", JSON.stringify({ version, apkUrl }, null, 2) + "\n");
-          '
-          cat version.json
+  # Puts every version's APK on the Latest APK release, with a small file for
+  # each that tells installed apps which native version is newest and where to
+  # get it. The app offers the download when that version is newer than its
+  # own (app/src/lib/apkUpdate.ts) and looks only at its own version's file.
+  # Johnsons keeps its old file names (spring-calc.apk, version.json), so the
+  # link phones already use never changes.
+  release-apk:
+    name: Latest APK release
+    needs: apk
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*-apk-${{ github.run_number }}'
+          path: apks
+          merge-multiple: true
+
+      - name: Write the version files
         env:
           REPO: ${{ github.repository }}
+          RUN: ${{ github.run_number }}
+        run: |
+          cd apks
+          node -e '
+            const fs = require("fs");
+            const { expo } = require("../app/app.json");
+            const flavors = require("../app/flavors.js");
+            const base = `https://github.com/${process.env.REPO}/releases/download/latest-apk`;
+            for (const [id, f] of Object.entries(flavors)) {
+              if (typeof f !== "object") continue;
+              const stem = f.apkFile.replace(/\.apk$/, "");
+              fs.copyFileSync(`${stem}-${process.env.RUN}.apk`, f.apkFile);
+              fs.writeFileSync(f.manifestFile, JSON.stringify({ version: expo.version, apkUrl: `${base}/${f.apkFile}` }, null, 2) + "\n");
+              console.log(id, f.manifestFile);
+            }
+          '
+          ls -l
+          cat version.json fs-crew-version.json
 
-      - name: Replace the APK on the Latest APK release
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Replace the APKs on the Latest APK release
         env:
           GH_TOKEN: ${{ github.token }}
-          CERT_SHA256: ${{ steps.signature.outputs.sha256 }}
+        working-directory: apks
         run: |
+          CERT_SHA256="$(cat spring-calc-cert.txt)"
           gh release delete latest-apk --yes --cleanup-tag || true
-          gh release create latest-apk "spring-calc-${{ github.run_number }}.apk" spring-calc.apk version.json \
+          gh release create latest-apk "spring-calc-${{ github.run_number }}.apk" spring-calc.apk version.json "fs-crew-${{ github.run_number }}.apk" fs-crew.apk fs-crew-version.json \
+            --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
             --prerelease \
             --title "Latest APK (build ${{ github.run_number }})" \
-            --notes "Built from ${{ github.sha }}. Install on Android: open spring-calc.apk on the phone and allow installs from this source when asked.
+            --notes "Built from ${{ github.sha }}. Install on Android: open the APK for your app on the phone and allow installs from this source when asked. spring-calc.apk is the Johnsons app; fs-crew.apk is FS Crew. They are separate apps and can sit on the same phone.
 
-          Signing certificate SHA-256: ${CERT_SHA256}
-
-          From version 0.2.0 on, the APK is signed with the app's own key. A phone that still has the 0.1.0 APK must uninstall it once first; Android won't install this one over it (\"App not installed\"). Inputs saved in the old app are lost with it."
+          Signing certificate SHA-256 (both): ${CERT_SHA256}"
 
   ota:
     name: Publish OTA update
