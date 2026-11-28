@@ -52,9 +52,9 @@ describe('schedule (plain logic)', () => {
 
   it('writes the texts and a maps link', () => {
     expect(onMyWayText({ name: 'Pat Smith' }, 'Ace Doors', 30)).toBe("Hi Pat, it's Ace Doors. I'm on my way and should be there in about 30 minutes.");
-    expect(reminderText({ name: 'Pat', start: at(addDays(DAY0, 1), 9) }, 'Ace Doors', DAY0)).toBe("Hi Pat, it's Ace Doors. Just confirming your garage door appointment tomorrow at 9:00 am. Reply if you need to change it.");
+    expect(reminderText({ name: 'Pat', start: at(addDays(DAY0, 1), 9) }, 'Ace Doors', DAY0)).toBe("Hi Pat, it's Ace Doors. Just confirming your appointment tomorrow at 9:00 am. Reply if you need to change it.");
     expect(reminderText({ name: '', start: at(addDays(DAY0, 2), 14, 30) }, '', DAY0)).toBe(
-      "Hi there, it's your garage door tech. Just confirming your garage door appointment on Fri, Nov 13 at 2:30 pm. Reply if you need to change it.",
+      "Hi there, it's your service team. Just confirming your appointment on Fri, Nov 13 at 2:30 pm. Reply if you need to change it.",
     );
     expect(mapsLink('1 Oak St, Springfield')).toBe('https://www.google.com/maps/search/?api=1&query=1%20Oak%20St%2C%20Springfield');
     expect(mapsLink('  ')).toBeUndefined();

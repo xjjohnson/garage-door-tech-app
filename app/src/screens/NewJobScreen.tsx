@@ -7,7 +7,8 @@ import { ChipRow } from '../components/controls';
 import type { AddressSuggestion } from '../lib/addressSuggest';
 import { Customer, suggestCustomers } from '../lib/customers';
 import { DEFAULT_MATCH_FORM } from '../lib/forms';
-import { DEFAULT_JOB_TYPES } from '../lib/jobTypes';
+import { useGarageTools } from '../lib/industry';
+import { defaultJobTypes } from '../lib/jobTypes';
 import { useFsmTemplates } from '../lib/useFsmTemplates';
 import { log } from '../lib/log';
 import { useAddressSuggestions } from '../lib/useAddressSuggestions';
@@ -32,6 +33,7 @@ type When = 'now' | 'later';
  */
 export function NewJobScreen() {
   const styles = useStyles();
+  const garage = useGarageTools();
   const { customers } = useCustomers();
   const { add, setTicket, setOdooOrder } = useJobs();
   const { client } = useOdoo();
@@ -41,7 +43,7 @@ export function NewJobScreen() {
   const [picked, setPicked] = useState<Customer | null>(null);
   const templates = useFsmTemplates();
   // Odoo's Field Service templates when it has some, otherwise the built-in kinds of job.
-  const kinds = templates.length ? templates.map((t) => t.name) : [...DEFAULT_JOB_TYPES];
+  const kinds = templates.length ? templates.map((t) => t.name) : [...defaultJobTypes(garage)];
   const [chosen, setWhat] = useState<string | null>(null);
   const what = chosen && kinds.includes(chosen) ? chosen : kinds[0];
   const [when, setWhen] = useState<When>('now');

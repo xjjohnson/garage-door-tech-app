@@ -12,6 +12,8 @@ import { CountBadge } from '../../components/SectionMenu';
 import { tabBadges } from '../../lib/deptBadges';
 import { useBadges } from '../../lib/useBadges';
 import { OpeningDoor, stagePercent } from '../../components/OpeningDoor';
+import { OpeningFs } from '../../components/OpeningFs';
+import { currentFlavor } from '../../flavor';
 import { RoleChip } from '../../components/RoleChip';
 import { useRoles } from '../../lib/useRoles';
 import { useDepartments, useDispatcherOnly, useOfficeOnly, useOwnerBar, useSalesOnly, useTech } from '../../lib/useDepartments';
@@ -70,7 +72,7 @@ export default function TabsLayout() {
     const t = setTimeout(() => setGaveUp(true), 6000);
     return () => clearTimeout(t);
   }, [waiting]);
-  // The door is the progress bar: each real loading step lifts one bar away (25, 50, 75, 100%).
+  // The door (Johnsons) or the underline (FS Crew) is the progress bar: each real loading step lifts one bar away or fills a quarter (25, 50, 75, 100%).
   const stage = finished || needsPick || gaveUp ? 4 : status === 'loading' ? 0 : status === 'signingIn' ? 1 : client && !ready ? 2 : 3;
   if (!shown) return <OpeningScreen stage={stage} />;
   return <TabsShell />;
@@ -79,8 +81,8 @@ export default function TabsLayout() {
 function OpeningScreen({ stage }: { stage: number }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EAF0EA' }} testID="opening-screen">
-      <OpeningDoor stage={stage} />
-      <Text style={{ color: '#002D04', marginTop: 24, fontSize: 16, fontWeight: '700' }} testID="opening-percent">
+      {currentFlavor().id === 'fscrew' ? <OpeningFs stage={stage} /> : <OpeningDoor stage={stage} />}
+      <Text style={{ color: currentFlavor().id === 'fscrew' ? colors.brand : '#002D04', marginTop: 24, fontSize: 16, fontWeight: '700' }} testID="opening-percent">
         Opening… {stagePercent(stage)}%
       </Text>
     </View>
@@ -133,7 +135,13 @@ function TabsShell() {
         ) : roles.length > 1 && currentRole ? (
           <RoleChip roles={roles} current={currentRole} />
         ) : (
-          <Image source={MARK} style={styles.mark} accessibilityLabel="Johnsons" testID="brand-mark" />
+          currentFlavor().id === 'fscrew' ? (
+            <View style={[styles.mark, { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.14)' }]} accessibilityLabel="FS Crew" testID="brand-mark">
+              <Text style={{ color: colors.onHead, fontSize: 20, fontWeight: '800' }}>FS</Text>
+            </View>
+          ) : (
+            <Image source={MARK} style={styles.mark} accessibilityLabel="Johnsons" testID="brand-mark" />
+          )
         )}
         <View style={styles.headText}>
           <Text style={styles.title} accessibilityRole="header">

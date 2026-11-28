@@ -2,10 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { SectionTitle, Segmented } from '../components/controls';
-import { loadCompanyBrand } from '../lib/companyBrand';
+import { builtInLogo, loadCompanyBrand, odooLogoOn } from '../lib/companyBrand';
 import { CompanyProfile, ProfileKey, htmlToText, readProfile, writeProfile } from '../lib/odooCompany';
 import { TermsPage } from './OfficeExtras';
-import { LOGO_DATA_URL } from '../data/logoPng';
 import { QrCode } from '../components/QrCode';
 import { Business, payLinks } from '../lib/invoices';
 import { queueBusiness } from '../lib/settingsSync';
@@ -134,9 +133,9 @@ export function BusinessScreen() {
 
   const locked = signedIn && owner !== true;
   const odooFields = signedIn && !!profile;
-  const useLogo = business.useOdooLogo === true;
+  const useLogo = odooLogoOn(business.useOdooLogo);
   const setUseLogo = (on: boolean) => {
-    const next = { ...business, useOdooLogo: on || undefined };
+    const next = { ...business, useOdooLogo: on };
     setBusiness(() => next);
     if (signedIn && owner === true) queueBusiness(next);
   };
@@ -263,7 +262,7 @@ export function BusinessScreen() {
       ) : null}
 
       <SectionTitle>Branding</SectionTitle>
-      <Text style={styles.note}>Show your company logo from Odoo on PDFs (inspection and photo reports) instead of the built-in Johnsons logo. If Odoo has no usable logo, the built-in one is used. Change the logo itself in Odoo.</Text>
+      <Text style={styles.note}>Show your company logo from Odoo on PDFs (inspection and photo reports) instead of the app's built-in logo. If Odoo has no usable logo, the built-in one is used. Change the logo itself in Odoo.</Text>
       {locked ? null : (
         <Segmented<'odoo' | 'built-in'>
           testID="business-logo-switch"
@@ -272,7 +271,9 @@ export function BusinessScreen() {
           onChange={(v) => setUseLogo(v === 'odoo')}
         />
       )}
-      <Image source={{ uri: useLogo && odooLogo ? odooLogo : LOGO_DATA_URL }} resizeMode="contain" style={styles.logo} accessibilityLabel="Logo on reports" testID="business-logo-preview" />
+      {useLogo && odooLogo ? odooLogo : builtInLogo() ? (
+        <Image source={{ uri: useLogo && odooLogo ? odooLogo : builtInLogo() }} resizeMode="contain" style={styles.logo} accessibilityLabel="Logo on reports" testID="business-logo-preview" />
+      ) : null}
       {useLogo && !odooLogo ? <Text style={styles.note} testID="business-logo-none">The phone has no logo from Odoo yet, or it is too large. It is fetched while you are signed in, within about 15 minutes. Until then the built-in logo is used.</Text> : null}
     </View>
   );

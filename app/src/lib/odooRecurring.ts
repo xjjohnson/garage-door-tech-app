@@ -5,6 +5,7 @@
  * differs between versions, so only the ones fields_get lists are read. Kept
  * free of React; the client is passed in.
  */
+import { currentFlavor } from '../flavor';
 import type { OdooClient } from './odoo';
 import { toOdooTime } from './odoo';
 import { locationFor } from './odooJobs';
@@ -152,7 +153,7 @@ export async function createRepeat(c: Caller, partnerId: number, r: NewRepeat): 
     location_id: location,
     fsm_frequency_set_id: set,
     start_date: toOdooTime(r.start),
-    ...(have.includes('description') ? { description: `${r.what} (made in the Johnsons app)` } : {}),
+    ...(have.includes('description') ? { description: `${r.what} (made in the ${currentFlavor().appName} app)` } : {}),
     ...(r.templateId && have.includes('fsm_order_template_id') ? { fsm_order_template_id: r.templateId } : {}),
     ...(r.end && have.includes('end_date') ? { end_date: toOdooTime(r.end) } : {}),
   };
@@ -271,6 +272,6 @@ export async function offerTuneUpPlan(c: Caller, partnerId: number, who: { custo
   const repeatId = await createRepeat(c, partnerId, { customer: who.customer, address: who.address, every: 'yearly', start: now + year, what: 'Annual tune-up' });
   const { agreements } = await recurringSupport(c);
   if (!agreements) return { repeatId };
-  const agreementId = await createAgreement(c, partnerId, { name: 'Yearly tune-up plan', notes: 'Annual tune-up, offered after a repair (made in the Johnsons app).', start: now, repeatId });
+  const agreementId = await createAgreement(c, partnerId, { name: 'Yearly tune-up plan', notes: `Annual tune-up, offered after a repair (made in the ${currentFlavor().appName} app).`, start: now, repeatId });
   return { repeatId, agreementId };
 }

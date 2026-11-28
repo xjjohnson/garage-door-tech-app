@@ -21,8 +21,8 @@ export const TEXT_LABEL: Record<TextKind, string> = { onMyWay: 'On my way', eta:
 export const TEXT_DEFAULT: Record<TextKind, string> = {
   onMyWay: "Hi {first}, it's {business}. I'm on my way and should be there in about {minutes} minutes.",
   eta: "Hi {first}, it's {business}. Quick update: I'll be there in about {minutes} minutes.",
-  confirm: "Hi {first}, it's {business}. Just confirming your garage door appointment {day} {window}. Reply if you need to change it.",
-  review: "Hi {first}, thanks for choosing {business}! If you're happy with the work on your garage door, a quick review helps a lot: {review_link}",
+  confirm: "Hi {first}, it's {business}. Just confirming your appointment {day} {window}. Reply if you need to change it.",
+  review: "Hi {first}, thanks for choosing {business}! If you're happy with the work, a quick review helps a lot: {review_link}",
 };
 
 /** What each {word} in the wording turns into. */
@@ -50,7 +50,7 @@ export function wording(b: Partial<Pick<Business, 'textOnMyWay' | 'textEta' | 't
 export function fillText(template: string, v: TextVars): string {
   const map: Record<string, string> = {
     first: v.name?.trim().split(/\s+/)[0] || 'there',
-    business: v.business?.trim() || 'your garage door tech',
+    business: v.business?.trim() || 'your service team',
     minutes: String(v.minutes ?? 15),
     day: v.day ?? 'today',
     window: v.window ?? '',

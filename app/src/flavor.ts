@@ -20,13 +20,21 @@ export interface Flavor {
   manifestUrl: string;
   /** The industry a business starts on until its owner picks one in Management. */
   defaultIndustry: Industry;
+  /** The name people see in headings and notes the app writes. */
+  appName: string;
+  /** Used in names of files the app shares ("johnsons-log"). */
+  fileStem: string;
+  /** The color choice a phone starts on until the person picks one. */
+  defaultPalette: 'johnsons' | 'brand';
+  /** Whether reports use the company's own Odoo logo until the owner chooses otherwise. */
+  defaultOdooLogo: boolean;
 }
 
 const DOWNLOADS = 'https://github.com/xjjohnson/garage-door-tech-app/releases/download/latest-apk';
 
 export const FLAVORS: Record<FlavorId, Flavor> = {
-  johnsons: { id: 'johnsons', appId: 'com.xjjohnson.garagedoortech', manifestUrl: `${DOWNLOADS}/version.json`, defaultIndustry: 'garage-doors' },
-  fscrew: { id: 'fscrew', appId: 'com.xjjohnson.fscrew', manifestUrl: `${DOWNLOADS}/fs-crew-version.json`, defaultIndustry: 'other' },
+  johnsons: { id: 'johnsons', appId: 'com.xjjohnson.garagedoortech', manifestUrl: `${DOWNLOADS}/version.json`, defaultIndustry: 'garage-doors', appName: 'Johnsons', fileStem: 'johnsons', defaultPalette: 'johnsons', defaultOdooLogo: false },
+  fscrew: { id: 'fscrew', appId: 'com.xjjohnson.fscrew', manifestUrl: `${DOWNLOADS}/fs-crew-version.json`, defaultIndustry: 'other', appName: 'FS Crew', fileStem: 'fs-crew', defaultPalette: 'brand', defaultOdooLogo: true },
 };
 
 /** The version for an Android app id; anything unknown is Johnsons. */
@@ -54,7 +62,7 @@ export function currentFlavor(): Flavor {
   return cached;
 }
 
-/** For tests. */
-export function resetFlavorForTests() {
-  cached = null;
+/** For tests: pretend to be a version, or (with null) read it from the phone again. */
+export function setFlavorForTests(id: FlavorId | null) {
+  cached = id ? FLAVORS[id] : null;
 }

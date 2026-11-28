@@ -47,6 +47,10 @@ function fakeOdoo() {
         return reply(300);
       case 'product.product.search':
         return reply(products.filter((p) => p.default_code === SERVICE_PRODUCT_CODE).map((p) => p.id));
+      case 'product.product.read':
+        return reply(products.filter((p) => p.id === (args[0] as number[])[0]).map((p) => ({ id: p.id, name: (p as { name?: string }).name ?? 'Garage door service' })));
+      case 'product.product.write':
+        return reply(true);
       case 'product.product.create':
         products.push({ id: 50, default_code: (args[0] as { default_code: string }).default_code });
         return reply(50);

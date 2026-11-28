@@ -15,8 +15,8 @@ jest.mock('../lib/useInvoices', () => ({ useInvoices: () => ({ business: mockBiz
 describe('pre-written texts', () => {
   it('uses the standard wording when blank and fills in the words', () => {
     expect(onMyWayText({ name: 'Maria Lopez' }, 'Johnsons', 20)).toBe("Hi Maria, it's Johnsons. I'm on my way and should be there in about 20 minutes.");
-    expect(onMyWayText({ name: '' }, { ...EMPTY_BUSINESS }, 15, 'eta')).toContain('Hi there, it\'s your garage door tech. Quick update');
-    expect(reviewRequestText({ billTo: 'Sam Lee' }, mockBiz)).toBe("Hi Sam, thanks for choosing Johnsons! If you're happy with the work on your garage door, a quick review helps a lot: https://g.page/r/abc");
+    expect(onMyWayText({ name: '' }, { ...EMPTY_BUSINESS }, 15, 'eta')).toContain('Hi there, it\'s your service team. Quick update');
+    expect(reviewRequestText({ billTo: 'Sam Lee' }, mockBiz)).toBe("Hi Sam, thanks for choosing Johnsons! If you're happy with the work, a quick review helps a lot: https://g.page/r/abc");
   });
 
   it('uses the owner\'s own wording and leaves unknown words alone', () => {
@@ -29,7 +29,7 @@ describe('pre-written texts', () => {
   it('makes the appointment confirmation with the business name and the arrival window', () => {
     const start = new Date(2026, 10, 18, 9, 0).getTime();
     const now = new Date(2026, 10, 18, 7, 0).getTime();
-    expect(reminderText({ name: 'Pat Smith', start }, { ...mockBiz, name: 'Johnsons Home Services' }, now)).toBe("Hi Pat, it's Johnsons Home Services. Just confirming your garage door appointment today at 9:00 am. Reply if you need to change it.");
+    expect(reminderText({ name: 'Pat Smith', start }, { ...mockBiz, name: 'Johnsons Home Services' }, now)).toBe("Hi Pat, it's Johnsons Home Services. Just confirming your appointment today at 9:00 am. Reply if you need to change it.");
     expect(reminderText({ name: 'Pat Smith', start, windowMinutes: 180 }, { ...mockBiz, name: 'Johnsons Home Services' }, now)).toContain('today between 9:00 am and 12:00 pm.');
     const own = { ...mockBiz, textConfirm: '{business}: see you {day} {window}, {first}!' };
     expect(reminderText({ name: 'Pat', start, windowMinutes: 180 }, own, now)).toBe('Johnsons: see you today between 9:00 am and 12:00 pm, Pat!');

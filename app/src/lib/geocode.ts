@@ -5,6 +5,7 @@
  * time. Kept free of React; the network call, the clock and the wait are
  * passed in, so tests use fakes.
  */
+import { currentFlavor } from '../flavor';
 export const GEOCODE_STORAGE_KEY = 'geocode/v1';
 
 export interface Point {
@@ -112,7 +113,7 @@ export function nominatimUrl(params: Record<string, string> | string): string {
   return `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&${query}`;
 }
 
-const HEADERS = { Accept: 'application/json', 'User-Agent': 'Johnsons-field-app (garage door service)' };
+const HEADERS = { Accept: 'application/json', 'User-Agent': `${currentFlavor().appName.replace(/\s+/g, "")}-field-app (field service)` };
 
 async function ask(fetchFn: GeoFetch, params: Record<string, string>): Promise<Point | null> {
   const res = await fetchFn(nominatimUrl(params), { headers: HEADERS });

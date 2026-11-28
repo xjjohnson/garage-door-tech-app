@@ -5,6 +5,12 @@
  */
 export const DEFAULT_JOB_TYPES = ['Broken spring', 'Off track', 'Opener', 'Tune-up', 'New door', 'Gate', 'Other'] as const;
 
+/** The starting set for any business that isn't in the Garage doors industry. */
+export const GENERAL_JOB_TYPES = ['Repair', 'Maintenance', 'Install', 'Inspection', 'Estimate', 'Other'] as const;
+
+/** The starting set for an industry, used until Odoo has its own order types. */
+export const defaultJobTypes = (garageDoors: boolean): readonly string[] => (garageDoors ? DEFAULT_JOB_TYPES : GENERAL_JOB_TYPES);
+
 /**
  * Whether the spring calculator prices this kind of job. Springs and new
  * doors are; openers, tune-ups, gates and the rest are quoted from Odoo

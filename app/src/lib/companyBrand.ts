@@ -7,6 +7,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LOGO_DATA_URL } from '../data/logoPng';
+import { currentFlavor } from '../flavor';
 import { myCompany } from './odooSettings';
 import type { OdooClient } from './odoo';
 import { cleanBrandColor } from './themeLook';
@@ -79,11 +80,17 @@ export async function refreshCompanyBrand(client: Caller, now = Date.now()): Pro
   }
 }
 
-/** The logo for PDFs: Odoo's when the owner turned the switch on and the phone has one, else the built-in Johnsons logo. */
+/** Whether reports use the company's Odoo logo: the owner's switch when they have set it, else the app's own default (Johnsons: built-in logo; FS Crew: the Odoo logo). */
+export const odooLogoOn = (useOdooLogo: boolean | undefined): boolean => useOdooLogo ?? currentFlavor().defaultOdooLogo;
+
+/** The logo used when Odoo has none: Johnsons' own in the Johnsons app, nothing in the others (their name stands alone). */
+export const builtInLogo = (): string => (currentFlavor().id === 'johnsons' ? LOGO_DATA_URL : '');
+
+/** The logo for PDFs: Odoo's when it is on and the phone has one, else the built-in one. */
 export async function reportLogo(useOdooLogo: boolean | undefined): Promise<string> {
-  if (!useOdooLogo) return LOGO_DATA_URL;
+  if (!odooLogoOn(useOdooLogo)) return builtInLogo();
   const b = await loadCompanyBrand();
-  return b.logo || LOGO_DATA_URL;
+  return b.logo || builtInLogo();
 }
 
 export const BRAND_MAX_AGE_MS = 6 * 60 * 60_000;

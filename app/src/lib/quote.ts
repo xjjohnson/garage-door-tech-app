@@ -180,7 +180,7 @@ export function repairQuote(repairs: QuoteLine[], sheet: PriceSheet): Quote {
 /** Plain text to send the customer: each option with its lines and total. */
 export function quoteText(quote: Quote, customer: string): string {
   const parts: string[] = [];
-  parts.push(`Garage door spring quote${customer ? ` for ${customer}` : ''}`);
+  parts.push(`Quote${customer ? ` for ${customer}` : ''}`);
   for (const o of quote.options.filter((x) => x.available)) {
     parts.push('');
     parts.push(`${(o.title ?? TIER_LABEL[o.tier]).toUpperCase()}: ${formatMoney(o.total)}`);

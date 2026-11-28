@@ -9,12 +9,12 @@ const hi = (customer: string) => (first(customer) ? `Hi ${first(customer)}` : 'H
 
 /** A friendly reminder about an invoice that is past due. */
 export function reminderText(r: Pick<MoneyRow, 'customer' | 'name' | 'cents' | 'days'>, business: string): string {
-  return `${hi(r.customer)}, it's ${business || 'Johnsons'}. A friendly reminder that invoice ${r.name} for ${formatMoney(r.cents)} is ${r.days > 0 ? `${r.days} day${r.days === 1 ? '' : 's'} past due` : 'due'}. You can pay by check, cash, Cash App, Venmo or Zelle. Reply here with any questions.`;
+  return `${hi(r.customer)}, it's ${business || 'your service team'}. A friendly reminder that invoice ${r.name} for ${formatMoney(r.cents)} is ${r.days > 0 ? `${r.days} day${r.days === 1 ? '' : 's'} past due` : 'due'}. You can pay by check, cash, Cash App, Venmo or Zelle. Reply here with any questions.`;
 }
 
 /** A check-in on a quote that has gone quiet. */
 export function quoteText(r: Pick<MoneyRow, 'customer' | 'name'>, business: string): string {
-  return `${hi(r.customer)}, it's ${business || 'Johnsons'}. Just checking in on the quote we sent (${r.name}). Happy to answer any questions or find a time that works. Reply here any time.`;
+  return `${hi(r.customer)}, it's ${business || 'your service team'}. Just checking in on the quote we sent (${r.name}). Happy to answer any questions or find a time that works. Reply here any time.`;
 }
 
 /** The sms: link for a row, or undefined when the customer has no phone Odoo shows. */
