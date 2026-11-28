@@ -4,6 +4,7 @@
  * here so the Tools tab, the area's list and its rows all read one answer.
  * Kept free of React so it can be tested directly.
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { OdooClient } from './odoo';
 import { DEFAULT_LIMITS, DeptLimits } from './deptLimits';
 import { doubleBooked, lateJobs } from './dispatchAlerts';
@@ -116,4 +117,24 @@ export function onBadges(fn: () => void): () => void {
   return () => {
     watchers.delete(fn);
   };
+}
+
+// ---- The last counts, kept on the phone so the first screen already shows them ----
+
+const badgeKey = (client: OdooClient) => `badges.last.${client.session.url}|${client.session.db}|${client.session.login}`;
+
+/** The counts last seen for this login, or null when none were saved. */
+export async function loadSavedBadges(client: OdooClient): Promise<Badges | null> {
+  try {
+    const raw = await AsyncStorage.getItem(badgeKey(client));
+    const d = raw ? (JSON.parse(raw) as Partial<Badges>) : null;
+    if (d && d.purchasing && d.warehouse && d.dispatch && d.office && d.sales && typeof d.ready === 'number') return { ...NO_BADGES, ...d } as Badges;
+  } catch {
+    // Nothing saved.
+  }
+  return null;
+}
+
+export function saveBadges(client: OdooClient, b: Badges): void {
+  AsyncStorage.setItem(badgeKey(client), JSON.stringify(b)).catch(() => undefined);
 }

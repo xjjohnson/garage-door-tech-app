@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.57',
+    title: 'Role counts show at once',
+    changes: ['The red counts on the role bubbles are now saved on the phone and shown the moment the app opens, then refreshed from Odoo in the background (like the roles).'],
+    test: ['Close and reopen the app: do the red numbers on the role screen appear right away, with no blank moment?'],
+  },
+  {
     release: '0.6.56',
     title: 'Red counts on the role bubbles',
     changes: ['Each role bubble on the role screen (and in the round role button\'s sheet) now shows a red count of what needs a look in that role: unassigned or late jobs for Dispatch, invoices and complaints for Office, quiet quotes and follow-ups for Sales, orders and receipts for Warehouse, parts ready for Tech, and everything for Owner. The numbers refresh every few minutes in the background.'],
