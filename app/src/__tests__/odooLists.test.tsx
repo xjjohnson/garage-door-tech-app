@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { setActiveRole } from '../lib/activeRole';
 import { setRolePreview } from '../lib/devFlags';
 import { router } from 'expo-router';
 import { Linking } from 'react-native';
@@ -74,8 +75,14 @@ function fakeOdoo() {
 }
 
 // These screens are the owner's tabs; a tech has no Customers or Sales tab.
-beforeEach(() => setRolePreview('owner'));
-afterAll(() => setRolePreview(null));
+beforeEach(() => {
+  setRolePreview('owner');
+  setActiveRole('owner');
+});
+afterAll(() => {
+  setRolePreview(null);
+  setActiveRole(null);
+});
 
 describe('Odoo lists (logic)', () => {
   it('reads quotations newest first, with status and the customer reference', async () => {

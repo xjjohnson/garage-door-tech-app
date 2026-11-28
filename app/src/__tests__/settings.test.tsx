@@ -98,26 +98,24 @@ describe('Settings', () => {
   });
 });
 
-describe('Settings theme', () => {
-  it('saves a theme pick and offers a restart, and can go back to Classic', async () => {
+describe('Settings look', () => {
+  it('has no theme picker: the look is set by role', async () => {
+    await render(<SettingsScreen api={fakeApi()} />, { wrapper: wrap });
+    await settle();
+    for (const id of ['classic', 'field', 'dispatch', 'office', 'owner', 'map', 'simple']) expect(screen.queryByTestId(`settings-theme-${id}`)).toBeNull();
+    expect(screen.getByTestId('settings-theme')).toBeTruthy(); // light / dark / match phone stays
+  });
+
+  it('saves a color pick, keeps the theme, and offers a restart', async () => {
     const restart = jest.fn(async () => undefined);
     await render(<SettingsScreen api={fakeApi()} restart={restart} />, { wrapper: wrap });
     await settle();
     expect(screen.queryByTestId('settings-look-restart')).toBeNull();
-    await fireEvent.press(screen.getByTestId('settings-theme-office'));
+    await fireEvent.press(screen.getByText('Company brand (Odoo)'));
     await settle();
     const saved = JSON.parse((await AsyncStorage.getItem('johnsons.theme')) as string);
-    expect(saved).toEqual({ theme: 'office', palette: 'johnsons' });
+    expect(saved.palette).toBe('brand');
     await fireEvent.press(screen.getByTestId('settings-look-restart'));
     expect(restart).toHaveBeenCalled();
-    await fireEvent.press(screen.getByTestId('settings-look-legacy'));
-    await settle();
-    expect(JSON.parse((await AsyncStorage.getItem('johnsons.theme')) as string)).toEqual({ theme: 'classic', palette: 'johnsons' });
-  });
-
-  it('lists all six themes plus Classic', async () => {
-    await render(<SettingsScreen api={fakeApi()} />, { wrapper: wrap });
-    await settle();
-    for (const id of ['classic', 'field', 'dispatch', 'office', 'owner', 'map', 'simple']) expect(screen.getByTestId(`settings-theme-${id}`)).toBeTruthy();
   });
 });

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen } from '@testing-library/react-native';
+import { setActiveRole } from '../lib/activeRole';
 import { setRolePreview } from '../lib/devFlags';
 import { router } from 'expo-router';
 import { Fetch } from '../lib/odoo';
@@ -20,8 +21,14 @@ const settle = async (n = 10) => {
 };
 
 // These screens are the owner's tabs; a tech has no Customers or Sales tab.
-beforeEach(() => setRolePreview('owner'));
-afterAll(() => setRolePreview(null));
+beforeEach(() => {
+  setRolePreview('owner');
+  setActiveRole('owner');
+});
+afterAll(() => {
+  setRolePreview(null);
+  setActiveRole(null);
+});
 
 describe('Home layouts', () => {
   const appt = (id: string, start: number, name: string) => ({ id, start, minutes: 60, name, address: '1 Elm St', phone: '', what: 'Broken spring', status: 'booked', createdAt: 1, updatedAt: 1 });

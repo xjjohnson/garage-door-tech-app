@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Linking } from 'react-native';
 import { Fetch, OdooClient, toOdooTime } from '../lib/odoo';
 import { bookedText } from '../screens/DispatchScreen';
+import { setActiveRole } from '../lib/activeRole';
 import { setRolePreview } from '../lib/devFlags';
 import { renderApp } from '../testing/renderApp';
 
@@ -275,3 +276,7 @@ describe('Jobs › Team', () => {
     expect(screen.getByTestId('jobs-search')).toBeTruthy();
   });
 });
+
+// Dispatchers have several roles to pick from; these tests work in the Owner role (no start screen).
+beforeEach(() => setActiveRole('dispatch'));
+afterAll(() => setActiveRole(null));

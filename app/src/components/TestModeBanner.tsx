@@ -7,13 +7,13 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
-import { onDevFlags, pretendOffline, pretendTime, PREVIEWS, rolePreview, weakSignal } from '../lib/devFlags';
+import { onDevFlags, pretendOffline, pretendTime, PREVIEWS, rolePreviews, weakSignal } from '../lib/devFlags';
 import { colors, fs, sp } from '../theme';
 
 export function testModeLabels(): string[] {
   const out: string[] = [];
-  const p = rolePreview();
-  if (p) out.push(`Viewing as ${PREVIEWS.find((x) => x.id === p)?.label ?? p}`);
+  const p = rolePreviews();
+  if (p.length) out.push(`Viewing as ${p.map((id) => PREVIEWS.find((x) => x.id === id)?.label ?? id).join(' + ')}`);
   const s = weakSignal();
   if (s !== 'normal') out.push(s === 'slow' ? 'Slow signal' : 'Signal drops');
   if (pretendTime() !== null) out.push('Pretend time');
