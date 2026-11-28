@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.59',
+    title: 'Fix: stuck on Opening at 100%',
+    changes: ['People with more than one role were left on the Opening screen at 100% instead of reaching the role screen. The jump to the role screen now happens from the Opening screen itself, and a test opens the whole app to check it.'],
+    test: ['Close and reopen the app: do you land on the role screen after the Opening screen, with nothing stuck at 100%?'],
+  },
+  {
     release: '0.6.58',
     title: 'The logo is the loading bar',
     changes: ['The Opening screen now shows the Johnsons logo as the loading bar: its four door bars at the start, then one lifts away at each step (25%, 50%, 75%) until only the roof and star are left at 100% and the app opens. It is drawn in the app, so it adds nothing to the start time. If Odoo is slow it still gives up after 6 seconds and opens.'],
