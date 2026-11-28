@@ -45,6 +45,15 @@ beforeEach(() => {
 });
 
 describe('Office front page', () => {
+  it('has Money, People and Customers tabs and no Setup tab', async () => {
+    await render(<OfficeAreaScreen now={() => NOW} />);
+    expect(await screen.findByText('Money')).toBeTruthy();
+    expect(screen.getByText('People')).toBeTruthy();
+    expect(screen.getByText('Customers')).toBeTruthy();
+    expect(screen.queryByText('Setup')).toBeNull();
+    expect(screen.queryByText('Terms and Conditions')).toBeNull();
+  });
+
   it('shows dollar tiles and a Do next list with the main button first', async () => {
     await render(<OfficeAreaScreen now={() => NOW} />);
     expect(await screen.findByTestId('tile-overdue')).toHaveTextContent(/\$150/);

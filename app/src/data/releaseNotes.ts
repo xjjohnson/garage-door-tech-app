@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.66',
+    title: 'Office: no Setup tab',
+    changes: ['Office now has three tabs: Money, People and Customers. The Setup tab held only Terms and Conditions, which is still edited under Management > Your business.'],
+    test: ['Open Office: are there three tabs? Management > Your business: is Terms and Conditions on quotes still there?'],
+  },
+  {
     release: '0.6.63',
     title: 'More and Tools show only what each role uses',
     changes: [
