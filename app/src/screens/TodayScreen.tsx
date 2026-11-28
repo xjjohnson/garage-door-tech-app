@@ -33,6 +33,7 @@ import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SHORT_VERSION } from '../lib/appVersion';
+import { currentFlavor } from '../flavor';
 import { followUps } from '../lib/followups';
 import { balance, invoiceLabel, invoiceStatus, sortInvoices } from '../lib/invoices';
 import { useFollowUps } from '../lib/useFollowUps';
@@ -199,7 +200,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
       {field ? null : <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" />}
       {field ? <Action label="Wrap up the day" onPress={() => router.push('/end-of-day')} testID="today-wrap-up" /> : null}
       <Text style={styles.version} testID="home-version">
-        Johnsons {SHORT_VERSION}
+        {currentFlavor().appName} {SHORT_VERSION}
       </Text>
     </View>
   );

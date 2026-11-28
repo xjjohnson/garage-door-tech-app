@@ -7,12 +7,16 @@
  * The choice is kept in Odoo, as a small settings file on the company next to
  * the business details, so every phone agrees; the owner changes it in
  * Management > Industry. A copy is kept on the phone so the tools page is right
- * offline. Until an owner picks, a business starts on its app's own default
+ * offline. The same small file also holds the company's color choice (Johnsons
+ * green or the Odoo company color), set in Management > Colors, so every phone
+ * draws the same colors. Until an owner picks, a business starts on its app's own default
  * (Johnsons: garage doors; FS Crew: other).
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { currentFlavor } from '../flavor';
+import { loadLook, saveLook } from './lookPref';
+import { Palette } from './themeLook';
 import type { OdooClient } from './odoo';
 import { myCompany } from './odooSettings';
 
@@ -89,31 +93,70 @@ async function findFile(c: Caller, company: number) {
   return rows[0];
 }
 
-/** The industry saved on the company, or null when none is saved. Throws when Odoo can't be read, so a bad connection never looks like "nothing saved". */
-export async function readIndustry(c: Caller): Promise<Industry | null> {
+export interface AppSettings {
+  industry: Industry | null;
+  palette: Palette | null;
+}
+
+const parsePaletteChoice = (v: unknown): Palette | null => (v === 'johnsons' || v === 'brand' ? v : null);
+
+/** What is saved on the company (null for each part not saved). Throws when Odoo can't be read, so a bad connection never looks like "nothing saved". */
+export async function readAppSettings(c: Caller): Promise<AppSettings> {
   const f = await findFile(c, await myCompany(c));
-  if (!f || typeof f.datas !== 'string' || !f.datas) return null;
+  if (!f || typeof f.datas !== 'string' || !f.datas) return { industry: null, palette: null };
   try {
-    return parseIndustry((JSON.parse(fromBase64(f.datas)) as { industry?: unknown }).industry);
+    const d = JSON.parse(fromBase64(f.datas)) as { industry?: unknown; palette?: unknown };
+    return { industry: parseIndustry(d.industry), palette: parsePaletteChoice(d.palette) };
   } catch {
-    return null;
+    return { industry: null, palette: null };
   }
+}
+
+/** Changes one part of the company's file and keeps the rest. */
+async function writeAppSettings(c: Caller, patch: Partial<AppSettings>): Promise<void> {
+  const company = await myCompany(c);
+  const f = await findFile(c, company);
+  let cur: AppSettings = { industry: null, palette: null };
+  if (f && typeof f.datas === 'string' && f.datas) {
+    try {
+      const d = JSON.parse(fromBase64(f.datas)) as { industry?: unknown; palette?: unknown };
+      cur = { industry: parseIndustry(d.industry), palette: parsePaletteChoice(d.palette) };
+    } catch {
+      // A damaged file is replaced.
+    }
+  }
+  const next = { ...cur, ...patch };
+  const datas = toBase64(JSON.stringify({ version: 1, ...(next.industry ? { industry: next.industry } : {}), ...(next.palette ? { palette: next.palette } : {}) }));
+  if (f) await c.call('ir.attachment', 'write', [[f.id], { datas }]);
+  else await c.call('ir.attachment', 'create', [{ name: INDUSTRY_FILE, type: 'binary', datas, res_model: 'res.company', res_id: company, mimetype: 'application/json' }]);
+}
+
+/** The industry saved on the company, or null when none is saved. */
+export async function readIndustry(c: Caller): Promise<Industry | null> {
+  return (await readAppSettings(c)).industry;
 }
 
 /** Saves the owner's pick on the company, and on this phone. */
 export async function writeIndustry(c: Caller, industry: Industry): Promise<void> {
-  const company = await myCompany(c);
-  const datas = toBase64(JSON.stringify({ version: 1, industry }));
-  const f = await findFile(c, company);
-  if (f) await c.call('ir.attachment', 'write', [[f.id], { datas }]);
-  else await c.call('ir.attachment', 'create', [{ name: INDUSTRY_FILE, type: 'binary', datas, res_model: 'res.company', res_id: company, mimetype: 'application/json' }]);
+  await writeAppSettings(c, { industry });
   await remember(industry);
 }
 
-/** Brings this phone in line with Odoo. Nothing is ever written to Odoo from here. */
+/** Saves the company's color choice in Odoo and on this phone. The new colors are drawn the next time the app starts. */
+export async function writePalette(c: Caller, palette: Palette): Promise<void> {
+  await writeAppSettings(c, { palette });
+  const cur = await loadLook();
+  await saveLook({ ...cur, palette });
+}
+
+/** Brings this phone in line with Odoo: the industry now, the company color from the next start. Nothing is ever written to Odoo from here. */
 export async function refreshIndustry(c: Caller): Promise<void> {
-  const saved = await readIndustry(c);
-  if (saved !== picked) await remember(saved);
+  const saved = await readAppSettings(c);
+  if (saved.industry !== picked) await remember(saved.industry);
+  if (saved.palette) {
+    const cur = await loadLook();
+    if (cur.palette !== saved.palette) await saveLook({ ...cur, palette: saved.palette });
+  }
 }
 
 /** For tests. */

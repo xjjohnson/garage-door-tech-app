@@ -10,9 +10,6 @@ import { BUILD_INFO, UPDATE_CHANNEL } from '../lib/appVersion';
 import { checkAndFetchOta, OtaApi, OtaCheck } from '../lib/otaUpdate';
 import { loadShareLocation, saveShareLocation } from '../lib/locationPref';
 import { loadThemePref, saveThemePref, ThemePref } from '../lib/themePref';
-import { loadLook, saveLook } from '../lib/lookPref';
-import { PALETTES } from '../lib/themeLook';
-import { LookPick } from '../lib/themes';
 import { useInvoices } from '../lib/useInvoices';
 import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
@@ -75,16 +72,6 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
     if (now !== scheme) repaintRestart(now, restart).catch(() => undefined);
   };
 
-  const [lookPick, setLookPick] = useState<LookPick>({ theme: themeDef.id, palette: drawnLook.palette });
-  useEffect(() => {
-    loadLook().then(setLookPick);
-  }, []);
-  const changed = lookPick.palette !== drawnLook.palette;
-  const chooseLook = async (next: LookPick) => {
-    setLookPick(next);
-    await saveLook(next);
-  };
-
   const check = async () => {
     setChecking(true);
     setResult(await checkAndFetchOta(api));
@@ -144,10 +131,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
       />
 
       <Text style={styles.shareNote}>The look of every screen is set by your role. People with more than one role switch with the role button at the top left of Home.</Text>
-      <Text style={styles.shareNote}>Colors</Text>
-      <Segmented<LookPick['palette']> testID="settings-look-palette" options={PALETTES} value={lookPick.palette} onChange={(palette) => chooseLook({ ...lookPick, palette })} />
-      <Text style={styles.shareNote}>Company brand uses the color set on your company in Odoo (and falls back to the theme's own color if there is none).</Text>
-      {changed ? <Action label="Restart to use this color" primary onPress={() => restart().catch(() => setRestartFailed(true))} testID="settings-look-restart" /> : null}
+      <Text style={styles.shareNote}>The app color is set by the owner under Management, then Colors.</Text>
 
       <Caption>This phone</Caption>
       <RowGroup>

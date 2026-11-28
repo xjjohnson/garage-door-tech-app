@@ -106,16 +106,9 @@ describe('Settings look', () => {
     expect(screen.getByTestId('settings-theme')).toBeTruthy(); // light / dark / match phone stays
   });
 
-  it('saves a color pick, keeps the theme, and offers a restart', async () => {
-    const restart = jest.fn(async () => undefined);
-    await render(<SettingsScreen api={fakeApi()} restart={restart} />, { wrapper: wrap });
+  it('no longer holds the color pick: it moved under Management', async () => {
+    await render(<SettingsScreen api={fakeApi()} />, { wrapper: wrap });
     await settle();
-    expect(screen.queryByTestId('settings-look-restart')).toBeNull();
-    await fireEvent.press(screen.getByText('Company brand (Odoo)'));
-    await settle();
-    const saved = JSON.parse((await AsyncStorage.getItem('johnsons.theme')) as string);
-    expect(saved.palette).toBe('brand');
-    await fireEvent.press(screen.getByTestId('settings-look-restart'));
-    expect(restart).toHaveBeenCalled();
+    expect(screen.queryByTestId('settings-look-palette')).toBeNull();
   });
 });

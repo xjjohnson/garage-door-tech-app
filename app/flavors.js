@@ -19,7 +19,7 @@ module.exports = {
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     favicon: './assets/favicon.png',
-    apkFile: 'spring-calc.apk',
+    apkFile: 'johnsons.apk',
     manifestFile: 'version.json',
   },
   fscrew: {

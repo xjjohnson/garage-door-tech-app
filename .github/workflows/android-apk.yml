@@ -4,7 +4,7 @@
 # Runs on every push to main that touches the app or the math, and by hand
 # from the Actions tab ("Run workflow"). Pull requests that touch them run only
 # the Tests job; the slow APK build waits until the change is merged. The APK
-# is attached to the run as artifacts named spring-calc-apk-<run number>
+# is attached to the run as artifacts named johnsons-apk-<run number>
 # (Johnsons) and fs-crew-apk-<run number> (FS Crew), each a zip. Builds from main also replace the APK on the "Latest APK" release
 # (tag latest-apk), which is the easy place to download it from a phone.
 #
@@ -108,7 +108,7 @@ jobs:
       matrix:
         include:
           - flavor: johnsons
-            apk_base: spring-calc
+            apk_base: johnsons
           - flavor: fscrew
             apk_base: fs-crew
     env:
@@ -238,8 +238,9 @@ jobs:
   # each that tells installed apps which native version is newest and where to
   # get it. The app offers the download when that version is newer than its
   # own (app/src/lib/apkUpdate.ts) and looks only at its own version's file.
-  # Johnsons keeps its old file names (spring-calc.apk, version.json), so the
-  # link phones already use never changes.
+  # Johnsons keeps version.json, so the link phones already use never
+  # changes (it now points at johnsons.apk). The release holds only the four files
+  # the phones use; the run-numbered copies stay on the run as artifacts.
   release-apk:
     name: Latest APK release
     needs: apk
@@ -284,14 +285,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         working-directory: apks
         run: |
-          CERT_SHA256="$(cat spring-calc-cert.txt)"
+          CERT_SHA256="$(cat johnsons-cert.txt)"
           gh release delete latest-apk --yes --cleanup-tag || true
-          gh release create latest-apk "spring-calc-${{ github.run_number }}.apk" spring-calc.apk version.json "fs-crew-${{ github.run_number }}.apk" fs-crew.apk fs-crew-version.json \
+          gh release create latest-apk johnsons.apk version.json fs-crew.apk fs-crew-version.json \
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
             --prerelease \
             --title "Latest APK (build ${{ github.run_number }})" \
-            --notes "Built from ${{ github.sha }}. Install on Android: open the APK for your app on the phone and allow installs from this source when asked. spring-calc.apk is the Johnsons app; fs-crew.apk is FS Crew. They are separate apps and can sit on the same phone.
+            --notes "Built from ${{ github.sha }}. Install on Android: open the APK for your app on the phone and allow installs from this source when asked. johnsons.apk is the Johnsons app; fs-crew.apk is FS Crew. They are separate apps and can sit on the same phone.
 
           Signing certificate SHA-256 (both): ${CERT_SHA256}"
 
