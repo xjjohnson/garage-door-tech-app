@@ -7,6 +7,7 @@ jest.mock('../lib/useDepartments', () => ({
   ...jest.requireActual('../lib/useDepartments'),
   useDispatcherOnly: () => false,
   useOfficeOnly: () => mockOfficeOnly,
+  useSalesOnly: () => false,
   useDepartments: () => ({ access: { owner: false, office: true, sales: false, dispatch: false, warehouse: false, purchasing: false }, ready: true }),
   useOwner: () => ({ owner: false, ready: true }),
 }));

@@ -15,6 +15,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.63',
+    title: 'More and Tools show only what each role uses',
+    changes: [
+      'Sales-only: More now holds the Sales area, Follow-ups, Request parts, Price book and Schedule. The field tools, Truck stock, Time and miles and Wrap up the day are gone.',
+      'Owner: Tools keeps just the field and day tools. Business numbers, the price book and departments are not repeated there, since Money, Areas and Manage have them.',
+      'Warehouse or Purchasing only: Tools keeps Warehouse, Purchasing, Truck stock, Time and miles and Price book, and drops the field tools, Follow-ups, Schedule and Wrap up the day.',
+    ],
+    test: ['Developer > Look as Sales: open More. Only Sales, Follow-ups, Request parts, Price book and Schedule show.', 'Owner: open Tools from Areas. No Business or Departments lists.', 'Look as Warehouse: open More. Only the shop tools show.'],
+  },
+  {
     release: '0.6.60',
     title: 'Request parts starts from your open jobs',
     changes: ['Request parts now opens with a list of the open jobs, any job that is not closed, so you pick the job the parts are for instead of searching a customer. Picking a job fills in its customer and names the job in the request to the buyer. The list has a search box on top, and "Not for a job? Search customers" is still there.'],
