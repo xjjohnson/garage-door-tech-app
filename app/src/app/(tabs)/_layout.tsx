@@ -42,6 +42,11 @@ export default function TabsLayout() {
   // Until Odoo says which roles this person has, the look and bar are a guess, so hold a plain
   // screen instead of flashing the wrong one. Never longer than a few seconds (slow or no signal).
   const waiting = status === 'loading' || status === 'signingIn' || (!!client && !ready);
+  // Someone with more than one role who hasn't chosen yet starts on the role screen. This lives here,
+  // not in the tabs below, because the tabs are not drawn while the Opening screen shows.
+  useEffect(() => {
+    if (needsPick) router.replace('/roles');
+  }, [needsPick]);
   const [gaveUp, setGaveUp] = useState(false);
   // Only at launch: once the tabs have shown, signing in or refreshing later must not tear them down.
   const [shown, setShown] = useState(false);
@@ -94,11 +99,7 @@ function TabsShell() {
   // The owner bar keeps Areas lit on the pages it opens (Customers, Sales, Tools and the tool pages).
   const lit = ownerBar && (tool || OWNER_AREAS_HREFS.includes(pathname)) ? 'areas' : tool ? 'tools' : current.id;
   const tech = useTech();
-  const { roles, current: currentRole, needsPick } = useRoles();
-  // Someone with more than one role who hasn't chosen yet starts on the role screen.
-  useEffect(() => {
-    if (needsPick) router.replace('/roles');
-  }, [needsPick]);
+  const { roles, current: currentRole } = useRoles();
   const dispatcher = useDispatcherOnly();
   const salesOnly = useSalesOnly();
   const officeOnly = useOfficeOnly();
