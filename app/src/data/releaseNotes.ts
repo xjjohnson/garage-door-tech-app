@@ -15,6 +15,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.51',
+    title: 'Switch roles without a restart',
+    changes: [
+      'Picking a role (start screen or the round role button) now changes the whole look, bar and layout at once. The app no longer restarts. The first launch applies your role the same way, so you no longer see the old look load first and then restart.',
+      'Developer > Look at the app as: no longer needs to survive a restart, since there is none.',
+    ],
+    test: [
+      'Tap the round role button and switch roles a few times: does the look, bar and Home change at once with no restart? Anything left in the old look (a card, a tab, a header)?',
+      'Close and reopen the app: does it open straight in your role\'s look with no second load?',
+      'Developer > tick two roles and hop between them.',
+    ],
+  },
+  {
     release: '0.6.50',
     title: 'Groundwork for switching roles without a reload',
     changes: [

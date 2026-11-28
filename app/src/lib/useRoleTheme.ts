@@ -1,11 +1,9 @@
 import { useEffect } from 'react';
-import { themeDef } from '../theme';
+import { applyTheme, themeDef } from '../theme';
 import { useActiveRole } from './activeRole';
-import { parkPreviews } from './devFlags';
 import { loadLook, saveLook } from './lookPref';
 import { ROLE_CARDS, effectiveRole } from './roles';
 import { roleDefaultTheme, ThemeId } from './themes';
-import { repaintRestart } from './useColorSchemeReload';
 import { useAllAccess } from './useDepartments';
 import { useOdoo } from './useOdoo';
 
@@ -20,12 +18,11 @@ export async function pendingRoleTheme(role: ThemeId | null): Promise<ThemeId | 
 }
 
 /**
- * Keeps the saved theme in step with the role in use (the one picked on the start screen, the
- * only one a person has, or, before a pick, the first that fits). Screens draw their look once
- * at start, so after saving the app restarts once; the restart is guarded so it can't repeat if
- * it didn't take.
+ * Keeps the theme in step with the role in use (the one picked on the start screen, the only one
+ * a person has, or, before a pick, the first that fits): saves it for the next start and changes
+ * the running app to it at once, so the first launch needs no restart either.
  */
-export function useRoleTheme(restart?: () => Promise<unknown>) {
+export function useRoleTheme() {
   const { client } = useOdoo();
   const { access, ready } = useAllAccess();
   const active = useActiveRole();
@@ -35,15 +32,15 @@ export function useRoleTheme(restart?: () => Promise<unknown>) {
     if (!theme) return;
     let alive = true;
     pendingRoleTheme(theme).then(async (pending) => {
-      if (!alive || !pending) return;
-      const current = await loadLook();
-      await saveLook({ theme: pending, palette: current.palette }, true);
-      if (!alive || themeDef.id === pending || __DEV__) return;
-      parkPreviews();
-      await repaintRestart(`theme-${pending}`, restart);
+      if (!alive) return;
+      if (pending) {
+        const current = await loadLook();
+        await saveLook({ theme: pending, palette: current.palette }, true);
+      }
+      if (alive && themeDef.id !== theme) applyTheme(theme);
     });
     return () => {
       alive = false;
     };
-  }, [theme, restart]);
+  }, [theme]);
 }

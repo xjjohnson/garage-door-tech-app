@@ -2,8 +2,6 @@
  * Switches for testing from the Developer screen. Kept in memory only, so a
  * restart always puts the app back to normal.
  */
-import { readStartValue, writeStartValue } from './themeStart';
-
 let offline = false;
 const listeners = new Set<() => void>();
 
@@ -36,17 +34,9 @@ export const PREVIEWS: { id: Preview; label: string }[] = [
 
 const PREVIEW_IDS = PREVIEWS.map((x) => x.id) as string[];
 
-/** A role switch restarts the app, which would clear the memory-only preview. Just before such a restart the preview is parked here and read back (once) at start. */
-function startPreviews(): Preview[] {
-  const raw = readStartValue('devpreview');
-  if (!raw) return [];
-  writeStartValue('devpreview', null);
-  return raw.split(',').filter((x): x is Preview => PREVIEW_IDS.includes(x));
-}
+let previews: Preview[] = [];
 
-let previews: Preview[] = startPreviews();
-
-/** Looking at the app as other roles: only what those roles open shows. Only the app's view changes; Odoo and its data are never touched. Memory only, so a restart clears it (except the restart a role switch does, which keeps it). */
+/** Looking at the app as other roles: only what those roles open shows. Only the app's view changes; Odoo and its data are never touched. Memory only, so a restart clears it . */
 export function rolePreviews(): Preview[] {
   return previews;
 }
@@ -63,11 +53,6 @@ export function setRolePreviews(list: Preview[]) {
 
 export function setRolePreview(p: Preview | null) {
   setRolePreviews(p ? [p] : []);
-}
-
-/** Keeps the looked-at roles through the one restart a role switch does. */
-export function parkPreviews() {
-  writeStartValue('devpreview', previews.length ? previews.join(',') : null);
 }
 
 /** Weak-signal test: slow makes every Odoo call wait 5 seconds first; flaky makes every 4th call fail as if the signal dropped. Memory only. */
