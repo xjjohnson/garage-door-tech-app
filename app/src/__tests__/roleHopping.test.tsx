@@ -20,6 +20,7 @@ jest.mock('expo-router', () => ({ ...jest.requireActual('expo-router'), router: 
 
 const DISPATCH = 'fieldservice.group_fsm_dispatcher';
 const SALES = 'sales_team.group_sale_manager';
+const TECH = 'fieldservice.group_fsm_user';
 
 beforeEach(() => {
   held = [];
@@ -41,7 +42,7 @@ describe('working in more than one role', () => {
     held = [DISPATCH, SALES];
     const { result } = await renderHook(() => ({ r: useRoles(), sales: useSalesOnly(), disp: useDispatcherOnly(), tech: useTech() }));
     await waitFor(() => expect(result.current.r.needsPick).toBe(true));
-    expect(result.current.r.roles).toEqual(['tech', 'dispatch', 'sales']);
+    expect(result.current.r.roles).toEqual(['dispatch', 'sales']); // a dispatcher is not a tech
     await act(async () => setActiveRole('sales'));
     await waitFor(() => expect(result.current.sales).toBe(true));
     expect(result.current.r.needsPick).toBe(false);
@@ -49,14 +50,22 @@ describe('working in more than one role', () => {
     await act(async () => setActiveRole('dispatch'));
     await waitFor(() => expect(result.current.disp).toBe(true));
     expect(result.current.sales).toBe(false);
+  });
+
+  it('a tech who also sells can work in either', async () => {
+    held = [SALES, TECH];
+    const { result } = await renderHook(() => ({ r: useRoles(), tech: useTech(), sales: useSalesOnly() }));
+    await waitFor(() => expect(result.current.r.roles).toEqual(['tech', 'sales']));
     await act(async () => setActiveRole('tech'));
     await waitFor(() => expect(result.current.tech).toBe(true));
+    await act(async () => setActiveRole('sales'));
+    await waitFor(() => expect(result.current.sales).toBe(true));
   });
 
   it('Developer can look as two roles at once', async () => {
     setRolePreviews(['dispatcher', 'sales']);
     const { result } = await renderHook(() => useRoles());
-    await waitFor(() => expect(result.current.roles).toEqual(['tech', 'dispatch', 'sales']));
+    await waitFor(() => expect(result.current.roles).toEqual(['dispatch', 'sales']));
     expect(result.current.needsPick).toBe(true);
   });
 
@@ -66,7 +75,7 @@ describe('working in more than one role', () => {
     await waitFor(() => expect(screen.getByTestId('role-big')).toBeTruthy());
     expect(screen.getByTestId('role-big')).toHaveTextContent(/Dispatch/);
     expect(screen.getByTestId('role-sales')).toBeTruthy();
-    expect(screen.getByTestId('role-tech')).toBeTruthy();
+    expect(screen.queryByTestId('role-tech')).toBeNull(); // not assigned
     expect(screen.queryByTestId('role-owner')).toBeNull();
     expect(screen.queryByTestId('role-warehouse')).toBeNull();
     await fireEvent.press(screen.getByTestId('role-sales'));

@@ -1,7 +1,7 @@
 /**
  * The roles a person can work in, one bubble each on the start screen. Each role has its own
- * theme and bottom bar. Kept free of React. Tech is Odoo's Field Service User group (dispatchers
- * and the owner get it too); a person with no role at all is a tech; the owner holds every role;
+ * theme and bottom bar. Kept free of React. Tech is Odoo's Field Service User group (a dispatcher doesn't
+ * count as a tech, though Odoo gives them the group); a person with no role at all is a tech; the owner holds every role;
  * Buyer is part of Warehouse (the warehouse does all the buying).
  */
 import type { Access } from './odooWarehouse';
@@ -45,7 +45,7 @@ export function accessForRole(role: RoleKey, real: Access): Access {
     case 'owner':
       return real.owner ? real : { ...real, owner: true };
     case 'dispatch':
-      return { ...NO_ACCESS, dispatch: true, tech: true };
+      return { ...NO_ACCESS, dispatch: true };
     case 'office':
       return { ...NO_ACCESS, office: true };
     case 'sales':

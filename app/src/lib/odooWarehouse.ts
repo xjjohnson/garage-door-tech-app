@@ -53,7 +53,7 @@ export interface Access {
   /** The Sales area: Odoo's Sales Administrator group (or the owner). */
   sales: boolean;
   owner: boolean;
-  /** A Field Service user: can work jobs in the field. Odoo gives it to dispatchers and the owner too. */
+  /** Works jobs in the field: Odoo's Field Service User group. Dispatchers have it too in Odoo, so they don't count here: a dispatcher is not a tech. */
   tech: boolean;
 }
 export const NO_ACCESS: Access = { warehouse: false, purchasing: false, pricing: false, dispatch: false, office: false, sales: false, owner: false, tech: false };
@@ -102,7 +102,7 @@ export async function realAccess(client: OdooClient): Promise<Access> {
     access = { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true, tech: true };
   } else {
     const [warehouse, purchasing, buyManager, salesManager, dispatch, office, tech] = await Promise.all([held(ROLE_GROUPS.warehouse), held(ROLE_GROUPS.purchasing), held(ROLE_GROUPS.pricing), inGroup(client, 'sales_team.group_sale_manager', seen), held(ROLE_GROUPS.dispatch), held(ROLE_GROUPS.office), held(ROLE_GROUPS.tech)]);
-    access = { warehouse, purchasing: purchasing || buyManager || warehouse, pricing: buyManager && salesManager, dispatch, office, sales: salesManager, owner: false, tech: tech || dispatch };
+    access = { warehouse, purchasing: purchasing || buyManager || warehouse, pricing: buyManager && salesManager, dispatch, office, sales: salesManager, owner: false, tech: tech && !dispatch };
   }
   if (!seen.answered && !owner) return (await readCache(client)) ?? access;
   if (seen.answered || owner) AsyncStorage.setItem(cacheKey(client), JSON.stringify(access)).catch(() => undefined);
@@ -116,7 +116,7 @@ export function previewAccess(p: NonNullable<ReturnType<typeof rolePreview>>): A
     case 'owner':
       return { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true, tech: true };
     case 'dispatcher':
-      return { ...none, dispatch: true, tech: true };
+      return { ...none, dispatch: true };
     case 'office':
       return { ...none, office: true };
     case 'sales':

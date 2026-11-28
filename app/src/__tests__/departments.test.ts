@@ -77,6 +77,13 @@ describe('who sees which area', () => {
     expect(full.pricing).toBe(true);
   });
 
+  it('a dispatcher is not a tech, though Odoo gives them the Field Service User group', async () => {
+    const d = await departmentAccess(fake({ 'res.users.has_group': groups(['fieldservice.group_fsm_dispatcher', 'fieldservice.group_fsm_user']) }).client);
+    expect(d).toMatchObject({ dispatch: true, tech: false });
+    const t = await departmentAccess(fake({ 'res.users.has_group': groups(['fieldservice.group_fsm_user']) }).client);
+    expect(t).toMatchObject({ dispatch: false, tech: true });
+  });
+
   it('shows nothing when Odoo cannot answer', async () => {
     const r = await departmentAccess(fake({}).client);
     expect(r).toEqual({ warehouse: false, purchasing: false, pricing: false, dispatch: false, office: false, sales: false, owner: false, tech: false });

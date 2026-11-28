@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.53',
+    title: 'A dispatcher is not a tech',
+    changes: ['The role screen and the role button no longer offer Tech to dispatchers, even though Odoo gives them the Field Service User group. Tech shows for the owner, for someone with no other role, and for someone assigned Tech who is not a dispatcher.'],
+    test: ['Developer > Look at the app as: Dispatcher + Office + Sales. Is Tech gone from the role button? Owner: still has Tech?'],
+  },
+  {
     release: '0.6.52',
     title: 'Tech is a real role; Buyer is part of Warehouse',
     changes: [
