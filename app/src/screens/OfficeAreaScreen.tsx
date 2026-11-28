@@ -17,12 +17,12 @@ import { PeopleFront, TimeSheets } from './OfficePeople';
 import { useBadges } from '../lib/useBadges';
 import { useLimits } from '../lib/useLimits';
 import { overdueInvoices, ordersToInvoice, quotesWaiting, sentNotOpened, unpaidInvoices } from '../lib/odooOffice';
-import { ClosedNoOrder, PaymentsToRecord, TermsPage } from './OfficeExtras';
+import { ClosedNoOrder, PaymentsToRecord } from './OfficeExtras';
 import { CameBack, ComplaintsList, LogComplaint, WarrantyList } from './CarePages';
 import { invoiceTotal, MoneyList } from './MoneyPages';
 import { makeStyles } from '../lib/makeStyles';
 
-export type OfficeTab = 'notinvoiced' | 'overdue' | 'quotes' | 'unpaid' | 'cameback' | 'complaints' | 'newcomplaint' | 'warranty' | 'payments' | 'noorder' | 'notopened' | 'terms' | 'timesheets';
+export type OfficeTab = 'notinvoiced' | 'overdue' | 'quotes' | 'unpaid' | 'cameback' | 'complaints' | 'newcomplaint' | 'warranty' | 'payments' | 'noorder' | 'notopened' | 'timesheets';
 const LABELS: Record<OfficeTab, string> = {
   notinvoiced: 'Done, not invoiced',
   overdue: 'Invoices overdue',
@@ -35,7 +35,6 @@ const LABELS: Record<OfficeTab, string> = {
   payments: 'Payments to record',
   noorder: 'Closed jobs, no order',
   notopened: 'Invoices sent, not opened',
-  terms: 'Terms and Conditions',
   timesheets: 'Time sheets',
 };
 
@@ -74,7 +73,6 @@ export function OfficeAreaScreen({ initial, now = Date.now }: { initial?: Office
         { id: 'warranty', label: LABELS.warranty, detail: 'Who is covered, and for how long' },
       ],
     },
-    { title: 'Quotes', items: [{ id: 'terms', label: LABELS.terms, detail: 'The wording at the bottom of a quote' }] },
   ];
   return (
     <DeptArea<OfficeTab>
@@ -112,20 +110,17 @@ export function OfficeAreaScreen({ initial, now = Date.now }: { initial?: Office
             return <MoneyList client={client} table filters invoice load={() => sentNotOpened(client, now())} empty="Every emailed invoice was opened." testID="notopened" header={invoiceTotal} />;
           case 'timesheets':
             return <TimeSheets client={client} now={now} />;
-          case 'terms':
-            return <TermsPage client={client} />;
         }
       }}
     />
   );
 }
 
-type Top = 'money' | 'people' | 'customers' | 'setup';
+type Top = 'money' | 'people' | 'customers';
 const TOPS: { label: string; value: Top }[] = [
   { label: 'Money', value: 'money' },
   { label: 'People', value: 'people' },
   { label: 'Customers', value: 'customers' },
-  { label: 'Setup', value: 'setup' },
 ];
 
 /** The Office front page: four tabs. Money opens on dollar tiles and what to do next. */
@@ -139,12 +134,6 @@ function OfficeFront({ client, open, owner, now, groups }: { client: OdooClient;
       {top === 'money' ? <MoneyFront client={client} open={open} now={now} groups={groups} /> : null}
       {top === 'people' ? <PeopleFront client={client} owner={owner} now={now} onOpen={open} /> : null}
       {top === 'customers' ? <SectionMenu groups={pick('Customers')} onPick={open} testID="office-customers" rowTestID={(id) => `office-tab-${id}`} /> : null}
-      {top === 'setup' ? (
-        <View style={styles.stack}>
-          <SectionMenu groups={pick('Quotes')} onPick={open} testID="office-setup" rowTestID={(id) => `office-tab-${id}`} />
-          {owner ? <Text onPress={() => router.push('/management')} accessibilityRole="button" testID="office-open-management" style={styles.link}>Prices, plans, limits and roles in Management  ›</Text> : null}
-        </View>
-      ) : null}
     </View>
   );
 }
