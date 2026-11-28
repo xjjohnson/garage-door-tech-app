@@ -14,6 +14,13 @@ let mockSignedIn = true;
 
 const mockClient = {
   session: { kind: 'oca', uid: 5, name: 'Sam', fields: [] },
+  listJobs: async (filter: string, search = '') => {
+    calls.push(['fsm.order', `listJobs:${filter}:${search}`, []]);
+    return [
+      { id: 501, name: 'FSM/501', customer: 'Maria Lopez', customerId: 9, phone: '', address: '3 Cedar Way', stage: 'In progress', notes: '', assignees: [] },
+      { id: 502, name: 'FSM/502', customer: '', phone: '', address: '', stage: 'New', notes: '', assignees: [] },
+    ];
+  },
   call: async (model: string, method: string, args: unknown[] = [], kw: Record<string, unknown> = {}) => {
     calls.push([model, method, args, kw]);
     const k = `${model}.${method}`;
@@ -142,6 +149,7 @@ describe('Request parts', () => {
 
   it('saves one to-do on the customer, and only when Send is pressed', async () => {
     await render(<RequestPartsScreen now={() => Date.UTC(2026, 10, 27)} />);
+    await fireEvent.press(await screen.findByTestId('parts-no-job'));
     await fireEvent.changeText(screen.getByTestId('parts-customer-search'), 'Maria');
     await fireEvent.press(await screen.findByTestId('parts-customer-9'));
     await fireEvent.changeText(screen.getByTestId('parts-search'), 'Torsion');
@@ -153,5 +161,26 @@ describe('Request parts', () => {
     expect(JSON.stringify(made)).toContain('Parts request: 1 x Torsion spring .243');
     expect(JSON.stringify(made)).toContain('"res_id":9');
     expect(await screen.findByTestId('parts-sent')).toBeTruthy();
+  });
+
+  it('opens on the open jobs, and picking one fills the customer and names the job in the request', async () => {
+    await render(<RequestPartsScreen now={() => Date.UTC(2026, 10, 27)} />);
+    expect(await screen.findByTestId('parts-job-501')).toHaveTextContent(/Maria Lopez.*3 Cedar Way.*In progress/);
+    expect(calls.some((c) => c[1] === 'listJobs:open:')).toBe(true); // open jobs only, listed before anything is typed
+    await fireEvent.press(screen.getByTestId('parts-job-501'));
+    expect(screen.getByTestId('parts-customer')).toHaveTextContent(/FSM\/501.*Maria Lopez/);
+    await fireEvent.changeText(screen.getByTestId('parts-search'), 'Torsion');
+    await fireEvent.press(await screen.findByTestId('parts-pick-31'));
+    await fireEvent.press(screen.getByTestId('parts-send'));
+    await waitFor(() => expect(wrote('create')).toBe(true));
+    const made = JSON.stringify(calls.find((c) => c[0] === 'mail.activity' && c[1] === 'create'));
+    expect(made).toContain('"res_id":9');
+    expect(made).toContain('For job FSM/501 (3 Cedar Way)');
+  });
+
+  it('a job with no customer in Odoo falls back to picking the customer', async () => {
+    await render(<RequestPartsScreen />);
+    await fireEvent.press(await screen.findByTestId('parts-job-502'));
+    expect(await screen.findByTestId('parts-customer-search')).toBeTruthy();
   });
 });

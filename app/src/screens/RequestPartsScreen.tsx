@@ -7,6 +7,7 @@ import { ChipRow } from '../components/controls';
 import { DAY_MS, findCustomers } from '../lib/odooOffice';
 import { requestParts, RequestedPart } from '../lib/odooPartsRequests';
 import { searchProducts, StockProduct } from '../lib/odooStock';
+import type { OdooTask } from '../lib/odoo';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, radius, sp } from '../theme';
 import { makeStyles } from '../lib/makeStyles';
@@ -19,13 +20,19 @@ const WHEN = [
 ];
 
 /**
- * Request parts: pick the customer, the parts and how many, when they are needed, and a note.
- * It is saved in Odoo as a to-do on the customer for the buyer. Nothing is ordered from here.
+ * Request parts: pick the open job the parts are for (any job that is not closed can still need
+ * parts), or search for a customer when it is not for a job. Then the parts and how many, when
+ * they are needed, and a note. the parts and how many, when they are needed, and a note.
+ * The request is saved in Odoo as a to-do on the customer for the buyer, naming the job. Nothing is ordered from here.
  */
 export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
   const styles = useStyles();
   const { client } = useOdoo();
   const { busy, msg, run } = useRun();
+  const [jobTerm, setJobTerm] = useState('');
+  const [jobs, setJobs] = useState<OdooTask[]>([]);
+  const [job, setJob] = useState<OdooTask | null>(null);
+  const [noJob, setNoJob] = useState(false);
   const [custTerm, setCustTerm] = useState('');
   const [custs, setCusts] = useState<{ id: number; name: string }[]>([]);
   const [cust, setCust] = useState<{ id: number; name: string } | null>(null);
@@ -37,13 +44,21 @@ export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    if (!client || cust) return;
+    if (!client || cust || noJob || typeof client.listJobs !== 'function') return;
+    let alive = true;
+    client.listJobs('open', jobTerm, 0, 30).then((r) => alive && setJobs(r), () => alive && setJobs([]));
+    return () => {
+      alive = false;
+    };
+  }, [client, jobTerm, cust, noJob]);
+  useEffect(() => {
+    if (!client || cust || !noJob) return;
     let alive = true;
     findCustomers(client, custTerm).then((r) => alive && setCusts(r), () => alive && setCusts([]));
     return () => {
       alive = false;
     };
-  }, [client, custTerm, cust]);
+  }, [client, custTerm, cust, noJob]);
   useEffect(() => {
     if (!client) return;
     let alive = true;
@@ -59,7 +74,7 @@ export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
       <Card testID="parts-sent">
         <Title>Sent to the buyer</Title>
         <Note>{msg?.text ?? 'Saved in Odoo as a to-do on the customer.'} Nothing has been ordered yet: the buyer sees it under Purchasing.</Note>
-        <Action label="Request more parts" primary onPress={() => { setSent(false); setParts([]); setNote(''); setCust(null); setCustTerm(''); }} testID="parts-again" />
+        <Action label="Request more parts" primary onPress={() => { setSent(false); setParts([]); setNote(''); setCust(null); setCustTerm(''); setJob(null); setJobTerm(''); setNoJob(false); }} testID="parts-again" />
       </Card>
     );
   }
@@ -71,15 +86,18 @@ export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
   };
   return (
     <View style={styles.stack} testID="request-parts">
-      <Text style={styles.label}>CUSTOMER</Text>
+      <Text style={styles.label}>{noJob && !job ? 'CUSTOMER' : 'JOB'}</Text>
       {cust ? (
         <Card testID="parts-customer">
           <Row>
-            <Title>{cust.name}</Title>
-            <Action label="Change" onPress={() => setCust(null)} testID="parts-change-customer" />
+            <View style={styles.grow}>
+              <Title>{job ? job.name : cust.name}</Title>
+              {job ? <Meta>{[cust.name, job.address].filter(Boolean).join(' · ')}</Meta> : null}
+            </View>
+            <Action label="Change" onPress={() => { setCust(null); setJob(null); }} testID="parts-change-customer" />
           </Row>
         </Card>
-      ) : (
+      ) : noJob ? (
         <View style={styles.stack}>
           <TextBox value={custTerm} onChange={setCustTerm} label="Search customers" testID="parts-customer-search" />
           {custs.map((c) => (
@@ -87,6 +105,32 @@ export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
               <Text style={styles.pickText}>{c.name}</Text>
             </Pressable>
           ))}
+          <Action label="Pick from open jobs instead" onPress={() => setNoJob(false)} testID="parts-use-jobs" />
+        </View>
+      ) : (
+        <View style={styles.stack}>
+          <TextBox value={jobTerm} onChange={setJobTerm} label="Search open jobs" testID="parts-job-search" />
+          {jobs.map((j) => (
+            <Pressable
+              key={j.id}
+              onPress={() => {
+                if (j.customerId) {
+                  setJob(j);
+                  setCust({ id: j.customerId, name: j.customer || j.name });
+                } else {
+                  setNoJob(true);
+                }
+              }}
+              accessibilityRole="button"
+              testID={`parts-job-${j.id}`}
+              style={styles.pick}
+            >
+              <Text style={styles.pickText}>{j.name}</Text>
+              <Meta>{[j.customer, j.address, j.stage].filter(Boolean).join(' · ')}</Meta>
+            </Pressable>
+          ))}
+          {jobs.length === 0 ? <Note testID="parts-no-jobs">{jobTerm.trim() ? 'No open job matches that.' : 'No open jobs.'}</Note> : null}
+          <Action label="Not for a job? Search customers" onPress={() => setNoJob(true)} testID="parts-no-job" />
         </View>
       )}
 
@@ -127,7 +171,7 @@ export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
         testID="parts-send"
         onPress={() =>
           run('send', async () => {
-            await requestParts(client, cust!.id, parts, needed, note, byText);
+            await requestParts(client, cust!.id, parts, needed, job ? `For job ${job.name}${job.address ? ` (${job.address})` : ''}.\n${note}` : note, byText);
             setSent(true);
             return `Request for ${cust!.name} saved in Odoo.`;
           })
@@ -140,6 +184,7 @@ export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
 
 const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
+  grow: { flex: 1, gap: sp(2) },
   label: { fontSize: fs(12), fontWeight: '800', letterSpacing: 1, color: colors.muted, marginTop: sp(6) },
   pick: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingHorizontal: sp(12), paddingVertical: sp(10), minHeight: 44, justifyContent: 'center' },
   pickText: { fontSize: fs(16), fontWeight: '700', color: colors.text },
