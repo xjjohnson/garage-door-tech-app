@@ -6,7 +6,7 @@
  * shown by the Tools tab and the areas' lists.
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { computeBadges, NO_BADGES, setBadges } from '../lib/deptBadges';
+import { computeBadges, getBadges, loadSavedBadges, NO_BADGES, saveBadges, setBadges } from '../lib/deptBadges';
 import { DEFAULT_LIMITS, readLimits } from '../lib/deptLimits';
 import { log } from '../lib/log';
 import { onSyncNow } from '../lib/syncNow';
@@ -39,7 +39,9 @@ export function DeptBadgeSync() {
         if ((await s.jobOrderState(client, p.id).catch(() => 'gone' as const)) === 'ready') readyCount++;
       }
       const limits = access.office || access.sales ? await readLimits(client) : DEFAULT_LIMITS;
-      setBadges(await computeBadges(client, access, readyCount, Date.now(), limits));
+      const fresh = await computeBadges(client, access, readyCount, Date.now(), limits);
+      setBadges(fresh);
+      saveBadges(client, fresh);
     } catch (e) {
       log.warn('badges', `counting what needs attention: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -47,11 +49,23 @@ export function DeptBadgeSync() {
     }
   }, [client, access]);
 
+  // Show the counts last seen on this phone at once; the fresh ones replace them as Odoo answers.
   useEffect(() => {
-    if (!online) {
+    if (!client) {
       setBadges(NO_BADGES);
       return;
     }
+    let alive = true;
+    loadSavedBadges(client).then((saved) => {
+      if (alive && saved && getBadges() === NO_BADGES) setBadges(saved);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [client]);
+
+  useEffect(() => {
+    if (!online) return;
     pass();
     const t = setInterval(pass, EVERY_MS);
     return () => clearInterval(t);

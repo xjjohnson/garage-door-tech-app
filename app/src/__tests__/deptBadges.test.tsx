@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { CountBadge, SectionMenu } from '../components/SectionMenu';
-import { computeBadges, getBadges, NO_BADGES, purchasingTotal, setBadges, toolsTotal } from '../lib/deptBadges';
+import { computeBadges, getBadges, loadSavedBadges, NO_BADGES, saveBadges, purchasingTotal, setBadges, toolsTotal } from '../lib/deptBadges';
 import type { OdooClient } from '../lib/odoo';
 
 const clientWith = (answers: Record<string, unknown>) =>
@@ -69,6 +69,17 @@ describe('red numbers (plain logic)', () => {
     setBadges(b);
     expect(getBadges()).toBe(b);
     setBadges(NO_BADGES);
+  });
+});
+
+describe('saved counts', () => {
+  const login = (name: string) => ({ session: { url: 'https://x.test', db: 'd', login: name }, call: async () => [] }) as unknown as OdooClient;
+  it('keeps the last counts per login so the first screen can show them', async () => {
+    const b = { ...NO_BADGES, ready: 3, office: { ...NO_BADGES.office, overdue: 9 } };
+    expect(await loadSavedBadges(login('a'))).toBeNull();
+    saveBadges(login('a'), b);
+    expect(await loadSavedBadges(login('a'))).toMatchObject({ ready: 3, office: { overdue: 9 } });
+    expect(await loadSavedBadges(login('b'))).toBeNull();
   });
 });
 
