@@ -48,9 +48,15 @@ export default function TabsLayout() {
   const waiting = status === 'loading' || status === 'signingIn' || (!!client && !ready);
   // Someone with more than one role who hasn't chosen yet starts on the role screen. This lives here,
   // not in the tabs below, because the tabs are not drawn while the Opening screen shows.
+  // A phone with no saved Odoo sign-in starts on the setup screen. Decided once, when loading ends.
+  const [firstRun, setFirstRun] = useState<boolean | null>(null);
   useEffect(() => {
-    if (needsPick) router.replace('/roles');
-  }, [needsPick]);
+    if (firstRun === null && status !== 'loading' && status !== 'signingIn') setFirstRun(firstRunEnabled() && status === 'signedOut' && !saved);
+  }, [firstRun, status, saved]);
+  // The role screen waits until first-run setup is done, so signing in there lands on the setup steps first.
+  useEffect(() => {
+    if (needsPick && !firstRun) router.replace('/roles');
+  }, [needsPick, firstRun]);
   const [gaveUp, setGaveUp] = useState(false);
   // Only at launch: once the tabs have shown, signing in or refreshing later must not tear them down.
   const [shown, setShown] = useState(false);
@@ -76,11 +82,6 @@ export default function TabsLayout() {
   }, [waiting]);
   // The door (Johnsons) or the underline (FS Crew) is the progress bar: each real loading step lifts one bar away or fills a quarter (25, 50, 75, 100%).
   const stage = finished || needsPick || gaveUp ? 4 : status === 'loading' ? 0 : status === 'signingIn' ? 1 : client && !ready ? 2 : 3;
-  // A phone with no saved Odoo sign-in starts on the setup screen. Decided once, when loading ends.
-  const [firstRun, setFirstRun] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (firstRun === null && status !== 'loading' && status !== 'signingIn') setFirstRun(firstRunEnabled() && status === 'signedOut' && !saved);
-  }, [firstRun, status, saved]);
   if (firstRun) return <FirstRunSetup onDone={() => setFirstRun(false)} />;
   if (!shown) return <OpeningScreen stage={stage} />;
   return <TabsShell />;
