@@ -137,3 +137,17 @@ export function useOfficeOnly(): boolean {
   if (!client) return rolePreview() === 'office';
   return access.office && !(access.owner || access.dispatch || access.sales || access.warehouse || access.purchasing);
 }
+
+/**
+ * True for a person whose only app roles are Warehouse and/or Purchasing: Tools then leaves out the
+ * field tools (spring calculator, manuals, Wrap up the day) and the visit chores, and keeps the
+ * shop's own (Warehouse, Purchasing, Truck stock, Time and miles, Price book). Someone who also
+ * holds the owner, dispatcher, office or sales role keeps the full page. Not true until Odoo has answered.
+ */
+export function useShopOnly(): boolean {
+  const { status, client } = useOdoo();
+  const { access, ready } = useDepartments();
+  if (status === 'loading' || status === 'signingIn' || !ready) return false;
+  if (!client) return rolePreview() === 'warehouse';
+  return (access.warehouse || access.purchasing) && !(access.owner || access.dispatch || access.office || access.sales);
+}

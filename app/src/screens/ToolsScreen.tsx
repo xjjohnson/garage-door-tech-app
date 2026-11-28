@@ -9,7 +9,7 @@ import { followUps } from '../lib/followups';
 import { isLow } from '../lib/stock';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
-import { useDepartments, useOwner } from '../lib/useDepartments';
+import { useDepartments, useOwner, useOwnerBar, useShopOnly } from '../lib/useDepartments';
 import { useStock } from '../lib/useStock';
 import { useBadges } from '../lib/useBadges';
 import { dispatchTotal, officeTotal, overviewTotal, purchasingTotal, salesTotal } from '../lib/deptBadges';
@@ -33,6 +33,9 @@ export function ToolsScreen() {
   const low = items.filter(isLow).length;
   const { access } = useDepartments();
   const { owner } = useOwner();
+  // The owner bar has Money, Areas and Manage, so Tools keeps only the field and day tools there. A person who is only Warehouse or Purchasing gets the shop's own tools, not the field ones.
+  const ownerBar = useOwnerBar();
+  const shopOnly = useShopOnly();
   const badges = useBadges();
   const buying = purchasingTotal(badges);
   const mode = layouts.tools;
@@ -64,22 +67,22 @@ export function ToolsScreen() {
   return (
     <View style={styles.stack} testID="tools">
       {mode === 'shop' ? departments : null}
-      {owner ? <StatsCard /> : null}
-      {badges.ready > 0 ? <AlertBanner testID="parts-ready-alert" title={`${badges.ready} job order${badges.ready === 1 ? '' : 's'} ready at the warehouse`} detail="Pick them up, then tap Got it on the job" action="Jobs" onPress={() => router.push('/jobs')} /> : null}
+      {owner && !ownerBar ? <StatsCard /> : null}
+      {badges.ready > 0 && !shopOnly ? <AlertBanner testID="parts-ready-alert" title={`${badges.ready} job order${badges.ready === 1 ? '' : 's'} ready at the warehouse`} detail="Pick them up, then tap Got it on the job" action="Jobs" onPress={() => router.push('/jobs')} /> : null}
       {low > 0 ? <AlertBanner testID="stock-alert" title={`Truck stock: ${low} low`} detail="Check what to reorder" action="Review" onPress={() => router.push('/stock')} /> : null}
       {owner && !picked && currentFlavor().id === 'fscrew' ? <AlertBanner testID="industry-nudge" title="Pick your industry" detail="It decides which tools your crew sees. Management > Industry" action="Choose" onPress={() => router.push('/manage')} /> : null}
-      <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />
+      {shopOnly ? null : <Action primary label="Wrap up the day" hint="Money to deposit, hours, miles, close the day" onPress={() => router.push('/end-of-day')} testID="tools-end-of-day" />}
 
-      {mode === 'calc' ? (
+      {mode === 'calc' && !shopOnly ? (
         <View style={styles.pair}>
           {garage ? <Action primary label="Spring calc" onPress={() => router.push('/springs')} testID="tools-springs-big" grow /> : null}
           <Action primary label="Parts and truck" onPress={() => router.push('/stock')} testID="tools-stock-big" grow />
         </View>
       ) : null}
 
-      {mode === 'business' ? businessGroup : null}
+      {mode === 'business' && !ownerBar ? businessGroup : null}
 
-      {(mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop') && garage ? (
+      {shopOnly ? null : (mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop') && garage ? (
         <>
           <Caption>{mode === 'calc' ? 'All tools' : 'In the field'}</Caption>
           <RowGroup>
@@ -89,7 +92,7 @@ export function ToolsScreen() {
             <IconRow icon="book" label="Manuals" detail="Install and owner's manuals" href="/manuals" testID="tools-manuals" last={mode === 'calc' ? false : true} />
           </RowGroup>
         </>
-      ) : mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop' || (!garage && mode !== 'tiles') ? null : (
+      ) : shopOnly || mode === 'compact' || mode === 'business' || mode === 'calc' || mode === 'shop' || (!garage && mode !== 'tiles') ? null : (
         <>
           <Caption>In the field</Caption>
           <View style={styles.tiles}>
@@ -105,15 +108,15 @@ export function ToolsScreen() {
 
       <Caption>Truck and day</Caption>
       <RowGroup>
-        {mode === 'tiles' ? null : <IconRow icon="truck" label="Truck stock" detail="Parts on the truck" href="/stock" testID="open-stock" badge={low > 0 ? `${low} low` : undefined} warn={low > 0} />}
-        {mode === 'tiles' ? null : <TimeRow />}
-        <FollowUpsRow />
-        <IconRow icon="cal" label="Schedule" detail="Book and move visits" href="/schedule" testID="tools-schedule" last />
+        {mode === 'tiles' && !shopOnly ? null : <IconRow icon="truck" label="Truck stock" detail="Parts on the truck" href="/stock" testID="open-stock" badge={low > 0 ? `${low} low` : undefined} warn={low > 0} />}
+        {mode === 'tiles' && !shopOnly ? null : <TimeRow />}
+        {shopOnly ? null : <FollowUpsRow />}
+        {shopOnly ? null : <IconRow icon="cal" label="Schedule" detail="Book and move visits" href="/schedule" testID="tools-schedule" last />}
       </RowGroup>
 
-      {mode === 'business' ? null : businessGroup}
+      {mode === 'business' || ownerBar ? null : businessGroup}
 
-      {mode === 'shop' ? null : departments}
+      {mode === 'shop' || ownerBar ? null : departments}
 
       <Text style={styles.version}>Version {SHORT_VERSION} · tap the gear for Settings</Text>
     </View>
@@ -137,7 +140,7 @@ function TimeRow() {
 }
 
 /** Follow-ups, with how many fall due in the next week. */
-function FollowUpsRow() {
+export function FollowUpsRow() {
   const { invoices, business } = useInvoices();
   const { settings, dismissed } = useFollowUps();
   const due = useMemo(() => followUps(invoices, settings, business, Date.now(), dismissed).filter((f) => f.due <= Date.now() + 7 * 24 * 3600 * 1000).length, [invoices, settings, business, dismissed]);
