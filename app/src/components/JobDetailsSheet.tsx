@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { AddressSuggestions } from './AddressSuggestions';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { suggestCustomers } from '../lib/customers';
 import { EMPTY_DETAILS, JobDetails } from '../lib/jobs';
 import { useCustomersIfAny } from '../lib/useCustomers';
 import { colors, touch, type, bw, fs, rad, sp, sz } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const FIELDS: { key: keyof JobDetails; label: string; placeholder: string; multiline?: boolean; phone?: boolean }[] = [
   { key: 'customer', label: 'Customer', placeholder: 'Name' },
@@ -34,6 +35,7 @@ export function JobDetailsSheet({
   onSave: (details: JobDetails) => void;
   onCancel: () => void;
 }) {
+  const styles = useStyles();
   const [details, setDetails] = useState<JobDetails>(initial);
   const kb = useKeyboardHeight();
   const [focused, setFocused] = useState<string | null>(null);
@@ -116,7 +118,7 @@ export function JobDetailsSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
   sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '90%' },
@@ -149,4 +151,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
   pressedText: { color: colors.text },
-});
+}));

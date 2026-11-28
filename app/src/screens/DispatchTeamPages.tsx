@@ -1,5 +1,5 @@
 import { ComponentType, Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import RNWebView, { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { Card, dateText, Meta, Note, Title } from '../components/Dept';
 import { DAY_COLORS, MapData, mapHtml, MapPin, parseMapMessage, setDataScript } from '../lib/mapHtml';
@@ -10,6 +10,7 @@ import { devNow } from '../lib/devFlags';
 import { addDays, formatTime, startOfDay } from '../lib/schedule';
 import { useGeocode } from '../lib/useGeocode';
 import { colors, radius, bw, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** The Dispatch pages that are about people and trucks, not jobs. Each reads Odoo when opened and says plainly when this login can't see something. */
 
@@ -69,6 +70,7 @@ export function whoIsWorking(techs: OdooUser[], open: { name: string; since: num
 }
 
 export function WhoIsWorking({ client, now = devNow }: { client: OdooClient; now?: () => number }) {
+  const styles = useStyles();
   const { data, error } = useRead(client, async () => {
     const [techs, rows, positions] = await Promise.all([
       client.techs(),
@@ -98,6 +100,7 @@ export function WhoIsWorking({ client, now = devNow }: { client: OdooClient; now
 // ---- Time off ----
 
 export function TimeOff({ client, now = devNow }: { client: OdooClient; now?: () => number }) {
+  const styles = useStyles();
   const { data, error } = useRead(client, async () => {
     const from = startOfDay(now());
     const iso = (ms: number) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
@@ -123,6 +126,7 @@ export function TimeOff({ client, now = devNow }: { client: OdooClient; now?: ()
 // ---- Truck parts alerts ----
 
 export function TruckAlerts({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const { data, error } = useRead(client, async () => {
     const trucks = (await listPlaces(client)).filter((p) => p.truck);
     return (await placeOverview(client, trucks)).filter((s) => s.low > 0 || s.zero > 0);
@@ -148,6 +152,7 @@ export function TruckAlerts({ client }: { client: OdooClient }) {
 // ---- Follow-ups due ----
 
 export function FollowUpsDue({ client, now = devNow }: { client: OdooClient; now?: () => number }) {
+  const styles = useStyles();
   const { data, error } = useRead(client, async () => {
     const today = new Date(now()).toISOString().slice(0, 10);
     return (await client.call('mail.activity', 'search_read', [[['res_model', '=', 'res.partner'], ['date_deadline', '<=', today]]], { fields: ['res_name', 'summary', 'date_deadline', 'user_id'], order: 'date_deadline asc', limit: 50 })) as Record<string, unknown>[];
@@ -197,6 +202,7 @@ export function buildPins(jobs: OdooTask[], points: Record<string, { lat: number
 }
 
 export function DispatchMap({ client, now = devNow }: { client: OdooClient; now?: () => number }) {
+  const styles = useStyles();
   const { data, error } = useRead(client, async () => {
     const today = startOfDay(now());
     const [jobs, techs, positions] = await Promise.all([client.jobsBetween(today, addDays(today, 1)), client.techs(), techPositions(client).catch(() => [] as TechPosition[])]);
@@ -243,8 +249,8 @@ export function DispatchMap({ client, now = devNow }: { client: OdooClient; now?
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   mapBox: { height: 340, borderRadius: radius.sheet, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden', backgroundColor: '#E9EDE6' },
   map: { flex: 1, backgroundColor: '#E9EDE6' },
-});
+}));

@@ -1,7 +1,7 @@
 import { requestSyncNow } from '../lib/syncNow';
 import { useTech } from '../lib/useDepartments';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
@@ -13,6 +13,7 @@ import { addDays, dayLabel, formatTime, slotsFor, startOfDay } from '../lib/sche
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, layouts, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** Whether the signed-in Odoo user may hand out jobs (Field Service Dispatcher or Manager, or an Odoo admin). */
 export function useCanDispatch(): boolean {
@@ -75,6 +76,7 @@ const endOf = (t: OdooTask) => (t.start ?? 0) + (t.minutes ?? 60) * 60000;
  * in a lane, to give it to a worker at a time; Odoo is updated straight away.
  */
 export function DispatchScreen({ now = Date.now, part = 'all' }: { now?: () => number; /** Which part to draw: the whole board (Jobs > Team), or one page of the Dispatch area. */ part?: Part }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { business } = useInvoices();
   const [day, setDay] = useState(() => startOfDay(now()));
@@ -338,6 +340,7 @@ function AssignSheet({
   onCancel: () => void;
   onSave: (task: OdooTask, techId: number, start: number | undefined, text: boolean) => void;
 }) {
+  const styles = useStyles();
   const slots = slotsFor(day);
   // 0 keeps the time Odoo has (or none).
   const [start, setStart] = useState<number>(task.start && startOfDay(task.start) === day ? task.start : 0);
@@ -426,7 +429,7 @@ function AssignSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   grow: { flex: 1 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(6) },
@@ -470,4 +473,4 @@ const styles = StyleSheet.create({
   pickName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   sheetBody: { padding: sp(16), paddingBottom: sp(28), gap: sp(10) },
   sheetTitle: { fontSize: fs(20), fontWeight: '800', color: colors.text },
-});
+}));

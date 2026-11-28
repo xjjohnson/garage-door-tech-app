@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { addEstimate, awaitingPick, bringBack, choosing, EstimateSet, estimateName, pickEstimate, removeEstimate, renameEstimate, switchTo } from '../lib/estimates';
 import { formatMoney } from '../lib/prices';
@@ -9,6 +9,7 @@ import { colors, type, bw, fs, rad, sz, sp } from '../theme';
 import { Action } from './Buttons';
 import { SignatureResult, SignatureSheet } from './SignaturePad';
 import { SectionTitle } from './controls';
+import { makeStyles } from '../lib/makeStyles';
 
 const list0 = (s: EstimateSet): Ticket[] => [s.ticket, ...s.others];
 
@@ -21,6 +22,7 @@ const totalOf = (t: Ticket, taxPercent: string) => (currentTotals(t) ?? estimate
  * on. Picking one declines the rest (cancelled in Odoo, kept here as Declined).
  */
 export function EstimatesPanel({ set, taxPercent, locked, onChange, now, customer, onSign }: { set: EstimateSet; taxPercent: string; locked: boolean; onChange: (fn: (s: EstimateSet) => EstimateSet) => void; now: () => number; customer?: string; onSign?: (estimateId: string | undefined, s: SignatureResult) => void }) {
+  const styles = useStyles();
   const [renaming, setRenaming] = useState(false);
   // The estimate being signed: its id, or '' for the lone estimate that has no id yet.
   const [signing, setSigning] = useState<string | null>(null);
@@ -116,7 +118,7 @@ export function EstimatesPanel({ set, taxPercent, locked, onChange, now, custome
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   box: { gap: sp(8) },
   card: { backgroundColor: colors.card, borderRadius: rad(12), padding: sp(12), gap: sp(6), borderWidth: bw(1.5), borderColor: 'transparent' },
   cardOn: { borderColor: colors.border },
@@ -129,4 +131,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   buttons: { gap: sp(6) },
   input: { minHeight: sz(48), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-});
+}));

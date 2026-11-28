@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
@@ -21,6 +21,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { fetchOpenOrders, OpenOrder, ticketFromOrder } from '../lib/odooOpenOrders';
 import { formatMoney } from '../lib/prices';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type When = 'now' | 'later';
 
@@ -30,6 +31,7 @@ type When = 'now' | 'later';
  * to book a time.
  */
 export function NewJobScreen() {
+  const styles = useStyles();
   const { customers } = useCustomers();
   const { add, setTicket, setOdooOrder } = useJobs();
   const { client } = useOdoo();
@@ -206,7 +208,7 @@ export function NewJobScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   label: { fontSize: fs(15), fontWeight: '800', letterSpacing: 0.5, color: colors.muted, marginTop: sp(6) },
   input: { minHeight: touch.min, borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
@@ -216,4 +218,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.info },
   picked: { backgroundColor: colors.info, borderRadius: rad(12), paddingHorizontal: sp(10) },
   meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
-});
+}));

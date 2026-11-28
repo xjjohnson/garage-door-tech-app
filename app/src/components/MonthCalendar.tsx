@@ -1,8 +1,9 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { Icon } from './Icon';
 import { startOfDay } from '../lib/schedule';
 import { colors, radius, shadow, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -21,6 +22,7 @@ export function monthCells(shown: number): (number | null)[] {
  * the arrows move a month. Used on the Schedule page.
  */
 export function MonthCalendar({ shown, selected, today, counts, onSelect, onMonth, testID }: { shown: number; selected: number; today: number; counts: Record<number, number>; onSelect: (day: number) => void; onMonth: (delta: number) => void; testID?: string }) {
+  const styles = useStyles();
   const d = new Date(shown);
   const cells = monthCells(shown);
   const rows: (number | null)[][] = [];
@@ -85,7 +87,7 @@ export function visitCounts(starts: number[]): Record<number, number> {
   return out;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, padding: sp(10), gap: sp(2), ...shadow },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: sp(4) },
   title: { fontSize: fs(17), fontWeight: '800', color: colors.text },
@@ -101,4 +103,4 @@ const styles = StyleSheet.create({
   dot: { width: 5, height: 5, borderRadius: rad(3), marginTop: sp(2), backgroundColor: 'transparent' },
   dotShown: { backgroundColor: colors.selected },
   dotOn: { backgroundColor: colors.onSelected },
-});
+}));

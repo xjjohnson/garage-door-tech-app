@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { Action } from './Buttons';
 import { fetchFsmTemplates, FsmTemplate } from '../lib/fsmTemplates';
@@ -9,6 +9,7 @@ import { currentTemplate, fetchJobTags, setJobTags, switchTemplate, Tag } from '
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, touch, bw, fs, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * The slim rows at the bottom of a job: Summary of work, Job Inputs (the
@@ -16,6 +17,7 @@ import { colors, radius, touch, bw, fs, sz, sp } from '../theme';
  * shows a count or a word when closed, so nothing is hidden by accident.
  */
 export function JobExtras({ job, partnerId }: { job: Job; partnerId?: number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const orderId = job.odooJob?.model === 'fsm.order' ? job.odooJob.id : undefined;
   return (
@@ -29,6 +31,7 @@ export function JobExtras({ job, partnerId }: { job: Job; partnerId?: number }) 
 }
 
 function Fold({ id, title, badge, children }: { id: string; title: string; badge?: string; children: React.ReactNode }) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   return (
     <View style={styles.card}>
@@ -44,6 +47,7 @@ function Fold({ id, title, badge, children }: { id: string; title: string; badge
 
 /** What was done, in the tech's words. It is the job's notes, which already go to the Odoo order's description. */
 function Summary({ job }: { job: Job }) {
+  const styles = useStyles();
   const { updateDetails } = useJobs();
   const [text, setText] = useState(job.notes);
   useEffect(() => setText(job.notes), [job.notes]);
@@ -58,6 +62,7 @@ function Summary({ job }: { job: Job }) {
 
 /** The job's template: pick another and Odoo's instructions, type and categories switch with it. */
 function Inputs({ orderId }: { orderId: number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const [list, setList] = useState<FsmTemplate[]>([]);
   const [current, setCurrent] = useState<number | undefined>();
@@ -96,6 +101,7 @@ function Inputs({ orderId }: { orderId: number }) {
 
 /** Odoo to-dos on the customer: the same follow-ups the Follow-ups feature makes. Add one, or mark one done. */
 function Tasks({ partnerId }: { partnerId: number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const [rows, setRows] = useState<TodoRow[]>([]);
   const [title, setTitle] = useState('');
@@ -137,6 +143,7 @@ function Tasks({ partnerId }: { partnerId: number }) {
 
 /** Odoo's Field Service tags on this job: tap to put one on or take it off. */
 function Tags({ orderId }: { orderId: number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const [tags, setTags] = useState<{ all: Tag[]; on: number[] } | null>(null);
   useEffect(() => {
@@ -162,7 +169,7 @@ function Tags({ orderId }: { orderId: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
   card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line },
   head: { minHeight: touch.min, flexDirection: 'row', alignItems: 'center', gap: sp(8), paddingHorizontal: sp(14) },
@@ -183,4 +190,4 @@ const styles = StyleSheet.create({
   taskTitle: { fontSize: fs(17), fontWeight: '700', color: colors.text },
   done: { minHeight: sz(44), paddingHorizontal: sp(16), borderRadius: radius.pill, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center' },
   doneText: { fontSize: fs(15), fontWeight: '800', color: colors.selected },
-});
+}));

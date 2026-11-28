@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { ChipRow } from '../components/controls';
 import { Job, jobName } from '../lib/jobs';
@@ -13,6 +13,7 @@ import { useQuoteTemplates } from '../lib/useQuoteTemplates';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * The Templates screen: every Odoo quotation template in a list. Tick one or
@@ -20,6 +21,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
  * estimate, or each as its own).
  */
 export function QuoteScreen({ job }: { job: Job }) {
+  const styles = useStyles();
   const { sheet } = usePriceSheet();
   const { setTicket, setEstimates } = useJobs();
   const templates = useQuoteTemplates();
@@ -63,6 +65,7 @@ export function QuoteScreen({ job }: { job: Job }) {
 
 /** Every Odoo quotation template: tick one or several; the ticked ones are laid out together below, ready to add to the estimate. */
 function TemplateList({ templates, sheet, onAdd }: { templates: TemplateSets; sheet: Pick<PriceSheet, 'taxPercent'>; onAdd: (picked: { name: string; option: QuoteOption }[], separate: boolean) => void }) {
+  const styles = useStyles();
   const [picked, setPicked] = useState<string[]>([]);
   const [find, setFind] = useState('');
   const [separate, setSeparate] = useState(false);
@@ -171,6 +174,7 @@ function TemplateList({ templates, sheet, onAdd }: { templates: TemplateSets; sh
 }
 
 function Action({ label, onPress, primary, testID }: { label: string; onPress: () => void; primary?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, primary && styles.primary, pressed && styles.pressed]}>
       {({ pressed }) => <Text style={[styles.buttonText, primary && !pressed && styles.primaryText]}>{label}</Text>}
@@ -178,7 +182,7 @@ function Action({ label, onPress, primary, testID }: { label: string; onPress: (
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   for: { fontSize: type.value, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
@@ -214,4 +218,4 @@ const styles = StyleSheet.create({
   input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   thumbs: { flexDirection: 'row', gap: sp(8) },
   thumb: { width: 88, height: 88, borderRadius: rad(8), borderWidth: bw(1), borderColor: colors.border },
-});
+}));

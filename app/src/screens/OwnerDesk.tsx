@@ -6,7 +6,7 @@
  */
 import { router } from 'expo-router';
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { CrewToday } from '../components/CrewToday';
 import { money as exact, Note } from '../components/Dept';
@@ -23,6 +23,7 @@ import { useBadges } from '../lib/useBadges';
 import { useOdoo } from '../lib/useOdoo';
 import { useStats } from '../lib/useStats';
 import { bw, colors, fs, isDark, radius, shadow, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const GOLD = isDark ? '#E3B341' : '#3A2F0F';
 
@@ -31,6 +32,7 @@ function Signin({ what }: { what: string }) {
 }
 
 function Big({ value, label, sub, bad, good, testID, onPress }: { value: string; label: string; sub?: string; bad?: boolean; good?: boolean; testID?: string; onPress?: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} testID={testID} style={styles.big}>
       <Text style={styles.label}>{label}</Text>
@@ -41,6 +43,7 @@ function Big({ value, label, sub, bad, good, testID, onPress }: { value: string;
 }
 
 function Panel({ title, badge, children, testID, alert }: { title: string; badge?: number; children: ReactNode; testID?: string; alert?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={[styles.panel, alert && styles.panelAlert]} testID={testID}>
       <View style={styles.panelHead}>
@@ -55,6 +58,7 @@ function Panel({ title, badge, children, testID, alert }: { title: string; badge
 }
 
 function Line({ text, detail, action, onPress, bad, testID, last }: { text: string; detail?: string; action?: string; onPress: () => void; bad?: boolean; testID?: string; last?: boolean }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={[styles.line, !last && styles.lineTop]}>
       <View style={styles.grow}>
@@ -76,6 +80,7 @@ function Line({ text, detail, action, onPress, bad, testID, last }: { text: stri
 
 /** Home: money first, then the one list of things only the owner can decide. */
 export function OwnerHome({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const badges = useBadges();
   const { stats } = useStats(now);
@@ -139,6 +144,7 @@ export function OwnerHome({ now = Date.now }: { now?: () => number }) {
 
 /** Money: what came in, what is owed by age, who to chase, and the quotes out. */
 export function OwnerMoney({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { stats } = useStats(now);
   const { data } = usePageRows(async () => {
@@ -190,6 +196,7 @@ export function OwnerMoney({ now = Date.now }: { now?: () => number }) {
 }
 
 function AgeLine({ color, label, cents, bad }: { color: string; label: string; cents: number; bad?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.age}>
       <View style={[styles.dot, { backgroundColor: color }]} />
@@ -201,6 +208,7 @@ function AgeLine({ color, label, cents, bad }: { color: string; label: string; c
 
 /** Areas: one tile per area with its colored light and key number, then everything else to open. */
 export function OwnerAreas() {
+  const styles = useStyles();
   const b = useBadges();
   const tiles: { id: string; title: string; n: number; sub: string; href: string }[] = [
     { id: 'dispatch', title: 'Dispatch', n: dispatchTotal(b), sub: b.dispatch.unassigned > 0 ? `${b.dispatch.unassigned} with no tech` : 'jobs and techs', href: '/dispatch' },
@@ -239,6 +247,7 @@ export function OwnerAreas() {
 
 /** Manage: what needs the owner's approval, then all the setup. */
 export function OwnerManage({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { data } = usePageRows(async () => (client ? (await costWentUp(client, now()).catch(() => [])).length : null), [client]);
   return (
@@ -263,7 +272,7 @@ export function OwnerManage({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   grow: { flex: 1 },
   pair: { flexDirection: 'row', gap: sp(10) },
@@ -294,4 +303,4 @@ const styles = StyleSheet.create({
   tileHead: { flexDirection: 'row', alignItems: 'center', gap: sp(6) },
   tileTitle: { fontSize: fs(12.5), fontWeight: '800', letterSpacing: 0.8, color: colors.muted, textTransform: 'uppercase' },
   tileValue: { fontSize: fs(28), fontWeight: '800', color: GOLD },
-});
+}));

@@ -6,7 +6,7 @@
  * read is kept for no signal. Notes are internal only.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { log } from '../lib/log';
 import type { VoiceNote } from '../lib/inspection';
@@ -18,8 +18,10 @@ import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, rad, sp } from '../theme';
 import { Action } from './Buttons';
 import { VoiceNotes } from './VoiceNotes';
+import { makeStyles } from '../lib/makeStyles';
 
 export function OdooNotes({ target: given, title = 'Notes', now = Date.now, testID = 'notes' }: { target: NoteTarget; title?: string; now?: () => number; testID?: string }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const target = useMemo<NoteTarget>(() => ({ model: given.model, id: given.id }), [given.model, given.id]);
   const { media } = useAttachments();
@@ -181,7 +183,7 @@ export function OdooNotes({ target: given, title = 'Notes', now = Date.now, test
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
   section: { fontSize: type.body, fontWeight: '800', color: colors.text, marginTop: sp(8) },
   form: { gap: sp(8) },
@@ -196,4 +198,4 @@ const styles = StyleSheet.create({
   body: { fontSize: type.body, color: colors.text },
   meta: { fontSize: type.body, color: colors.muted },
   error: { fontSize: type.body, color: colors.stop },
-});
+}));

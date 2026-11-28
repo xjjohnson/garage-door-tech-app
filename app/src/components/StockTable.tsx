@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from './AppText';
 import { BarcodeScanner } from './BarcodeScanner';
 import { Action } from './Buttons';
@@ -9,6 +9,7 @@ import { OdooClient } from '../lib/odoo';
 import { findProductByCode } from '../lib/odooStock';
 import { JobUse, partOnOrder, PartOnOrder, Place, recentPartsUsed, stockTable, StockRow } from '../lib/odooWarehouse';
 import { colors, fs, radius, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Filter = 'all' | 'low' | 'zero';
 
@@ -21,6 +22,7 @@ export function shortPlace(p: Place): string {
 
 /** The stock table: every part, with what each place holds side by side. Red is under minimum. Tap a part for its page. */
 export function StockTable({ client, places, onCount, onMove, onOrder }: { client: OdooClient; places: Place[]; onCount: (placeId: number) => void; onMove: () => void; onOrder: () => void }) {
+  const styles = useStyles();
   const [rows, setRows] = useState<StockRow[] | null>(null);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -95,6 +97,7 @@ export function StockTable({ client, places, onCount, onMove, onOrder }: { clien
 
 /** One part: what each place has, what is on order, what jobs used in 30 days, and the buttons to count, move or order it. */
 function PartPage({ client, row, places, onBack, onCount, onMove, onOrder }: { client: OdooClient; row: StockRow; places: Place[]; onBack: () => void; onCount: (placeId: number) => void; onMove: () => void; onOrder: () => void }) {
+  const styles = useStyles();
   const [onOrderRows, setOnOrder] = useState<PartOnOrder[] | null>(null);
   const [used, setUsed] = useState<JobUse[] | null>(null);
   useEffect(() => {
@@ -141,7 +144,7 @@ function PartPage({ client, row, places, onBack, onCount, onMove, onOrder }: { c
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   grow: { flex: 1 },
   search: { flexDirection: 'row', gap: sp(8), alignItems: 'center' },
@@ -158,4 +161,4 @@ const styles = StyleSheet.create({
   numCol: { width: 52, textAlign: 'right' },
   num: { fontWeight: '800', color: colors.text },
   under: { color: colors.stop, backgroundColor: colors.warnBg },
-});
+}));

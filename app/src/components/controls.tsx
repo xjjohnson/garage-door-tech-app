@@ -1,11 +1,13 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from './AppText';
 import { colors, radius, touch, type, bw, fs, rad, sz, sp } from '../theme';
 import { Keypad } from './Keypad';
+import { makeStyles } from '../lib/makeStyles';
 
 /** A labelled group of inputs. */
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -42,6 +44,7 @@ export function ChipRow<T extends string | number>({
   /** One row where every chip shares the width, so all of a few short choices stay on screen. */
   fit?: boolean;
 }) {
+  const styles = useStyles();
   const chips = options.map((o) => (
     <Chip key={String(o.value)} option={o} selected={o.value === value} onPress={() => onChange(o.value)} role="radio" compact={compact} inline={scroll} fit={fit} />
   ));
@@ -69,6 +72,7 @@ export function ChipRow<T extends string | number>({
 
 /** A few choices joined into one bar, for a filter or a mode rather than a measurement. */
 export function Segmented<T extends string | number>({ options, value, onChange, testID }: { options: ChipOption<T>[]; value: T; onChange: (v: T) => void; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.segments} testID={testID} accessibilityRole="radiogroup">
       {options.map((o, i) => {
@@ -101,6 +105,7 @@ export function MultiChipRow<T extends string | number>({
   onChange: (v: T[]) => void;
   testID?: string;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.chips} testID={testID}>
       {options.map((o) => {
@@ -136,6 +141,7 @@ function Chip<T>({
   inline?: boolean;
   fit?: boolean;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -180,6 +186,7 @@ export function MeasureField({
   /** Small text under the box, e.g. the entry converted to feet. */
   below?: string;
 }) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   return (
     <Field label={label} hint={hint}>
@@ -214,6 +221,7 @@ export function MeasureField({
 
 /** Starts a group of fields. A heavy rule above it splits the long form into parts. */
 export function SectionTitle({ children, first }: { children: ReactNode; first?: boolean }) {
+  const styles = useStyles();
   return (
     <Text style={[styles.section, first && styles.sectionFirst]} accessibilityRole="header">
       {children}
@@ -228,6 +236,7 @@ const CONFIRM_MS = 4000;
  * gloved bump doesn't wipe a job's measurements.
  */
 export function ClearButton({ onPress, testID }: { onPress: () => void; testID?: string }) {
+  const styles = useStyles();
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;
@@ -256,7 +265,7 @@ export function ClearButton({ onPress, testID }: { onPress: () => void; testID?:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   field: { gap: sp(6) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   hint: { fontSize: fs(16), color: colors.muted },
@@ -310,4 +319,4 @@ const styles = StyleSheet.create({
   textButtonArmed: { backgroundColor: colors.stop, borderColor: colors.stop },
   textButtonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   textButtonTextArmed: { color: colors.onStop },
-});
+}));

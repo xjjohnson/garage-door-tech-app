@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { AlertBanner, Caption, IconRow, RowGroup, ToolTile } from '../components/ToolRows';
@@ -17,6 +17,7 @@ import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, openShift, shiftMs } from '../lib/worklog';
 import { colors, fs, layouts, sp } from '../theme';
 import { StatsCard } from './StatsScreen';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Everything that isn't a job, a sale or a customer. The week's numbers on
@@ -25,6 +26,7 @@ import { StatsCard } from './StatsScreen';
  * gear in the header, so it is not a row here.
  */
 export function ToolsScreen() {
+  const styles = useStyles();
   const { items } = useStock();
   const low = items.filter(isLow).length;
   const { access } = useDepartments();
@@ -137,9 +139,9 @@ function FollowUpsRow() {
   return <IconRow icon="bell" label="Follow-ups" detail={due > 0 ? `${due} due` : 'Warranty and tune-up calls'} href="/follow-ups" testID="tools-followups" badge={due > 0 ? `${due} due` : undefined} warn={due > 0} />;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   pair: { flexDirection: 'row', gap: sp(10) },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: sp(10) },
   version: { textAlign: 'center', fontSize: fs(14), fontWeight: '600', color: colors.muted, paddingTop: sp(4) },
-});
+}));

@@ -5,11 +5,12 @@
  * contact id to use as the delivery address (partner_shipping_id): the
  * customer's own id for the main address.
  */
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { addressLine, typeLabel } from '../lib/odooContacts';
 import { useContactAddresses } from '../lib/useContactAddresses';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export function AddressPicker({
   partnerId,
@@ -27,6 +28,7 @@ export function AddressPicker({
   onChange: (partnerId: number, address: string) => void;
   testID?: string;
 }) {
+  const styles = useStyles();
   const { addresses } = useContactAddresses(partnerId);
   const houses = addresses.filter((a) => a.type === 'delivery' || a.type === 'other');
   const chosen = value ?? partnerId;
@@ -54,7 +56,7 @@ export function AddressPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
   option: { minHeight: touch.min, padding: sp(10), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, gap: sp(2) },
   on: { backgroundColor: colors.selected },
@@ -62,4 +64,4 @@ const styles = StyleSheet.create({
   title: { fontSize: fs(16), fontWeight: '800', color: colors.muted },
   line: { fontSize: type.body, fontWeight: '800', color: colors.text },
   onText: { color: colors.onSelected },
-});
+}));

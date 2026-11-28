@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { DayStrip } from '../components/DayStrip';
@@ -17,6 +17,7 @@ import { useStartJob } from '../lib/useStartJob';
 import { useWeather } from '../lib/useWeather';
 import { hoursFor, summarize, Summary, weatherKey, weatherText } from '../lib/weather';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Home > Week: seven day chips starting today, each with its visit count.
@@ -24,6 +25,7 @@ import { colors, fs, sp } from '../theme';
  * Wrap up the day sit under the list.
  */
 export function WeekScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const appointments = useVisits();
   const { jobs } = useJobs();
   const { stats } = useStats(now);
@@ -88,10 +90,10 @@ export function WeekScreen({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   day: { fontSize: fs(18), fontWeight: '800', color: colors.text },
   later: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.7, color: colors.muted, paddingTop: sp(4) },
   count: { fontSize: fs(14), fontWeight: '700', color: colors.muted },
-});
+}));

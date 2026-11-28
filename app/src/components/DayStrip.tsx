@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { colors, radius, shadow, bw, fs, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
@@ -9,6 +10,7 @@ const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
  * (a dash when none). Tap one to pick the day. Used on Home > Week.
  */
 export function DayStrip({ days, counts, selected, onSelect, testID, compact }: { days: number[]; counts: number[]; selected: number; onSelect: (day: number) => void; testID?: string; compact?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.row} testID={testID} accessibilityRole="radiogroup">
       {days.map((d, i) => {
@@ -35,7 +37,7 @@ export function DayStrip({ days, counts, selected, onSelect, testID, compact }: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   row: { flexDirection: 'row', gap: sp(5) },
   chip: { flex: 1, alignItems: 'center', paddingVertical: sp(8), borderRadius: radius.card - 2, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, minHeight: sz(72), ...shadow },
   chipCompact: { minHeight: sz(52), paddingVertical: sp(4), ...{ shadowOpacity: 0, elevation: 0 } },
@@ -45,4 +47,4 @@ const styles = StyleSheet.create({
   date: { fontSize: fs(18), fontWeight: '800', color: colors.text },
   count: { fontSize: fs(13), fontWeight: '800', color: colors.selected },
   onText: { color: colors.onSelected },
-});
+}));

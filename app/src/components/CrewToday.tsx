@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import type { OdooTask, OdooUser } from '../lib/odoo';
 import { addDays, formatTime, startOfDay } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, bw, fs, radius, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const FINISHED = /done|complete|closed|cancel/i;
 
@@ -20,6 +21,7 @@ export function crewLine(jobs: OdooTask[], now: number): { text: string; tone: '
 
 /** Owner Home: each tech and what they are on, from Odoo. Draws nothing when Odoo isn't connected or has no workers. */
 export function CrewToday({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const [crew, setCrew] = useState<{ tech: OdooUser; jobs: OdooTask[] }[]>([]);
   useEffect(() => {
@@ -55,7 +57,7 @@ export function CrewToday({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrap: { gap: sp(8) },
   head: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.6, color: colors.muted },
   box: { borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, overflow: 'hidden' },
@@ -67,4 +69,4 @@ const styles = StyleSheet.create({
   dotNext: { backgroundColor: colors.warn },
   name: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
-});
+}));

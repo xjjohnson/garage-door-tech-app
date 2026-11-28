@@ -5,12 +5,13 @@
  * New job has its own list, which also offers saved customers.
  */
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import type { AddressSuggestion } from '../lib/addressSuggest';
 import { useAddressSuggestions } from '../lib/useAddressSuggestions';
 import { rememberPoint } from '../lib/useGeocode';
 import { colors, touch, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export function AddressSuggestions({
   typed,
@@ -29,6 +30,7 @@ export function AddressSuggestions({
   /** Rows get `${testID}-0`, `${testID}-1`... */
   testID: string;
 }) {
+  const styles = useStyles();
   // The text last filled in or opened with: no suggestions for it.
   const [settled, setSettled] = useState(typed);
   useEffect(() => {
@@ -60,9 +62,9 @@ export function AddressSuggestions({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   suggestion: { minHeight: touch.min, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: sp(6) },
   name: { fontSize: fs(17), fontWeight: '800', color: colors.text },
   sub: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },
-});
+}));

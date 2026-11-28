@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pressable } from 'react-native';
 import { Text } from '../components/AppText';
@@ -8,6 +8,7 @@ import { ROLE_CARDS, RoleKey } from '../lib/roles';
 import { switchRole } from '../lib/roleSwitch';
 import { useRoles } from '../lib/useRoles';
 import { colors, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** Which role to offer first when none was chosen yet: the broadest one a person holds. */
 const FIRST: RoleKey[] = ['owner', 'dispatch', 'office', 'sales', 'warehouse', 'tech'];
@@ -22,6 +23,7 @@ export function greeting(hour: number): string {
  * opens the app; after that the app opens in the last role and the chip at the top switches.
  */
 export function RolesScreen() {
+  const styles = useStyles();
   const { roles, current } = useRoles();
   const main = current ?? FIRST.find((r) => roles.includes(r)) ?? 'tech';
   const card = ROLE_CARDS[main];
@@ -51,7 +53,7 @@ export function RolesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   root: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: sp(22), paddingTop: sp(40), gap: sp(14) },
   hi: { color: colors.muted, fontSize: fs(16), fontWeight: '700' },
   title: { color: colors.text, fontSize: fs(30), fontWeight: '800' },
@@ -61,4 +63,4 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.88 },
   others: { gap: sp(12), marginTop: sp(8) },
   orLabel: { color: colors.muted, fontSize: fs(15), fontWeight: '800' },
-});
+}));

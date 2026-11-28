@@ -1,7 +1,7 @@
 import { offerUnsoldRepairs } from '../lib/odooRepairs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppForeground } from '../lib/useAppForeground';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { Invoice, invoiceNo, invoiceRef, PAY_LABEL } from '../lib/invoices';
 import { log } from '../lib/log';
@@ -24,6 +24,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const message = (e: unknown) => (e instanceof OdooError || e instanceof Error ? e.message : "Couldn't reach Odoo. Try again.");
 
@@ -48,6 +49,7 @@ export function useSalesOdoo() {
 
 /** On a quote, once the customer picked an option: send it to Odoo as a confirmed sales order. */
 export function OdooQuoteSend({ job, option, signature }: { job: Job; option: QuoteOption; signature?: Signature }) {
+  const styles = useStyles();
   const client = useSalesOdoo();
   const partner = usePartner();
   const { sheet } = usePriceSheet();
@@ -354,6 +356,7 @@ export function OdooInvoicesSync({ now = Date.now }: { now?: () => number }) {
 
 /** On an invoice: send it to Odoo (posted, with the payments taken), then keep its paid status in step. */
 export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice; warranty?: string; now?: () => number }) {
+  const styles = useStyles();
   const { status, client } = useOdoo();
   const { send: sendToOdoo } = useInvoiceOdoo(now);
   const partner = usePartner();
@@ -483,6 +486,7 @@ export function OdooInvoiceSync({ invoice, now = Date.now }: { invoice: Invoice;
 }
 
 function Button({ label, onPress, disabled, testID }: { label: string; onPress: () => void; disabled?: boolean; testID: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} testID={testID} style={({ pressed }) => [styles.button, disabled && styles.off, pressed && styles.pressed]}>
       <Text style={styles.buttonText}>{label}</Text>
@@ -490,7 +494,7 @@ function Button({ label, onPress, disabled, testID }: { label: string; onPress: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
   box: { gap: sp(8), padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   detail: { fontSize: type.body, fontWeight: '700', color: colors.text },
@@ -500,4 +504,4 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   off: { opacity: 0.5 },
   pressed: { backgroundColor: colors.info },
-});
+}));

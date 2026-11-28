@@ -5,10 +5,11 @@
  * through it.
  */
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { onDevFlags, pretendOffline, pretendTime, PREVIEWS, rolePreviews, weakSignal } from '../lib/devFlags';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export function testModeLabels(): string[] {
   const out: string[] = [];
@@ -22,6 +23,7 @@ export function testModeLabels(): string[] {
 }
 
 export function TestModeBanner() {
+  const styles = useStyles();
   const [, tick] = useState(0);
   useEffect(() => onDevFlags(() => tick((n) => n + 1)), []);
   const labels = testModeLabels();
@@ -33,7 +35,7 @@ export function TestModeBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrap: { position: 'absolute', left: 8, bottom: 96, backgroundColor: colors.stop, borderRadius: 999, paddingHorizontal: sp(12), paddingVertical: sp(6) },
   text: { color: '#FFFFFF', fontSize: fs(13), fontWeight: '800' },
-});
+}));

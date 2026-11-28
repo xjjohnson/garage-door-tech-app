@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, MultiChipRow, SectionTitle } from '../components/controls';
@@ -10,6 +10,7 @@ import { OpenJobRequest } from '../lib/jobs';
 import { formatFeetInches, formatInches, formatTurns, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { colors, type, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const COUNT_OPTIONS: ChipOption<1 | 2 | 4>[] = [
   { label: 'One spring', value: 1 },
@@ -153,6 +154,7 @@ export function drumsSummary(outcome: Outcome<DrumsResult>): BarSummary {
 }
 
 function DrumsResults({ result, springCount }: { result: DrumsResult; springCount: 1 | 2 | 4 }) {
+  const styles = useStyles();
   const hl = result.highLift ?? result.heavy;
   const drum = result.highLift ? 'D400-54' : 'D525-216';
   return (
@@ -195,7 +197,7 @@ function DrumsResults({ result, springCount }: { result: DrumsResult; springCoun
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: sp(10) },
@@ -204,4 +206,4 @@ const styles = StyleSheet.create({
   drumName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   drumDetail: { fontSize: fs(16), color: colors.text },
   off: { color: colors.muted },
-});
+}));

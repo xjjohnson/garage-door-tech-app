@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { Action } from './Buttons';
 import { Card, dateText, Meta, Note, Tiles, TitleRow, money } from './Dept';
@@ -11,6 +11,7 @@ import { useBadges } from '../lib/useBadges';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const DAY = 86_400_000;
 
@@ -23,6 +24,7 @@ const open = (tab: string) => router.push({ pathname: '/warehouse', params: { ta
  * trucks due a count. All read from Odoo; nothing is kept on the phone.
  */
 export function WarehouseHome({ now }: { now: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { access } = useDepartments();
   const badges = useBadges();
@@ -97,8 +99,8 @@ export function WarehouseHome({ now }: { now: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   head: { fontSize: fs(12), fontWeight: '800', letterSpacing: 1, color: colors.muted },
   pair: { flexDirection: 'row', gap: sp(8) },
-});
+}));

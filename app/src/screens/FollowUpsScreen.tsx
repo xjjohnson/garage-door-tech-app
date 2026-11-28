@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { invoiceNo } from '../lib/invoices';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { NewFollowUpSheet, dayAhead } from '../components/PlanSheets';
 import { completeActivity, createManualFollowUp, fetchMyTodos, TodoRow } from '../lib/odooFollowUps';
@@ -15,6 +15,7 @@ import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const PLAN_TODOS_KEY = 'plan-renewal-todos/v1';
 
@@ -23,6 +24,7 @@ const PLAN_TODOS_KEY = 'plan-renewal-todos/v1';
  * warranties about to end, each with a text to the customer ready to send.
  */
 export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { invoices, business } = useInvoices();
   const { customers } = useCustomers();
   const { settings, dismissed, dismiss } = useFollowUps();
@@ -190,6 +192,7 @@ export function FollowUpsScreen({ now = Date.now }: { now?: () => number }) {
 }
 
 function Action({ label, onPress, primary, grow, testID }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, grow && styles.grow, primary && styles.primary, pressed && styles.pressed]}>
       {({ pressed }) => <Text style={[styles.buttonText, primary && !pressed && styles.primaryText]}>{label}</Text>}
@@ -197,7 +200,7 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   empty: { padding: sp(12), borderRadius: rad(14), backgroundColor: colors.card, gap: sp(6) },
   emptyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
@@ -214,4 +217,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
-});
+}));

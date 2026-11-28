@@ -1,9 +1,10 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { Icon } from './Icon';
 import type { RowStyle } from '../lib/themes';
 import { colors, radius, shadow, bw, fs, sp, rad, touch } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export type ChipTone = 'plain' | 'on' | 'warn';
 
@@ -14,6 +15,7 @@ const toneColor = (tone: ChipTone) => (tone === 'on' ? colors.selected : tone ==
 
 /** The head of a table of rows (Office Jobs). */
 export function TableHead({ cols }: { cols: [string, string, string] }) {
+  const styles = useStyles();
   return (
     <View style={styles.tHead}>
       <Text style={[styles.tHeadText, styles.tNo]}>{cols[0]}</Text>
@@ -68,6 +70,7 @@ export function VisitCard({
   /** How the row is drawn; the theme picks it. Card is the original. */
   variant?: RowStyle;
 }) {
+  const styles = useStyles();
   const oneLine = [address, what, note].filter(Boolean).join(' · ');
   if (variant === 'dense') {
     return (
@@ -178,7 +181,7 @@ export function VisitCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   dense: { flexDirection: 'row', alignItems: 'center', gap: sp(10), minHeight: touch.min + 6, paddingHorizontal: sp(12), paddingVertical: sp(6), borderRadius: rad(10), backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
   dot: { width: 9, height: 9, borderRadius: 5 },
   denseText: { flex: 1, minWidth: 0 },
@@ -219,4 +222,4 @@ const styles = StyleSheet.create({
   footText: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   wx: { flexDirection: 'row', alignItems: 'center', gap: sp(4) },
   warn: { color: colors.stop, fontWeight: '800' },
-});
+}));

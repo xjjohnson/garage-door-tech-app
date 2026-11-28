@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { useMemo } from 'react';
 import { onDay, visitDone } from '../lib/schedule';
 import { useJobs } from '../lib/useJobs';
@@ -6,9 +6,11 @@ import { useStartJob } from '../lib/useStartJob';
 import { useVisits } from '../lib/useVisits';
 import { colors, bw, sp } from '../theme';
 import { Action } from './Buttons';
+import { makeStyles } from '../lib/makeStyles';
 
 /** Field Home: the next visit's one big action, pinned at the bottom for the thumb. */
 export function FieldGoBar({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const appointments = useVisits();
   const { jobs } = useJobs();
   const startJob = useStartJob();
@@ -24,6 +26,6 @@ export function FieldGoBar({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   bar: { padding: sp(12), borderTopWidth: bw(1), borderTopColor: colors.line, backgroundColor: colors.bg },
-});
+}));

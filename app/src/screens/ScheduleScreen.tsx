@@ -4,7 +4,7 @@ import { AddressSuggestions } from '../components/AddressSuggestions';
 import { EtaPicker } from '../components/EtaPicker';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, SectionTitle } from '../components/controls';
 import { MonthCalendar, visitCounts } from '../components/MonthCalendar';
@@ -24,6 +24,7 @@ import { useJobs } from '../lib/useJobs';
 import { NewAppointment, useSchedule } from '../lib/useSchedule';
 import { useVisits } from '../lib/useVisits';
 import { colors, radius, shadow, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const WHAT_FALLBACK = ['Broken spring', 'Tune-up', 'Opener', 'Off track', 'Cables', 'Estimate', 'Other'];
 /** The arrival window given to the customer; 3 hours unless changed. 0 is the exact time. */
@@ -33,6 +34,7 @@ const LENGTHS: ChipOption<number>[] = [30, 60, 90, 120].map((m) => ({ label: m <
 
 /** The next booked visit or two, at the top of Jobs. */
 export function NextVisits({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { appointments } = useSchedule();
   const t = now();
   const next = upcoming(appointments, t, 2);
@@ -54,6 +56,7 @@ export function NextVisits({ now = Date.now }: { now?: () => number }) {
  * day: directions, an "on my way" text, call, and mark done.
  */
 export function ScheduleScreen({ now = Date.now, bookFor, forJob }: { now?: () => number; bookFor?: string; forJob?: string }) {
+  const styles = useStyles();
   const { add, setStatus, update } = useSchedule();
   const appointments = useVisits();
   const { jobs, loaded: jobsLoaded } = useJobs();
@@ -169,6 +172,7 @@ function blank(day: number, who: Partial<NewAppointment> = {}): NewAppointment {
 }
 
 function Visit({ a, now, business, onStatus, onReschedule, canCancel = true, clash }: { a: Appointment; now: number; business: Business; onStatus: (s: Appointment['status']) => void; onReschedule?: () => void; canCancel?: boolean; clash: boolean }) {
+  const styles = useStyles();
   const [eta, setEta] = useState(false);
   const [more, setMore] = useState(false);
   const [sure, setSure] = useState(false);
@@ -251,6 +255,7 @@ function BookSheet({
   onSave: (a: NewAppointment) => void;
   onCancel: () => void;
 }) {
+  const styles = useStyles();
   const withWindow = (v: NewAppointment | null) => (v ? { ...v, windowMinutes: v.windowMinutes ?? DEFAULT_WINDOW } : null);
   const [a, setA] = useState<NewAppointment | null>(withWindow(value));
   const templates = useFsmTemplates();
@@ -337,6 +342,7 @@ function BookSheet({
 
 /** Days someone is already booked near the address being booked, so one trip covers more. Needs the address and visits to be found on the map. */
 function NearDays({ address, appointments, today, days, day, skipJob, onPick }: { address: string; appointments: Appointment[]; today: number; days: number[]; day: number; skipJob?: string; onPick: (day: number) => void }) {
+  const styles = useStyles();
   const typed = address.trim();
   const booked = useMemo(() => appointments.filter((x) => x.status === 'booked' && x.start >= today && !(skipJob && x.jobId === skipJob)), [appointments, today, skipJob]);
   const geoAddresses = useMemo(() => (typed.length >= 8 ? [typed, ...booked.map((x) => x.address)] : []), [typed, booked]);
@@ -360,6 +366,7 @@ function NearDays({ address, appointments, today, days, day, skipJob, onPick }: 
 }
 
 function Field({ label, value, onChange, placeholder, phone, autofill, testID }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; phone?: boolean; autofill?: boolean; testID: string }) {
+  const styles = useStyles();
   const [focused, setFocused] = useState(false);
   return (
     <View style={styles.field}>
@@ -383,6 +390,7 @@ function Field({ label, value, onChange, placeholder, phone, autofill, testID }:
 
 /** A small icon button with a short label under it, for the row of quick actions on a visit. */
 function IconAction({ icon, label, onPress, on, testID }: { icon: string; label: string; onPress: () => void; on?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} testID={testID} style={({ pressed }) => [styles.icon, on && styles.iconOn, pressed && styles.pressed]}>
       <Text style={styles.iconGlyph}>{icon}</Text>
@@ -392,6 +400,7 @@ function IconAction({ icon, label, onPress, on, testID }: { icon: string; label:
 }
 
 function MenuItem({ label, onPress, danger, testID }: { label: string; onPress: () => void; danger?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
       <Text style={[styles.menuText, danger && styles.menuDanger]}>{label}</Text>
@@ -400,6 +409,7 @@ function MenuItem({ label, onPress, danger, testID }: { label: string; onPress: 
 }
 
 function Action({ label, onPress, primary, grow, testID }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, grow && styles.grow, primary && styles.primary, pressed && styles.pressed]}>
       {({ pressed }) => <Text style={[styles.buttonText, primary && !pressed && styles.primaryText]}>{label}</Text>}
@@ -407,7 +417,7 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   dayTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
   item: { padding: sp(14), gap: sp(6), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, ...shadow },
@@ -467,4 +477,4 @@ const styles = StyleSheet.create({
   save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
-});
+}));

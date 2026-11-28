@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import type { OdooClient } from '../lib/odoo';
 import { DeptLimits, LIMIT_LABELS, readLimits, writeLimits } from '../lib/deptLimits';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const KEYS = Object.keys(LIMIT_LABELS) as (keyof DeptLimits)[];
 
@@ -12,6 +13,7 @@ const KEYS = Object.keys(LIMIT_LABELS) as (keyof DeptLimits)[];
  * use. Saved in Odoo so every phone uses the same numbers.
  */
 export function LimitsTab({ client, canEdit }: { client: OdooClient; canEdit: boolean }) {
+  const styles = useStyles();
   const [vals, setVals] = useState<Record<string, string> | null>(null);
   const [msg, setMsg] = useState('');
   useEffect(() => {
@@ -72,7 +74,7 @@ export function LimitsTab({ client, canEdit }: { client: OdooClient; canEdit: bo
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   field: { gap: sp(6) },
@@ -80,4 +82,4 @@ const styles = StyleSheet.create({
   line: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
   primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
-});
+}));

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { applyKey, EIGHTHS, KeypadKey, SIXTEENTHS } from '../lib/measure';
 import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Props {
   visible: boolean;
@@ -29,6 +30,7 @@ const DIGIT_ROWS: KeypadKey[][] = [
  * gloves.
  */
 export function Keypad({ visible, title, initial, unit, hint, allowFraction, allowDecimal, onDone, onCancel }: Props) {
+  const styles = useStyles();
   const [entry, setEntry] = useState(initial);
   const [sixteenths, setSixteenths] = useState(false);
   useEffect(() => {
@@ -109,6 +111,7 @@ export function Keypad({ visible, title, initial, unit, hint, allowFraction, all
 
 /** small: a fraction key. word: a key labelled with a word, set smaller so it fits a narrow phone. */
 function Key({ label, onPress, small, word, testID, a11y }: { label: string; onPress: () => void; small?: boolean; word?: boolean; testID?: string; a11y?: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       style={({ pressed }) => [styles.key, small && styles.fractionKey, pressed && styles.pressed]}
@@ -124,7 +127,7 @@ function Key({ label, onPress, small, word, testID, a11y }: { label: string; onP
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
   sheet: { backgroundColor: colors.card, padding: sp(12), paddingBottom: sp(28), borderTopLeftRadius: 16, borderTopRightRadius: 16, gap: sp(8) },
@@ -168,4 +171,4 @@ const styles = StyleSheet.create({
   fractionText: { fontSize: type.value },
   done: { backgroundColor: colors.selected, flex: 2 },
   doneText: { color: colors.onSelected },
-});
+}));

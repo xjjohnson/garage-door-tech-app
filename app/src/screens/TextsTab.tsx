@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { fillText, TEXT_DEFAULT, TEXT_FIELD, TEXT_LABEL, TEXT_WORDS, TextKind, wording } from '../lib/messageTexts';
 import { reviewLink } from '../lib/invoices';
@@ -7,6 +7,7 @@ import { DEFAULT_PAYMENTS_HEADING, DEFAULT_PLAN_HEADING } from '../lib/ticketSec
 import { queueBusiness } from '../lib/settingsSync';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type, bw, fs, rad, sp, sz } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const KINDS: TextKind[] = ['onMyWay', 'eta', 'confirm', 'review'];
 
@@ -21,6 +22,7 @@ const HEADINGS = [
  * company's business details in Odoo, so every phone uses the same words.
  */
 export function TextsTab({ canEdit }: { canEdit: boolean }) {
+  const styles = useStyles();
   const { business, setBusiness } = useInvoices();
   const [saved, setSaved] = useState(false);
   const change = (kind: TextKind, value: string) => {
@@ -99,7 +101,7 @@ export function TextsTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   field: { gap: sp(6) },
@@ -111,4 +113,4 @@ const styles = StyleSheet.create({
   back: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
-});
+}));

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { ComponentType, Ref, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import RNWebView, { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { Action } from '../components/Buttons';
@@ -19,6 +19,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { useVisits } from '../lib/useVisits';
 import { useStartJob } from '../lib/useStartJob';
 import { colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** The WebView's class typing doesn't fit React 19's JSX checks; this is the part the map uses. */
 interface WebHandle {
@@ -71,6 +72,8 @@ export function routeStops(appointments: Appointment[], now: number, onDate: num
  * near the route. Tap a pin for Navigate (Google Maps or Waze) and the job.
  */
 export function TodayMapScreen({ now = Date.now, full = false }: { now?: () => number; full?: boolean }) {
+  const styles = useStyles()
+  const dotStyle = useDotStyle();
   const appointments = useVisits();
   const { jobs } = useJobs();
   const { invoices } = useInvoices();
@@ -382,7 +385,7 @@ export function TodayMapScreen({ now = Date.now, full = false }: { now?: () => n
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   full: { flex: 1, minHeight: 560 },
   mapFull: { flex: 1, minHeight: 300, overflow: 'hidden', backgroundColor: '#E9EDE6' },
@@ -425,12 +428,12 @@ const styles = StyleSheet.create({
   problems: { gap: sp(10) },
   problem: { gap: sp(6), padding: sp(12), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
   credit: { fontSize: fs(13), fontWeight: '600', color: colors.muted },
-});
+}));
 
-const dotStyle = StyleSheet.create({
+const useDotStyle = makeStyles(() => ({
   next: { backgroundColor: colors.selected, borderColor: colors.selected },
   stop: { backgroundColor: colors.text },
   done: { backgroundColor: colors.info },
   owed: { backgroundColor: colors.warnBg },
   quote: { backgroundColor: colors.card },
-});
+}));

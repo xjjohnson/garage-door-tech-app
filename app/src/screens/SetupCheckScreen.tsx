@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { CheckResult, runSetupCheck, setupSummary } from '../lib/setupCheck';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const MARK: Record<CheckResult['state'], string> = { ok: '✓', missing: '✗', warn: '!' };
 
 /** Checks what this version needs in Odoo and says how to fix what's missing. Read-only. */
 export function SetupCheckScreen() {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const [results, setResults] = useState<CheckResult[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,7 +55,7 @@ export function SetupCheckScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   note: { fontSize: type.body, color: colors.muted, fontWeight: '600' },
   summary: { fontSize: type.value, fontWeight: '800', color: colors.text },
@@ -66,4 +68,4 @@ const styles = StyleSheet.create({
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   detail: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   fix: { fontSize: fs(16), fontWeight: '600', color: colors.text },
-});
+}));

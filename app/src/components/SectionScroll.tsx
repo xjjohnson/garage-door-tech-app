@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useRef } from 'react';
-import { ScrollView, ScrollViewInstance, StyleSheet } from 'react-native';
+import { ScrollView, ScrollViewInstance } from 'react-native';
 import { onDevFlags } from '../lib/devFlags';
 import { colors, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * A section that scrolls as one page under the header, e.g. Jobs or Manuals.
@@ -11,6 +12,7 @@ import { colors, sp } from '../theme';
  * end of the page, and to the top when Look at the app as changes.
  */
 export function SectionScroll({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   const ref = useRef<ScrollViewInstance>(null);
   const offset = useRef(0);
   const viewport = useRef(0);
@@ -41,7 +43,7 @@ export function SectionScroll({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   scroll: { flex: 1, backgroundColor: colors.bg },
   content: { padding: sp(16), paddingBottom: sp(48) },
-});
+}));

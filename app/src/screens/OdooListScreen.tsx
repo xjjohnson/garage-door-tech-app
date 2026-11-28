@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipRow } from '../components/controls';
@@ -14,6 +14,7 @@ import { formatTime } from '../lib/schedule';
 import { useOdoo } from '../lib/useOdoo';
 import { agingBuckets, chaseOrder, daysLate, isUnpaid, owedOf, sections } from '../lib/salesLayouts';
 import { colors, layouts, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -23,6 +24,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * last list read is kept, so it still shows with no signal.
  */
 export function OdooListScreen({ kind, now = Date.now, openLocal }: { kind: ListKind; now?: () => number; openLocal?: (odooId: number) => string | undefined }) {
+  const styles = useStyles();
   const { status, client } = useOdoo();
   const [rows, setRows] = useState<OdooListRow[] | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -122,6 +124,7 @@ export function OdooListScreen({ kind, now = Date.now, openLocal }: { kind: List
 
 /** Rows open Odoo's record, or the phone's own invoice (payments, signature) when openLocal knows it. */
 function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRow[]; now: number; openLocal?: (odooId: number) => string | undefined }) {
+  const styles = useStyles();
   const open = (r: OdooListRow) => {
     const local = openLocal?.(r.id);
     if (local) router.push({ pathname: '/invoice/[id]', params: { id: local } });
@@ -238,6 +241,7 @@ function Rows({ kind, rows, now, openLocal }: { kind: ListKind; rows: OdooListRo
 
 /** Owner Sales: who to chase, longest overdue first, each row with Call, Text and Take payment. */
 function Chase({ rows, now, open, head }: { rows: OdooListRow[]; now: number; open: (r: OdooListRow) => void; head: (title: string, amount?: number) => ReactNode }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const list = chaseOrder(rows, now);
   const owed = list.reduce((n, r) => n + owedOf(r), 0);
@@ -291,7 +295,7 @@ function Chase({ rows, now, open, head }: { rows: OdooListRow[]; now: number; op
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   tight: { gap: sp(4) },
   dense: { flexDirection: 'row', alignItems: 'center', gap: sp(10), minHeight: touch.min + 6, paddingHorizontal: sp(12), paddingVertical: sp(6), borderRadius: rad(10), backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
@@ -334,4 +338,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   warn: { color: colors.stop },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-});
+}));

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { renameCustomerType, typesFor } from '../lib/customerTypes';
 import type { OdooClient } from '../lib/odoo';
 import { queueBusiness } from '../lib/settingsSync';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Management > Customer types: the kinds of customer (Homeowner, Commercial,
@@ -14,6 +15,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
  * so customers keep it. Maintenance plans can be limited to some types.
  */
 export function CustomerTypesTab({ client, canEdit }: { client: OdooClient | undefined; canEdit: boolean }) {
+  const styles = useStyles();
   const { business, setBusiness } = useInvoices();
   const start = typesFor(business);
   const [rows, setRows] = useState<string[]>(start);
@@ -92,7 +94,7 @@ export function CustomerTypesTab({ client, canEdit }: { client: OdooClient | und
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   row: { flexDirection: 'row', gap: sp(8), alignItems: 'center' },
   grow: { flex: 1 },
@@ -103,4 +105,4 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
-});
+}));

@@ -6,7 +6,7 @@
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { Note } from '../components/Dept';
@@ -19,6 +19,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { Lost } from './SalesAreaScreen';
 import { invoiceTotal, MoneyList } from './MoneyPages';
 import { colors, fs, radius, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const total = (rows: { cents: number }[]) => rows.reduce((n, r) => n + r.cents, 0);
 
@@ -27,6 +28,7 @@ function Signin({ what }: { what: string }) {
 }
 
 function Kpi({ value, label, bad, testID }: { value: string; label: string; bad?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.kpi} testID={testID}>
       <Text style={[styles.kpiValue, bad && styles.bad]}>{value}</Text>
@@ -37,6 +39,7 @@ function Kpi({ value, label, bad, testID }: { value: string; label: string; bad?
 
 /** Home for a salesperson: open quotes, what went quiet, what was won, two buttons, and the quotes to chase. */
 export function SalesHome({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const limits = useLimits();
   const { data } = usePageRows(async () => {
@@ -76,6 +79,7 @@ const QUOTE_VIEWS: { label: string; value: QuoteView }[] = [
 
 /** Quotes: quiet, open, won this month and lost, each a table. Tap a row for Call, Text, Email again, Mark lost. */
 export function SalesQuotes({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const limits = useLimits();
   const [view, setView] = useState<QuoteView>('quiet');
@@ -99,6 +103,7 @@ const INVOICE_VIEWS: { label: string; value: InvoiceView }[] = [
 
 /** Invoices: everything still owed, or only what is late. Tap a row for Record payment, Email again, Open, Call. */
 export function SalesInvoices({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const limits = useLimits();
   const [view, setView] = useState<InvoiceView>('unpaid');
@@ -112,7 +117,7 @@ export function SalesInvoices({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   kpis: { flexDirection: 'row', gap: sp(8) },
   kpi: { flex: 1, backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingVertical: sp(10), paddingHorizontal: sp(6), alignItems: 'center' },
@@ -122,4 +127,4 @@ const styles = StyleSheet.create({
   buttons: { flexDirection: 'row', gap: sp(8) },
   grow: { flex: 1 },
   head: { fontSize: fs(12), fontWeight: '800', letterSpacing: 1, color: colors.muted, marginTop: sp(4) },
-});
+}));

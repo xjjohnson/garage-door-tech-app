@@ -1,7 +1,7 @@
 import { ErrorBoundaryProps, Stack } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,6 +42,7 @@ import { loadFonts } from '../lib/fonts';
 import { describeError, log } from '../lib/log';
 import { useColorSchemeReload } from '../lib/useColorSchemeReload';
 import { colors, isDark, touch, type, bw, rad, sp, fs } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 // Errors nobody caught go to the log before anything else runs.
 installCrashHandler(log);
@@ -148,6 +149,7 @@ export default function RootLayout() {
  * blank page. The error is in the log (Settings, tap the version 7 times).
  */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const styles = useStyles();
   useEffect(() => {
     log.error('crash', `Screen error: ${describeError(error, 12)}`);
   }, [error]);
@@ -167,7 +169,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   fail: { flex: 1, backgroundColor: colors.bg, padding: sp(24), justifyContent: 'center', gap: sp(16) },
   failTitle: { fontSize: type.big, fontWeight: '800', color: colors.text },
   failBody: { fontSize: type.body, fontWeight: '600', color: colors.muted, lineHeight: fs(26) },
@@ -176,4 +178,4 @@ const styles = StyleSheet.create({
   failPressed: { backgroundColor: colors.info },
   failButtonText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
   failSecondaryText: { color: colors.text },
-});
+}));

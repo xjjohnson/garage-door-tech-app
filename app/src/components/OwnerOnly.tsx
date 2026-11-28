@@ -1,10 +1,11 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { isRealOwner } from '../lib/scorecard';
 import { useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, type, bw, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Shows its page only to the owner (an Odoo admin or Field Service manager).
@@ -13,6 +14,7 @@ import { colors, radius, type, bw, sp } from '../theme';
  * it ignores "Look as a tech", so the owner can always turn the preview off.
  */
 export function OwnerOnly({ children, what, realOwner }: { children: ReactNode; what: string; realOwner?: boolean }) {
+  const styles = useStyles();
   const { status, client } = useOdoo();
   const gate = useOwner();
   const [real, setReal] = useState<boolean | null>(null);
@@ -40,9 +42,9 @@ export function OwnerOnly({ children, what, realOwner }: { children: ReactNode; 
   return <>{children}</>;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   sub: { fontSize: type.body, fontWeight: '600', color: colors.muted },
   card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: radius.card ?? 12, padding: sp(14), backgroundColor: colors.card, gap: sp(6) },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
-});
+}));

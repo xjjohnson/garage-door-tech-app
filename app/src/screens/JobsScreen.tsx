@@ -1,7 +1,7 @@
 import { workDoneLabel } from '../lib/jobSteps';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow } from '../components/controls';
 import { JobDetailsSheet } from '../components/JobDetailsSheet';
@@ -14,6 +14,7 @@ import { useJobs } from '../lib/useJobs';
 import { OdooJobsList } from '../components/OdooJobsList';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Filter = 'all' | 'todo' | 'estimate' | 'unpaid' | 'paid';
 
@@ -36,6 +37,7 @@ const CONFIRM_MS = 4000;
  * or delete (on a second tap).
  */
 export function JobsScreen({ onOpen }: { onOpen: (job: Job) => void }) {
+  const styles = useStyles();
   const { jobs, loaded, updateDetails, setStatus, remove } = useJobs();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -160,6 +162,7 @@ function JobCard({
   onStatus: (s: JobStatus) => void;
   onDelete: () => void;
 }) {
+  const styles = useStyles();
   const tel = phoneLink(job.phone);
   const name = jobName(job);
   const invoice = useInvoices().invoices.find((i) => i.jobId === job.id && invoiceStatus(i) !== 'void');
@@ -227,6 +230,7 @@ function JobCard({
 }
 
 function Action({ label, onPress, primary, grow, testID }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, grow && styles.grow, primary && styles.primary, pressed && styles.pressed]}>
       {({ pressed }) => <Text style={[styles.buttonText, primary && !pressed && styles.primaryText]}>{label}</Text>}
@@ -236,6 +240,7 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
 
 /** Deletes only on a second tap within a few seconds, like Clear all inputs. */
 function DeleteButton({ onPress, testID }: { onPress: () => void; testID?: string }) {
+  const styles = useStyles();
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;
@@ -255,7 +260,7 @@ function DeleteButton({ onPress, testID }: { onPress: () => void; testID?: strin
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   searchRow: { flexDirection: 'row', gap: sp(8) },
   search: {
@@ -298,4 +303,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
-});
+}));

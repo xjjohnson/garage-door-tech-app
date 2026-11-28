@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { EstimatesPanel } from '../components/EstimatesPanel';
@@ -34,6 +34,7 @@ import { EmailResult, emailedText, emailRecord, partnerEmail } from '../lib/odoo
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { canMove, groupIntoLaborAndParts, hasSections, headings, moveLine, moveToSection, orderLines, renameLine, sectionTotals } from '../lib/ticketSections';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const message = (e: unknown) => (e instanceof OdooError || e instanceof Error ? e.message : "Couldn't reach Odoo. Try again.");
 
@@ -48,6 +49,7 @@ const SYNC_DELAY_MS = 1500;
  * Odoo and opens it for the customer to sign.
  */
 export function TicketScreen({ job, now = Date.now }: { job: Job; now?: () => number }) {
+  const styles = useStyles();
   const { setTicket, setEstimates, setOdooOrder, setStep } = useJobs();
   const invoiceOdoo = useInvoiceOdoo(now);
   const { invoices, create, business } = useInvoices();
@@ -578,6 +580,7 @@ const METHOD_OPTIONS: ChipOption<PayMethod>[] = PAY_METHODS.map((m) => ({ label:
  * payments, so Odoo gets them with the invoice.
  */
 function Deposits({ business, note, saved, deposits, total, onAdd, onRemove }: { business: Business; note: string; saved: string; deposits: Deposit[]; total: number; onAdd: (d: Omit<Deposit, 'id' | 'at'>) => void; onRemove: (id: string) => void }) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState<PayMethod>('cash');
   const [amount, setAmount] = useState('');
@@ -673,6 +676,7 @@ function Deposits({ business, note, saved, deposits, total, onAdd, onRemove }: {
 
 /** The customer reference Odoo shows on the sales order and the invoice. */
 function CustomerRef({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
+  const styles = useStyles();
   return (
     <View style={styles.refBox}>
       <Text style={styles.label}>Customer reference</Text>
@@ -692,6 +696,7 @@ function CustomerRef({ value, placeholder, onChange }: { value: string; placehol
 }
 
 function LineRow({ line, locked, onQty, onPrice, onRemove, onMenu }: { line: TicketLine; locked: boolean; onQty: (q: number) => void; onPrice: (c: number) => void; onRemove: () => void; onMenu?: () => void }) {
+  const styles = useStyles();
   const [price, setPriceText] = useState(priceText(line.unitCents));
   useEffect(() => setPriceText(priceText(line.unitCents)), [line.unitCents]);
   return (
@@ -736,6 +741,7 @@ function LineRow({ line, locked, onQty, onPrice, onRemove, onMenu }: { line: Tic
  * lines under them, notes among the lines. Lines move with buttons (up, down, to a section), not by dragging.
  */
 function TicketList({ ticket, frozen, jobId, now, onChange }: { ticket: Ticket; frozen: boolean; jobId: string; now: () => number; onChange: (fn: (t: Ticket) => Ticket) => void }) {
+  const styles = useStyles();
   const lines = orderLines(ticket.lines);
   const [menu, setMenu] = useState<string | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
@@ -871,6 +877,7 @@ function TicketList({ ticket, frozen, jobId, now, onChange }: { ticket: Ticket; 
 }
 
 function TypedLine({ onAdd, prefix = 'ticket-typed' }: { onAdd: (l: { name: string; unitCents: number; kind: LineKind }) => void; prefix?: string }) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [price, setPriceText] = useState('');
@@ -905,6 +912,7 @@ function TypedLine({ onAdd, prefix = 'ticket-typed' }: { onAdd: (l: { name: stri
 }
 
 function Row({ label, value, big, testID }: { label: string; value: string; big?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.totalRow}>
       <Text style={[styles.totalLabel, big && styles.big]}>{label}</Text>
@@ -916,6 +924,7 @@ function Row({ label, value, big, testID }: { label: string; value: string; big?
 }
 
 function Small({ label, onPress, testID, hint, disabled }: { label: string; onPress: () => void; testID: string; hint?: string; disabled?: boolean }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} accessibilityHint={hint} testID={testID} style={({ pressed }) => [styles.small, pressed && styles.pressed, disabled && styles.off]}>
       <Text style={styles.smallText}>{label}</Text>
@@ -923,7 +932,7 @@ function Small({ label, onPress, testID, hint, disabled }: { label: string; onPr
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   termsTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   for: { fontSize: fs(22), fontWeight: '800', color: colors.text },
@@ -955,4 +964,4 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: type.body, fontWeight: '700', color: colors.text },
   totalValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
   big: { fontSize: type.value, fontWeight: '800' },
-});
+}));

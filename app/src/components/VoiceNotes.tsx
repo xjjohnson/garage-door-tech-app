@@ -4,12 +4,13 @@
  * still shows and recording is hidden.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import type { VoiceNote } from '../lib/inspection';
 import { log } from '../lib/log';
 import { colors, touch, type, bw, rad, sp } from '../theme';
 import { Action } from './Buttons';
+import { makeStyles } from '../lib/makeStyles';
 
 type AudioModule = typeof import('expo-audio');
 
@@ -39,6 +40,7 @@ export interface VoiceNotesProps {
 }
 
 export function VoiceNotes({ notes, keepFile, onAdd, onRemove }: VoiceNotesProps) {
+  const styles = useStyles();
   const a = loadAudio();
   return (
     <View testID="voice-notes">
@@ -60,6 +62,7 @@ export function VoiceNotes({ notes, keepFile, onAdd, onRemove }: VoiceNotesProps
 }
 
 function PlayButton({ audio: a, uri, testID }: { audio: AudioModule; uri: string; testID: string }) {
+  const styles = useStyles();
   const player = a.useAudioPlayer(uri);
   const status = a.useAudioPlayerStatus(player);
   const playing = status.playing;
@@ -83,6 +86,7 @@ function PlayButton({ audio: a, uri, testID }: { audio: AudioModule; uri: string
 }
 
 function Recorder({ audio: a, keepFile, onAdd }: { audio: AudioModule; keepFile: (uri: string, folder: string) => Promise<string>; onAdd: (n: VoiceNote) => void }) {
+  const styles = useStyles();
   const recorder = a.useAudioRecorder(a.RecordingPresets.HIGH_QUALITY);
   const state = a.useAudioRecorderState(recorder, 500);
   const [busy, setBusy] = useState(false);
@@ -152,11 +156,11 @@ function Recorder({ audio: a, keepFile, onAdd }: { audio: AudioModule; keepFile:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: sp(10), paddingVertical: sp(6), borderBottomWidth: 1, borderColor: colors.info },
   label: { fontSize: type.body, color: colors.text, flex: 1 },
   muted: { fontSize: type.body, color: colors.muted },
   small: { minHeight: touch.min, minWidth: touch.min, paddingHorizontal: sp(12), justifyContent: 'center', alignItems: 'center', borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(8) },
   smallText: { fontSize: type.body, fontWeight: '700', color: colors.text },
   error: { fontSize: type.body, color: colors.stop, marginTop: sp(6) },
-});
+}));

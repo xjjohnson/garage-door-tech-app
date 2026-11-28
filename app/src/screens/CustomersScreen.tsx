@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Icon } from '../components/Icon';
 import { onHeaderAdd } from '../lib/headerAdd';
@@ -14,6 +14,7 @@ import { useCustomerCounts } from '../lib/useCustomerCounts';
 import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { colors, layouts, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
@@ -23,6 +24,7 @@ type Filter = 'all' | 'open' | 'owes' | 'repeat';
 
 /** Everyone the tech has saved a job for, A to Z with letter dividers, a search box and filters. */
 export function CustomersScreen() {
+  const styles = useStyles();
   const { customers, loaded, add } = useCustomers();
   const [adding, setAdding] = useState(false);
   const { jobs } = useJobs();
@@ -180,7 +182,7 @@ export function CustomersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: sp(8), backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, borderRadius: radius.card, paddingLeft: sp(14), paddingRight: sp(6) },
   search: { flex: 1, minWidth: 0, minHeight: sz(56), fontSize: type.body, fontWeight: '700', color: colors.text },
@@ -205,4 +207,4 @@ const styles = StyleSheet.create({
   badge: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.4, color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: sp(9), paddingVertical: sp(4), borderRadius: radius.pill, overflow: 'hidden' },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: fs(15), fontWeight: '800', color: colors.selected, textAlign: 'center' },
-});
+}));

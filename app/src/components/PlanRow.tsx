@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { MaintenancePlan, planPriceText, planSummary } from '../lib/maintenancePlans';
 import type { ActivePlan } from '../lib/planSetup';
@@ -7,6 +7,7 @@ import type { TicketPlan } from '../lib/ticket';
 import { colors, type, fs, sp } from '../theme';
 import { Action } from './Buttons';
 import { SectionTitle } from './controls';
+import { makeStyles } from '../lib/makeStyles';
 
 /** The plan on a ticket, copied so a later edit to the plan doesn't change what the customer was offered. */
 export const toTicketPlan = (p: MaintenancePlan): TicketPlan => ({
@@ -29,6 +30,7 @@ export const toTicketPlan = (p: MaintenancePlan): TicketPlan => ({
  * visits when they accept. A customer who is already on a plan sees that.
  */
 export function PlanRow({ plan, plans, locked, active, error, done, onChange, onRetry }: { plan?: TicketPlan; plans: MaintenancePlan[]; locked: boolean; active?: ActivePlan; error?: string; done: boolean; onChange: (p: TicketPlan | undefined) => void; onRetry: () => void }) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   if (!plan && (locked || plans.length === 0) && !active) return null;
   return (
@@ -78,9 +80,9 @@ export function PlanRow({ plan, plans, locked, active, error, done, onChange, on
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   box: { gap: sp(8) },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
   meta: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
-});
+}));

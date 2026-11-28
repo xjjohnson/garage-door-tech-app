@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { Action } from './Buttons';
 import { ChipRow, MeasureField } from './controls';
@@ -10,6 +10,7 @@ import { Answer, AnswerKey, isBad, isFlagged, ItemDef, RATING_LABEL, Rating, Rep
 import { PriceBookItem } from '../lib/priceBook';
 import { cents, formatMoney } from '../lib/prices';
 import { colors, touch, type, bw, fs, rad, sp, sz } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const TAX_OPTIONS = [
   { label: 'Taxed (parts)', value: 'yes' as const },
@@ -55,6 +56,7 @@ export function TileGrid({
   onTap: (item: SectionItem) => void;
   onOpen: (item: SectionItem) => void;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.groups}>
       {groups.map((g, n) => (
@@ -72,6 +74,7 @@ export function TileGrid({
 }
 
 function Tile({ item, repaired, photos, onTap, onOpen }: { item: SectionItem; repaired: boolean; photos: number; onTap: () => void; onOpen: () => void }) {
+  const styles = useStyles();
   const r = item.answer?.rating;
   const good = r === goodOf(item.def);
   const bad = isBad(r);
@@ -132,6 +135,7 @@ export function ItemSheet({
   onRepairRemove: (id: string) => void;
   onClose: () => void;
 }) {
+  const styles = useStyles();
   const { def, key } = item;
   const answer = item.answer;
   const [picking, setPicking] = useState(false);
@@ -247,6 +251,7 @@ export function ItemSheet({
 }
 
 function Stepper({ value, onChange, id }: { value: number; onChange: (n: number) => void; id: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.partBox}>
       <Text style={[styles.partName, styles.grow]}>How many</Text>
@@ -261,7 +266,7 @@ function Stepper({ value, onChange, id }: { value: number; onChange: (n: number)
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   groups: { gap: sp(14) },
   groupBox: { gap: sp(6) },
   groupTitle: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted },
@@ -304,4 +309,4 @@ const styles = StyleSheet.create({
   partName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   step: { width: touch.min, minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontSize: type.value, fontWeight: '800', color: colors.text },
-});
+}));

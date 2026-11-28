@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { StepChips } from '../components/StepChips';
@@ -40,6 +40,7 @@ import { useStats } from '../lib/useStats';
 import { IconRow, RowGroup } from '../components/ToolRows';
 import { rowGap } from '../components/VisitCard';
 import { colors, layouts, radius, shadow, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const CRASH_SEEN_KEY = 'crash/seen';
 
@@ -51,6 +52,7 @@ const CRASH_SEEN_KEY = 'crash/seen';
  * error) show only when there is something to say. Sync now is in the header.
  */
 export function TodayScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const appointments = useVisits();
   const { jobs } = useJobs();
   const { invoices } = useInvoices();
@@ -205,6 +207,7 @@ export function TodayScreen({ now = Date.now }: { now?: () => number }) {
 
 /** Field Home when every visit today is finished: say so, and what is left (unpaid invoices, or the next booked day). */
 function AllDoneCard({ unpaid, nextDay, now }: { unpaid: number; nextDay?: Appointment; now: number }) {
+  const styles = useStyles();
   const line = unpaid > 0 ? `${unpaid} unpaid invoice${unpaid === 1 ? '' : 's'} to collect` : nextDay ? `Next booked: ${dayLabel(nextDay.start, startOfDay(now))} ${formatTime(nextDay.start)}` : 'Nothing else booked';
   return (
     <View style={styles.nextCard} testID="today-all-done">
@@ -217,6 +220,7 @@ function AllDoneCard({ unpaid, nextDay, now }: { unpaid: number; nextDay?: Appoi
 
 /** Field Home: the next visit big, with the one action a tech wants as they head out. */
 function NextCard({ visit }: { visit: Appointment }) {
+  const styles = useStyles();
   return (
     <View style={styles.nextCard} testID="today-next-card">
       <Text style={styles.nextTop}>NEXT · {windowLabel(visit).toUpperCase()}</Text>
@@ -228,6 +232,7 @@ function NextCard({ visit }: { visit: Appointment }) {
 }
 
 function OwnerKpis({ now, done, total }: { now: () => number; done: number; total: number }) {
+  const styles = useStyles();
   const { stats } = useStats(now);
   const days = stats.days ?? [];
   const top = Math.max(1, ...days.map((d) => d.collected));
@@ -269,6 +274,7 @@ function OfficeInbox({ now }: { now: () => number }) {
 }
 
 function Inbox({ now }: { now: () => number }) {
+  const styles = useStyles();
   const { invoices, business } = useInvoices();
   const { settings, dismissed } = useFollowUps();
   const t = now();
@@ -289,6 +295,7 @@ function Inbox({ now }: { now: () => number }) {
 }
 
 function Kpi({ value, label, testID }: { value: string; label: string; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.kpi} testID={testID}>
       <Text style={styles.kpiValue}>{value}</Text>
@@ -299,6 +306,7 @@ function Kpi({ value, label, testID }: { value: string; label: string; testID: s
 
 /** What's in Odoo (customers, quotes, invoices; jobs aren't sent yet), what's still waiting to send, or how to connect. */
 export function SyncLine() {
+  const styles = useStyles();
   const { status, client } = useOdoo();
   const pending = usePending();
   if (status === 'loading' || status === 'signingIn') return <Text style={styles.sync}>Connecting to Odoo...</Text>;
@@ -319,6 +327,7 @@ export function SyncLine() {
 
 /** Open jobs from before jobs went to Odoo: none are sent until the tech picks them. */
 function OlderJobsLine() {
+  const styles = useStyles();
   const { status, client } = useOdoo();
   const { jobs } = useJobs();
   const since = useJobsSince();
@@ -335,6 +344,7 @@ function OlderJobsLine() {
 
 /** After the app closed on an error: says so once, with a way to send the log. */
 function CrashNotice() {
+  const styles = useStyles();
   const entries = useLog();
   const [seen, setSeen] = useState<number | null>(null);
   useEffect(() => {
@@ -376,7 +386,7 @@ function CrashNotice() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   nextCard: { gap: sp(4), padding: sp(14), borderRadius: radius.card, borderWidth: bw(1.5), borderColor: colors.selected, backgroundColor: colors.card },
   nextTop: { fontSize: fs(13), fontWeight: '800', letterSpacing: 0.6, color: colors.muted },
   nextName: { fontSize: fs(24), fontWeight: '800', color: colors.text },
@@ -402,4 +412,4 @@ const styles = StyleSheet.create({
   syncWarn: { backgroundColor: colors.warnBg },
   crash: { borderWidth: bw(1.5), borderColor: colors.stop, borderRadius: rad(12), padding: sp(12), gap: sp(10) },
   crashText: { fontSize: fs(17), fontWeight: '800', color: colors.text },
-});
+}));

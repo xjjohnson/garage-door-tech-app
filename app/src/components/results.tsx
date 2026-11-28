@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { formatInches, formatNumber } from '../lib/measure';
 import { expectedLife, formatLife, springName } from '../lib/springNames';
@@ -7,6 +7,7 @@ import { useFollowUps } from '../lib/useFollowUps';
 import { MeasureField } from './controls';
 import { findWire, SpringSpec, Warning } from '../springCalc';
 import { colors, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export const SAFETY_TEXT =
   "Torsion springs store enough energy to cause serious injury. Results are estimates from published charts and must be checked against the spring maker's data. Only trained technicians should wind or unwind springs. Use proper winding bars, never screwdrivers.";
@@ -16,6 +17,7 @@ export const EXTENSION_SAFETY_TEXT =
 
 /** Always shown above the results. It has no close button on purpose. */
 export function SafetyBanner({ text = SAFETY_TEXT }: { text?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.safety} testID="safety-banner" accessibilityRole="alert">
       <Text style={styles.safetyTitle}>⚠ SAFETY</Text>
@@ -24,21 +26,22 @@ export function SafetyBanner({ text = SAFETY_TEXT }: { text?: string }) {
   );
 }
 
-const LEVEL = {
+const levels = () => ({
   stop: { label: 'STOP', box: { backgroundColor: colors.stop, borderColor: colors.stop }, text: { color: colors.onStop } },
   caution: { label: 'CHECK', box: { backgroundColor: colors.caution, borderColor: colors.border }, text: { color: colors.text } },
   info: { label: 'NOTE', box: { backgroundColor: colors.info, borderColor: colors.info }, text: { color: colors.text } },
-} as const;
+} as const);
 
 /** Every warning the math returned, worst first. None of them can be hidden. */
 export function Warnings({ warnings }: { warnings: Warning[] }) {
+  const styles = useStyles();
   if (warnings.length === 0) return null;
   const order = { stop: 0, caution: 1, info: 2 } as const;
   const sorted = [...warnings].sort((a, b) => order[a.level] - order[b.level]);
   return (
     <View style={styles.stack}>
       {sorted.map((w, i) => {
-        const l = LEVEL[w.level];
+        const l = levels()[w.level];
         return (
           <View key={i} style={[styles.warning, l.box]} testID={`warning-${w.level}`}>
             <Text style={[styles.warningLabel, l.text]}>{l.label}</Text>
@@ -55,6 +58,7 @@ export function ErrorCard({ message }: { message: string }) {
 }
 
 export function MissingCard({ missing }: { missing: string[] }) {
+  const styles = useStyles();
   return (
     <View style={styles.missing} testID="missing">
       <Text style={styles.missingTitle}>To see results, enter:</Text>
@@ -68,6 +72,7 @@ export function MissingCard({ missing }: { missing: string[] }) {
 }
 
 export function Card({ title, children, testID }: { title?: string; children: ReactNode; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.card} testID={testID}>
       {title ? <Text style={styles.cardTitle}>{title}</Text> : null}
@@ -78,6 +83,7 @@ export function Card({ title, children, testID }: { title?: string; children: Re
 
 /** Label on the left, value on the right, in large type. */
 export function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.stat}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -121,6 +127,7 @@ export function UsesPerDay() {
 
 /** One spring: its name in big type, then rate, life, growth and weight. */
 export function SpringDetails({ spec, children }: { spec: SpringSpec; children?: ReactNode }) {
+  const styles = useStyles();
   const color = wireColor(spec.wireIn);
   const uses = useFollowUps().settings.cyclesPerDay;
   return (
@@ -141,7 +148,7 @@ export function SpringDetails({ spec, children }: { spec: SpringSpec; children?:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
   safety: { backgroundColor: colors.warnBg, borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), padding: sp(12), gap: sp(4) },
   safetyTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
@@ -163,4 +170,4 @@ const styles = StyleSheet.create({
   spring: { gap: sp(6), paddingTop: sp(4) },
   springName: { fontSize: type.big, fontWeight: '800', color: colors.text },
   springColor: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
-});
+}));

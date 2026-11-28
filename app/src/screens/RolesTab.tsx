@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useBackStep } from '../lib/backStep';
-import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Pressable, Switch, TextInput, View } from 'react-native';
 import { Text } from '../components/AppText';
 import type { OdooClient } from '../lib/odoo';
 import { canChangeRoles, createPerson, LinkState, Links, linkEmployee, linkStatus, linkWorker, listPeople, looksLikeEmail, Person, ROLE_INFO, RoleId, saveRoles, sendInvite } from '../lib/odooRoles';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Management > Team roles: who is an owner, dispatcher, office, sales, warehouse manager or buyer. Each
@@ -13,6 +14,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
  * roles; everyone else sees the list.
  */
 export function RolesTab({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [people, setPeople] = useState<Person[] | null>(null);
   const [admin, setAdmin] = useState(false);
   const [err, setErr] = useState('');
@@ -203,6 +205,7 @@ export function RolesTab({ client }: { client: OdooClient }) {
 }
 
 function LinkRow({ label, what, state, canFix, onFix, testID }: { label: string; what: string; state: LinkState; canFix: boolean; onFix: () => void; testID: string }) {
+  const styles = useStyles();
   if (state === 'unavailable') return null;
   return (
     <View style={styles.switchRow} testID={testID}>
@@ -219,7 +222,7 @@ function LinkRow({ label, what, state, canFix, onFix, testID }: { label: string;
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   off: { opacity: 0.5 },
   input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: sp(12), fontSize: type.body, color: colors.text },
   small: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12) },
@@ -235,4 +238,4 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
-});
+}));

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { ChipOption, ChipRow, Field, MeasureField } from '../components/controls';
 import { Card, Warnings } from '../components/results';
@@ -7,6 +7,7 @@ import { formatFeetInches, parseMeasurement } from '../lib/measure';
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { DOOR_CONSTRUCTIONS, DoorConstruction, DoorWeightEstimate, estimateDoorWeight } from '../springCalc';
 import { colors, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export interface DoorWeightForm {
   width: string;
@@ -52,6 +53,7 @@ export function runDoorWeight(form: DoorWeightForm): { estimate?: DoorWeightEsti
 
 /** A rough weight for quoting before the door is on the scale. It never fills the spring calculator. */
 export function DoorWeightScreen() {
+  const styles = useStyles();
   const { form, update } = usePersistentForm<DoorWeightForm>(DOOR_WEIGHT_STORAGE_KEY, DEFAULT_DOOR_WEIGHT_FORM);
   const { estimate, error } = useMemo(() => runDoorWeight(form), [form]);
   const wOther = parseMeasurement(form.widthOther);
@@ -96,11 +98,11 @@ export function DoorWeightScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   banner: { backgroundColor: colors.caution, borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(14), padding: sp(12), gap: sp(4) },
   bannerTitle: { fontSize: type.body, fontWeight: '800', color: colors.text },
   bannerText: { fontSize: fs(17), fontWeight: '700', color: colors.text, lineHeight: fs(24) },
   big: { fontSize: type.big, fontWeight: '800', color: colors.text },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
-});
+}));

@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { useState } from 'react';
 import { Note } from '../components/Dept';
@@ -8,12 +8,14 @@ import { useOdoo } from '../lib/useOdoo';
 import { DispatchScreen } from './DispatchScreen';
 import { FollowUpsDue, TimeOff, TruckAlerts, WhoIsWorking } from './DispatchTeamPages';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Page = 'waiting' | 'followups' | 'working' | 'timeoff' | 'trucks';
 const TITLE: Record<Page, string> = { waiting: 'Waiting to be booked', followups: 'Follow-ups due', working: "Who's working", timeoff: 'Time off', trucks: 'Truck parts alerts' };
 
 /** The dispatcher-only More tab: the rest of Dispatch (coming up, your team) and Time and miles. No field tools. */
 export function DispatchMore() {
+  const styles = useStyles();
   const { client } = useOdoo();
   const [page, setPage] = useState<Page | null>(null);
   if (!client) return <Note testID="dispatch-more-signin">Sign in to Odoo to use Dispatch.</Note>;
@@ -52,8 +54,8 @@ export function DispatchMore() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
   back: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: sp(4) },
   backText: { fontSize: fs(18), fontWeight: '800', color: colors.selected },
-});
+}));

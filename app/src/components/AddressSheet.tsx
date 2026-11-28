@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { AddressSuggestions } from './AddressSuggestions';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { ChipRow } from './controls';
 import { ADDRESS_TYPES, AddressFields, AddressType, EMPTY_ADDRESS } from '../lib/odooContacts';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const FIELDS: { key: Exclude<keyof AddressFields, 'type'>; label: string; placeholder: string; keyboard?: 'phone-pad' | 'email-address' }[] = [
   { key: 'address', label: 'Address', placeholder: '400 Main St, Kyle 78640' },
@@ -31,6 +32,7 @@ export function AddressSheet({
   onSave: (f: AddressFields) => void;
   onCancel: () => void;
 }) {
+  const styles = useStyles();
   const [f, setF] = useState<AddressFields>(initial ?? EMPTY_ADDRESS);
   const kb = useKeyboardHeight();
   const [focused, setFocused] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export function AddressSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
   sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '90%' },
@@ -114,4 +116,4 @@ const styles = StyleSheet.create({
   saveOff: { backgroundColor: colors.muted },
   pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
-});
+}));

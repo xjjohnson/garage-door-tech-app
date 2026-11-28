@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { Action } from './Buttons';
 import { cleanUrl, guessDb } from '../lib/odoo';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * The Odoo sign-in form (address, database, email, API key). One copy, used
@@ -12,6 +13,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
  * account section for signing in again.
  */
 export function OdooSignInForm({ intro = true, testID = 'team-signin' }: { intro?: boolean; testID?: string }) {
+  const styles = useStyles();
   const { saved, signIn, status, error } = useOdoo();
   const [url, setUrl] = useState(saved?.url ?? '');
   const [db, setDb] = useState(saved?.db ?? '');
@@ -54,6 +56,7 @@ export function OdooSignInForm({ intro = true, testID = 'team-signin' }: { intro
 }
 
 function Field({ label, hint, value, onChange, placeholder, keyboard, secure, testID }: { label: string; hint?: string; value: string; onChange: (v: string) => void; placeholder: string; keyboard?: 'url' | 'email-address'; secure?: boolean; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -75,7 +78,7 @@ function Field({ label, hint, value, onChange, placeholder, keyboard, secure, te
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   field: { gap: sp(4) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
@@ -83,4 +86,4 @@ const styles = StyleSheet.create({
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-});
+}));

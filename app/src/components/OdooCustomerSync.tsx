@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { Icon } from './Icon';
 import { OdooError } from '../lib/odoo';
@@ -7,6 +7,7 @@ import { CrampedAddress, crampedAddresses, splitAddresses } from '../lib/odooCon
 import { useCustomerSync } from '../lib/useCustomerSync';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -16,6 +17,7 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
  * list works as before and the next sync catches up.
  */
 export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { status, client } = useOdoo();
   const syncCustomers = useCustomerSync(now);
   const [busy, setBusy] = useState(false);
@@ -123,7 +125,7 @@ export function OdooCustomerSync({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrapAll: { gap: sp(8) },
   bar: { flexDirection: 'row', alignItems: 'center', gap: sp(10), paddingVertical: sp(8), paddingLeft: sp(12), paddingRight: sp(8), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, ...shadow },
   barText: { flex: 1, gap: sp(1) },
@@ -142,4 +144,4 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   pickName: { fontSize: type.body, fontWeight: '800', color: colors.text },
   pressed: { backgroundColor: colors.info },
-});
+}));

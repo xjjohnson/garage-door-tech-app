@@ -9,7 +9,7 @@
  */
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { AddressSheet } from '../components/AddressSheet';
 import { Action, NavRow } from '../components/Buttons';
@@ -23,6 +23,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -36,6 +37,7 @@ export function useJobCustomer(job: Job | undefined): Customer | undefined {
 }
 
 export function JobAddressScreen({ job }: { job: Job }) {
+  const styles = useStyles();
   const { setTicket } = useJobs();
   const { invoices } = useInvoices();
   const { client } = useOdoo();
@@ -166,6 +168,7 @@ export function JobAddressScreen({ job }: { job: Job }) {
 
 /** Searches Odoo's customers by name or street; picking one lists their addresses. */
 function CustomerSearch({ onPick }: { onPick: (c: FoundCustomer) => void }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const [q, setQ] = useState('');
   const [found, setFound] = useState<FoundCustomer[]>([]);
@@ -200,7 +203,7 @@ function CustomerSearch({ onPick }: { onPick: (c: FoundCustomer) => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8), flexWrap: 'wrap', marginTop: sp(8) },
   now: { fontSize: type.value, fontWeight: '800', color: colors.text },
@@ -214,4 +217,4 @@ const styles = StyleSheet.create({
   line: { fontSize: type.body, fontWeight: '800', color: colors.text },
   onText: { color: colors.onSelected },
   error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
-});
+}));

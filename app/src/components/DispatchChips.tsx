@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { useBadges } from '../lib/useBadges';
 import { fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** Four counts across the top of the dispatcher's Today: red for not assigned and late, amber for no time and double booked. Tap one to open Needs you. */
 export function DispatchChips() {
+  const styles = useStyles();
   const { dispatch: d } = useBadges();
   const chips = [
     { id: 'unassigned', label: 'Not assigned', n: d.unassigned, red: true },
@@ -28,7 +30,7 @@ export function DispatchChips() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   row: { flexDirection: 'row', gap: sp(6), paddingHorizontal: sp(12), paddingTop: sp(6) },
   chip: { flex: 1, borderRadius: 10, paddingVertical: sp(6), alignItems: 'center', backgroundColor: 'rgba(128,128,128,0.12)' },
   red: { backgroundColor: '#FDE4E4' },
@@ -37,4 +39,4 @@ const styles = StyleSheet.create({
   label: { fontSize: fs(11), fontWeight: '700', color: '#667' },
   redText: { color: '#B3202A' },
   amberText: { color: '#8A5A00' },
-});
+}));

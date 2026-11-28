@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { ChipOption, Segmented } from '../components/controls';
@@ -12,6 +12,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { OdooListScreen } from './OdooListScreen';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Filter = 'owed' | 'paid' | 'all';
 const FILTERS: ChipOption<Filter>[] = [
@@ -33,6 +34,7 @@ export function InvoicesScreen({ now = Date.now }: { now?: () => number }) {
 
 /** Odoo's invoice list, under the phone's invoices that aren't in Odoo yet. */
 function OdooInvoices({ now }: { now: () => number }) {
+  const styles = useStyles();
   const { invoices } = useInvoices();
   const { send } = useInvoiceOdoo(now);
   const [busy, setBusy] = useState(false);
@@ -76,6 +78,7 @@ function OdooInvoices({ now }: { now: () => number }) {
 }
 
 function InvoiceRow({ invoice: i }: { invoice: Invoice }) {
+  const styles = useStyles();
   const s = invoiceStatus(i);
   return (
     <Pressable
@@ -101,6 +104,7 @@ function InvoiceRow({ invoice: i }: { invoice: Invoice }) {
 
 /** Every invoice on this phone, money still owed first, with the total owed at the top. */
 function PhoneInvoices() {
+  const styles = useStyles();
   const { invoices, loaded } = useInvoices();
   const [filter, setFilter] = useState<Filter>('owed');
   const owed = invoices.filter((i) => ['unpaid', 'partial'].includes(invoiceStatus(i)));
@@ -131,7 +135,7 @@ function PhoneInvoices() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   owed: { fontSize: type.value, fontWeight: '800', color: colors.text },
   empty: { padding: sp(12), borderRadius: rad(14), backgroundColor: colors.card, gap: sp(6) },
@@ -148,4 +152,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
-});
+}));

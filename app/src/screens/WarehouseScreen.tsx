@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { Action } from '../components/Buttons';
@@ -41,6 +41,7 @@ import {
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Tab = 'overview' | 'stock' | 'ready' | 'orders' | 'count' | 'move' | 'receive' | 'jobs' | 'log';
 const LABELS: Record<Tab, string> = { overview: 'Overview', stock: 'Stock', ready: 'Ready for a tech', orders: 'Orders', count: 'Count', move: 'Move parts', receive: 'Receive', jobs: 'Parts on jobs', log: 'History' };
@@ -55,6 +56,7 @@ const DAY = 86400000;
  * Inventory; nothing here is kept on the phone.
  */
 export function WarehouseScreen() {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
   // Home cards open a tab straight away (/warehouse?tab=receive).
@@ -151,6 +153,7 @@ export function WarehouseScreen() {
 // ---- Overview and truck counts ----
 
 function Overview({ client, places, onCount }: { client: OdooClient; places: Place[]; onCount: (id: number) => void }) {
+  const styles = useStyles();
   const [rows, setRows] = useState<PlaceSummary[] | null>(null);
   useEffect(() => {
     let alive = true;
@@ -189,6 +192,7 @@ function Overview({ client, places, onCount }: { client: OdooClient; places: Pla
 // ---- Count ----
 
 function Count({ client, places, start, by }: { client: OdooClient; places: Place[]; start: number | null; by: string }) {
+  const styles = useStyles();
   const [placeId, setPlaceId] = useState<number>(start ?? places[0]?.id ?? 0);
   const [lines, setLines] = useState<CountLine[] | null>(null);
   const [typed, setTyped] = useState<Record<number, string>>({});
@@ -295,6 +299,7 @@ function Count({ client, places, start, by }: { client: OdooClient; places: Plac
 const newKey = () => `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
 
 function Move({ client, places }: { client: OdooClient; places: Place[] }) {
+  const styles = useStyles();
   const [from, setFrom] = useState<number>(places[0]?.id ?? 0);
   const [to, setTo] = useState<number>(places.find((p) => p.truck)?.id ?? places[1]?.id ?? 0);
   const [lines, setLines] = useState<CountLine[] | null>(null);
@@ -361,6 +366,7 @@ function Move({ client, places }: { client: OdooClient; places: Place[] }) {
 // ---- Receiving ----
 
 function Receive({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [list, setList] = useState<OpenReceipt[] | null>(null);
   const [open, setOpen] = useState<number | null>(null);
   const [got, setGot] = useState<Record<number, string>>({});
@@ -434,6 +440,7 @@ function Receive({ client }: { client: OdooClient }) {
 // ---- Parts used on jobs ----
 
 function PartsOnJobs({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [days, setDays] = useState(14);
   const [data, setData] = useState<{ used: JobUse[]; attention: Attention } | null>(null);
   const [view, setView] = useState<'used' | 'attention'>('used');
@@ -496,6 +503,7 @@ function PartsOnJobs({ client }: { client: OdooClient }) {
 // ---- Adjustment history ----
 
 function History({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [person, setPerson] = useState('');
   const [part, setPart] = useState('');
   const [rows, setRows] = useState<Adjustment[] | null>(null);
@@ -532,17 +540,18 @@ function History({ client }: { client: OdooClient }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   grow: { flex: 1 },
   name: { fontSize: fs(18), fontWeight: '700', color: colors.text },
   bad: { color: colors.stop, fontSize: fs(16), fontWeight: '800' },
   diff: { fontSize: fs(22), fontWeight: '800', color: colors.text },
-});
+}));
 
 // ---- Ready for a tech ----
 
 function Ready({ client, places }: { client: OdooClient; places: Place[] }) {
+  const styles = useStyles();
   const [rows, setRows] = useState<ReadyOrder[] | null>(null);
   const load = useCallback(() => readyForTech(client, places).then(setRows, () => setRows([])), [client, places]);
   useEffect(() => {
@@ -567,6 +576,7 @@ function Ready({ client, places }: { client: OdooClient; places: Place[] }) {
 type Hub = 'order' | 'pos' | 'receive';
 
 function OrdersHub({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [part, setPart] = useState<Hub>('order');
   return (
     <View style={styles.stack} testID="warehouse-orders">

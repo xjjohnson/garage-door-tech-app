@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { DEFAULT_DISCOUNTS, DiscountPreset, parseDollars, parsePct, presetsFor } from '../lib/discounts';
 import { queueBusiness } from '../lib/settingsSync';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Row {
   label: string;
@@ -34,6 +35,7 @@ function toPreset(r: Row): DiscountPreset | undefined {
  * discount; dollars become one negative Discount line.
  */
 export function DiscountsTab({ canEdit }: { canEdit: boolean }) {
+  const styles = useStyles();
   const { business, setBusiness } = useInvoices();
   const [rows, setRows] = useState<Row[]>(() => presetsFor(business.discounts).map(toRow));
   const [saved, setSaved] = useState(false);
@@ -117,7 +119,7 @@ export function DiscountsTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   field: { gap: sp(6) },
@@ -130,4 +132,4 @@ const styles = StyleSheet.create({
   back: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   primary: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   primaryText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
-});
+}));

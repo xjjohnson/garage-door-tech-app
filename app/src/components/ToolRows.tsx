@@ -1,15 +1,17 @@
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { Icon, IconName } from './Icon';
 import { look, colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** The shared card pieces of the Tools and Settings pages (style H1): grouped rows, tiles, a quiet section label and an alert banner. */
 
 /** A quiet label above a group, left-aligned. */
 export function Caption({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return (
     <Text style={styles.caption} accessibilityRole="header">
       {children}
@@ -19,6 +21,7 @@ export function Caption({ children }: { children: ReactNode }) {
 
 /** One white rounded card that holds a run of rows. */
 export function RowGroup({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return <View style={styles.group}>{children}</View>;
 }
 
@@ -44,6 +47,7 @@ interface IconRowProps {
 
 /** An icon, a name, a one-line hint and a chevron. */
 export function IconRow({ icon, label, detail, href, onPress, testID, badge, warn, tag, last, noChevron, right }: IconRowProps) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress ?? (() => href && router.push(href))}
@@ -71,6 +75,7 @@ export function IconRow({ icon, label, detail, href, onPress, testID, badge, war
 
 /** A square card tile for the tools used most: icon, name and a short hint. */
 export function ToolTile({ icon, label, detail, href, testID }: { icon: IconName; label: string; detail: string; href: Href; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={() => router.push(href)} accessibilityRole="button" accessibilityHint={detail} testID={testID} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
       <View style={styles.icon}>
@@ -86,6 +91,7 @@ export function ToolTile({ icon, label, detail, href, testID }: { icon: IconName
 
 /** The one thing that needs a look, in warning colors, with a button. */
 export function AlertBanner({ title, detail, action, onPress, testID, tone = 'warn' }: { title: string; detail?: string; action: string; onPress: () => void; testID?: string; tone?: 'warn' | 'ok' }) {
+  const styles = useStyles();
   const ok = tone === 'ok';
   return (
     <View style={[styles.alert, ok && styles.alertOk]} testID={testID}>
@@ -101,7 +107,7 @@ export function AlertBanner({ title, detail, action, onPress, testID, tone = 'wa
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   caption: { fontSize: fs(14), fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.muted, marginTop: sp(6), marginLeft: sp(4) },
   group: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden', ...shadow },
   row: { minHeight: look.size === 'legacy' ? touch.min + 6 : touch.min, flexDirection: 'row', alignItems: 'center', gap: sp(12), paddingHorizontal: sp(14), paddingVertical: sp(10) },
@@ -127,4 +133,4 @@ const styles = StyleSheet.create({
   alertButtonOk: { backgroundColor: colors.selected },
   alertButtonTextOk: { color: colors.onSelected },
   alertButtonText: { fontSize: fs(15), fontWeight: '800', color: colors.warnBg },
-});
+}));

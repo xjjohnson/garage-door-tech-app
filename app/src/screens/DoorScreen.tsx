@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, MultiChipRow, SectionTitle } from '../components/controls';
@@ -13,6 +13,7 @@ import { SaveJobPanel } from '../components/SaveJobPanel';
 import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { DoorResult } from '../springCalc';
 import { colors, type, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const COUNT_OPTIONS: ChipOption<1 | 2>[] = [
   { label: 'One spring', value: 1 },
@@ -145,6 +146,7 @@ export function doorSummary(outcome: Outcome<DoorResult>, springCount: 1 | 2): B
 }
 
 function DoorResults({ result, springCount }: { result: DoorResult; springCount: 1 | 2 }) {
+  const styles = useStyles();
   return (
     <View style={styles.stack} testID="door-results">
       <Card title="Wind" testID="card-turns">
@@ -173,9 +175,9 @@ function DoorResults({ result, springCount }: { result: DoorResult; springCount:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   note: { fontSize: fs(17), color: colors.text, lineHeight: fs(24) },
   divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: sp(10) },
   optionNumber: { fontSize: fs(16), fontWeight: '800', color: colors.muted, letterSpacing: 1 },
-});
+}));

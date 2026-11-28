@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { BackHandler, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, ScrollView, View } from 'react-native';
 import { runBackStep } from '../lib/backStep';
 import { Text } from './AppText';
 import { Icon } from './Icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, touch, type, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const DockContext = createContext<((node: ReactNode) => void) | null>(null);
 
@@ -22,6 +23,7 @@ export function Dock({ children }: { children: ReactNode }) {
 
 /** A full page over the sections, such as a quote: its title and a big Close button that goes back. */
 export function Page({ title, children, testID }: { title: string; children: ReactNode; testID?: string }) {
+  const styles = useStyles();
   const [dock, setDock] = useState<ReactNode>(null);
   // The phone's back button steps back one level (an opened row, an edit screen) before it leaves the page.
   useEffect(() => {
@@ -58,7 +60,7 @@ export function Page({ title, children, testID }: { title: string; children: Rea
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   root: { flex: 1, backgroundColor: colors.bg },
   head: { flexDirection: 'row', alignItems: 'center', gap: sp(12), paddingHorizontal: sp(16), paddingVertical: sp(10), backgroundColor: colors.head },
   title: { flex: 1, fontSize: type.big, fontWeight: '800', color: colors.onHead },
@@ -66,4 +68,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: 'rgba(255,255,255,0.35)' },
   dock: { padding: sp(12), gap: sp(8), backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.line },
   content: { padding: sp(16), paddingBottom: sp(48), gap: sp(14) },
-});
+}));

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import { categoryLevel, groupVariants, PriceBookItem, searchItems } from '../lib/priceBook';
 import { formatMoney } from '../lib/prices';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Picks one product from the price book (Odoo's products, kept on the phone):
@@ -12,6 +13,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
  * that isn't in Odoo gets made in Odoo first.
  */
 export function PriceBookPicker({ visible, items, title = 'Add from the price book', initialQuery = '', onPick, onClose }: { visible: boolean; items: PriceBookItem[]; title?: string; /** What the search box starts with. */ initialQuery?: string; onPick: (i: PriceBookItem) => void; onClose: () => void }) {
+  const styles = useStyles();
   const [q, setQ] = useState(initialQuery);
   const [path, setPath] = useState<string[]>([]);
   const searching = q.trim() !== '';
@@ -71,7 +73,7 @@ export function PriceBookPicker({ visible, items, title = 'Add from the price bo
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '90%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -86,4 +88,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: fs(15), fontWeight: '700', color: colors.muted },
   pressed: { backgroundColor: colors.info },
   heading: { fontSize: fs(15), fontWeight: '800', color: colors.muted, marginTop: sp(6) },
-});
+}));

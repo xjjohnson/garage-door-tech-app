@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Card, Meta, Note, Title } from '../components/Dept';
 import { PageError, usePageRows } from '../components/DeptRows';
@@ -8,6 +8,7 @@ import { ChipRow } from '../components/controls';
 import { canReadAttendance, hoursText, PersonHours, readPeopleWeek, summarizeHours, weekStart } from '../lib/odooPeople';
 import type { OdooClient } from '../lib/odoo';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const DAY = 86_400_000;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -28,6 +29,7 @@ const NO_ATTENDANCE = 'Odoo has no Attendances app for this login, so there are 
 
 /** The People tab: how many are clocked in, hours this week, and who is working now. Reads only. */
 export function PeopleFront({ client, onOpen, owner, now = Date.now }: { client: OdooClient; onOpen: (id: 'timesheets') => void; owner: boolean; now?: () => number }) {
+  const styles = useStyles();
   const start = useMemo(() => weekStart(now()), []);
   const { data, error } = useWeek(client, start, now);
   if (error) return <PageError what="People" error={error} />;
@@ -54,6 +56,7 @@ export function PeopleFront({ client, onOpen, owner, now = Date.now }: { client:
 }
 
 function PeopleRows({ rows, now }: { rows: PersonHours[]; now: () => number }) {
+  const styles = useStyles();
   if (!rows.length) return <Note>No employees in Odoo yet.</Note>;
   return (
     <Card testID="people-rows">
@@ -73,6 +76,7 @@ function PeopleRows({ rows, now }: { rows: PersonHours[]; now: () => number }) {
 
 /** Hours for each day of one week per person. Reads only: nothing here changes Odoo. */
 export function TimeSheets({ client, now = Date.now }: { client: OdooClient; now?: () => number }) {
+  const styles = useStyles();
   const [which, setWhich] = useState<'this' | 'last'>('this');
   const thisWeek = useMemo(() => weekStart(now()), []);
   const start = which === 'this' ? thisWeek : thisWeek - 7 * DAY;
@@ -100,6 +104,7 @@ export function TimeSheets({ client, now = Date.now }: { client: OdooClient; now
 }
 
 function Tile({ big, small, testID }: { big: string; small: string; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.tile} testID={testID}>
       <Text style={styles.big}>{big}</Text>
@@ -109,6 +114,7 @@ function Tile({ big, small, testID }: { big: string; small: string; testID?: str
 }
 
 function NavLine({ label, detail, onPress, testID }: { label: string; detail: string; onPress: () => void; testID: string }) {
+  const styles = useStyles();
   return (
     <Text onPress={onPress} accessibilityRole="button" testID={testID} style={styles.navLine}>
       {label}
@@ -118,7 +124,7 @@ function NavLine({ label, detail, onPress, testID }: { label: string; detail: st
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   tiles: { flexDirection: 'row', gap: sp(8) },
   tile: { flex: 1, backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.line, padding: sp(10), gap: sp(2) },
@@ -133,4 +139,4 @@ const styles = StyleSheet.create({
   hours: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   sheetTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   navLine: { fontSize: fs(17), fontWeight: '800', color: colors.text, paddingVertical: sp(6) },
-});
+}));
