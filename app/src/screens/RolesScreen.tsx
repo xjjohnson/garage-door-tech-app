@@ -19,13 +19,13 @@ export function greeting(hour: number): string {
 
 /**
  * The start screen: the role to continue as (your last one) as one big button, and a bubble for each
- * other role you have. Only roles you have are shown. Shown the first time someone with more than one role
- * opens the app; after that the app opens in the last role and the chip at the top switches.
+ * other role you have. Only roles you have are shown. Shown first, every time someone with more than one role
+ * opens the app (the chip at the top brings it back).
  */
 export function RolesScreen() {
   const styles = useStyles();
-  const { roles, current } = useRoles();
-  const main = current ?? FIRST.find((r) => roles.includes(r)) ?? 'tech';
+  const { roles, last } = useRoles();
+  const main = last ?? FIRST.find((r) => roles.includes(r)) ?? 'tech';
   const card = ROLE_CARDS[main];
   const go = async (r: RoleKey) => {
     await switchRole(r);
@@ -35,10 +35,10 @@ export function RolesScreen() {
     <SafeAreaView style={styles.root} testID="roles-screen">
       <Text style={styles.hi}>{greeting(new Date().getHours())}</Text>
       <Text style={styles.title} accessibilityRole="header">
-        {current ? 'Welcome back' : 'Where to today?'}
+        {last ? 'Welcome back' : 'Where to today?'}
       </Text>
       <Pressable onPress={() => go(main)} accessibilityRole="button" testID="role-big" style={({ pressed }) => [styles.big, { backgroundColor: card.color }, pressed && styles.pressed]}>
-        <Text style={styles.bigSmall}>{current ? 'Continue as' : 'Start as'}</Text>
+        <Text style={styles.bigSmall}>{last ? 'Continue as' : 'Start as'}</Text>
         <Text style={styles.bigName}>
           {card.icon} {card.label}
         </Text>

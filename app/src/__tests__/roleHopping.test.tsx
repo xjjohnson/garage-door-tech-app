@@ -1,6 +1,6 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { RoleChip } from '../components/RoleChip';
-import { setActiveRole } from '../lib/activeRole';
+import { resetLaunchPicked, setActiveRole } from '../lib/activeRole';
 import { setRolePreviews } from '../lib/devFlags';
 import { useDispatcherOnly, useSalesOnly, useTech } from '../lib/useDepartments';
 import { useRoles } from '../lib/useRoles';
@@ -63,10 +63,22 @@ describe('working in more than one role', () => {
   });
 
   it('Developer can look as two roles at once', async () => {
+    resetLaunchPicked();
     setRolePreviews(['dispatcher', 'sales']);
     const { result } = await renderHook(() => useRoles());
     await waitFor(() => expect(result.current.roles).toEqual(['dispatch', 'sales']));
     expect(result.current.needsPick).toBe(true);
+  });
+
+  it('asks on every launch, even with a role remembered, until one is chosen', async () => {
+    held = [DISPATCH, SALES];
+    resetLaunchPicked();
+    const { result } = await renderHook(() => useRoles());
+    await waitFor(() => expect(result.current.roles).toEqual(['dispatch', 'sales']));
+    expect(result.current.needsPick).toBe(true);
+    await act(async () => setActiveRole('sales'));
+    await waitFor(() => expect(result.current.needsPick).toBe(false));
+    expect(result.current.current).toBe('sales');
   });
 
   it('the start screen offers only the roles held and opens the pick', async () => {

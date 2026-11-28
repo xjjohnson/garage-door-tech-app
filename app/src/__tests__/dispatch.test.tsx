@@ -175,7 +175,7 @@ describe('Jobs › Team', () => {
     await fireEvent.press(screen.getByTestId('team-signin-go'));
     await settle();
     await act(async () => router.navigate('/jobs'));
-    await settle();
+    await settle(20);
   }
 
   it('draws each worker\'s day on an hour axis in the Dispatch theme and still opens a job', async () => {
