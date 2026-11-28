@@ -1,8 +1,9 @@
 import { ReactNode, useEffect } from 'react';
 import { useBackStep } from '../lib/backStep';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { colors, radius, shadow, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export interface MenuItem<T extends string> {
   id: T;
@@ -18,6 +19,7 @@ export interface MenuGroup<T extends string> {
 
 /** A red number for something that needs a look. Draws nothing at 0. */
 export function CountBadge({ n, testID }: { n?: number; testID?: string }) {
+  const styles = useStyles();
   if (!n || n <= 0) return null;
   return (
     <View style={styles.badge} testID={testID} accessibilityLabel={`${n} need attention`}>
@@ -28,6 +30,7 @@ export function CountBadge({ n, testID }: { n?: number; testID?: string }) {
 
 /** A grouped list: small capital headings, a white card of rows under each. Each row opens its own page. */
 export function SectionMenu<T extends string>({ groups, onPick, testID, rowTestID }: { groups: MenuGroup<T>[]; onPick: (id: T) => void; testID?: string; rowTestID: (id: T) => string }) {
+  const styles = useStyles();
   return (
     <View testID={testID} style={styles.stack}>
       {groups.map((g) => (
@@ -55,6 +58,7 @@ export function SectionMenu<T extends string>({ groups, onPick, testID, rowTestI
 
 /** One opened page of a grouped list: its title, then the page. Going back is the page header's "<" or the phone's back button, which return to the list. */
 export function SectionPage({ title, onBack, children }: { area?: string; title: string; onBack: () => void; testID?: string; children: ReactNode }) {
+  const styles = useStyles();
   useBackStep(onBack);
   return (
     <View style={styles.stack}>
@@ -66,7 +70,7 @@ export function SectionPage({ title, onBack, children }: { area?: string; title:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   heading: { fontSize: fs(13), fontWeight: '800', letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: sp(4), paddingBottom: sp(6), paddingTop: sp(4) },
   card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden', ...shadow },
@@ -80,4 +84,4 @@ const styles = StyleSheet.create({
   badge: { minWidth: 24, height: 24, borderRadius: rad(12), paddingHorizontal: sp(7), backgroundColor: '#C62828', alignItems: 'center', justifyContent: 'center' },
   badgeText: { fontSize: fs(13), fontWeight: '800', color: '#FFFFFF' },
   pageTitle: { fontSize: fs(22), fontWeight: '800', color: colors.text, paddingHorizontal: sp(4) },
-});
+}));

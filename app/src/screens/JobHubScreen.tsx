@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useTech } from '../lib/useDepartments';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action, NavRow, QuickAction } from '../components/Buttons';
 import { Dock } from '../components/Page';
@@ -27,6 +27,7 @@ import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { EtaPicker } from '../components/EtaPicker';
 import { colors, layouts, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Tab = 'overview' | 'work' | 'photos' | 'notes';
 const TABS: { id: Tab; label: string }[] = [
@@ -51,6 +52,7 @@ const open = (url: string | undefined) => url && Linking.openURL(url).catch(() =
  * bottom does the next one. Everything else about the job is one tap away.
  */
 export function JobHubScreen({ id, now = Date.now }: { id: string; now?: () => number }) {
+  const styles = useStyles();
   const { jobs, loaded, setStep, setStatus } = useJobs();
   const { invoices, business } = useInvoices();
   const { appointments } = useSchedule();
@@ -331,7 +333,7 @@ function nextLabel(step: StepId, job: Job, hasInvoice: boolean): string {
   }
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   moneyRow: { flexDirection: 'row', gap: sp(8) },
   money: { flex: 1, padding: sp(10), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card },
   moneyLabel: { fontSize: fs(12), fontWeight: '800', letterSpacing: 0.5, color: colors.muted },
@@ -370,4 +372,4 @@ const styles = StyleSheet.create({
   label: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
   body: { fontSize: type.body, fontWeight: '600', color: colors.text },
   note: { fontSize: type.body, color: colors.muted },
-});
+}));

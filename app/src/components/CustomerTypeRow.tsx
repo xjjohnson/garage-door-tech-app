@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { ChipOption, ChipRow } from './controls';
 import { setCustomerType, typesFor } from '../lib/customerTypes';
@@ -7,9 +7,11 @@ import { useCustomerType } from '../lib/useCustomerType';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** The customer's type (Homeowner, Commercial...), kept as a tag on their contact in Odoo. */
 export function CustomerTypeRow({ partnerId }: { partnerId: number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { business } = useInvoices();
   const { type, setType } = useCustomerType(partnerId);
@@ -38,8 +40,8 @@ export function CustomerTypeRow({ partnerId }: { partnerId: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   box: { gap: sp(6) },
   label: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   note: { fontSize: fs(15), color: colors.muted },
-});
+}));

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, SectionTitle } from '../components/controls';
@@ -12,6 +12,7 @@ import { SaveJobPanel } from '../components/SaveJobPanel';
 import { TRACK_RADIUS_CHOICES, TRACK_RADIUS_HINT } from '../lib/forms';
 import { MatchResult, Wind, WIRES } from '../springCalc';
 import { colors, type, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const WIRE_METHODS: ChipOption<WireMethod>[] = [
   { label: '20 coils', value: 'twenty' },
@@ -198,6 +199,7 @@ function orderNote(result: MatchResult): string {
 }
 
 function MatchResults({ result }: { result: MatchResult }) {
+  const styles = useStyles();
   const stopped = result.warnings.some((w) => w.level === 'stop');
   const each = result.springCount === 2 ? ' (pair)' : '';
   return (
@@ -248,10 +250,10 @@ function MatchResults({ result }: { result: MatchResult }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   note: { fontSize: fs(17), color: colors.text, lineHeight: fs(24) },
   stopNote: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: sp(10) },
   upgradeTarget: { fontSize: type.body, fontWeight: '800', color: colors.text },
-});
+}));

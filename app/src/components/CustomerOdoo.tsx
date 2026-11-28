@@ -7,7 +7,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
 import { log } from '../lib/log';
@@ -29,6 +29,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { useOpenOdooJob } from '../lib/useStartJob';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export const CUSTOMER_ODOO_STORAGE_KEY = 'odoo-customer/v1';
 const LIMIT = 20;
@@ -121,6 +122,7 @@ export type CustomerTab = 'overview' | 'jobs' | 'quotes' | 'notes' | 'files';
 
 /** `tab` picks which part of the customer page shows: Overview (to-dos, repeat visits, agreements), Jobs, or Quotes (with invoices). Without one, everything shows. */
 export function CustomerOdoo({ partnerId, customerId, name = 'this customer', address = '', now = Date.now, tab }: { partnerId: number; customerId?: string; name?: string; address?: string; now?: () => number; tab?: CustomerTab }) {
+  const styles = useStyles();
   const show = (t: CustomerTab) => !tab || tab === t;
   const { client } = useOdoo();
   const { records, fresh, error, refresh } = useCustomerRecords(partnerId, now);
@@ -341,6 +343,7 @@ const BADGE: Record<string, string> = { Active: 'ACTIVE', Paused: 'PAUSED', 'End
 
 /** The customer's maintenance plans: where each stands, its next visit, and change / pause / cancel / renew. */
 export function MaintenancePlans({ records, visits, plans, busy, onPause, onResume, onCancel, onChange, onRenew }: { records: PlanRecord[]; visits: Record<number, PlanVisits>; plans: MaintenancePlan[]; busy: boolean; onPause: (p: PlanRecord) => void; onResume: (p: PlanRecord) => void; onCancel: (p: PlanRecord) => void; onChange: (p: PlanRecord) => void; onRenew: (p: MaintenancePlan) => void }) {
+  const styles = useStyles();
   if (records.length === 0) return null;
   return (
     <>
@@ -386,6 +389,7 @@ const span = (a?: string, b?: string) => [a, b].filter(Boolean).join(' to ');
 
 /** Repeating visits and agreements read from Odoo; nothing shows when the customer has none. */
 function Plans({ repeats, agreements, onChange, onEdit, onEnd, busy }: { repeats?: RepeatRow[]; agreements?: AgreementRow[]; onChange: (id: number, a: RepeatAction) => void; onEdit: (a: AgreementRow) => void; onEnd: (a: AgreementRow) => void; busy: boolean }) {
+  const styles = useStyles();
   return (
     <>
       {repeats && repeats.length ? (
@@ -439,6 +443,7 @@ function Plans({ repeats, agreements, onChange, onEdit, onEnd, busy }: { repeats
 }
 
 function Rows({ title, kind, rows, onOpen }: { title: string; kind: ListKind; rows?: OdooListRow[]; onOpen: (kind: ListKind, r: OdooListRow) => void }) {
+  const styles = useStyles();
   if (!rows || rows.length === 0) return null;
   return (
     <>
@@ -460,7 +465,7 @@ function Rows({ title, kind, rows, onOpen }: { title: string; kind: ListKind; ro
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   row: { flexDirection: 'row', gap: sp(8) },
   section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: sp(8) },
@@ -474,4 +479,4 @@ const styles = StyleSheet.create({
   owed: { fontSize: type.value, fontWeight: '800', color: colors.stop },
   error: { fontSize: fs(16), fontWeight: '700', color: colors.stop },
   pressed: { backgroundColor: colors.info },
-});
+}));

@@ -5,13 +5,15 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { dbLabel, isNotLive, liveId } from '../lib/dbSwitch';
 import { useOdooIfAny } from '../lib/useOdoo';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export function DatabaseBanner() {
+  const styles = useStyles();
   const odoo = useOdooIfAny();
   const saved = odoo?.saved ?? null;
   const [live, setLive] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function DatabaseBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrap: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.warn, paddingVertical: sp(3), alignItems: 'center' },
   text: { color: '#FFFFFF', fontSize: fs(13), fontWeight: '800' },
-});
+}));

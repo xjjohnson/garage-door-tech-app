@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { SectionTitle } from '../components/controls';
 import { REPORT_SYNC_SINCE_KEY } from '../components/OdooReportSync';
@@ -13,6 +13,7 @@ import { createMissingSurveys, SurveyKind, surveyState, SurveyState } from '../l
 import { isOwner } from '../lib/scorecard';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const NAME: Record<SurveyKind, string> = { door: 'Garage door inspection', opener: 'Opener inspection', gate: 'Gate inspection' };
 
@@ -22,6 +23,7 @@ const NAME: Record<SurveyKind, string> = { door: 'Garage door inspection', opene
  * that are missing from the app's built-in checklist.
  */
 export function ChecklistsScreen() {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const signedIn = status === 'signedIn' && !!client;
   const [state, setState] = useState<SurveyState | null>(null);
@@ -132,7 +134,7 @@ export function ChecklistsScreen() {
 
 const SURVEY_ORDER: SurveyKind[] = ['door', 'opener', 'gate'];
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   note: { fontSize: type.body, color: colors.muted },
   warn: { fontSize: type.body, fontWeight: '700', color: colors.stop },
@@ -141,4 +143,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: type.body, color: colors.muted },
   button: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(16) },
   buttonText: { fontSize: type.body, fontWeight: '700', color: colors.onSelected },
-});
+}));

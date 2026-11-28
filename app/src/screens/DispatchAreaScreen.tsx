@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Card, Note, Title } from '../components/Dept';
 import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
 import { useBadges } from '../lib/useBadges';
@@ -8,6 +8,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { DispatchScreen, Part } from './DispatchScreen';
 import { DispatchMap, FollowUpsDue, TimeOff, TruckAlerts, WhoIsWorking } from './DispatchTeamPages';
 import { sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Tab = 'unassigned' | 'notime' | 'late' | 'double' | 'board' | 'map' | 'week' | 'upcoming' | 'waiting' | 'followups' | 'working' | 'timeoff' | 'trucks';
 const LABELS: Record<Tab, string> = {
@@ -34,6 +35,7 @@ const JOB_PAGES: Tab[] = ['unassigned', 'notime', 'late', 'double', 'board', 'we
  * who is working) are added to the same list as they are built.
  */
 export function DispatchAreaScreen() {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
   const badges = useBadges();
@@ -102,4 +104,4 @@ export function DispatchAreaScreen() {
   );
 }
 
-const styles = StyleSheet.create({ stack: { gap: sp(12) } });
+const useStyles = makeStyles(() => ({ stack: { gap: sp(12) } }));

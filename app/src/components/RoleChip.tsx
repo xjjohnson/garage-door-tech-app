@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { RoleBubbleRow } from './RoleBubbles';
 import { ROLE_CARDS, RoleKey } from '../lib/roles';
 import { switchRole } from '../lib/roleSwitch';
 import { colors, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * The round chip at the top left that shows the role in use. Tap it for a sheet of the person's
@@ -13,6 +14,7 @@ import { colors, fs, rad, sp } from '../theme';
  * with more than one role.
  */
 export function RoleChip({ roles, current }: { roles: RoleKey[]; current: RoleKey | null }) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   if (roles.length < 2 || !current) return null;
   const card = ROLE_CARDS[current];
@@ -45,7 +47,7 @@ export function RoleChip({ roles, current }: { roles: RoleKey[]; current: RoleKe
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   chip: { flexDirection: 'row', alignItems: 'center', gap: sp(6), borderRadius: 999, paddingVertical: sp(5), paddingLeft: sp(5), paddingRight: sp(12), backgroundColor: 'rgba(255,255,255,0.2)', minHeight: 44 },
   pressed: { opacity: 0.8 },
   dot: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF' },
@@ -54,4 +56,4 @@ const styles = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: { backgroundColor: colors.card, borderTopLeftRadius: rad(26), borderTopRightRadius: rad(26), padding: sp(20), paddingBottom: sp(32), gap: sp(16) },
   sheetTitle: { textAlign: 'center', color: colors.text, fontSize: fs(18), fontWeight: '800' },
-});
+}));

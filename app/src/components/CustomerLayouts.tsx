@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { formatMiles, googleNavLink, miles, Point } from '../lib/geocode';
 import { phoneLink } from '../lib/jobs';
@@ -10,6 +10,7 @@ import { useGeocode } from '../lib/useGeocode';
 import { useVisits } from '../lib/useVisits';
 import { colors, bw, fs, rad, radius, sp, sz, touch } from '../theme';
 import type { CustomersLayout } from '../lib/themes';
+import { makeStyles } from '../lib/makeStyles';
 
 /** One customer, ready to draw in any of the themed layouts. */
 export interface CustomerRow {
@@ -42,6 +43,7 @@ export function CustomerLayouts({ layout, rows }: { layout: Exclude<CustomersLay
 }
 
 function Big({ rows }: { rows: CustomerRow[] }) {
+  const styles = useStyles();
   return (
     <View style={styles.stack} testID="customers-big">
       {rows.map((c) => {
@@ -70,6 +72,7 @@ function Big({ rows }: { rows: CustomerRow[] }) {
 }
 
 function Table({ rows }: { rows: CustomerRow[] }) {
+  const styles = useStyles();
   return (
     <View style={styles.table} testID="customers-table">
       <View style={styles.tr}>
@@ -91,6 +94,7 @@ function Table({ rows }: { rows: CustomerRow[] }) {
 }
 
 function Owed({ rows }: { rows: CustomerRow[] }) {
+  const styles = useStyles();
   const owing = rows.filter((c) => c.owed > 0).sort((a, b) => b.owed - a.owed);
   const rest = rows.filter((c) => c.owed <= 0);
   const top = owing[0]?.owed ?? 1;
@@ -133,6 +137,7 @@ function Owed({ rows }: { rows: CustomerRow[] }) {
 }
 
 function Near({ rows }: { rows: CustomerRow[] }) {
+  const styles = useStyles();
   const visits = useVisits();
   const now = Date.now();
   // Near the next stop today; with no stop left, near the first one.
@@ -167,7 +172,7 @@ function Near({ rows }: { rows: CustomerRow[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   grow: { flex: 1, minWidth: 0 },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: sp(8) },
@@ -197,4 +202,4 @@ const styles = StyleSheet.create({
   owedRow: { gap: sp(6), padding: sp(12), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card },
   barBg: { height: 6, borderRadius: 3, backgroundColor: colors.line, overflow: 'hidden' },
   barFill: { height: 6, backgroundColor: colors.warn },
-});
+}));

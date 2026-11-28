@@ -1,15 +1,17 @@
-import { StyleSheet, Text as RNText, View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 import { Caption, IconRow, RowGroup } from '../components/ToolRows';
 import { SHORT_VERSION } from '../lib/appVersion';
 import { officeTotal } from '../lib/deptBadges';
 import { useBadges } from '../lib/useBadges';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * The office-only More tab: the office areas, the price book, follow-up calls and Time and miles.
  * No spring or door tools, no truck, and no "Wrap up the day": those are for the field.
  */
 export function OfficeMore() {
+  const styles = useStyles();
   const badges = useBadges();
   const n = officeTotal(badges);
   return (
@@ -32,7 +34,7 @@ export function OfficeMore() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
   version: { textAlign: 'center', fontSize: fs(14), fontWeight: '600', color: colors.muted, paddingTop: sp(4) },
-});
+}));

@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { ChipOption, ChipRow, Segmented } from '../components/controls';
 import { DIAG_BRANDS, DIAG_SAFETY, DiagSource, SYMPTOMS } from '../data/diagnostics';
 import { familiesFor, familyById, findCode, hostOf } from '../lib/diagnose';
 import { ProgramScreen } from './ProgramScreen';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Mode = 'symptom' | 'code' | 'program';
 
@@ -30,6 +31,7 @@ interface Props {
  * limits and force. Only the maker links at the bottom need internet.
  */
 export function DiagnoseScreen({ openUrl = (u) => Linking.openURL(u) }: Props) {
+  const styles = useStyles();
   const [mode, setMode] = useState<Mode>('symptom');
   const [symptomId, setSymptomId] = useState<string>(NONE);
   const [brandId, setBrandId] = useState<string>(DIAG_BRANDS[0].id);
@@ -159,6 +161,7 @@ export function DiagnoseScreen({ openUrl = (u) => Linking.openURL(u) }: Props) {
 }
 
 function Checks({ items }: { items: string[] }) {
+  const styles = useStyles();
   return (
     <View style={styles.checks}>
       {items.map((item, i) => (
@@ -172,6 +175,7 @@ function Checks({ items }: { items: string[] }) {
 }
 
 function Sources({ sources, openUrl }: { sources: DiagSource[]; openUrl: (url: string) => Promise<unknown> }) {
+  const styles = useStyles();
   return (
     <View style={styles.sources}>
       <Text style={styles.subhead}>From the maker</Text>
@@ -192,7 +196,7 @@ function Sources({ sources, openUrl }: { sources: DiagSource[]; openUrl: (url: s
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   safety: { padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.warnBg, gap: sp(6) },
   safetyTitle: { fontSize: type.value, fontWeight: '800', color: colors.text },
@@ -224,4 +228,4 @@ const styles = StyleSheet.create({
   sourceTitle: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   sourceHost: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },
-});
+}));

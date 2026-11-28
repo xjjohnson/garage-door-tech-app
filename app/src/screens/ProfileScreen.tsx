@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action, QuickAction } from '../components/Buttons';
 import { Caption, IconRow, RowGroup } from '../components/ToolRows';
@@ -12,6 +12,7 @@ import { useOdoo } from '../lib/useOdoo';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, inPeriod, totals, weekOf } from '../lib/worklog';
 import { colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Tab = 'details' | 'certificates' | 'badges' | 'payroll';
 const TABS: { id: Tab; label: string }[] = [
@@ -29,6 +30,7 @@ const TABS: { id: Tab; label: string }[] = [
  * and save to Odoo.
  */
 export function ProfileScreen() {
+  const styles = useStyles();
   const odoo = useOdoo();
   const client = odoo.status === 'signedIn' ? odoo.client : null;
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -148,6 +150,7 @@ export function ProfileScreen() {
 }
 
 function Details({ profile, onSaved }: { profile: Profile; onSaved: () => void }) {
+  const styles = useStyles();
   const odoo = useOdoo();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -195,6 +198,7 @@ function Details({ profile, onSaved }: { profile: Profile; onSaved: () => void }
 }
 
 function Line({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={[styles.line, !last && styles.lineRule]}>
       <Text style={styles.lineLabel}>{label}</Text>
@@ -205,6 +209,7 @@ function Line({ label, value, last }: { label: string; value: string; last?: boo
 
 /** Your own week from the time clock; the owner also sees each person's hours this week from Odoo. */
 function Payroll({ owner }: { owner: boolean }) {
+  const styles = useStyles();
   const odoo = useOdoo();
   const { shifts, centsPerMile } = useWorkLog();
   const [team, setTeam] = useState<TeamHours[]>([]);
@@ -249,7 +254,7 @@ const open = (url: string) => {
   Linking.openURL(url).catch(() => undefined);
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   note: { fontSize: fs(16), fontWeight: '600', color: colors.muted, textAlign: 'left' },
   error: { fontSize: type.body, fontWeight: '700', color: colors.stop },
@@ -273,4 +278,4 @@ const styles = StyleSheet.create({
   lineLabel: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   lineValue: { flexShrink: 1, fontSize: type.body, fontWeight: '700', color: colors.text, textAlign: 'right' },
   input: { minHeight: touch.min, borderRadius: radius.field, borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: sp(14), fontSize: type.body, color: colors.text },
-});
+}));

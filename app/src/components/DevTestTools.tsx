@@ -6,7 +6,7 @@
  * the phone only.
  */
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { Action } from './Buttons';
 import { ChipRow, SectionTitle } from './controls';
@@ -14,6 +14,7 @@ import { RELEASE_NOTES, newerThan, type ReleaseNote } from '../data/releaseNotes
 import { onDevFlags, pretendTime, Preview, PREVIEWS, rolePreviews, setPretendTime, setRolePreviews, setWeakSignal, Signal, weakSignal } from '../lib/devFlags';
 import { doneCount, loadSeenRelease, loadTicks, saveSeenRelease, setTick, Ticks } from '../lib/testChecklist';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Props {
   /** The release number the phone is running. */
@@ -32,6 +33,7 @@ const SIGNALS: { value: Signal; label: string }[] = [
 ];
 
 export function DevTestTools({ release, shareText, logText, notes = RELEASE_NOTES }: Props) {
+  const styles = useStyles();
   const [, tick] = useState(0);
   useEffect(() => onDevFlags(() => tick((n) => n + 1)), []);
   const [ticks, setTicks] = useState<Ticks>({});
@@ -149,7 +151,7 @@ export function DevTestTools({ release, shareText, logText, notes = RELEASE_NOTE
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   roleChips: { gap: sp(8) },
   row: { flexDirection: 'row', gap: sp(8), alignItems: 'center' },
@@ -159,4 +161,4 @@ const styles = StyleSheet.create({
   itemText: { color: colors.text, fontSize: type.body, fontWeight: '700' },
   done: { color: colors.muted },
   input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-});
+}));

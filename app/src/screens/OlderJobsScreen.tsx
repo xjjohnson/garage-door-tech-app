@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { formatJobDate, jobName } from '../lib/jobs';
@@ -8,6 +8,7 @@ import { olderJobs } from '../lib/odooJobs';
 import { useJobs } from '../lib/useJobs';
 import { useJobsSince } from '../lib/useJobsSince';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Open jobs saved before the phone started sending jobs to Odoo. None go on
@@ -15,6 +16,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
  * on the phone only.
  */
 export function OlderJobsScreen() {
+  const styles = useStyles();
   const { jobs, setSendToOdoo } = useJobs();
   const since = useJobsSince();
   const list = olderJobs(jobs, since);
@@ -71,11 +73,11 @@ export function OlderJobsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   card: { minHeight: touch.min, padding: sp(12), gap: sp(4), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   cardOn: { borderWidth: bw(4), backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
   name: { fontSize: type.body, fontWeight: '800', color: colors.text },
-});
+}));

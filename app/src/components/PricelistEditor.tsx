@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useBackStep } from '../lib/backStep';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { Action } from './Buttons';
 import { Card, Message, Meta, Note, NumBox, Row, TextBox, Title, toCents, toNum, useRun } from './Dept';
@@ -9,6 +9,7 @@ import { OdooClient } from '../lib/odoo';
 import { listPricelists, Pricelist, pricelistOptionOn, pricelistRules, pricelistsAvailable, PriceRule, removePriceRule, RuleKind, RuleScope, ruleText, savePriceRule } from '../lib/odooPurchasing';
 import { browseProducts } from '../lib/odooStock';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Draft {
   id?: number;
@@ -29,6 +30,7 @@ const blank = (): Draft => ({ scope: 'product', target: '', kind: 'percentage', 
  * app never turns that on. Used in Management and in Purchasing.
  */
 export function PricelistEditor({ client, canEdit }: { client: OdooClient; canEdit: boolean }) {
+  const styles = useStyles();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [optionOn, setOptionOn] = useState<boolean | null>(null);
   const [lists, setLists] = useState<Pricelist[] | null>(null);
@@ -183,7 +185,7 @@ export function PricelistEditor({ client, canEdit }: { client: OdooClient; canEd
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   foot: { fontSize: fs(14), color: colors.muted },
-});
+}));

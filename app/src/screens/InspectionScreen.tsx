@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Pressable, Share, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow as HubRow } from '../components/Buttons';
 import { goodOf, ItemSheet, tileGroups, TileGrid, uncheckedItems } from '../components/InspectionTiles';
@@ -45,6 +45,7 @@ import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
 import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const TAX_OPTIONS = [
   { label: 'Taxed (parts)', value: 'yes' as const },
@@ -67,6 +68,7 @@ type Page = 'hub' | 'finish' | string;
  * the suggested repairs on to the ticket.
  */
 export function InspectionScreen({ job }: { job: Job }) {
+  const styles = useStyles();
   const { jobs, setInspection, setTicket } = useJobs();
   // Redraw when the checklist changes (Odoo's surveys arrive).
   useSyncExternalStore(subscribeChecklist, checklistVersion);
@@ -460,6 +462,7 @@ function EntryRow({ insp, entry, onOpen }: { insp: Inspection; entry: HubEntry; 
 }
 
 function Stat({ big, label, warn }: { big: string; label: string; warn?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={[styles.stat, warn && styles.statWarn]}>
       <Text style={[styles.statBig, warn && styles.statWarnText]}>{big}</Text>
@@ -469,6 +472,7 @@ function Stat({ big, label, warn }: { big: string; label: string; warn?: boolean
 }
 
 function Toggle({ label, on, onPress, testID }: { label: string; on: boolean; onPress: () => void; testID: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="checkbox" accessibilityState={{ checked: on }} testID={testID} style={({ pressed }) => [styles.toggle, pressed && styles.pressed]}>
       <View style={[styles.box, on && styles.boxOn]}>{on ? <Text style={styles.tick}>✓</Text> : null}</View>
@@ -479,6 +483,7 @@ function Toggle({ label, on, onPress, testID }: { label: string; on: boolean; on
 
 /** The extra info questions added in Odoo: a pick list, or a box to type in. */
 function ExtraFields({ defs, values, onChange, testPrefix }: { defs: ExtraDef[]; values: Record<string, string> | undefined; onChange: (id: string, value: string) => void; testPrefix: string }) {
+  const styles = useStyles();
   return (
     <>
       {defs.map((d) =>
@@ -496,6 +501,7 @@ function ExtraFields({ defs, values, onChange, testPrefix }: { defs: ExtraDef[];
 }
 
 function Field({ label, value, onChange, placeholder, testID }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -504,7 +510,7 @@ function Field({ label, value, onChange, placeholder, testID }: { label: string;
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   row: { flexDirection: 'row', gap: sp(8) },
   for: { fontSize: type.value, fontWeight: '800', color: colors.text },
@@ -553,4 +559,4 @@ const styles = StyleSheet.create({
   summaryCard: { flexDirection: 'row', alignItems: 'center', gap: sp(10), padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
   editLink: { minHeight: sz(44), minWidth: 56, alignItems: 'center', justifyContent: 'center' },
   editText: { fontSize: type.body, fontWeight: '800', color: colors.selected },
-});
+}));

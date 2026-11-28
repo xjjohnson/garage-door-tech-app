@@ -1,6 +1,7 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from './AppText';
 import { colors, radius, fs, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export const STATUS_STEPS = ['On my way', 'Arrived', 'Work done', 'Paid'] as const;
 
@@ -10,6 +11,7 @@ export const STATUS_STEPS = ['On my way', 'Arrived', 'Work done', 'Paid'] as con
  * visit card around it opens the job where the steps are tapped.
  */
 export function StepChips({ done, testID }: { done: boolean[]; testID?: string }) {
+  const styles = useStyles();
   const current = done.findIndex((d) => !d);
   return (
     <View style={styles.row} testID={testID}>
@@ -26,7 +28,7 @@ export function StepChips({ done, testID }: { done: boolean[]; testID?: string }
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   row: { flexDirection: 'row', gap: sp(6), marginTop: sp(10) },
   chip: { flex: 1, minHeight: sz(44), borderRadius: radius.card - 6, backgroundColor: colors.info, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(4) },
   done: { backgroundColor: colors.line },
@@ -34,4 +36,4 @@ const styles = StyleSheet.create({
   text: { fontSize: fs(12.5), fontWeight: '800', textAlign: 'center', color: colors.selected },
   doneText: { color: colors.muted, fontWeight: '700' },
   curText: { color: colors.onSelected },
-});
+}));

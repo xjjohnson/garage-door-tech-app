@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { JobInputs, jobName } from '../lib/jobs';
 import { useJobs } from '../lib/useJobs';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 import { BarSummary } from './CalcLayout';
+import { makeStyles } from '../lib/makeStyles';
 
 const SAVED_MS = 4000;
 
@@ -30,6 +31,7 @@ export function SaveJobPanel({
   onLink: (id: string | undefined) => void;
   testID?: string;
 }) {
+  const styles = useStyles();
   const { jobs, updateInputs } = useJobs();
   const [saved, setSaved] = useState<string | null>(null);
   const linked = linkedId ? jobs.find((j) => j.id === linkedId) : undefined;
@@ -69,6 +71,7 @@ export function SaveJobPanel({
 }
 
 function Button({ label, onPress, primary, disabled, grow, testID }: { label: string; onPress: () => void; primary?: boolean; disabled?: boolean; grow?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -83,7 +86,7 @@ function Button({ label, onPress, primary, disabled, grow, testID }: { label: st
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   box: { gap: sp(8), paddingTop: sp(14), marginTop: sp(4), borderTopWidth: 1, borderTopColor: colors.border },
   linked: { fontSize: type.body, fontWeight: '800', color: colors.text },
   hint: { fontSize: fs(16), color: colors.muted },
@@ -98,4 +101,4 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.onSelected },
   offText: { color: colors.muted },
   pressedText: { color: colors.text },
-});
+}));

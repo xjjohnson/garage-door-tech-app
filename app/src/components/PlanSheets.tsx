@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { DAY } from '../lib/followups';
 import type { AgreementRow, FrequencySet, RepeatRow } from '../lib/odooRecurring';
@@ -7,9 +7,11 @@ import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { colors, touch, type, bw, fs, rad, sp, sz } from '../theme';
 import { MaintenancePlan, planSummary } from '../lib/maintenancePlans';
 import { ChipRow } from './controls';
+import { makeStyles } from '../lib/makeStyles';
 
 /** A bottom sheet with a title, Cancel, the fields, an error line and one save button. */
 function Sheet({ visible, title, children, canSave, busy, error, saveLabel, onSave, onCancel, testID }: { visible: boolean; title: string; children: ReactNode; canSave: boolean; busy?: boolean; error?: string | null; saveLabel: string; onSave: () => void; onCancel: () => void; testID: string }) {
+  const styles = useStyles();
   const kb = useKeyboardHeight();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
@@ -60,6 +62,7 @@ export interface RepeatChoice {
 
 /** Makes a repeating visit for a customer: the yearly tune-up, or one of Odoo's frequencies. */
 export function RepeatSheet({ visible, customer, sets, busy, error, onSave, onCancel }: { visible: boolean; customer: string; sets: FrequencySet[]; busy?: boolean; error?: string | null; onSave: (c: RepeatChoice) => void; onCancel: () => void }) {
+  const styles = useStyles();
   const [every, setEvery] = useState<number | 'yearly'>('yearly');
   const [days, setDays] = useState(365);
   useEffect(() => {
@@ -83,6 +86,7 @@ export function RepeatSheet({ visible, customer, sets, busy, error, onSave, onCa
 
 /** Choose one of the maintenance plans: to add to a customer, or to change their plan to. */
 export function PlanPickSheet({ visible, title, plans, note, busy, error, onPick, onCancel }: { visible: boolean; title: string; plans: MaintenancePlan[]; note?: string; busy?: boolean; error?: string | null; onPick: (p: MaintenancePlan) => void; onCancel: () => void }) {
+  const styles = useStyles();
   return (
     <Sheet visible={visible} title={title} canSave={false} saveLabel="" busy={busy} error={error} onSave={() => undefined} onCancel={onCancel} testID="plan-sheet">
       {plans.length === 0 ? <Text style={styles.note}>No plans are set up. The owner adds them in Management, Maintenance plans.</Text> : null}
@@ -106,6 +110,7 @@ export interface NewFollowUp {
 
 /** A follow-up added by hand: becomes a to-do on the customer in Odoo. With no customer given, the tech picks one. */
 export function NewFollowUpSheet({ visible, customer, customers, busy, error, onSave, onCancel }: { visible: boolean; customer?: string; customers?: { id: number; name: string }[]; busy?: boolean; error?: string | null; onSave: (f: NewFollowUp) => void; onCancel: () => void }) {
+  const styles = useStyles();
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [days, setDays] = useState(7);
@@ -169,6 +174,7 @@ const TERMS = [
 
 /** Makes (or, with `editing`, renames) a service agreement: a record of the plan, with no billing. */
 export function AgreementSheet({ visible, customer, editing, repeats, busy, error, onSave, onCancel }: { visible: boolean; customer: string; editing?: AgreementRow; repeats: RepeatRow[]; busy?: boolean; error?: string | null; onSave: (c: AgreementChoice) => void; onCancel: () => void }) {
+  const styles = useStyles();
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [years, setYears] = useState(1);
@@ -209,7 +215,7 @@ export function AgreementSheet({ visible, customer, editing, repeats, busy, erro
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   dismiss: { flex: 1 },
   sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '90%' },
@@ -230,4 +236,4 @@ const styles = StyleSheet.create({
   saveOff: { backgroundColor: colors.muted },
   pressed: { backgroundColor: colors.info },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
-});
+}));

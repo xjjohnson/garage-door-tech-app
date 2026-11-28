@@ -1,7 +1,7 @@
 import { Appearance } from 'react-native';
 import { readStartChoice, readStartValue } from './lib/themeStart';
 import { BAR_PX, BUTTON_PX, Look, brandPalette, cleanBrandColor, parsePalette, scaleBorder, scaleFont, scaleHeight, scaleRadius, scaleSpace } from './lib/themeLook';
-import { parseTheme, themeById } from './lib/themes';
+import { parseTheme, themeById, ThemeId } from './lib/themes';
 
 /**
  * The Johnsons look (style H1): forest green on a soft page, white rounded
@@ -98,27 +98,35 @@ function startScheme(): 'light' | 'dark' {
 export const scheme: 'light' | 'dark' = startScheme();
 export const isDark = scheme === 'dark';
 
-/** The theme this run drew itself in, read at start like the scheme. Classic until one is picked. */
-export const themeDef = (() => {
+const startThemeId = (() => {
   try {
-    return themeById(parseTheme(readStartValue('apptheme')));
+    return parseTheme(readStartValue('apptheme'));
   } catch {
-    return themeById('classic');
+    return parseTheme(null);
   }
 })();
-export const layouts = themeDef.layouts;
 
-/** The look this run drew itself in: the theme's shape and size, and whether the company color tints it. */
-function startLook(): Look {
+/**
+ * The theme in use, read at start and changeable while the app runs (`applyTheme`).
+ * These exports (themeDef, layouts, look, colors, touch, type, radius, shadow) are the same
+ * objects for the whole run and are updated in place, so the numbers a screen reads at draw
+ * time are always current. Styles built once at load would be stale: screens build theirs with
+ * `makeStyles` (lib/makeStyles.ts), which rebuilds them when the theme changes.
+ */
+export const themeDef = { ...themeById(startThemeId) };
+export const layouts = { ...themeDef.layouts };
+
+/** The look in use: the theme's shape and size, and whether the company color tints it. */
+function palettePick() {
   try {
-    return { shape: themeDef.shape, size: themeDef.size, palette: parsePalette(readStartValue('palette')) };
+    return parsePalette(readStartValue('palette'));
   } catch {
-    return { shape: 'round', size: 'legacy', palette: 'johnsons' };
+    return 'johnsons' as const;
   }
 }
-export const look: Look = startLook();
+export const look: Look = { shape: themeDef.shape, size: themeDef.size, palette: palettePick() };
 
-function startColors(): typeof light {
+function themeColors(): typeof light {
   const base = isDark ? dark : light;
   // The company's own color from Odoo (saved by companyBrand.ts) wins when the tech chose it. None saved: the theme's own color.
   const brand = look.palette === 'brand' ? cleanBrandColor(readStartValue('brandcolor')) : null;
@@ -128,7 +136,7 @@ function startColors(): typeof light {
   const own = themeDef.colors?.[isDark ? 'dark' : 'light'];
   return own ? { ...tinted, ...own } : tinted;
 }
-export const colors: typeof light = startColors();
+export const colors: typeof light = themeColors();
 
 /** min: any button or chip. bar: the pinned answer bar and the bottom tabs. Scaled by the size pick. */
 export const touch = { min: BUTTON_PX[look.size], bar: BAR_PX[look.size] };
@@ -147,24 +155,60 @@ export const sp = (n: number) => scaleSpace(n, look.size);
 export const bw = (n: number) => scaleBorder(n, look.shape);
 
 export const type = {
-  label: scaleFont(18, look.size),
-  body: scaleFont(18, look.size),
-  value: scaleFont(22, look.size),
-  big: scaleFont(30, look.size),
-  huge: scaleFont(40, look.size),
+  label: fs(18),
+  body: fs(18),
+  value: fs(22),
+  big: fs(30),
+  huge: fs(40),
 };
 
 /** Corners: fields and buttons, cards, sheets, and full pills. */
 export const radius = { field: rad(12), card: rad(16), sheet: rad(22), pill: 999 };
 
+type Shadow = { shadowColor: string; shadowOpacity: number; shadowRadius: number; shadowOffset: { width: number; height: number }; elevation: number };
+
+function themeShadow(): Shadow {
+  return look.shape === 'square'
+    ? { shadowColor: colors.shadow, shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 0 }
+    : { shadowColor: colors.shadow, shadowOpacity: isDark ? 0.4 : 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 };
+}
 
 /** The soft card shadow from the approved screens. */
-export const shadow = look.shape === 'square'
-  ? ({ shadowColor: colors.shadow, shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 0 } as const)
-  : ({
-      shadowColor: colors.shadow,
-      shadowOpacity: isDark ? 0.4 : 0.08,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 2,
-    } as const);
+export const shadow: Shadow = themeShadow();
+
+let version = 0;
+const listeners = new Set<() => void>();
+
+/** Goes up every time the theme changes; styles built for an older number are rebuilt. */
+export function themeVersion(): number {
+  return version;
+}
+
+export function onThemeChange(l: () => void): () => void {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+}
+
+/**
+ * Switches the running app to another theme: updates every exported look object in place and
+ * tells the screens to redraw. Nothing is saved here (the caller saves the pick for the next start).
+ */
+export function applyTheme(id: ThemeId): void {
+  const next = themeById(id);
+  Object.assign(themeDef, next);
+  for (const k of Object.keys(layouts)) delete (layouts as Record<string, unknown>)[k];
+  Object.assign(layouts, next.layouts);
+  look.shape = next.shape;
+  look.size = next.size;
+  look.palette = palettePick();
+  Object.assign(colors, themeColors());
+  touch.min = BUTTON_PX[look.size];
+  touch.bar = BAR_PX[look.size];
+  Object.assign(type, { label: fs(18), body: fs(18), value: fs(22), big: fs(30), huge: fs(40) });
+  Object.assign(radius, { field: rad(12), card: rad(16), sheet: rad(22), pill: 999 });
+  Object.assign(shadow, themeShadow());
+  version += 1;
+  listeners.forEach((l) => l());
+}

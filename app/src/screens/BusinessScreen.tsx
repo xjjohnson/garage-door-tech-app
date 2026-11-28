@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { SectionTitle, Segmented } from '../components/controls';
 import { loadCompanyBrand } from '../lib/companyBrand';
@@ -13,6 +13,7 @@ import { isOwner } from '../lib/scorecard';
 import { useInvoices } from '../lib/useInvoices';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const FIELDS: { key: 'cashtag' | 'venmo' | 'zelle' | 'reviewUrl'; label: string; placeholder: string; hint?: string; keyboard?: 'phone-pad' | 'email-address' | 'url' }[] = [
   { key: 'cashtag', label: 'Cash App $cashtag', placeholder: '$yourcashtag', hint: 'Invoices show a QR code that opens Cash App with the amount filled in.' },
@@ -63,6 +64,7 @@ const PROFILE_FIELDS: Record<'identity' | 'contact' | 'documents', { key: Profil
  * else sees them. Not signed in, they are saved on this phone as typed.
  */
 export function BusinessScreen() {
+  const styles = useStyles();
   const { business, setBusiness } = useInvoices();
   const { client, status } = useOdoo();
   const signedIn = status === 'signedIn' && !!client;
@@ -277,6 +279,7 @@ export function BusinessScreen() {
 }
 
 function Box({ label, hint, value, editable, onChange, placeholder, keyboard, caps, testID }: { label: string; hint?: string; value: string; editable: boolean; onChange: (v: string) => void; placeholder: string; keyboard?: string; caps?: boolean; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -298,7 +301,7 @@ function Box({ label, hint, value, editable, onChange, placeholder, keyboard, ca
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   logo: { height: 64, width: '100%', alignSelf: 'flex-start' },
   field: { gap: sp(4) },
@@ -317,4 +320,4 @@ const styles = StyleSheet.create({
   },
   save: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   qr: { alignItems: 'center', gap: sp(8), padding: sp(12), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
-});
+}));

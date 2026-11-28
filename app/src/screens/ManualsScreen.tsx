@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, Segmented } from '../components/controls';
 import { DOC_KIND_LABEL, MANUAL_LINKS, ManualLink, Market, MARKET_LABEL } from '../data/manuals';
@@ -7,6 +7,7 @@ import { deviceManualFiles, ManualFiles } from '../lib/manualFiles';
 import { brandsFor, checkReach, formatChecked, linkMarkets, searchManuals } from '../lib/manualSearch';
 import { useSavedManuals } from '../lib/useSavedManuals';
 import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const ALL = 'all';
 
@@ -59,6 +60,7 @@ interface Props {
  * are saved on the phone, so they open with no signal.
  */
 export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.openURL(u), files = DEVICE_FILES }: Props) {
+  const styles = useStyles();
   const saved = useSavedManuals(files);
   const [query, setQuery] = useState('');
   const [market, setMarket] = useState<string>(ALL);
@@ -328,7 +330,7 @@ export function ManualsScreen({ fetchImpl = fetch, openUrl = (u) => Linking.open
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   searchRow: { flexDirection: 'row', gap: sp(8) },
   search: {
@@ -383,4 +385,4 @@ const styles = StyleSheet.create({
   docText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   more: { backgroundColor: colors.card, borderStyle: 'dashed' },
   moreText: { fontSize: fs(16), fontWeight: '700', color: colors.text },
-});
+}));

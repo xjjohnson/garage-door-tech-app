@@ -1,7 +1,8 @@
 import { ReactNode, useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { colors, radius, touch, type, bw, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** Small pieces the Warehouse and Purchasing screens share. */
 
@@ -32,6 +33,7 @@ export function useRun() {
 }
 
 export function Message({ msg, testID }: { msg: Msg | null; testID?: string }) {
+  const styles = useStyles();
   if (!msg) return null;
   return (
     <Text style={[styles.msg, msg.bad && styles.bad]} testID={testID ?? 'dept-message'}>
@@ -44,6 +46,7 @@ export type Tone = 'bad' | 'warn' | 'ok' | 'plain';
 
 /** A white card. `edge` paints a colored strip down its left side (red: act now, amber: watch, green: fine) so a list reads at a glance. */
 export function Card({ children, warn, edge, testID }: { children: ReactNode; warn?: boolean; edge?: Tone; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={[styles.card, warn && styles.warn, edge && edge !== 'plain' && { borderLeftWidth: bw(6), borderLeftColor: toneColor(edge) }]} testID={testID}>
       {children}
@@ -55,6 +58,7 @@ const toneColor = (t: Tone) => (t === 'bad' ? colors.stop : t === 'warn' ? color
 
 /** A short status label: Late 3 days, Draft, Counted. */
 export function Pill({ text, tone = 'plain', testID }: { text: string; tone?: Tone; testID?: string }) {
+  const styles = useStyles();
   const bg = tone === 'bad' ? colors.stop : tone === 'warn' ? colors.warnBg : tone === 'ok' ? colors.info : colors.line;
   const fg = tone === 'bad' ? colors.onStop : tone === 'warn' ? colors.warn : tone === 'ok' ? colors.ok : colors.muted;
   return (
@@ -66,6 +70,7 @@ export function Pill({ text, tone = 'plain', testID }: { text: string; tone?: To
 
 /** A title with a status pill on its right. */
 export function TitleRow({ title, pill, tone, testID }: { title: string; pill?: string; tone?: Tone; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.titleRow}>
       <Text style={[styles.title, styles.titleGrow]}>{title}</Text>
@@ -76,6 +81,7 @@ export function TitleRow({ title, pill, tone, testID }: { title: string; pill?: 
 
 /** Big numbers across the top: what needs a look. A number above zero in a red or amber tile reads as work to do. */
 export function Tiles({ items, testID }: { items: { value: string | number; label: string; tone?: Tone; onPress?: () => void; testID?: string }[]; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.tiles} testID={testID}>
       {items.map((t) => (
@@ -88,19 +94,29 @@ export function Tiles({ items, testID }: { items: { value: string | number; labe
   );
 }
 
-export const Title = ({ children }: { children: ReactNode }) => <Text style={styles.title}>{children}</Text>;
-export const Meta = ({ children, bad }: { children: ReactNode; bad?: boolean }) => <Text style={[styles.meta, bad && styles.bad]}>{children}</Text>;
-export const Note = ({ children, testID }: { children: ReactNode; testID?: string }) => (
-  <Text style={styles.note} testID={testID}>
-    {children}
-  </Text>
-);
+export const Title = ({ children }: { children: ReactNode }) => {
+  const styles = useStyles();
+  return <Text style={styles.title}>{children}</Text>;
+};
+export const Meta = ({ children, bad }: { children: ReactNode; bad?: boolean }) => {
+  const styles = useStyles();
+  return <Text style={[styles.meta, bad && styles.bad]}>{children}</Text>;
+};
+export const Note = ({ children, testID }: { children: ReactNode; testID?: string }) => {
+  const styles = useStyles();
+  return (
+    <Text style={styles.note} testID={testID}>
+      {children}
+    </Text>
+  );
+};
 
 /**
  * The parts on an order in one short line ("2 x Spring, 1 x Cable, +3 more"),
  * tap it to open the full list. Kept compact so a list of orders stays short.
  */
 export function PartsSummary({ items, testID, children }: { items: { name: string; qty: number; extra?: string }[]; testID?: string; children?: ReactNode }) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   if (items.length === 0) return <Meta>No parts on it yet</Meta>;
   const short = items.slice(0, 2).map((i) => `${i.qty} × ${i.name}`).join(', ') + (items.length > 2 ? `, +${items.length - 2} more` : '');
@@ -117,6 +133,7 @@ export function PartsSummary({ items, testID, children }: { items: { name: strin
 
 /** A typed number (whole or with a decimal point). */
 export function NumBox({ value, onChange, label, testID, width = 96 }: { value: string; onChange: (v: string) => void; label: string; testID?: string; width?: number }) {
+  const styles = useStyles();
   return (
     <TextInput
       value={value}
@@ -132,6 +149,7 @@ export function NumBox({ value, onChange, label, testID, width = 96 }: { value: 
 }
 
 export function TextBox({ value, onChange, label, testID }: { value: string; onChange: (v: string) => void; label: string; testID?: string }) {
+  const styles = useStyles();
   return <TextInput value={value} onChangeText={onChange} accessibilityLabel={label} placeholder={label} placeholderTextColor={colors.muted} testID={testID} style={[styles.input, styles.wide]} />;
 }
 
@@ -150,9 +168,12 @@ export const toCents = (s: string): number | null => {
 
 export const dateText = (ms?: number) => (ms ? new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'never');
 
-export const Row = ({ children }: { children: ReactNode }) => <View style={styles.row}>{children}</View>;
+export const Row = ({ children }: { children: ReactNode }) => {
+  const styles = useStyles();
+  return <View style={styles.row}>{children}</View>;
+};
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   msg: { fontSize: fs(16), fontWeight: '800', color: colors.text, lineHeight: fs(22) },
   bad: { color: colors.stop },
   card: { padding: sp(12), gap: sp(8), borderRadius: radius.card, backgroundColor: colors.card },
@@ -172,4 +193,4 @@ const styles = StyleSheet.create({
   tileValue: { fontSize: fs(28), fontWeight: '800' },
   tileLabel: { fontSize: fs(11), fontWeight: '800', color: colors.muted, textAlign: 'center' },
   row: { flexDirection: 'row', gap: sp(8), alignItems: 'center', flexWrap: 'wrap' },
-});
+}));

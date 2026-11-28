@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { useEffect, useRef, useState } from 'react';
 import { repaintRestart } from '../lib/useColorSchemeReload';
-import { Appearance, Pressable, StyleSheet, View } from 'react-native';
+import { Appearance, Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Segmented } from '../components/controls';
 import { Caption, IconRow, RowGroup } from '../components/ToolRows';
@@ -17,6 +17,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useDepartments, useOwner } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, look as drawnLook, themeDef, scheme, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Props {
   /** expo-updates; tests pass a fake. */
@@ -39,6 +40,7 @@ const CHECK_NOTE: Record<OtaCheck, string> = {
  * for team jobs, and backups. Day-to-day buttons stay on Jobs.
  */
 export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAsync(), buildInfo = BUILD_INFO, channel = UPDATE_CHANNEL }: Props) {
+  const styles = useStyles();
   const { access } = useDepartments();
   const { business } = useInvoices();
   const odoo = useOdoo();
@@ -173,6 +175,7 @@ export function SettingsScreen({ api = Updates, restart = () => Updates.reloadAs
 }
 
 function Action({ label, onPress, primary, disabled, testID }: { label: string; onPress: () => void; primary?: boolean; disabled?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -187,7 +190,7 @@ function Action({ label, onPress, primary, disabled, testID }: { label: string; 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrap: { gap: sp(12) },
   card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(12), padding: sp(12), backgroundColor: colors.card, gap: sp(4) },
   themeCard: { padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.line, backgroundColor: colors.card },
@@ -207,4 +210,4 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.onSelected },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
-});
+}));

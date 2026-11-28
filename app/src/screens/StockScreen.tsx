@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, Share, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { KeyboardBackdrop } from '../components/KeyboardBackdrop';
@@ -20,9 +20,11 @@ import { NewStockItem, useStock } from '../lib/useStock';
 import { useCanAdjustStock } from '../lib/useStockLock';
 import { useTruckSync } from '../lib/useTruckSync';
 import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** At the top of Jobs: how many items are low. */
 export function StockButton() {
+  const styles = useStyles();
   const { items } = useStock();
   const low = items.filter(isLow).length;
   return (
@@ -49,6 +51,7 @@ const ago = (ms: number, now: number) => {
  * both ways. A barcode scan counts an item or adds a new one.
  */
 export function StockScreen() {
+  const styles = useStyles();
   const store = useStock();
   const canAdjust = useCanAdjustStock();
   const { items, suppliers, add, update, adjust, remove, addStarter, received, setSupplier, addToOdoo } = store;
@@ -466,6 +469,7 @@ export function StockScreen() {
 
 /** Picks which Odoo location is this tech's truck. */
 function TruckSheet({ trucks, current, onPick, onCancel }: { trucks: TruckLink[] | null; current?: number; onPick: (t: TruckLink) => void; onCancel: () => void }) {
+  const styles = useStyles();
   if (!trucks || trucks.length === 0) return null;
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
@@ -491,6 +495,7 @@ function TruckSheet({ trucks, current, onPick, onCancel }: { trucks: TruckLink[]
 
 /** Sets an item's count after a scan: type it, or step it with - and +. */
 function CountSheet({ item, prompt, saveLabel = 'Save count', onSave, onCancel }: { item: StockItem | null; prompt?: string; saveLabel?: string; onSave: (n: number) => void; onCancel: () => void }) {
+  const styles = useStyles();
   const [n, setN] = useState(0);
   useEffect(() => {
     if (item) setN(item.onHand);
@@ -524,6 +529,7 @@ function CountSheet({ item, prompt, saveLabel = 'Save count', onSave, onCancel }
 }
 
 function Row({ i, unsent, readOnly, onAdjust, onEdit }: { i: StockItem; unsent?: boolean; readOnly?: boolean; onAdjust: (by: number) => void; onEdit: () => void }) {
+  const styles = useStyles();
   const low = isLow(i);
   return (
     <View style={[styles.item, low && styles.low]} testID={`stock-${i.id}`}>
@@ -565,6 +571,7 @@ function ItemSheet({
   onCancel: () => void;
   onDelete: () => void;
 }) {
+  const styles = useStyles();
   const [f, setF] = useState<NewStockItem | null>(value);
   const [cost, setCost] = useState('');
   const { client: odooClient } = useOdoo();
@@ -625,6 +632,7 @@ function ItemSheet({
 }
 
 function SupplierSheet({ name, initial, onSave, onCancel }: { name: string | null; initial?: { phone: string; email: string }; onSave: (s: { name: string; phone: string; email: string }) => void; onCancel: () => void }) {
+  const styles = useStyles();
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   useEffect(() => {
@@ -654,6 +662,7 @@ function SupplierSheet({ name, initial, onSave, onCancel }: { name: string | nul
 }
 
 function TextField({ label, value, onChange, placeholder, keyboard, testID }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; keyboard?: 'phone-pad' | 'email-address'; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -674,6 +683,7 @@ function TextField({ label, value, onChange, placeholder, keyboard, testID }: { 
 }
 
 function Action({ label, onPress, primary, grow, testID, accessibilityLabel }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; testID?: string; accessibilityLabel?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} testID={testID} style={({ pressed }) => [styles.button, grow && styles.grow, primary && styles.primary, pressed && styles.pressed]}>
       {({ pressed }) => <Text style={[styles.buttonText, primary && !pressed && styles.primaryText]}>{label}</Text>}
@@ -681,7 +691,7 @@ function Action({ label, onPress, primary, grow, testID, accessibilityLabel }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   syncCard: { padding: sp(12), gap: sp(6), borderRadius: rad(12), backgroundColor: colors.card },
   message: { fontSize: fs(16), fontWeight: '800', color: colors.text },
@@ -720,4 +730,4 @@ const styles = StyleSheet.create({
   save: { minHeight: touch.bar, borderRadius: rad(12), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   saveOff: { backgroundColor: colors.muted },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
-});
+}));

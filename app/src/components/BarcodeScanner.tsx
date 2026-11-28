@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type CameraModule = typeof import('expo-camera');
 
@@ -24,6 +25,7 @@ export const PART_BARCODES = ['upc_a', 'upc_e', 'ean13', 'ean8', 'code128', 'cod
  * camera permission.
  */
 export function BarcodeScanner({ visible, title, hint, onCode, onClose }: { visible: boolean; title: string; hint?: string; onCode: (code: string) => void; onClose: () => void }) {
+  const styles = useStyles();
   const [typed, setTyped] = useState('');
   useEffect(() => {
     if (visible) setTyped('');
@@ -70,12 +72,14 @@ export function BarcodeScanner({ visible, title, hint, onCode, onClose }: { visi
 }
 
 function CameraBox({ onCode }: { onCode: (code: string) => void }) {
+  const styles = useStyles();
   const cam = useRef(loadCamera()).current;
   if (!cam) return <Text style={styles.note}>The camera scanner needs app version 0.5.0 or newer on this phone.</Text>;
   return <LiveCamera cam={cam} onCode={onCode} />;
 }
 
 function LiveCamera({ cam, onCode }: { cam: CameraModule; onCode: (code: string) => void }) {
+  const styles = useStyles();
   const [permission, requestPermission] = cam.useCameraPermissions();
   // The camera reports the same code many times a second; take it once.
   const last = useRef<{ code: string; at: number } | null>(null);
@@ -109,7 +113,7 @@ function LiveCamera({ cam, onCode }: { cam: CameraModule; onCode: (code: string)
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10) },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(12) },
@@ -126,4 +130,4 @@ const styles = StyleSheet.create({
   use: { minHeight: touch.min, minWidth: 88, borderRadius: rad(14), paddingHorizontal: sp(14), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.selected },
   useText: { fontSize: type.body, fontWeight: '800', color: colors.onSelected },
   pressed: { opacity: 0.8 },
-});
+}));

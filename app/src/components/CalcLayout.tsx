@@ -1,7 +1,8 @@
 import { ReactNode, useRef } from 'react';
-import { Pressable, ScrollView, ScrollViewInstance, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, ScrollViewInstance, View } from 'react-native';
 import { Text } from './AppText';
 import { colors, touch, type, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export type BarTone = 'waiting' | 'ok' | 'stop';
 
@@ -25,6 +26,7 @@ export interface BarSummary {
  * results, which start with any STOP or CHECK card, then the safety banner.
  */
 export function CalcLayout({ inputs, results, summary, testID }: { inputs: ReactNode; results: ReactNode; summary: BarSummary; testID?: string }) {
+  const styles = useStyles();
   const scroll = useRef<ScrollViewInstance>(null);
   const resultsY = useRef(0);
   return (
@@ -45,14 +47,15 @@ export function CalcLayout({ inputs, results, summary, testID }: { inputs: React
   );
 }
 
-const TONE = {
+const tones = () => ({
   waiting: { box: { backgroundColor: colors.card }, text: { color: colors.text }, sub: { color: colors.muted } },
   ok: { box: { backgroundColor: colors.card }, text: { color: colors.text }, sub: { color: colors.muted } },
   stop: { box: { backgroundColor: colors.stop }, text: { color: colors.onStop }, sub: { color: colors.onStop } },
-} as const;
+} as const);
 
 function ResultBar({ summary, onPress, testID }: { summary: BarSummary; onPress: () => void; testID?: string }) {
-  const t = TONE[summary.tone];
+  const styles = useStyles();
+  const t = tones()[summary.tone];
   return (
     <Pressable
       onPress={onPress}
@@ -82,7 +85,7 @@ function ResultBar({ summary, onPress, testID }: { summary: BarSummary; onPress:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   root: { flex: 1 },
   content: { padding: sp(16), paddingBottom: sp(32), gap: sp(14) },
   results: { gap: sp(14) },
@@ -102,4 +105,4 @@ const styles = StyleSheet.create({
   barTitle: { fontSize: type.value, fontWeight: '800' },
   barDetail: { fontSize: fs(16), fontWeight: '700' },
   barGo: { fontSize: fs(16), fontWeight: '800' },
-});
+}));

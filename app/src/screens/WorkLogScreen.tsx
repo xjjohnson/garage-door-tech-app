@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Pressable, Share, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { MeasureField, SectionTitle, Segmented } from '../components/controls';
 import { formatJobDate } from '../lib/jobs';
@@ -9,6 +9,7 @@ import { formatTime } from '../lib/schedule';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours, inPeriod, openShift, Shift, shiftMiles, shiftMs, totals, weekOf, workLogCsv } from '../lib/worklog';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** Re-renders every minute so a running clock stays current. */
 function useMinuteTick(now: () => number) {
@@ -26,6 +27,7 @@ const toNum = (v: string) => {
 
 /** At the top of Jobs: on the clock or not, and a way in. */
 export function ClockButton({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { shifts } = useWorkLog();
   useMinuteTick(now);
   const open = openShift(shifts);
@@ -41,6 +43,7 @@ export function ClockButton({ now = Date.now }: { now?: () => number }) {
  * mileage deduction, and send the week to a spreadsheet.
  */
 export function WorkLogScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { shifts, centsPerMile, clockIn, clockOut, updateShift, removeShift, setCentsPerMile } = useWorkLog();
   useMinuteTick(now);
   const [odo, setOdo] = useState('');
@@ -142,6 +145,7 @@ export function WorkLogScreen({ now = Date.now }: { now?: () => number }) {
 }
 
 function Total({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.total}>
       <Text style={styles.totalValue}>{value}</Text>
@@ -151,6 +155,7 @@ function Total({ label, value }: { label: string; value: string }) {
 }
 
 function Day({ s, now, onMiles, onRemove }: { s: Shift; now: number; onMiles: (m: number | undefined) => void; onRemove: () => void }) {
+  const styles = useStyles();
   const [confirm, setConfirm] = useState(false);
   return (
     <View style={styles.item} testID={`shift-${s.id}`}>
@@ -182,7 +187,7 @@ function Day({ s, now, onMiles, onRemove }: { s: Shift; now: number; onMiles: (m
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   clock: { padding: sp(12), gap: sp(8), borderRadius: rad(12), borderWidth: bw(1.5), borderColor: colors.border },
   clockOn: { borderWidth: bw(4), borderColor: colors.selected },
@@ -205,4 +210,4 @@ const styles = StyleSheet.create({
   danger: { borderColor: colors.caution, borderWidth: bw(4) },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
-});
+}));

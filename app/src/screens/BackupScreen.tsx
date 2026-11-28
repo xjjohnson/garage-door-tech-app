@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { SectionTitle } from '../components/controls';
 import { Backup, backupFileName, LAST_BACKUP_KEY, makeBackup, mergeJobs, parseBackup } from '../lib/backup';
@@ -17,6 +17,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { usePriceSheet } from '../lib/usePriceSheet';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Props {
   /** The phone's folder and file pickers; tests pass a fake. */
@@ -35,6 +36,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
  * last. The price sheet is replaced by the backup's.
  */
 export function BackupScreen({ files: given, now = Date.now }: Props) {
+  const styles = useStyles();
   const files = useMemo(() => (given === undefined ? deviceBackupFiles() : given), [given]);
   const { jobs, restore } = useJobs();
   const { customers, restore: restoreCustomers } = useCustomers();
@@ -168,6 +170,7 @@ export function BackupScreen({ files: given, now = Date.now }: Props) {
 }
 
 function Button({ label, onPress, disabled, primary, testID }: { label: string; onPress: () => void; disabled?: boolean; primary?: boolean; testID: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -182,7 +185,7 @@ function Button({ label, onPress, disabled, primary, testID }: { label: string; 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   detail: { fontSize: type.body, color: colors.text, lineHeight: fs(24) },
@@ -196,4 +199,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
-});
+}));

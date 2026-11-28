@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Segmented } from '../components/controls';
 import { JobPhoto, PHOTO_KINDS, PHOTO_LABEL, PhotoKind, photosFor } from '../lib/attachments';
@@ -10,6 +10,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Before and after photos for one job: the old spring, the cable, the
@@ -18,6 +19,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
  * (src/components/OdooPhotoSync.tsx).
  */
 export function PhotosScreen({ jobId }: { jobId: string }) {
+  const styles = useStyles();
   const { photos, media, addPhotos, setPhotoKind, removePhoto } = useAttachments();
   const [kind, setKind] = useState<PhotoKind>('before');
   const [busy, setBusy] = useState(false);
@@ -92,6 +94,7 @@ export function PhotosScreen({ jobId }: { jobId: string }) {
 }
 
 function Photo({ p, onKind, onShare, onRemove }: { p: JobPhoto; onKind: (k: PhotoKind) => void; onShare?: () => void; onRemove: () => void }) {
+  const styles = useStyles();
   const [confirm, setConfirm] = useState(false);
   return (
     <View style={styles.item} testID={`photo-${p.id}`}>
@@ -114,6 +117,7 @@ function Photo({ p, onKind, onShare, onRemove }: { p: JobPhoto; onKind: (k: Phot
 }
 
 function Action({ label, onPress, primary, grow, disabled, testID }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; disabled?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -128,7 +132,7 @@ function Action({ label, onPress, primary, grow, disabled, testID }: { label: st
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   row: { flexDirection: 'row', gap: sp(8) },
   grow: { flex: 1 },
@@ -144,4 +148,4 @@ const styles = StyleSheet.create({
   off: { opacity: 0.5 },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
-});
+}));

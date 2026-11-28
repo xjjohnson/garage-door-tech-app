@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { ChipOption, Segmented } from '../../components/controls';
 import { SectionScroll } from '../../components/SectionScroll';
 import { useCalculatorLink } from '../../lib/useCalculatorLink';
@@ -9,6 +9,7 @@ import { DispatchScreen, Part, useCanDispatch } from '../../screens/DispatchScre
 import { JobsScreen } from '../../screens/JobsScreen';
 import { TodayMapScreen } from '../../screens/TodayMapScreen';
 import { layouts, sp } from '../../theme';
+import { makeStyles } from '../../lib/makeStyles';
 
 type Whose = 'mine' | 'team';
 const WHOSE: ChipOption<Whose>[] = [
@@ -25,6 +26,7 @@ const BOARD: ChipOption<Board>[] = [
 
 /** The dispatcher-only Jobs tab: the team board first, with Not assigned and Upcoming one tap away. */
 function DispatcherJobs() {
+  const styles = useStyles();
   const [board, setBoard] = useState<Board>('all');
   return (
     <SectionScroll>
@@ -42,6 +44,7 @@ export default function JobsRoute() {
 }
 
 function AllJobs() {
+  const styles = useStyles();
   const { requestOpen } = useCalculatorLink();
   // Team (the dispatch board) only shows for an Odoo dispatcher, manager or admin.
   const canDispatch = useCanDispatch();
@@ -71,4 +74,4 @@ function AllJobs() {
   );
 }
 
-const styles = StyleSheet.create({ switch: { marginBottom: sp(12) } });
+const useStyles = makeStyles(() => ({ switch: { marginBottom: sp(12) } }));

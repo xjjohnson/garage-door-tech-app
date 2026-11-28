@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
 import type { StockProduct } from '../lib/odooStock';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Picks a product that's already in Odoo (the price book): Odoo's goods by
@@ -30,6 +31,7 @@ export function ProductPicker({
   /** Products already on the truck, marked in the list. */
   onTruck?: Set<number>;
 }) {
+  const styles = useStyles();
   const [q, setQ] = useState('');
   const [list, setList] = useState<StockProduct[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -125,7 +127,7 @@ export function ProductPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10), maxHeight: '90%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -142,4 +144,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: fs(15), fontWeight: '700', color: colors.muted },
   error: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
   pressed: { backgroundColor: colors.info },
-});
+}));

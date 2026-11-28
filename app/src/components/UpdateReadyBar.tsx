@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import * as Updates from 'expo-updates';
 import { checkAndFetchOta, isCheckDue, type OtaApi } from '../lib/otaUpdate';
 import { useAppForeground } from '../lib/useAppForeground';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Props {
   /** True when expo-updates has already downloaded an update on its own (at launch). */
@@ -25,6 +26,7 @@ const defaultRestart = () => Updates.reloadAsync();
  * screen, at most every ten minutes.
  */
 export function UpdateReadyBar({ pending = false, api = defaultApi, restart = defaultRestart, now = Date.now }: Props) {
+  const styles = useStyles();
   const [found, setFound] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [restarting, setRestarting] = useState(false);
@@ -89,7 +91,7 @@ export function UpdateReadyBar({ pending = false, api = defaultApi, restart = de
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   // Safety yellow so it's seen, sitting on the black bottom tabs.
   bar: { flexDirection: 'row', alignItems: 'center', gap: sp(8), paddingHorizontal: sp(12), paddingVertical: sp(8), backgroundColor: colors.warnBg, borderTopWidth: 1, borderTopColor: colors.border },
   textWrap: { flex: 1 },
@@ -101,4 +103,4 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   primaryText: { color: colors.onSelected },
   pressedText: { color: colors.onSelected },
-});
+}));

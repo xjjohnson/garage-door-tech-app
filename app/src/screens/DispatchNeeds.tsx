@@ -1,9 +1,10 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { useBadges } from '../lib/useBadges';
 import { dispatchTotal } from '../lib/deptBadges';
 import { colors, fs, sp } from '../theme';
 import { DispatchScreen, Part } from './DispatchScreen';
+import { makeStyles } from '../lib/makeStyles';
 
 const GROUPS: { part: Part; title: string; urgent: boolean }[] = [
   { part: 'late', title: 'Running late', urgent: true },
@@ -19,6 +20,7 @@ const GROUPS: { part: Part; title: string; urgent: boolean }[] = [
  * from Odoo; red for the urgent two, amber for the others.
  */
 export function NeedsYouScreen() {
+  const styles = useStyles();
   const b = useBadges();
   const count: Record<string, number> = { late: b.dispatch.late, unassigned: b.dispatch.unassigned, double: b.dispatch.double, notime: b.dispatch.noTime };
   const total = dispatchTotal(b);
@@ -42,7 +44,7 @@ export function NeedsYouScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   sum: { fontSize: fs(16), fontWeight: '700', color: colors.text },
   head: { flexDirection: 'row', alignItems: 'center', gap: sp(8), marginBottom: sp(6) },
@@ -53,4 +55,4 @@ const styles = StyleSheet.create({
   pillText: { fontSize: fs(14), fontWeight: '800' },
   redText: { color: '#B3202A' },
   amberText: { color: '#8A5A00' },
-});
+}));

@@ -8,7 +8,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Icon } from './Icon';
 import { Text } from './AppText';
 import { formatJobDate } from '../lib/jobs';
@@ -20,6 +20,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export const HOUSE_STORAGE_KEY = 'odoo-house/v2';
 export const BADGE_STORAGE_KEY = 'odoo-badge/v1';
@@ -67,6 +68,7 @@ export function useCustomerBadge(partnerId: number | undefined): CustomerBadge |
 
 /** The badge as a pill; nothing for a customer with no history. */
 export function CustomerBadgeLine({ partnerId, testID = 'customer-badge', onDark }: { partnerId: number | undefined; testID?: string; onDark?: boolean }) {
+  const styles = useStyles();
   const badge = useCustomerBadge(partnerId);
   const text = badge ? badgeText(badge, formatMoney) : null;
   if (!badge || !text) return null;
@@ -120,6 +122,7 @@ export function useHouseHistory(orderId: number | undefined, where?: { partnerId
 
 /** The House card on a job: doors and openers with warranty, and the visits here before. */
 export function HouseCard({ orderId, partnerId, address, now = Date.now }: { orderId: number | undefined; partnerId?: number; address?: string; now?: () => number }) {
+  const styles = useStyles();
   const { house, error } = useHouseHistory(orderId, { partnerId, address });
   if (!orderId) return null;
   if (!house) return error ? <Text style={styles.meta}>Couldn&apos;t read this house from Odoo: {error}</Text> : null;
@@ -159,7 +162,7 @@ export function HouseCard({ orderId, partnerId, address, now = Date.now }: { ord
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: sp(8) },
   repeatDark: { backgroundColor: colors.warnBg, color: colors.warn },
   badgeDark: { color: colors.onHead },
@@ -173,7 +176,7 @@ const styles = StyleSheet.create({
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   ok: { color: colors.ok },
   ended: { color: colors.stop },
-});
+}));
 
 /** "Opener 2" and "Door 1" style chips for the house's equipment records; tap one for its history and warranty. */
 export function EquipmentChips({ orderId, partnerId, address, now = Date.now, onDark }: { orderId: number | undefined; partnerId?: number; address?: string; now?: () => number; onDark?: boolean }) {
@@ -211,6 +214,8 @@ function soldInvoice(line: string, invoices: Invoice[]): Invoice | undefined {
 }
 
 function ChipList({ equipment, now, onDark, testID = 'equipment-chips' }: { equipment: HouseEquipment[]; now: () => number; onDark?: boolean; testID?: string }) {
+  const styles = useStyles()
+  const chipStyles = useChipStyles();
   const [open, setOpen] = useState<number | null>(null);
   const { invoices } = useInvoices();
   const { jobs } = useJobs();
@@ -258,7 +263,7 @@ function ChipList({ equipment, now, onDark, testID = 'equipment-chips' }: { equi
   );
 }
 
-const chipStyles = StyleSheet.create({
+const useChipStyles = makeStyles(() => ({
   wrap: { gap: sp(8) },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
   chip: { flexDirection: 'row', alignItems: 'center', gap: sp(6), minHeight: 36, paddingHorizontal: sp(12), borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
@@ -272,4 +277,4 @@ const chipStyles = StyleSheet.create({
   soldLink: { minHeight: 36, justifyContent: 'center' },
   linkText: { color: colors.selected, textDecorationLine: 'underline' },
   detailLine: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
-});
+}));

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { Discount, DiscountPreset, discountAmountText, discountText, parseDollars, parsePct } from '../lib/discounts';
 import { colors, touch, type, bw, rad, sp } from '../theme';
 import { Action } from './Buttons';
 import { SectionTitle } from './controls';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Quick discount on a ticket: tap one of the owner's presets (Senior 10%,
@@ -13,6 +14,7 @@ import { SectionTitle } from './controls';
  * line. Odoo works out the totals.
  */
 export function DiscountPanel({ discount, presets, onChange }: { discount?: Discount; presets: DiscountPreset[]; onChange: (d: Discount | undefined) => void }) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState('');
   const [kind, setKind] = useState<'pct' | 'cents'>('pct');
@@ -69,9 +71,9 @@ export function DiscountPanel({ discount, presets, onChange }: { discount?: Disc
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   box: { gap: sp(6) },
   row: { flexDirection: 'row', gap: sp(8) },
   label: { fontSize: type.body, fontWeight: '800', color: colors.text },
   input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-});
+}));

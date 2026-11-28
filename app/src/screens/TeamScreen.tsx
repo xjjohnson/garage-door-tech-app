@@ -2,7 +2,7 @@ import { OdooSignInForm } from '../components/OdooSignInForm';
 import { requestSyncNow } from '../lib/syncNow';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { ChipRow, SectionTitle } from '../components/controls';
 import { phoneLink } from '../lib/jobs';
@@ -12,9 +12,11 @@ import { useOdoo } from '../lib/useOdoo';
 import { useSchedule } from '../lib/useSchedule';
 import { useOpenOdooJob } from '../lib/useStartJob';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** At the top of Jobs. */
 export function TeamButton() {
+  const styles = useStyles();
   const { status, client } = useOdoo();
   return (
     <Pressable onPress={() => router.push('/team')} accessibilityRole="button" testID="open-team" style={({ pressed }) => [styles.button, styles.grow, pressed && styles.pressed]}>
@@ -29,12 +31,14 @@ export function TeamButton() {
  * unassigned jobs to a tech.
  */
 export function TeamScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const odoo = useOdoo();
   if (odoo.status === 'loading') return <Text style={styles.note}>Checking your Odoo sign-in...</Text>;
   return odoo.status === 'signedIn' && odoo.client ? <SignedIn now={now} /> : <OdooSignInForm />;
 }
 
 function SignedIn({ now }: { now: () => number }) {
+  const styles = useStyles();
   const { client, signOut } = useOdoo();
   const { appointments, restore } = useSchedule();
   const s = client!.session;
@@ -156,6 +160,7 @@ function SignedIn({ now }: { now: () => number }) {
 
 /** Which Odoo apps the phone found, so it's clear what can sync. */
 function AppsFound() {
+  const styles = useStyles();
   const { client } = useOdoo();
   const found = client ? appsFound(client.session) : [];
   return (
@@ -170,6 +175,7 @@ function AppsFound() {
 const shownNotes = (notes: string) => notes.split('\n').filter((l) => !l.trim().startsWith('App job ')).join('\n').trim();
 
 function Task({ t, now, children }: { t: OdooTask; now: number; children?: React.ReactNode }) {
+  const styles = useStyles();
   const when = t.start ?? t.deadline;
   const maps = mapsLink(t.address);
   const tel = phoneLink(t.phone);
@@ -195,6 +201,7 @@ function Task({ t, now, children }: { t: OdooTask; now: number; children?: React
 }
 
 function Action({ label, onPress, primary, grow, disabled, testID }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; disabled?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -209,7 +216,7 @@ function Action({ label, onPress, primary, grow, disabled, testID }: { label: st
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   row: { flexDirection: 'row', gap: sp(8) },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
@@ -229,4 +236,4 @@ const styles = StyleSheet.create({
   off: { opacity: 0.5 },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
-});
+}));

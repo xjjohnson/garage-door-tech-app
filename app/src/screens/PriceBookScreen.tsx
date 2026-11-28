@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
 import { SectionTitle, Segmented } from '../components/controls';
@@ -8,6 +8,7 @@ import { categoryLevel, fetchedLabel, groupVariants, itemsByIds, PriceBookItem, 
 import { usePriceBook } from '../lib/usePriceBook';
 import { useStock } from '../lib/useStock';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export type PriceBookTab = 'all' | 'favorites' | 'instock';
 
@@ -18,6 +19,7 @@ export type PriceBookTab = 'all' | 'favorites' | 'instock';
  * better / best comes from Odoo's quotation templates, not from here.
  */
 export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', kind }: { onPick?: (item: PriceBookItem) => void; now?: () => number; initialTab?: PriceBookTab; kind?: 'service' | 'material' }) {
+  const styles = useStyles();
   const { book: fullBook, loaded, favorites, toggle, refresh, busy, error, signedIn } = usePriceBook(now);
   const { items: stockItems } = useStock();
   const [query, setQuery] = useState('');
@@ -132,6 +134,7 @@ export function PriceBookScreen({ onPick, now = Date.now, initialTab = 'all', ki
 }
 
 function ItemRow({ item, onTruck, favorite, onToggle, onPick }: { item: PriceBookItem; onTruck?: number; favorite: boolean; onToggle: () => void; onPick?: (item: PriceBookItem) => void }) {
+  const styles = useStyles();
   const body = (
     <>
       {item.variant && item.baseName ? <Text style={styles.meta}>{item.baseName}</Text> : null}
@@ -165,7 +168,7 @@ function ItemRow({ item, onTruck, favorite, onToggle, onPick }: { item: PriceBoo
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   grow: { flex: 1, gap: sp(2) },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
@@ -182,4 +185,4 @@ const styles = StyleSheet.create({
   starText: { fontSize: fs(30), color: colors.text },
   starOn: { color: colors.selected },
   pressed: { backgroundColor: colors.info },
-});
+}));

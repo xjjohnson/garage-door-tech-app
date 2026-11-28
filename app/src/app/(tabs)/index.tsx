@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { FieldGoBar } from '../../components/FieldGoBar';
 import { ChipOption, Segmented } from '../../components/controls';
 import { SectionScroll } from '../../components/SectionScroll';
@@ -13,6 +13,7 @@ import { OwnerHome } from '../../screens/OwnerDesk';
 import { OfficeHomePage } from '../../screens/OfficeAreaScreen';
 import { DispatchChips } from '../../components/DispatchChips';
 import { colors, layouts, sp } from '../../theme';
+import { makeStyles } from '../../lib/makeStyles';
 
 type View_ = 'week' | 'today' | 'map';
 const VIEWS: ChipOption<View_>[] = [
@@ -22,6 +23,7 @@ const VIEWS: ChipOption<View_>[] = [
 ];
 
 export default function TodayRoute() {
+  const styles = useStyles();
   const dispatcherOnly = useDispatcherOnly();
   const salesOnly = useSalesOnly();
   const ownerBar = useOwnerBar();
@@ -82,8 +84,8 @@ export default function TodayRoute() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   switch: { marginBottom: sp(14) },
   page: { flex: 1, backgroundColor: colors.bg },
   floating: { paddingHorizontal: sp(12), paddingVertical: sp(6) },
-});
+}));

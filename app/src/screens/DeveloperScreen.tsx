@@ -1,6 +1,6 @@
 import * as Updates from 'expo-updates';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Platform, Pressable, Switch, View } from 'react-native';
 import type { OdooClient } from '../lib/odoo';
 import { Text, TextInput } from '../components/AppText';
 import { Action, NavRow } from '../components/Buttons';
@@ -30,6 +30,7 @@ import { useLog } from '../lib/useLog';
 import { useOdoo } from '../lib/useOdoo';
 import { usePending, usePendingItems } from '../lib/usePending';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Filter = LogFilter;
 const FILTERS = [
@@ -111,6 +112,7 @@ const CHECK_NOTE: Record<OtaCheck, string> = {
  * a Share button, beta updates, and switches for testing.
  */
 export function DeveloperScreen({ logger = log, updates = Updates, restart = () => Updates.reloadAsync(), share = shareTextFile, buildInfo = BUILD_INFO, channel = UPDATE_CHANNEL, runCheck = runSetupCheck, details = RUNNING, storage = deviceStorage, now = Date.now, network, fileSize = deviceFileSize }: Props) {
+  const styles = useStyles();
   const odoo = useOdoo();
   const pending = usePending();
   const items = usePendingItems();
@@ -572,6 +574,7 @@ export function DeveloperScreen({ logger = log, updates = Updates, restart = () 
 }
 
 function Line({ k, v, testID }: { k: string; v: string; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.line}>
       <Text style={styles.k}>{k}</Text>
@@ -584,7 +587,7 @@ function Line({ k, v, testID }: { k: string; v: string; testID?: string }) {
 
 const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   row: { flexDirection: 'row', gap: sp(8) },
   grow: { flex: 1 },
@@ -603,4 +606,4 @@ const styles = StyleSheet.create({
   logWarn: { color: colors.safety },
   logError: { color: '#FF8A80' },
   logErrorText: { color: colors.stop },
-});
+}));

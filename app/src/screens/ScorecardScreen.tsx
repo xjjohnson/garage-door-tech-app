@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Segmented } from '../components/controls';
 import { formatMoney } from '../lib/prices';
@@ -9,6 +9,7 @@ import { useInvoices } from '../lib/useInvoices';
 import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const PERIODS: ScorePeriod[] = ['week', '30d', 'year'];
 
@@ -18,6 +19,7 @@ const PERIODS: ScorePeriod[] = ['week', '30d', 'year'];
  * is told it's for the owner. Not signed in, it shows this phone's own.
  */
 export function ScorecardScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const { jobs } = useJobs();
   const { invoices, business } = useInvoices();
@@ -91,6 +93,7 @@ export function ScorecardScreen({ now = Date.now }: { now?: () => number }) {
 }
 
 function Overview({ s, fromOdoo }: { s: ReturnType<typeof ownerSummary>; fromOdoo: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.card} testID="scorecard-overview">
       <Text style={styles.name}>The business</Text>
@@ -119,6 +122,7 @@ function Overview({ s, fromOdoo }: { s: ReturnType<typeof ownerSummary>; fromOdo
 }
 
 function TechCard({ s }: { s: TechScore }) {
+  const styles = useStyles();
   return (
     <View style={styles.card} testID={`score-${s.tech}`}>
       <Text style={styles.name}>{s.tech}</Text>
@@ -138,6 +142,7 @@ function TechCard({ s }: { s: TechScore }) {
 }
 
 function Stat({ big, label, warn }: { big: string; label: string; warn?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.stat}>
       <Text style={[styles.big, warn && styles.warn]}>{big}</Text>
@@ -146,7 +151,7 @@ function Stat({ big, label, warn }: { big: string; label: string; warn?: boolean
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   sub: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
   card: { borderWidth: bw(1.5), borderColor: colors.border, borderRadius: rad(16), padding: sp(14), gap: sp(10) },
@@ -162,4 +167,4 @@ const styles = StyleSheet.create({
   fill: { height: '100%', backgroundColor: colors.selected },
   note: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   error: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
-});
+}));

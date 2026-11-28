@@ -1,10 +1,12 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { ROLE_CARDS, RoleKey } from '../lib/roles';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** One round bubble in a role's own color. `ring` marks the role in use. */
 export function RoleBubble({ role, size, ring, onPress }: { role: RoleKey; size: number; ring?: boolean; onPress: (r: RoleKey) => void }) {
+  const styles = useStyles();
   const card = ROLE_CARDS[role];
   return (
     <Pressable
@@ -24,6 +26,7 @@ export function RoleBubble({ role, size, ring, onPress }: { role: RoleKey; size:
 
 /** A wrapped row of bubbles. */
 export function RoleBubbleRow({ roles, size, current, onPick }: { roles: RoleKey[]; size: number; current?: RoleKey | null; onPick: (r: RoleKey) => void }) {
+  const styles = useStyles();
   return (
     <View style={styles.row}>
       {roles.map((r) => (
@@ -33,10 +36,10 @@ export function RoleBubbleRow({ roles, size, current, onPick }: { roles: RoleKey
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: sp(14) },
   bubble: { alignItems: 'center', justifyContent: 'center', gap: sp(2), elevation: 3, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
   ring: { borderWidth: 4, borderColor: colors.card, elevation: 6 },
   pressed: { opacity: 0.85 },
   label: { color: '#FFFFFF', fontWeight: '800' },
-});
+}));

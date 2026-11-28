@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { SectionTitle } from '../components/controls';
 import { invoiceNo, PAY_LABEL, PAY_METHODS } from '../lib/invoices';
@@ -8,9 +8,11 @@ import { formatMoney } from '../lib/prices';
 import { monthLabel, percent, PeriodStats } from '../lib/stats';
 import { useStats } from '../lib/useStats';
 import { colors, radius, shadow, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** The short version, at the top of Jobs: open jobs, owed, and collected this week. Taps through to the full page. */
 export function StatsCard({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { stats: s } = useStats(now);
   return (
     <Pressable
@@ -28,6 +30,7 @@ export function StatsCard({ now = Date.now }: { now?: () => number }) {
 }
 
 function Tile({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.tile}>
       <Text style={[styles.tileValue, alert && styles.alert]} numberOfLines={1} adjustsFontSizeToFit>
@@ -40,6 +43,7 @@ function Tile({ label, value, alert }: { label: string; value: string; alert?: b
 
 /** How the business is doing, from what's saved on this phone. */
 export function StatsScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { stats: s, fromOdoo } = useStats(now);
   const top = Math.max(1, ...s.months.map((m) => m.collected));
 
@@ -91,6 +95,7 @@ export function StatsScreen({ now = Date.now }: { now?: () => number }) {
 }
 
 function Period({ title, p, testID }: { title: string; p: PeriodStats; testID: string }) {
+  const styles = useStyles();
   const methods = PAY_METHODS.filter((m) => p.byMethod[m] > 0);
   return (
     <View style={styles.period} testID={testID}>
@@ -108,6 +113,7 @@ function Period({ title, p, testID }: { title: string; p: PeriodStats; testID: s
 }
 
 function Line({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.line}>
       <Text style={[styles.lineLabel, bold && styles.bold]}>{label}</Text>
@@ -116,7 +122,7 @@ function Line({ label, value, bold }: { label: string; value: string; bold?: boo
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   card: { flexDirection: 'row', gap: sp(8), padding: sp(10), borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, minHeight: touch.bar, ...shadow },
   row: { flexDirection: 'row', gap: sp(8) },
@@ -140,4 +146,4 @@ const styles = StyleSheet.create({
   button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(12), paddingVertical: sp(8), backgroundColor: colors.warnBg },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   pressed: { backgroundColor: colors.info },
-});
+}));

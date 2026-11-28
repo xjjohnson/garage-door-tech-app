@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useKeyboardHeight } from '../lib/useKeyboardHeight';
 import { useEffect, useRef, useState } from 'react';
 import type { ScrollViewInstance } from 'react-native';
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Customer, CustomerFields, customerName, emailLink, summarize } from '../lib/customers';
 import { acceptedLabel, formatJobDate, MODE_LABEL, phoneLink } from '../lib/jobs';
@@ -26,6 +26,7 @@ import { AddressSuggestions } from '../components/AddressSuggestions';
 import { QuickAction } from '../components/Buttons';
 import { mapsLink } from '../lib/schedule';
 import { colors, radius, shadow, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const CUSTOMER_TABS: { id: CustomerTab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -39,6 +40,7 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 /** One customer: how to reach them, and every job at their place, newest first. */
 export function CustomerScreen({ customer }: { customer: Customer }) {
+  const styles = useStyles();
   const { jobs } = useJobs();
   const { update, apply } = useCustomers();
   const { remove: removeJob } = useJobs();
@@ -193,6 +195,7 @@ const FIELDS: { key: keyof CustomerFields; label: string; placeholder: string; k
  * straight to Odoo, so it needs signal.
  */
 function Addresses({ partnerId }: { partnerId: number }) {
+  const styles = useStyles();
   const { addresses, error, busy, online, save } = useContactAddresses(partnerId);
   const [editing, setEditing] = useState<ContactAddress | 'new' | null>(null);
   return (
@@ -226,6 +229,7 @@ function Addresses({ partnerId }: { partnerId: number }) {
 
 /** The customer's details on the phone's own keyboard. A new name or phone is copied onto their jobs. */
 export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { visible: boolean; title: string; initial: CustomerFields; onSave: (f: CustomerFields) => void; onCancel: () => void }) {
+  const styles = useStyles();
   const [f, setF] = useState<CustomerFields>(initial);
   const kb = useKeyboardHeight();
   const scroll = useRef<ScrollViewInstance>(null);
@@ -296,6 +300,7 @@ export function CustomerSheet({ visible, title, initial, onSave, onCancel }: { v
 }
 
 function Action({ label, onPress, primary, grow, testID }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, grow && styles.grow, primary && styles.primary, pressed && styles.pressed]}>
       {({ pressed }) => <Text style={[styles.buttonText, primary && !pressed && styles.primaryText]}>{label}</Text>}
@@ -305,6 +310,7 @@ function Action({ label, onPress, primary, grow, testID }: { label: string; onPr
 
 /** Owner-only Delete / Archive: checks Odoo first so a customer with invoices is archived, never erased. */
 function RemoveCustomer({ customer, onDone }: { customer: Customer; onDone: (plan: DeletePlan) => void }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { jobs } = useJobs();
   const { invoices } = useInvoices();
@@ -358,7 +364,7 @@ function RemoveCustomer({ customer, onDone }: { customer: Customer; onDone: (pla
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   hero: { backgroundColor: colors.head, borderRadius: radius.sheet, padding: sp(16), gap: sp(4), ...shadow },
   heroText: { fontSize: fs(16), fontWeight: '600', color: colors.onHead },
@@ -410,4 +416,4 @@ const styles = StyleSheet.create({
   saveOff: { backgroundColor: colors.muted },
   saveText: { fontSize: type.value, fontWeight: '800', color: colors.onSelected },
   pressedText: { color: colors.text },
-});
+}));

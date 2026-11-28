@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Pressable, Share, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { SectionTitle } from '../components/controls';
@@ -22,6 +22,7 @@ import { useStock } from '../lib/useStock';
 import { useWorkLog } from '../lib/useWorkLog';
 import { formatHours } from '../lib/worklog';
 import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * Wrap up the day: jobs done, money by how it was paid (cash and checks to
@@ -29,6 +30,7 @@ import { colors, touch, type, bw, fs, rad, sz, sp } from '../theme';
  * Closing the day syncs the truck with Odoo, clocks out and keeps a summary.
  */
 export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { jobs } = useJobs();
   const { invoices, business } = useInvoices();
   const { appointments } = useSchedule();
@@ -193,6 +195,7 @@ export function EndOfDayScreen({ now = Date.now }: { now?: () => number }) {
 }
 
 function Tile({ big, label, testID }: { big: string; label: string; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.tile} testID={testID}>
       <Text style={styles.tileBig}>{big}</Text>
@@ -202,6 +205,7 @@ function Tile({ big, label, testID }: { big: string; label: string; testID: stri
 }
 
 function Line({ label, value, warn, last, testID }: { label: string; value: string; warn?: boolean; last?: boolean; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={[styles.line, last && styles.lastLine]} testID={testID}>
       <Text style={styles.lineLabel}>{label}</Text>
@@ -211,6 +215,7 @@ function Line({ label, value, warn, last, testID }: { label: string; value: stri
 }
 
 function Check({ done, label, onPress, testID }: { done: boolean; label: string; onPress?: () => void; testID: string }) {
+  const styles = useStyles();
   const body = (
     <>
       <View style={[styles.box, done && styles.boxDone]}>{done ? <Text style={styles.tick}>✓</Text> : null}</View>
@@ -230,7 +235,7 @@ function Check({ done, label, onPress, testID }: { done: boolean; label: string;
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   sub: { fontSize: fs(17), fontWeight: '700', color: colors.muted },
   tiles: { flexDirection: 'row', gap: sp(8) },
@@ -255,4 +260,4 @@ const styles = StyleSheet.create({
   error: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
   closed: { gap: sp(8), padding: sp(12), borderRadius: rad(12), backgroundColor: colors.card },
   closedText: { fontSize: type.body, fontWeight: '800', color: colors.ok },
-});
+}));

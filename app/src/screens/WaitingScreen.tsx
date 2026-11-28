@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { customerName } from '../lib/customers';
 import { invoiceLabel } from '../lib/invoices';
@@ -12,6 +12,7 @@ import { useCustomerSync } from '../lib/useCustomerSync';
 import { useOdoo } from '../lib/useOdoo';
 import { usePendingItems } from '../lib/usePending';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -21,6 +22,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * away. Opened from Today's "Not in Odoo yet" line and Developer › To send.
  */
 export function WaitingScreen() {
+  const styles = useStyles();
   const { status, client } = useOdoo();
   const items = usePendingItems();
   const syncCustomers = useCustomerSync();
@@ -128,6 +130,7 @@ export function WaitingScreen() {
 }
 
 function Group({ title, testID, children }: { title: string; testID: string; children: React.ReactNode[] }) {
+  const styles = useStyles();
   if (children.length === 0) return null;
   return (
     <View style={styles.stack} testID={testID}>
@@ -140,6 +143,7 @@ function Group({ title, testID, children }: { title: string; testID: string; chi
 }
 
 function Row({ title, detail, how, onPress, testID }: { title: string; detail?: string; how: string; onPress: () => void; testID: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
       <Text style={styles.title}>{title}</Text>
@@ -149,7 +153,7 @@ function Row({ title, detail, how, onPress, testID }: { title: string; detail?: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: sp(8) },
   item: { minHeight: touch.min, padding: sp(12), gap: sp(2), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card },
@@ -163,4 +167,4 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   off: { opacity: 0.5 },
   pressed: { backgroundColor: colors.info },
-});
+}));

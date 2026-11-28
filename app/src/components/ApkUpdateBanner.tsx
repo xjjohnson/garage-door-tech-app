@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { ApkCheck, checkForApk } from '../lib/apkUpdate';
 import { isCheckDue } from '../lib/otaUpdate';
 import { useAppForeground } from '../lib/useAppForeground';
 import { colors, touch, type, bw, rad, sp, fs } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Props {
   manifestUrl: string;
@@ -23,6 +24,7 @@ interface Props {
  * minutes, so a phone that never closes the app still hears about it.
  */
 export function ApkUpdateBanner({ manifestUrl, currentVersion, fetchImpl = fetch, openUrl = (u) => Linking.openURL(u), now = Date.now }: Props) {
+  const styles = useStyles();
   const [check, setCheck] = useState<ApkCheck>({ status: 'off' });
   const [hidden, setHidden] = useState(false);
   const [round, setRound] = useState(0);
@@ -77,7 +79,7 @@ export function ApkUpdateBanner({ manifestUrl, currentVersion, fetchImpl = fetch
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   banner: { marginHorizontal: sp(16), marginTop: sp(8), padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.info, gap: sp(8) },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   body: { fontSize: type.body, color: colors.text, lineHeight: fs(24) },
@@ -87,4 +89,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   primaryText: { color: colors.onSelected },
-});
+}));

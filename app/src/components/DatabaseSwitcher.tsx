@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { Action } from './Buttons';
 import { deviceSnapshots } from '../lib/dbSnapshots';
@@ -11,6 +11,7 @@ import type { SecretStore } from '../lib/secrets';
 import type { SnapshotStore } from '../lib/dbSwitch';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Props {
   /** What is waiting to send, in words ("2 invoices"), or empty. */
@@ -27,6 +28,7 @@ interface Props {
  * is kept apart per database; see src/lib/dbSwitch.ts.
  */
 export function DatabaseSwitcher({ pendingText, restart, fetchFn, secrets: givenSecrets, snapshots: givenSnaps }: Props) {
+  const styles = useStyles();
   const { saved } = useOdoo();
   const secrets = useMemo(() => givenSecrets ?? deviceSecrets(), [givenSecrets]);
   const snapshots = useMemo(() => givenSnaps ?? deviceSnapshots(), [givenSnaps]);
@@ -151,6 +153,7 @@ export function DatabaseSwitcher({ pendingText, restart, fetchFn, secrets: given
 }
 
 function Field({ label, value, onChange, placeholder, secure, testID }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; secure?: boolean; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -159,7 +162,7 @@ function Field({ label, value, onChange, placeholder, secure, testID }: { label:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   field: { gap: sp(4) },
   card: { borderRadius: rad(16), borderWidth: bw(1.5), borderColor: colors.border, backgroundColor: colors.card, padding: sp(14), gap: sp(8) },
@@ -172,4 +175,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   error: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   input: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, paddingHorizontal: sp(14), fontSize: type.body, fontWeight: '700', color: colors.text, backgroundColor: colors.card },
-});
+}));

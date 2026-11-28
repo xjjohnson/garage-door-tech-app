@@ -7,7 +7,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { rowGap, TableHead, VisitCard } from './VisitCard';
 import { Text } from './AppText';
 import { log } from '../lib/log';
@@ -21,6 +21,7 @@ import { useJobs } from '../lib/useJobs';
 import { useOdoo } from '../lib/useOdoo';
 import { useOpenOdooJob } from '../lib/useStartJob';
 import { colors, layouts, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export const ODOO_JOBS_STORAGE_KEY = 'odoo-jobs-list/v1';
 const PAGE = 40;
@@ -46,6 +47,7 @@ export function startOfTomorrow(now: number): number {
 }
 
 export function OdooJobsList({ filter, search, owedJobIds, noInvoiceOnly, now = Date.now }: { filter: 'open' | 'done' | 'all' | 'upcoming'; search: string; /** The Estimate chip: done jobs, leaving out these (jobs with an invoice) and cancelled ones. */ noInvoiceOnly?: Set<string>; /** When given, only jobs the phone has in this set (unpaid or paid ones, for those chips). */ owedJobIds?: Set<string>; now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { jobs } = useJobs();
   const { invoices } = useInvoices();
@@ -120,6 +122,7 @@ export function OdooJobsList({ filter, search, owedJobIds, noInvoiceOnly, now = 
       ) : null}
       {layouts.jobRows === 'table' && (rows ?? []).length > 0 ? <TableHead cols={['Job', 'Address', 'When']} /> : null}
       {groupJobs(
+        styles,
         (rows ?? []).flatMap((t) => {
           const phoneJob = jobs.find((j) => j.odooJob?.id === t.id);
           if (owedJobIds && !(phoneJob && owedJobIds.has(phoneJob.id))) return [];
@@ -138,6 +141,7 @@ export function OdooJobsList({ filter, search, owedJobIds, noInvoiceOnly, now = 
               heading: layouts.jobsGroup === 'status' ? chip : layouts.jobsGroup === 'day' ? (past ? `Overdue · ${day}` : day) : '',
               at: when,
               node: wrapRail(
+                styles,
                 when,
                 t.id,
                 <VisitCard
@@ -169,7 +173,7 @@ export function OdooJobsList({ filter, search, owedJobIds, noInvoiceOnly, now = 
 }
 
 /** Field: the job's start time in a column on the left, like a day plan. */
-function wrapRail(when: number | undefined, id: number, node: ReactNode): ReactNode {
+function wrapRail(styles: ReturnType<typeof useStyles>, when: number | undefined, id: number, node: ReactNode): ReactNode {
   if (!layouts.jobsRail || when === undefined) return node;
   return (
     <View key={id} style={styles.railRow}>
@@ -180,7 +184,7 @@ function wrapRail(when: number | undefined, id: number, node: ReactNode): ReactN
 }
 
 /** Puts a heading above each run of jobs when the theme groups them (by day or by status), else just the jobs. */
-function groupJobs(items: { key: number; heading: string; at?: number; node: ReactNode }[], today: number): ReactNode {
+function groupJobs(styles: ReturnType<typeof useStyles>, items: { key: number; heading: string; at?: number; node: ReactNode }[], today: number): ReactNode {
   if (layouts.jobsGroup === 'none') return items.map((i) => i.node);
   const order: string[] = [];
   const by = new Map<string, typeof items>();
@@ -211,7 +215,7 @@ function groupJobs(items: { key: number; heading: string; at?: number; node: Rea
   ));
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   group: { width: '100%' },
@@ -230,4 +234,4 @@ const styles = StyleSheet.create({
   button: { minHeight: touch.min, borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(10), backgroundColor: colors.card },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
-});
+}));

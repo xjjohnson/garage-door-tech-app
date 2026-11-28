@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Action } from './Buttons';
 import { Card, Message, Meta, Pill, TitleRow, useRun } from './Dept';
 import { ChipRow } from './controls';
 import { OdooClient } from '../lib/odoo';
 import { handOver, Place, ReadyOrder } from '../lib/odooWarehouse';
 import { sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const DAY = 86_400_000;
 
@@ -30,6 +31,7 @@ export function waitText(at: number | undefined, now: number): { text: string; l
  * matches, the manager picks the truck first.
  */
 export function ReadyCard({ client, order, trucks, now, onDone }: { client: OdooClient; order: ReadyOrder; trucks: Place[]; now: number; onDone: () => void }) {
+  const styles = useStyles();
   const guess = useMemo(() => truckForTech(order.tech, trucks), [order.tech, trucks]);
   const [pick, setPick] = useState<number>(guess?.id ?? 0);
   const { busy, msg, run } = useRun();
@@ -60,4 +62,4 @@ export function ReadyCard({ client, order, trucks, now, onDone }: { client: Odoo
 
 export { Pill };
 
-const styles = StyleSheet.create({ gap: { gap: sp(4) } });
+const useStyles = makeStyles(() => ({ gap: { gap: sp(4) } }));

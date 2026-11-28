@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { ChipOption, ChipRow } from '../components/controls';
 import { DIAG_BRANDS } from '../data/diagnostics';
@@ -7,6 +7,7 @@ import { PROG_SAFETY, PROG_TASK_LABEL, PROG_TASK_ORDER, ProgTaskKind } from '../
 import { hostOf } from '../lib/diagnose';
 import { manualsFor, progBrands, progFamiliesFor, progFamilyById, taskFor } from '../lib/programming';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 interface Props {
   openUrl: (url: string) => Promise<unknown>;
@@ -18,6 +19,7 @@ interface Props {
  * Bundled, so it works with no signal; only the manual links need one.
  */
 export function ProgramScreen({ openUrl }: Props) {
+  const styles = useStyles();
   const brands = useMemo(() => progBrands(), []);
   const [brandId, setBrandId] = useState<string>(brands[0]);
   const families = useMemo(() => progFamiliesFor(brandId), [brandId]);
@@ -110,7 +112,7 @@ export function ProgramScreen({ openUrl }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   label: { fontSize: type.label, fontWeight: '800', color: colors.text },
   hint: { fontSize: fs(16), color: colors.muted },
@@ -136,4 +138,4 @@ const styles = StyleSheet.create({
   sourceTitle: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   sourceHost: { fontSize: fs(14), fontWeight: '600', color: colors.muted },
   pressed: { backgroundColor: colors.info },
-});
+}));

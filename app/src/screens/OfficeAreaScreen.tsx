@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { DeptArea } from '../components/DeptArea';
 import { ChipRow } from '../components/controls';
@@ -20,6 +20,7 @@ import { overdueInvoices, ordersToInvoice, quotesWaiting, sentNotOpened, unpaidI
 import { ClosedNoOrder, PaymentsToRecord, TermsPage } from './OfficeExtras';
 import { CameBack, ComplaintsList, LogComplaint, WarrantyList } from './CarePages';
 import { invoiceTotal, MoneyList } from './MoneyPages';
+import { makeStyles } from '../lib/makeStyles';
 
 export type OfficeTab = 'notinvoiced' | 'overdue' | 'quotes' | 'unpaid' | 'cameback' | 'complaints' | 'newcomplaint' | 'warranty' | 'payments' | 'noorder' | 'notopened' | 'terms' | 'timesheets';
 const LABELS: Record<OfficeTab, string> = {
@@ -129,6 +130,7 @@ const TOPS: { label: string; value: Top }[] = [
 
 /** The Office front page: four tabs. Money opens on dollar tiles and what to do next. */
 function OfficeFront({ client, open, owner, now, groups }: { client: OdooClient; open: (id: OfficeTab) => void; owner: boolean; now: () => number; groups: MenuGroup<OfficeTab>[] }) {
+  const styles = useStyles();
   const [top, setTop] = useState<Top>('money');
   const pick = (title: string) => groups.filter((g) => g.title === title);
   return (
@@ -149,6 +151,7 @@ function OfficeFront({ client, open, owner, now, groups }: { client: OdooClient;
 
 /** Dollar tiles, search, "Do next", and the money lists with their dollars. */
 function MoneyFront({ client, open, now, groups, home }: { client: OdooClient; open: (id: OfficeTab) => void; now: () => number; groups: MenuGroup<OfficeTab>[]; /** On Home: no search box and no list of pages, just the tiles and Do next. */ home?: boolean }) {
+  const styles = useStyles();
   const limits = useLimits();
   const [term, setTerm] = useState('');
   const board = usePageRows(async () => {
@@ -193,6 +196,7 @@ function MoneyFront({ client, open, now, groups, home }: { client: OdooClient; o
 }
 
 function MoneyResults({ client, rows, reload, title, empty, testID }: { client: OdooClient; rows: import('../lib/odooOffice').MoneyRow[]; reload: () => void; title: string; empty: string; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.stack}>
       <Text style={styles.heading}>{title}</Text>
@@ -202,6 +206,7 @@ function MoneyResults({ client, rows, reload, title, empty, testID }: { client: 
 }
 
 function Tile({ big, small, red, testID }: { big: string; small: string; red?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.tile} testID={testID}>
       <Text style={[styles.big, red && { color: colors.stop }]}>{big}</Text>
@@ -210,7 +215,7 @@ function Tile({ big, small, red, testID }: { big: string; small: string; red?: b
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   tiles: { flexDirection: 'row', gap: sp(8) },
   tile: { flex: 1, backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.line, padding: sp(10), gap: sp(2) },
@@ -219,13 +224,14 @@ const styles = StyleSheet.create({
   heading: { fontSize: fs(13), fontWeight: '800', letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: sp(4) },
   search: { minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, paddingHorizontal: sp(12), fontSize: fs(16), color: colors.text },
   link: { fontSize: fs(16), fontWeight: '800', color: colors.selected, paddingVertical: sp(8) },
-});
+}));
 
 /**
  * Home for the Office theme: the same dollar tiles and Do next list as the Office Money tab,
  * read from Odoo. Nothing shows for someone without Office access or when not signed in.
  */
 export function OfficeHome({ client, now = Date.now }: { client: OdooClient | null; now?: () => number }) {
+  const styles = useStyles();
   const { access } = useDepartments();
   if (!client || !(access.office || access.owner)) return null;
   return (

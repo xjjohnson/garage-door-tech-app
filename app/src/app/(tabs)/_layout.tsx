@@ -6,7 +6,7 @@ import { Icon } from '../../components/Icon';
 import { requestHeaderAdd } from '../../lib/headerAdd';
 import { useSchedule } from '../../lib/useSchedule';
 import { onDay } from '../../lib/schedule';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { Text } from '../../components/AppText';
 import { CountBadge } from '../../components/SectionMenu';
 import { dispatchTotal, toolsTotal } from '../../lib/deptBadges';
@@ -22,6 +22,7 @@ import { APK_MANIFEST_URL } from '../../config';
 import { dateLine } from '../../lib/schedule';
 import { barFor, DISPATCH_ONLY_HREFS, OFFICE_ONLY_HREFS, OWNER_AREAS_HREFS, OWNER_ONLY_HREFS, SALES_ONLY_HREFS, SECTIONS, TECH_HIDDEN_HREFS, TOOL_PAGES } from '../../lib/sections';
 import { colors, radius, touch, type, fs, rad, sp } from '../../theme';
+import { makeStyles } from '../../lib/makeStyles';
 
 /**
  * The five tabs (Today, Jobs, Sales, Customers, Tools) and the tool pages
@@ -32,6 +33,7 @@ import { colors, radius, touch, type, fs, rad, sp } from '../../theme';
  * its inputs and search.
  */
 export default function TabsLayout() {
+  const styles = useStyles();
   // Turns true when expo-updates finishes downloading an update by itself at launch.
   const { isUpdatePending } = Updates.useUpdates();
   const pathname = usePathname();
@@ -146,6 +148,7 @@ export default function TabsLayout() {
 }
 
 function BookPill() {
+  const styles = useStyles();
   return (
     <Pressable onPress={() => router.push({ pathname: '/schedule', params: { book: 'new' } })} accessibilityRole="button" testID="home-book-visit" style={({ pressed }) => [styles.newJob, pressed && styles.headPressed]}>
       <Icon name="plus" size={16} color={colors.onHead} />
@@ -155,6 +158,7 @@ function BookPill() {
 }
 
 function AddPill() {
+  const styles = useStyles();
   return (
     <Pressable onPress={requestHeaderAdd} accessibilityRole="button" testID="customers-add" style={({ pressed }) => [styles.newJob, pressed && styles.headPressed]}>
       <Icon name="plus" size={16} color={colors.onHead} />
@@ -164,6 +168,7 @@ function AddPill() {
 }
 
 function NewJobPill() {
+  const styles = useStyles();
   return (
     <Pressable onPress={() => router.push('/new-job')} accessibilityRole="button" testID="jobs-new-job" style={({ pressed }) => [styles.newJob, pressed && styles.headPressed]}>
       <Icon name="plus" size={16} color={colors.onHead} />
@@ -176,7 +181,7 @@ const ICONS = { today: 'clock', officedesk: 'dollar', jobs: 'wrench', money: 'do
 
 const MARK = require('../../../assets/brand/mark.png');
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   root: { flex: 1, backgroundColor: colors.head },
   header: { flexDirection: 'row', alignItems: 'center', gap: sp(10), paddingHorizontal: sp(16), paddingTop: sp(8), paddingBottom: sp(26), backgroundColor: colors.head },
   headText: { flex: 1 },
@@ -199,4 +204,4 @@ const styles = StyleSheet.create({
   navPressed: { backgroundColor: colors.info },
   navText: { fontSize: fs(13), fontWeight: '700', color: colors.muted },
   navTextOn: { color: colors.selected, fontWeight: '800' },
-});
+}));

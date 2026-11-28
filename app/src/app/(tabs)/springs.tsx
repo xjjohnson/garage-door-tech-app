@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../../components/AppText';
 import { useCalculatorLink } from '../../lib/useCalculatorLink';
 import { DoorScreen } from '../../screens/DoorScreen';
@@ -7,6 +7,7 @@ import { DrumsScreen } from '../../screens/DrumsScreen';
 import { ExtensionScreen } from '../../screens/ExtensionScreen';
 import { MatchScreen } from '../../screens/MatchScreen';
 import { colors, touch, type, bw, rad, sp } from '../../theme';
+import { makeStyles } from '../../lib/makeStyles';
 
 type Tab = 'match' | 'door' | 'extension' | 'drums';
 
@@ -19,6 +20,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 /** Springs: torsion (match or size), extension, and drums and high lift. All stay mounted so switching keeps their inputs. */
 export default function SpringsRoute() {
+  const styles = useStyles();
   const { openJob } = useCalculatorLink();
   const [tab, setTab] = useState<Tab>('match');
   // A job opened from the Jobs list shows on its own tab.
@@ -64,7 +66,7 @@ export default function SpringsRoute() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   flex: { flex: 1 },
   hidden: { display: 'none' },
   segmentWrap: { paddingHorizontal: sp(16), paddingBottom: sp(10), borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -75,4 +77,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.info },
   tabText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   tabTextOn: { color: colors.onSelected },
-});
+}));

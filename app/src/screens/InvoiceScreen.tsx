@@ -1,7 +1,7 @@
 import { OdooInvoiceSync, useInvoiceOdoo } from '../components/OdooSales';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, Share, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, Share, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { ChipOption, ChipRow, MeasureField, SectionTitle } from '../components/controls';
 import { CoveragePicker } from '../components/CoveragePicker';
@@ -19,6 +19,7 @@ import { useCustomers } from '../lib/useCustomers';
 import { useFollowUps } from '../lib/useFollowUps';
 import { useInvoices } from '../lib/useInvoices';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const METHOD_OPTIONS: ChipOption<PayMethod>[] = PAY_METHODS.map((m) => ({ label: PAY_LABEL[m], value: m }));
 const CONFIRM_MS = 4000;
@@ -29,6 +30,7 @@ const CONFIRM_MS = 4000;
  * filled in; the tech records each payment by how it came in.
  */
 export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
+  const styles = useStyles();
   const { business, addPayment, removePayment, setVoid, setCoverage } = useInvoices();
   const status = invoiceStatus(invoice);
   const followSettings = useFollowUps().settings;
@@ -289,6 +291,7 @@ export function InvoiceScreen({ invoice }: { invoice: Invoice }) {
 }
 
 function Line({ label, value, bold, testID }: { label: string; value: string; bold?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.line}>
       <Text style={[styles.lineLabel, bold && styles.bold]}>{label}</Text>
@@ -300,6 +303,7 @@ function Line({ label, value, bold, testID }: { label: string; value: string; bo
 }
 
 function Action({ label, onPress, primary, disabled, testID }: { label: string; onPress: () => void; primary?: boolean; disabled?: boolean; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -316,6 +320,7 @@ function Action({ label, onPress, primary, disabled, testID }: { label: string; 
 
 /** Acts only on a second tap within a few seconds, so a gloved bump can't undo money. */
 function ConfirmButton({ label, armedLabel, onPress, testID }: { label: string; armedLabel: string; onPress: () => void; testID?: string }) {
+  const styles = useStyles();
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;
@@ -334,7 +339,7 @@ function ConfirmButton({ label, armedLabel, onPress, testID }: { label: string; 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(8) },
   number: { flex: 1, fontSize: type.big, fontWeight: '800', color: colors.text },
@@ -370,4 +375,4 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
   primaryText: { color: colors.onSelected },
-});
+}));

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Card, Meta, money, Note, Title } from '../components/Dept';
 import { CountBadge } from '../components/SectionMenu';
@@ -11,9 +11,11 @@ import { useBadges } from '../lib/useBadges';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, radius, bw, fs, sz, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** The owner's day: money in, jobs done, who is working, then every list that needs a look. */
 export function OwnerOverviewScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
   const badges = useBadges();
@@ -76,7 +78,7 @@ export function OwnerOverviewScreen({ now = Date.now }: { now?: () => number }) 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   heading: { fontSize: fs(13), fontWeight: '800', letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: sp(4), paddingBottom: sp(6), paddingTop: sp(4) },
   card: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: bw(1), borderColor: colors.line, overflow: 'hidden' },
@@ -85,4 +87,4 @@ const styles = StyleSheet.create({
   label: { flex: 1, fontSize: fs(18), fontWeight: '800', color: colors.text },
   chevron: { fontSize: fs(26), color: colors.muted },
   link: { minHeight: sz(52), justifyContent: 'center', paddingHorizontal: sp(16), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line },
-});
+}));

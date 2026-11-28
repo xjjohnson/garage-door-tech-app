@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { formatJobDate } from '../lib/jobs';
@@ -9,11 +9,13 @@ import { EmailResult, emailedText, emailRecord, partnerEmail } from '../lib/odoo
 import { formatMoney } from '../lib/prices';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** One Odoo quotation or invoice: its lines and totals, emailed with Odoo's own template, or opened in Odoo. */
 export function OdooRecordScreen({ kind, id, now = Date.now }: { kind: ListKind; id: number; now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const model = MODEL[kind];
   const [rec, setRec] = useState<OdooRecordDetail | null>(null);
@@ -137,7 +139,7 @@ export function OdooRecordScreen({ kind, id, now = Date.now }: { kind: ListKind;
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   title: { fontSize: type.value, fontWeight: '800', color: colors.text },
   customer: { fontSize: type.body, fontWeight: '800', color: colors.text },
@@ -151,4 +153,4 @@ const styles = StyleSheet.create({
   lineLabel: { flex: 1, fontSize: type.body, color: colors.text },
   lineValue: { fontSize: type.body, fontWeight: '800', color: colors.text },
   total: { fontSize: type.value, fontWeight: '800', color: colors.text },
-});
+}));

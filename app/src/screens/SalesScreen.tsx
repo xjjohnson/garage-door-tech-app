@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { AlertBanner, IconRow, RowGroup } from '../components/ToolRows';
 import { followUps } from '../lib/followups';
@@ -14,6 +14,7 @@ import { useStats } from '../lib/useStats';
 import { colors, radius, shadow, type, bw, fs, sz, sp } from '../theme';
 import { InvoicesScreen } from './InvoicesScreen';
 import { OdooListScreen } from './OdooListScreen';
+import { makeStyles } from '../lib/makeStyles';
 
 type View_ = 'invoices' | 'quotes';
 
@@ -23,6 +24,7 @@ type View_ = 'invoices' | 'quotes';
  * yet), then an Invoices / Quotes switch over Odoo's own lists.
  */
 export function SalesScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { jobs } = useJobs();
   const { invoices, business } = useInvoices();
   const { settings, dismissed } = useFollowUps();
@@ -94,7 +96,7 @@ export function SalesScreen({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   meta: { fontSize: fs(15), fontWeight: '600', color: colors.muted },
   money: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: sp(12), padding: sp(16), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
@@ -108,4 +110,4 @@ const styles = StyleSheet.create({
   tabOn: { backgroundColor: colors.selected },
   tabText: { fontSize: type.body, fontWeight: '800', color: colors.text },
   tabTextOn: { color: colors.onSelected },
-});
+}));

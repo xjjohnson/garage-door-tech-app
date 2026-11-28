@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { ChipOption, ChipRow } from './controls';
 import { FollowUpSettings, partWarranties, warrantyFor } from '../lib/followups';
@@ -7,6 +7,7 @@ import { Invoice, trackKey } from '../lib/invoices';
 import { trackedKeys } from '../lib/odooEquipment';
 import { formatMoney } from '../lib/prices';
 import { colors, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** Parts are covered by the year, labor by the day. */
 const MONTHS: number[] = [0, 12, 24, 36, 60, 120];
@@ -34,6 +35,7 @@ function laborDays(invoice: Invoice, settings: FollowUpSettings): number {
  * labor (either, both or neither).
  */
 export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoice; settings: FollowUpSettings; onChange: (patch: Partial<Pick<Invoice, 'warranty'>>) => void }) {
+  const styles = useStyles();
   const parts = partsMonths(invoice, settings);
   const labor = laborDays(invoice, settings);
   const covered = parts > 0 || labor > 0;
@@ -90,7 +92,7 @@ export function CoveragePicker({ invoice, settings, onChange }: { invoice: Invoi
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   box: { gap: sp(6), padding: sp(12), borderRadius: rad(14), borderWidth: bw(1.5), borderColor: colors.border },
   title: { fontSize: type.body, fontWeight: '800', color: colors.text },
   label: { fontSize: fs(16), fontWeight: '700', color: colors.muted },
@@ -109,4 +111,4 @@ const styles = StyleSheet.create({
   badgeLaborText: { color: colors.warn },
   lineText: { flexShrink: 1, fontSize: fs(16), fontWeight: '700', color: colors.text },
   lineTextOn: { color: colors.onSelected },
-});
+}));

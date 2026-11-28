@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, LayoutChangeEvent, Modal, PanResponder, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, LayoutChangeEvent, Modal, PanResponder, Platform, Pressable, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import Svg, { Path } from 'react-native-svg';
 import { strokePath } from '../lib/attachments';
 import { colors, touch, type, bw, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 export interface SignatureResult {
   name: string;
@@ -17,6 +18,7 @@ export interface SignatureResult {
  * Strokes are kept as SVG paths, so a signature is a few hundred bytes.
  */
 export function SignatureSheet({ visible, title, agreement, initialName, onSave, onCancel }: { visible: boolean; title: string; agreement: string; initialName: string; onSave: (s: SignatureResult) => void; onCancel: () => void }) {
+  const styles = useStyles();
   const [name, setName] = useState(initialName);
   const [paths, setPaths] = useState<string[]>([]);
   const [size, setSize] = useState({ w: 320, h: 180 });
@@ -96,7 +98,7 @@ export function SignatureSheet({ visible, title, agreement, initialName, onSave,
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: sp(16), gap: sp(10) },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(12) },
@@ -115,4 +117,4 @@ const styles = StyleSheet.create({
   off: { backgroundColor: colors.muted },
   pressed: { backgroundColor: colors.info },
   buttonText: { fontSize: type.body, fontWeight: '800', color: colors.text, textAlign: 'center' },
-});
+}));

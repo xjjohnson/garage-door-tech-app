@@ -15,6 +15,14 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.50',
+    title: 'Groundwork for switching roles without a reload',
+    changes: [
+      'Behind the scenes only: every screen now builds its look from a live theme, so a later update can change roles instantly. Nothing should look or work differently, and switching roles still restarts the app for a second.',
+    ],
+    test: ['Click through Home, Jobs, Sales, Customers, Tools and a job in your role: does anything look different from before (spacing, colors, sizes)? Switch roles with the round button: does it still work?'],
+  },
+  {
     release: '0.6.49',
     title: 'Role start screen and role switching',
     changes: [

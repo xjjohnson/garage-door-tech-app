@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useBackStep } from '../lib/backStep';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { Card, dateText, Message, Meta, money, PartsSummary, Note, NumBox, Row, TextBox, Title, toCents, toNum, useRun } from '../components/Dept';
@@ -44,6 +44,7 @@ import { writeOrderpoint } from '../lib/odooStock';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 type Tab = 'order' | 'requests' | 'orders' | 'vendors' | 'prices' | 'lists' | 'usage';
 const LABELS: Record<Tab, string> = { order: 'To order', requests: 'Parts requests', orders: 'Purchase orders', vendors: 'Vendors', prices: 'Cost and price', lists: 'Pricelists', usage: 'Reorder levels' };
@@ -55,6 +56,7 @@ const LABELS: Record<Tab, string> = { order: 'To order', requests: 'Parts reques
  * suggested from what jobs really used. Odoo holds all of it.
  */
 export function PurchasingScreen() {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
   const [tab, setTab] = useState<Tab | null>(null);
@@ -113,6 +115,7 @@ export function PurchasingScreen() {
 // ---- To order ----
 
 export function ToOrder({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [groups, setGroups] = useState<VendorOrder[] | null>(null);
   const [qty, setQty] = useState<Record<number, string>>({});
   const { busy, msg, run, setMsg } = useRun();
@@ -166,6 +169,7 @@ export function ToOrder({ client }: { client: OdooClient }) {
 const GROUPS: PoGroup[] = ['draft', 'sent', 'receive', 'done'];
 
 export function Orders({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [rows, setRows] = useState<PoRow[] | null>(null);
   const [group, setGroup] = useState<PoGroup>('draft');
   const [open, setOpen] = useState<PoDetail | null>(null);
@@ -198,6 +202,7 @@ export function Orders({ client }: { client: OdooClient }) {
 }
 
 function OrderDetail({ client, po, busy, msg, run, onBack, reload }: { client: OdooClient; po: PoDetail; busy: string | null; msg: ReturnType<typeof useRun>['msg']; run: ReturnType<typeof useRun>['run']; onBack: () => void; reload: () => void }) {
+  const styles = useStyles();
   const editable = po.state === 'draft' || po.state === 'sent';
   const [qty, setQty] = useState<Record<number, string>>(() => Object.fromEntries(po.lines.map((l) => [l.id, String(l.qty)])));
   const [price, setPrice] = useState<Record<number, string>>(() => Object.fromEntries(po.lines.map((l) => [l.id, String(l.priceCents / 100)])));
@@ -266,6 +271,7 @@ function OrderDetail({ client, po, busy, msg, run, onBack, reload }: { client: O
 // ---- Vendors ----
 
 function Vendors({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [part, setPart] = useState('');
@@ -366,6 +372,7 @@ function Vendors({ client }: { client: OdooClient }) {
 // ---- Cost, price and the "cost went up" review ----
 
 function CostAndPrice({ client, canEdit }: { client: OdooClient; canEdit: boolean }) {
+  const styles = useStyles();
   const [q, setQ] = useState('');
   const [parts, setParts] = useState<PartPricing[] | null>(null);
   const [rises, setRises] = useState<CostRise[] | null>(null);
@@ -454,6 +461,7 @@ function CostAndPrice({ client, canEdit }: { client: OdooClient; canEdit: boolea
 // ---- Reorder levels from real use ----
 
 function Usage({ client }: { client: OdooClient }) {
+  const styles = useStyles();
   const [weeks, setWeeks] = useState(8);
   const [rows, setRows] = useState<UseSuggestion[] | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -500,9 +508,9 @@ function Usage({ client }: { client: OdooClient }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   grow: { flex: 1 },
   name: { fontSize: fs(18), fontWeight: '700', color: colors.text },
   bad: { color: colors.stop, fontSize: fs(16), fontWeight: '800' },
-});
+}));

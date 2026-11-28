@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Modal, Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { customerTargets, FileTarget, fileData, imageUrl, listFiles, OdooFile, THUMB_MAX_BYTES, THUMB_MAX_COUNT } from '../lib/odooFiles';
 import { formatJobDate } from '../lib/jobs';
@@ -7,6 +7,7 @@ import { useAttachments } from '../lib/useAttachments';
 import { useOdoo } from '../lib/useOdoo';
 import { jobsModel } from '../lib/odooReports';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * What Odoo holds for a job: photos from every phone as a grid (tap to see one
@@ -14,6 +15,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
  * above are left out. Signed in only; read only.
  */
 export function OdooFiles({ targets, mine }: { targets: FileTarget[]; mine: number[] }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { media } = useAttachments();
   const [files, setFiles] = useState<OdooFile[] | null>(null);
@@ -124,7 +126,7 @@ export function OdooFiles({ targets, mine }: { targets: FileTarget[]; mine: numb
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   section: { fontSize: type.value, fontWeight: '800', color: colors.text, marginTop: sp(8) },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
@@ -143,10 +145,11 @@ const styles = StyleSheet.create({
   cap: { color: '#fff', fontSize: fs(14), textAlign: 'center', marginVertical: sp(8) },
   close: { minHeight: touch.min, borderRadius: rad(14), backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   closeText: { fontSize: type.body, fontWeight: '800', color: '#000' },
-});
+}));
 
 /** Every file on every job, order and invoice of one customer (the customer's Files tab). */
 export function CustomerFiles({ partnerId }: { partnerId: number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const [targets, setTargets] = useState<FileTarget[] | null>(null);
   useEffect(() => {

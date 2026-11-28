@@ -1,6 +1,6 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { useBackStep } from '../lib/backStep';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { Dock } from '../components/Page';
 import { MenuGroup, SectionMenu, SectionPage } from '../components/SectionMenu';
@@ -52,6 +52,7 @@ import { DiscountsTab } from './DiscountsTab';
 import { useCustomerTypes } from '../lib/useInvoices';
 import { TextsTab } from './TextsTab';
 import { LimitsTab } from './LimitsTab';
+import { makeStyles } from '../lib/makeStyles';
 
 type Tab = 'customerTypes' | 'jobTypes' | 'templates' | 'parts' | 'techs' | 'roles' | 'trucks' | 'plans' | 'discounts' | 'pricelists' | 'texts' | 'checklists' | 'business' | 'limits';
 const GROUPS: MenuGroup<Tab>[] = [
@@ -107,6 +108,7 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * can look but not change anything.
  */
 export function ManagementScreen() {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const signedIn = status === 'signedIn' && !!client;
   const [tab, setTab] = useState<Tab | null>(null);
@@ -157,6 +159,7 @@ interface TabProps {
 
 /** The edit screen every tab shares: its fields, then one Save to Odoo button. */
 function EditShell({ title, canEdit, busy, msg, onSave, onArchive, onBack, children, archiveLabel }: { title: string; canEdit: boolean; busy: boolean; msg: string; onSave: () => void; onArchive?: () => void; onBack: () => void; children: ReactNode; archiveLabel: string }) {
+  const styles = useStyles();
   useBackStep(onBack);
   return (
     <View style={styles.stack} testID="manage-edit">
@@ -184,6 +187,7 @@ function EditShell({ title, canEdit, busy, msg, onSave, onArchive, onBack, child
 }
 
 function TextField({ label, value, onChange, testID, multiline, keyboard, editable = true, hint }: { label: string; value: string; onChange: (v: string) => void; testID: string; multiline?: boolean; keyboard?: 'numeric' | 'default'; editable?: boolean; hint?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -204,6 +208,7 @@ function TextField({ label, value, onChange, testID, multiline, keyboard, editab
 }
 
 function Row({ label, detail, onPress, testID }: { label: string; detail?: string; onPress: () => void; testID: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <View style={styles.rowText}>
@@ -216,6 +221,7 @@ function Row({ label, detail, onPress, testID }: { label: string; detail?: strin
 }
 
 function AddButton({ label, onPress, testID, show }: { label: string; onPress: () => void; testID: string; show: boolean }) {
+  const styles = useStyles();
   return show ? (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={styles.addPill}>
       <Text style={styles.primaryText}>{label}</Text>
@@ -262,6 +268,7 @@ function useAction(done: () => void) {
 /* ---------------------------------------------------------------- Job types */
 
 function JobTypes({ client, canEdit }: TabProps) {
+  const styles = useStyles();
   const load = useCallback(() => listJobTypes(client), [client]);
   const { rows, err, reload } = useList(load);
   const [types, setTypes] = useState<Choice[]>([]);
@@ -316,6 +323,7 @@ function JobTypes({ client, canEdit }: TabProps) {
 /* ---------------------------------------------------------------- Templates */
 
 function Templates({ client, canEdit }: TabProps) {
+  const styles = useStyles();
   const load = useCallback(() => listQuoteTemplates(client), [client]);
   const { rows, err, reload } = useList(load);
   const [edit, setEdit] = useState<QuoteTemplateEdit | null>(null);
@@ -386,6 +394,7 @@ function Templates({ client, canEdit }: TabProps) {
 
 /** Searches Odoo's products and picks one. */
 function PartPicker({ client, onPick, onClose }: { client: OdooClient; onPick: (p: { id: number; name: string }) => void; onClose: () => void }) {
+  const styles = useStyles();
   const [q, setQ] = useState('');
   const [list, setList] = useState<{ id: number; name: string; cents: number }[] | null>(null);
   useEffect(() => {
@@ -411,6 +420,7 @@ function PartPicker({ client, onPick, onClose }: { client: OdooClient; onPick: (
 /* -------------------------------------------------------------------- Parts */
 
 function Parts({ client, canEdit }: TabProps) {
+  const styles = useStyles();
   const [q, setQ] = useState('');
   const load = useCallback(() => listParts(client, q), [client, q]);
   const { rows, err, reload } = useList(load);
@@ -457,6 +467,7 @@ function Parts({ client, canEdit }: TabProps) {
 /* -------------------------------------------------------------------- Techs */
 
 function Techs({ client, canEdit }: TabProps) {
+  const styles = useStyles();
   const load = useCallback(() => listTechs(client), [client]);
   const { rows, err, reload } = useList(load);
   const [edit, setEdit] = useState<TechEdit | null>(null);
@@ -489,6 +500,7 @@ function Techs({ client, canEdit }: TabProps) {
 /* ------------------------------------------------------------------- Trucks */
 
 function Trucks({ client, canEdit }: TabProps) {
+  const styles = useStyles();
   const [source, setSource] = useState<TruckSource | null>(null);
   const [techs, setTechs] = useState<Choice[]>([]);
   const [places, setPlaces] = useState<Choice[]>([]);
@@ -586,6 +598,7 @@ const TERMS: { months: number; label: string }[] = [
 ];
 
 function Chips<T>({ options, value, onPick, canEdit, testID }: { options: { id: T; label: string }[]; value: T; onPick: (v: T) => void; canEdit: boolean; testID: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.chips}>
       {options.map((o) => {
@@ -603,6 +616,7 @@ function Chips<T>({ options, value, onPick, canEdit, testID }: { options: { id: 
 const intOf = (v: string) => Number.parseInt(v.replace(/\D/g, ''), 10) || 0;
 
 function Plans({ client, canEdit }: TabProps) {
+  const styles = useStyles();
   const [problem, setProblem] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     plansProblem(client).then(setProblem);
@@ -732,7 +746,7 @@ function Plans({ client, canEdit }: TabProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(12) },
   note: { fontSize: fs(16), color: colors.muted, lineHeight: fs(22) },
   warn: { fontSize: type.body, fontWeight: '700', color: colors.stop },
@@ -763,4 +777,4 @@ const styles = StyleSheet.create({
   dangerText: { fontSize: type.body, fontWeight: '800', color: colors.stop },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
   chip: { minHeight: sz(44), paddingHorizontal: sp(16), borderRadius: radius.pill, borderWidth: bw(1), borderColor: colors.line, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
-});
+}));

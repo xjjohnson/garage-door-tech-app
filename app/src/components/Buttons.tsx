@@ -1,12 +1,14 @@
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { Icon, IconName } from './Icon';
 import { colors, radius, shadow, touch, type, bw, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** A big button. `primary` is the Johnsons green, for the one main action on a screen. */
 export function Action({ label, onPress, primary, grow, disabled, testID, hint }: { label: string; onPress: () => void; primary?: boolean; grow?: boolean; disabled?: boolean; testID?: string; hint?: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
@@ -24,6 +26,7 @@ export function Action({ label, onPress, primary, grow, disabled, testID, hint }
 
 /** A row that opens another page: a label, a detail line and a chevron. */
 export function NavRow({ label, detail, href, onPress, testID, badge }: { label: string; detail?: string; href?: Href; onPress?: () => void; testID?: string; badge?: string }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress ?? (() => href && router.push(href))}
@@ -44,6 +47,7 @@ export function NavRow({ label, detail, href, onPress, testID, badge }: { label:
 
 /** A card tile with an icon and its name under it: Call, Text, ETA, Directions, Go. */
 export function QuickAction({ icon, label, onPress, testID }: { icon: IconName; label: string; onPress: () => void; testID?: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} testID={testID} style={({ pressed }) => [styles.quick, pressed && styles.pressed]}>
       <Icon name={icon} color={colors.selected} />
@@ -52,7 +56,7 @@ export function QuickAction({ icon, label, onPress, testID }: { icon: IconName; 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   quick: { flex: 1, minHeight: touch.min, alignItems: 'center', justifyContent: 'center', gap: sp(4), paddingVertical: sp(10), borderRadius: radius.card, backgroundColor: colors.card, borderWidth: bw(1), borderColor: colors.line, ...shadow },
   quickText: { fontSize: fs(14), fontWeight: '800', color: colors.text },
   grow: { flex: 1 },
@@ -68,4 +72,4 @@ const styles = StyleSheet.create({
   meta: { fontSize: fs(16), fontWeight: '600', color: colors.muted },
   badge: { fontSize: fs(14), fontWeight: '800', color: colors.warn, backgroundColor: colors.warnBg, paddingHorizontal: sp(10), paddingVertical: sp(3), borderRadius: 999, overflow: 'hidden' },
   chevron: { fontSize: type.big, fontWeight: '700', color: colors.muted },
-});
+}));

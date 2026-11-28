@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../components/AppText';
 import { BarSummary, CalcLayout, waitingSummary } from '../components/CalcLayout';
 import { ChipOption, ChipRow, ClearButton, Field, MeasureField, SectionTitle } from '../components/controls';
@@ -12,6 +12,7 @@ import { formatFeetInches, formatInches, parseMeasurement } from '../lib/measure
 import { usePersistentForm } from '../lib/usePersistentForm';
 import { EXTENSION_COLORS, ExtensionResult } from '../springCalc';
 import { colors, type, fs, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const PER_SIDE_OPTIONS: ChipOption<1 | 2>[] = [
   { label: 'One a side (2)', value: 1 },
@@ -143,6 +144,7 @@ export function extensionSummary(outcome: Outcome<ExtensionResult>): BarSummary 
 }
 
 function ExtensionResults({ result }: { result: ExtensionResult }) {
+  const styles = useStyles();
   return (
     <View style={styles.stack} testID="ext-results">
       {result.perSide ? (
@@ -167,8 +169,8 @@ function ExtensionResults({ result }: { result: ExtensionResult }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(14) },
   big: { fontSize: type.big, fontWeight: '800', color: colors.text },
   note: { fontSize: fs(17), color: colors.text, lineHeight: fs(24) },
-});
+}));

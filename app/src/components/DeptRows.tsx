@@ -1,9 +1,10 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from './AppText';
 import { Action } from './Buttons';
 import { Card, Meta, Note, Title } from './Dept';
 import { colors, fs, radius, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /** A row on one of the Office or Sales lists: who and what, a few lines, and the buttons that apply. */
 export interface RowAction {
@@ -26,6 +27,7 @@ export interface RowItem {
 }
 
 export function RowList({ rows, empty, header, testID, table }: { rows: RowItem[] | null; empty: string; header?: ReactNode; testID?: string; table?: boolean }) {
+  const styles = useStyles();
   const [openKey, setOpenKey] = useState<string | null>(null);
   if (rows === null) return <Note>Reading Odoo…</Note>;
   if (table) {
@@ -124,7 +126,7 @@ export const PageError = ({ what, error }: { what: string; error: string }) => (
   </Card>
 );
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(10) },
   line: { fontSize: fs(16), color: colors.text, lineHeight: fs(22) },
   bad: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
@@ -138,4 +140,4 @@ const styles = StyleSheet.create({
   tsub: { fontSize: fs(13), color: colors.muted },
   tamt: { fontSize: fs(16), fontWeight: '800', color: colors.text },
   tdetail: { paddingHorizontal: sp(12), paddingBottom: sp(10), gap: sp(8) },
-});
+}));

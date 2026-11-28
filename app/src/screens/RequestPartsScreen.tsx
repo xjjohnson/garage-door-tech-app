@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Text } from '../components/AppText';
 import { Action } from '../components/Buttons';
 import { Card, Message, Meta, Note, NumBox, Row, TextBox, Title, toNum, useRun } from '../components/Dept';
@@ -9,6 +9,7 @@ import { requestParts, RequestedPart } from '../lib/odooPartsRequests';
 import { searchProducts, StockProduct } from '../lib/odooStock';
 import { useOdoo } from '../lib/useOdoo';
 import { colors, fs, radius, sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 const WHEN = [
   { label: 'Today', value: 0 },
@@ -22,6 +23,7 @@ const WHEN = [
  * It is saved in Odoo as a to-do on the customer for the buyer. Nothing is ordered from here.
  */
 export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
+  const styles = useStyles();
   const { client } = useOdoo();
   const { busy, msg, run } = useRun();
   const [custTerm, setCustTerm] = useState('');
@@ -136,9 +138,9 @@ export function RequestPartsScreen({ now = Date.now }: { now?: () => number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   stack: { gap: sp(8) },
   label: { fontSize: fs(12), fontWeight: '800', letterSpacing: 1, color: colors.muted, marginTop: sp(6) },
   pick: { backgroundColor: colors.card, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, paddingHorizontal: sp(12), paddingVertical: sp(10), minHeight: 44, justifyContent: 'center' },
   pickText: { fontSize: fs(16), fontWeight: '700', color: colors.text },
-});
+}));

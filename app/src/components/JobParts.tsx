@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from './AppText';
 import { ChipRow } from './controls';
 import { KeyboardBackdrop } from './KeyboardBackdrop';
@@ -12,6 +12,7 @@ import { useStock } from '../lib/useStock';
 import { useTruckSync } from '../lib/useTruckSync';
 import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 import { BarcodeScanner } from './BarcodeScanner';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * On the job hub: parts used on this job. Each one comes off the truck count
@@ -21,6 +22,7 @@ import { BarcodeScanner } from './BarcodeScanner';
  * job once the warehouse has it and the tech picks it up.
  */
 export function JobParts({ jobId }: { jobId: string }) {
+  const styles = useStyles();
   const { items, used, purchases, suppliers, takeParts, undoUse, orderForJob, jobOrderState, claimOrder } = useStock();
   const { client } = useOdoo();
   const { jobs, setTicket } = useJobs();
@@ -205,6 +207,7 @@ interface PartOrder {
 
 /** Finds the part in Odoo (or makes it), then how many and who from. The last tap only makes a draft for the buyer; parts are always picked up. */
 function OrderSheet({ initial = '', vendors = [], search, make, onSend, onClose }: { initial?: string; vendors?: string[]; search: (q: string) => Promise<StockProduct[]>; make: (name: string) => Promise<StockProduct>; onSend: (o: PartOrder) => void; onClose: () => void }) {
+  const styles = useStyles();
   const [q, setQ] = useState(initial);
   const [found, setFound] = useState<StockProduct[] | null>(null);
   const [looking, setLooking] = useState(false);
@@ -304,6 +307,7 @@ function OrderSheet({ initial = '', vendors = [], search, make, onSend, onClose 
 }
 
 function TruckPicker({ visible, items, onPick, onClose }: { visible: boolean; items: StockItem[]; onPick: (i: StockItem) => void; onClose: () => void }) {
+  const styles = useStyles();
   const [q, setQ] = useState('');
   if (!visible) return null;
   const k = q.trim().toLowerCase();
@@ -335,6 +339,7 @@ function TruckPicker({ visible, items, onPick, onClose }: { visible: boolean; it
 }
 
 function Button({ label, onPress, testID }: { label: string; onPress: () => void; testID: string }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" testID={testID} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
       <Text style={styles.buttonText}>{label}</Text>
@@ -342,7 +347,7 @@ function Button({ label, onPress, testID }: { label: string; onPress: () => void
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   card: { backgroundColor: colors.card, borderRadius: rad(12), padding: sp(12), gap: sp(8) },
   label: { fontSize: fs(15), fontWeight: '800', color: colors.muted },
   body: { fontSize: type.body, fontWeight: '700', color: colors.text },
@@ -369,4 +374,4 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.onSelected },
   disabled: { opacity: 0.5 },
   error: { fontSize: fs(16), fontWeight: '800', color: colors.stop },
-});
+}));

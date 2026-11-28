@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { useDepartments } from '../lib/useDepartments';
 import { useOdoo } from '../lib/useOdoo';
 import type { Access } from '../lib/odooWarehouse';
@@ -7,12 +7,14 @@ import type { OdooClient } from '../lib/odoo';
 import { Card, Note, Title } from './Dept';
 import { MenuGroup, SectionMenu, SectionPage } from './SectionMenu';
 import { sp } from '../theme';
+import { makeStyles } from '../lib/makeStyles';
 
 /**
  * The shell Office, Sales and Owner overview share: sign-in and access checks, the grouped list,
  * and one opened page with a back row. Pages draw themselves; nothing is kept on the phone.
  */
 export function DeptArea<T extends string>({ area, who, need, groups, labels, page, initial, prefix, front }: { area: string; who: string; need: keyof Access; groups: MenuGroup<T>[]; labels: Record<T, string>; page: (tab: T, client: OdooClient) => ReactNode; initial?: T; prefix: string; /** Draws the front page itself, in place of the grouped list. */ front?: (open: (id: T) => void, client: OdooClient) => ReactNode }) {
+  const styles = useStyles();
   const { client, status } = useOdoo();
   const { access, ready } = useDepartments();
   const [tab, setTab] = useState<T | null>(initial ?? null);
@@ -40,4 +42,4 @@ export function DeptArea<T extends string>({ area, who, need, groups, labels, pa
   );
 }
 
-const styles = StyleSheet.create({ stack: { gap: sp(12) } });
+const useStyles = makeStyles(() => ({ stack: { gap: sp(12) } }));
