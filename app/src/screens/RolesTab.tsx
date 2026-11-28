@@ -8,7 +8,7 @@ import { colors, touch, type, bw, fs, rad, sp } from '../theme';
 import { makeStyles } from '../lib/makeStyles';
 
 /**
- * Management > Team roles: who is an owner, dispatcher, office, sales, warehouse manager or buyer. Each
+ * Management > Team roles: who is an tech, owner, dispatcher, office, sales or warehouse manager. Each
  * role is an Odoo group on the person's user, so this reads and writes Odoo
  * and nothing is kept on the phone. Only an Odoo administrator can change
  * roles; everyone else sees the list.
@@ -170,7 +170,7 @@ export function RolesTab({ client }: { client: OdooClient }) {
           </>
         ) : null}
         {linkMsg ? <Text style={styles.note} testID="roles-link-msg">{linkMsg}</Text> : null}
-        <Text style={styles.note}>Anyone not marked is a tech. The change is made in Odoo, and the person gets it the next time they open the app.</Text>
+        <Text style={styles.note}>Anyone with no role is treated as a tech. Dispatchers and the owner are techs too (Odoo gives them that). The change is made in Odoo, and the person gets it the next time they open the app.</Text>
         {admin ? (
           <Pressable onPress={save} disabled={busy} accessibilityRole="button" testID="roles-save" style={styles.primary}>
             <Text style={styles.primaryText}>{busy ? 'Saving...' : 'Save to Odoo'}</Text>
@@ -184,7 +184,7 @@ export function RolesTab({ client }: { client: OdooClient }) {
   return (
     <View style={styles.stack} testID="roles-list">
       {admin ? (
-        <Pressable onPress={() => { setAdding(true); setWant({ owner: false, dispatch: false, office: false, sales: false, warehouse: false, buyer: false }); setMsg(''); }} accessibilityRole="button" testID="roles-add-person" style={styles.primary}>
+        <Pressable onPress={() => { setAdding(true); setWant({ tech: true, owner: false, dispatch: false, office: false, sales: false, warehouse: false }); setMsg(''); }} accessibilityRole="button" testID="roles-add-person" style={styles.primary}>
           <Text style={styles.primaryText}>Add person</Text>
         </Pressable>
       ) : null}

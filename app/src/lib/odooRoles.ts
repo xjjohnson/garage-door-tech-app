@@ -1,5 +1,5 @@
 /**
- * Team roles: who is an owner, warehouse manager or buyer, kept as Odoo
+ * Team roles: who is a tech, owner, dispatcher, office, sales or warehouse manager, kept as Odoo
  * groups on each user. The app only reads and writes those groups; Odoo is
  * still the one that decides. Only an Odoo administrator may change roles
  * (Odoo refuses anyone else), and the app never touches the Administrator
@@ -10,15 +10,15 @@ import type { OdooClient } from './odoo';
 
 type Client = Pick<OdooClient, 'call' | 'session'>;
 
-export type RoleId = 'owner' | 'dispatch' | 'office' | 'sales' | 'warehouse' | 'buyer';
+export type RoleId = 'tech' | 'owner' | 'dispatch' | 'office' | 'sales' | 'warehouse';
 
 export const ROLE_INFO: { id: RoleId; label: string; detail: string; add: string; /** Other groups given with it. */ also?: string[]; remove: string[] }[] = [
+  { id: 'tech', label: 'Tech', detail: 'Field work: jobs, inspections, tickets, truck stock. Odoo gives this to dispatchers and the owner too.', add: 'fieldservice.group_fsm_user', remove: ['fieldservice.group_fsm_user'] },
   { id: 'owner', label: 'Owner', detail: 'Management, business numbers, scorecard, Developer', add: 'fieldservice.group_fsm_manager', remove: ['fieldservice.group_fsm_manager'] },
   { id: 'dispatch', label: 'Dispatcher', detail: 'Dispatch: give out jobs, see each tech\'s day (the owner has this too)', add: 'fieldservice.group_fsm_dispatcher', remove: ['fieldservice.group_fsm_dispatcher'] },
   { id: 'office', label: 'Office', detail: 'Office: invoices, payments, quotes, customers. Gives Odoo Billing Administrator, which can do more in Odoo than a tech can.', add: 'account.group_account_manager', remove: ['account.group_account_manager'] },
   { id: 'sales', label: 'Sales', detail: 'Sales: quotes, follow-ups, renewals. Gives Odoo Sales Administrator, which can do more in Odoo than a tech can.', add: 'sales_team.group_sale_manager', remove: ['sales_team.group_sale_manager'] },
-  { id: 'warehouse', label: 'Warehouse manager', detail: 'Warehouse: everything inventory, plus ordering, purchase orders and receiving. Also gives Odoo Purchase User.', add: 'stock.group_stock_manager', also: ['purchase.group_purchase_user'], remove: ['stock.group_stock_manager'] },
-  { id: 'buyer', label: 'Buyer', detail: 'Purchasing: what to order and purchase orders', add: 'purchase.group_purchase_user', remove: ['purchase.group_purchase_user', 'purchase.group_purchase_manager'] },
+  { id: 'warehouse', label: 'Warehouse manager', detail: 'Warehouse: everything inventory, plus all the buying: ordering, purchase orders and receiving. Also gives Odoo Purchase User.', add: 'stock.group_stock_manager', also: ['purchase.group_purchase_user'], remove: ['stock.group_stock_manager', 'purchase.group_purchase_user', 'purchase.group_purchase_manager'] },
 ];
 
 const ADMIN = 'base.group_system';
@@ -60,12 +60,13 @@ const ALL = [ADMIN, ...ROLE_INFO.flatMap((r) => [r.add, ...(r.also ?? []), ...r.
 function rolesOf(held: Set<number>, ids: Record<string, number>): Roles {
   const has = (x: string) => ids[x] !== undefined && held.has(ids[x]!);
   return {
+    tech: has('fieldservice.group_fsm_user'),
     owner: has('fieldservice.group_fsm_manager'),
     dispatch: has('fieldservice.group_fsm_dispatcher'),
     office: has('account.group_account_manager'),
     sales: has('sales_team.group_sale_manager'),
-    warehouse: has('stock.group_stock_manager'),
-    buyer: has('purchase.group_purchase_user') || has('purchase.group_purchase_manager'),
+    // Buying belongs to the warehouse, so a Purchase User shows as Warehouse.
+    warehouse: has('stock.group_stock_manager') || has('purchase.group_purchase_user') || has('purchase.group_purchase_manager'),
   };
 }
 
@@ -105,8 +106,7 @@ export async function listPeople(c: Client): Promise<Person[]> {
  * saved. Returns the roles Odoo now shows.
  */
 export async function saveRoles(c: Client, personId: number, asked: Roles): Promise<Roles> {
-  // A warehouse manager orders and purchases too, so Odoo needs the Purchase User group as well: Buyer comes with it.
-  const want: Roles = asked.warehouse ? { ...asked, buyer: true } : asked;
+  const want: Roles = asked;
   if (!(await canChangeRoles(c))) throw new Error('Only an Odoo administrator can change roles.');
   const ids = await groupIds(c, ALL);
   const field = await groupField(c);
@@ -120,18 +120,21 @@ export async function saveRoles(c: Client, personId: number, asked: Roles): Prom
     const has = rolesOf(held, ids)[r.id];
     if (want[r.id] && !has) {
       const g = ids[r.add];
+      if (g === undefined && r.id === 'tech') continue; // No Field Service app here: nothing to add.
       if (g === undefined) throw new Error(`${r.label} needs an Odoo app that isn't installed here.`);
       add(g);
       // Odoo only accepts the orders a warehouse manager makes if they can purchase too.
       for (const x of r.also ?? []) if (ids[x] !== undefined && !held.has(ids[x]!)) add(ids[x]!);
     } else if (!want[r.id] && has) {
+      // Odoo hands Tech to dispatchers and the owner, so it can't be taken away while either is on.
+      if (r.id === 'tech' && (want.dispatch || want.owner)) continue;
       for (const x of r.remove) if (ids[x] !== undefined && held.has(ids[x]!)) cmds.push([3, ids[x]!]);
     }
   }
   if (cmds.length) await c.call('res.users', 'write', [[personId], { [field]: cmds }]);
   const [after] = (await c.call('res.users', 'read', [[personId]], { fields: [field] })) as Record<string, unknown>[];
   const got = rolesOf(new Set(Array.isArray(after?.[field]) ? (after![field] as number[]) : []), ids);
-  for (const r of ROLE_INFO) if (got[r.id] !== want[r.id] && !(r.id === 'dispatch' && got.owner)) throw new Error(`Odoo did not keep the ${r.label} change. Check the user in Odoo's Settings, Users.`);
+  for (const r of ROLE_INFO) if (got[r.id] !== want[r.id] && !(r.id === 'dispatch' && got.owner) && !(r.id === 'tech' && (got.dispatch || got.owner))) throw new Error(`Odoo did not keep the ${r.label} change. Check the user in Odoo's Settings, Users.`);
   return got;
 }
 

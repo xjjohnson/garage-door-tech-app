@@ -15,6 +15,20 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.52',
+    title: 'Tech is a real role; Buyer is part of Warehouse',
+    changes: [
+      'Management > Team roles now has a Tech toggle (Odoo\'s Field Service User group). Dispatchers and the owner are techs too, since Odoo gives them that. Someone with no role at all is still treated as a tech.',
+      'The role screen and the round role button now list only roles the person has. Tech shows only when assigned (or for the owner).',
+      'Buyer is gone from Team roles and Developer. Warehouse does all the buying; anyone who was a Buyer now shows as Warehouse, and turning Warehouse off takes the purchasing groups away with it.',
+      'Checked how roles combine: with several roles you hold all of them, and each one you pick opens only its own pages and bar.',
+    ],
+    test: [
+      'Management > Team roles: is there a Tech toggle and no Buyer? Turn Tech on for a test person: does Odoo keep it?',
+      'Developer > Look at the app as: Dispatcher + Sales. Does the role screen show Tech, Dispatch and Sales (Odoo makes a dispatcher a tech)? Sales only: straight in?',
+    ],
+  },
+  {
     release: '0.6.51',
     title: 'Switch roles without a restart',
     changes: [
