@@ -15,6 +15,15 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.54',
+    title: 'Tech and Dispatcher can be combined',
+    changes: [
+      'Tech is now its own Odoo group ("Johnsons: Tech"), separate from Dispatcher, so one person can be both. The first time an admin turns Tech on in Management > Team roles, the app makes the group in Odoo. Turning Tech on also gives Odoo\'s Field Service User, which field work needs.',
+      'Someone who is only a tech, with no other role, still counts as Tech. A tech who also has another role (for example sells) needs Tech turned on once in Team roles to show the Tech button.',
+    ],
+    test: ['Team roles (as an Odoo admin): turn on Tech and Dispatcher for one person. Does that person get both buttons on the role screen?', 'Turn Tech off for a dispatcher: does Dispatch stay and Tech go?'],
+  },
+  {
     release: '0.6.53',
     title: 'A dispatcher is not a tech',
     changes: ['The role screen and the role button no longer offer Tech to dispatchers, even though Odoo gives them the Field Service User group. Tech shows for the owner, for someone with no other role, and for someone assigned Tech who is not a dispatcher.'],

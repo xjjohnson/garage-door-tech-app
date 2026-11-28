@@ -1,7 +1,7 @@
 /**
  * The roles a person can work in, one bubble each on the start screen. Each role has its own
- * theme and bottom bar. Kept free of React. Tech is Odoo's Field Service User group (a dispatcher doesn't
- * count as a tech, though Odoo gives them the group); a person with no role at all is a tech; the owner holds every role;
+ * theme and bottom bar. Kept free of React. Tech is the app's own Odoo group (separate from Dispatcher, so a
+ * person can be both); a person with no role at all is a tech; the owner holds every role;
  * Buyer is part of Warehouse (the warehouse does all the buying).
  */
 import type { Access } from './odooWarehouse';

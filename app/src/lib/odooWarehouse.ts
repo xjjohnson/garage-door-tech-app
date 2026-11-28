@@ -34,8 +34,8 @@ export const ROLE_GROUPS: Record<Role, string[]> = {
   // Techs already hold Sales User and Billing (the app writes their quotes and invoices as them), so these two use the Administrator groups.
   office: ['account.group_account_manager'],
   sales: ['sales_team.group_sale_manager'],
-  // Working jobs in the field: Odoo's Field Service User group (dispatchers and the owner get it too).
-  tech: ['fieldservice.group_fsm_user'],
+  // Working jobs in the field: the app's own Odoo group, made when an administrator first gives the Tech role. Separate from the Dispatcher group, so a person can hold both.
+  tech: ['johnsons_app.group_tech'],
 };
 
 /** Odoo groups that make someone the owner. */
@@ -53,7 +53,7 @@ export interface Access {
   /** The Sales area: Odoo's Sales Administrator group (or the owner). */
   sales: boolean;
   owner: boolean;
-  /** Works jobs in the field: Odoo's Field Service User group. Dispatchers have it too in Odoo, so they don't count here: a dispatcher is not a tech. */
+  /** Works jobs in the field: the app's own Odoo group "Johnsons: Tech", separate from Dispatcher so a person can hold both. */
   tech: boolean;
 }
 export const NO_ACCESS: Access = { warehouse: false, purchasing: false, pricing: false, dispatch: false, office: false, sales: false, owner: false, tech: false };
@@ -102,7 +102,7 @@ export async function realAccess(client: OdooClient): Promise<Access> {
     access = { warehouse: true, purchasing: true, pricing: true, dispatch: true, office: true, sales: true, owner: true, tech: true };
   } else {
     const [warehouse, purchasing, buyManager, salesManager, dispatch, office, tech] = await Promise.all([held(ROLE_GROUPS.warehouse), held(ROLE_GROUPS.purchasing), held(ROLE_GROUPS.pricing), inGroup(client, 'sales_team.group_sale_manager', seen), held(ROLE_GROUPS.dispatch), held(ROLE_GROUPS.office), held(ROLE_GROUPS.tech)]);
-    access = { warehouse, purchasing: purchasing || buyManager || warehouse, pricing: buyManager && salesManager, dispatch, office, sales: salesManager, owner: false, tech: tech && !dispatch };
+    access = { warehouse, purchasing: purchasing || buyManager || warehouse, pricing: buyManager && salesManager, dispatch, office, sales: salesManager, owner: false, tech };
   }
   if (!seen.answered && !owner) return (await readCache(client)) ?? access;
   if (seen.answered || owner) AsyncStorage.setItem(cacheKey(client), JSON.stringify(access)).catch(() => undefined);
