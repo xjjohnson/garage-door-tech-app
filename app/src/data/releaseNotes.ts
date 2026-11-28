@@ -15,6 +15,12 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    release: '0.6.60',
+    title: 'Request parts starts from your open jobs',
+    changes: ['Request parts now opens with a list of the open jobs, any job that is not closed, so you pick the job the parts are for instead of searching a customer. Picking a job fills in its customer and names the job in the request to the buyer. The list has a search box on top, and "Not for a job? Search customers" is still there.'],
+    test: ['Request parts: do you see the open jobs right away? Pick one: does the customer fill in? Send: does the buyer\'s request mention the job?', 'Search open jobs by customer or address.'],
+  },
+  {
     release: '0.6.59',
     title: 'Fix: stuck on Opening at 100%',
     changes: ['People with more than one role were left on the Opening screen at 100% instead of reaching the role screen. The jump to the role screen now happens from the Opening screen itself, and a test opens the whole app to check it.'],
