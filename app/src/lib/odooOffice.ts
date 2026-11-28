@@ -146,7 +146,7 @@ export async function officeCounts(c: Client, limits: DeptLimits, now: number): 
 export async function salesCounts(c: Client, limits: DeptLimits, now: number): Promise<SalesCounts> {
   const [quiet, followUps, flagged, renewals] = await Promise.all([
     count(c, 'sale.order', [['state', '=', 'sent'], ['write_date', '<', quietCutoff(limits, now)]]),
-    count(c, 'mail.activity', [['res_model', '=', 'res.partner'], ['date_deadline', '<=', dayOf(now)], ['summary', 'not ilike', 'Complaint:'], ['summary', 'not ilike', REPAIR]]),
+    count(c, 'mail.activity', [['res_model', '=', 'res.partner'], ['date_deadline', '<=', dayOf(now)], ['summary', 'not ilike', COMPLAINT], ['summary', 'not ilike', REPAIR], ['summary', 'not ilike', PARTS_REQUEST]]),
     count(c, 'mail.activity', [['res_model', '=', 'res.partner'], ['summary', 'ilike', REPAIR]]),
     plansAboutToRenew(c, limits, now).then((l) => l.length, () => 0),
   ]);
@@ -273,6 +273,11 @@ export function callbacks(visits: JobVisit[], days: number): Callback[] {
     }
   }
   return out.sort((a, b) => b.again.at - a.again.at);
+}
+
+/** The houses the Came back page lists, and the number on its badge: one read, so the two always agree. */
+export async function recentCallbacks(c: Client, limits: DeptLimits, now: number): Promise<Callback[]> {
+  return callbacks(await readVisits(c, now - 3 * limits.callbackDays * DAY_MS), limits.callbackDays);
 }
 
 /** Field Service jobs (done or planned) in a date range, as visits, newest first. */
