@@ -43,6 +43,7 @@ import { describeError, log } from '../lib/log';
 import { useColorSchemeReload } from '../lib/useColorSchemeReload';
 import { colors, isDark, touch, type, bw, rad, sp, fs } from '../theme';
 import { makeStyles } from '../lib/makeStyles';
+import { useThemeVersion } from '../lib/useThemeVersion';
 
 // Errors nobody caught go to the log before anything else runs.
 installCrashHandler(log);
@@ -53,6 +54,7 @@ installCrashHandler(log);
  * Routes live in this folder; see app/README.md, "Screens and routes".
  */
 export default function RootLayout() {
+  useThemeVersion();
   useEffect(() => {
     log.prune();
     loadFonts();

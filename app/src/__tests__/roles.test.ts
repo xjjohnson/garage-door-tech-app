@@ -1,8 +1,7 @@
 import { NO_ACCESS } from '../lib/odooWarehouse';
 import { accessForRole, effectiveRole, narrowAccess, rolesFor, ROLE_CARDS } from '../lib/roles';
 import { mergeAccess } from '../lib/odooWarehouse';
-import { parkPreviews, rolePreview, rolePreviews, setRolePreview, setRolePreviews } from '../lib/devFlags';
-import { readStartValue } from '../lib/themeStart';
+import { rolePreview, rolePreviews, setRolePreview, setRolePreviews } from '../lib/devFlags';
 
 const a = (o: Partial<typeof NO_ACCESS>) => ({ ...NO_ACCESS, ...o });
 
@@ -63,13 +62,5 @@ describe('Developer: look as several roles', () => {
     expect(rolePreviews()).toEqual(['owner']);
     setRolePreview(null);
     expect(rolePreviews()).toEqual([]);
-  });
-
-  it('parks the roles for the one restart a role switch does', () => {
-    setRolePreviews(['office', 'sales']);
-    parkPreviews();
-    const v = readStartValue('devpreview');
-    // With no start database (tests) nothing is stored; with one it holds the roles.
-    expect(v === null || v === 'office,sales').toBe(true);
   });
 });

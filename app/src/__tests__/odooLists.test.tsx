@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+// These tests are about the lists, not the owner's look: keep the layout they were written for.
+jest.mock('../lib/useRoleTheme', () => ({ ...jest.requireActual('../lib/useRoleTheme'), useRoleTheme: () => undefined }));
 import { setActiveRole } from '../lib/activeRole';
 import { setRolePreview } from '../lib/devFlags';
 import { router } from 'expo-router';

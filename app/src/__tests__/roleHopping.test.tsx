@@ -5,6 +5,9 @@ import { setRolePreviews } from '../lib/devFlags';
 import { useDispatcherOnly, useSalesOnly, useTech } from '../lib/useDepartments';
 import { useRoles } from '../lib/useRoles';
 import { RolesScreen } from '../screens/RolesScreen';
+import { useRoleTheme } from '../lib/useRoleTheme';
+import { switchRole } from '../lib/roleSwitch';
+import { applyTheme, colors, themeDef } from '../theme';
 
 let held: string[] = [];
 const mockClient = {
@@ -84,5 +87,22 @@ describe('working in more than one role', () => {
   it('the chip is hidden with one role', async () => {
     await render(<RoleChip roles={['tech']} current="tech" />);
     expect(screen.queryByTestId('role-chip')).toBeNull();
+  });
+
+  it('switching roles changes the look at once, with no restart', async () => {
+    await act(async () => applyTheme('classic'));
+    const before = colors.bg;
+    await act(async () => switchRole('owner'));
+    expect(themeDef.id).toBe('owner');
+    expect(colors.bg).not.toBe(before);
+    await act(async () => switchRole('dispatch'));
+    expect(themeDef.id).toBe('dispatch');
+  });
+
+  it('the first launch applies the role theme live too', async () => {
+    await act(async () => applyTheme('classic'));
+    held = [DISPATCH];
+    await renderHook(() => useRoleTheme());
+    await waitFor(() => expect(themeDef.id).toBe('dispatch'));
   });
 });
